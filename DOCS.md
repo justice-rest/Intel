@@ -1,0 +1,580 @@
+# Rōmy Developer Documentation
+
+**Rōmy** helps small nonprofits find new major donors at a fraction of the cost of existing solutions.
+
+Built with Next.js 15, powered by Grok via OpenRouter, with BYOK (Bring Your Own Key) support, file uploads, AI memory, web search, and subscriptions via Autumn.
+
+**Live:** [intel.getromy.app](https://intel.getromy.app)
+
+---
+
+## Table of Contents
+
+1. [Quick Start](#quick-start)
+2. [Environment Setup](#environment-setup)
+3. [Database Setup](#database-setup)
+4. [Architecture Overview](#architecture-overview)
+5. [AI Provider Integration](#ai-provider-integration)
+6. [AI Memory System](#ai-memory-system)
+7. [Web Search (Exa)](#web-search-exa)
+8. [Subscriptions (Autumn)](#subscriptions-autumn)
+9. [Analytics (PostHog)](#analytics-posthog)
+10. [Onboarding System](#onboarding-system)
+11. [API Routes Reference](#api-routes-reference)
+12. [Development Commands](#development-commands)
+13. [Common Pitfalls](#common-pitfalls)
+14. [Troubleshooting](#troubleshooting)
+
+---
+
+## Quick Start
+
+### Option 1: With OpenRouter (Recommended)
+
+```bash
+git clone https://github.com/ibelick/romy.git
+cd romy
+npm install
+echo "OPENROUTER_API_KEY=your-key" > .env.local
+npm run dev
+```
+
+### Option 2: With Ollama (Local AI)
+
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+ollama pull llama3.2
+
+# Run Rōmy
+git clone https://github.com/ibelick/romy.git
+cd romy
+npm install
+npm run dev
+```
+
+### Option 3: Docker with Ollama
+
+```bash
+git clone https://github.com/ibelick/romy.git
+cd romy
+docker-compose -f docker-compose.ollama.yml up
+```
+
+---
+
+## Environment Setup
+
+Create `.env.local` from `.env.example`:
+
+```bash
+# ===========================================
+# REQUIRED
+# ===========================================
+
+# Security
+CSRF_SECRET=                    # 32-byte hex: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+ENCRYPTION_KEY=                 # 32-byte base64: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+# AI Provider
+OPENROUTER_API_KEY=             # Required - powers Grok model
+
+# ===========================================
+# OPTIONAL - Full Features
+# ===========================================
+
+# Supabase (for auth, storage, persistence)
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE=
+
+# Web Search
+LINKUP_API_KEY=                 # For enhanced web search (free at app.linkup.so)
+
+# Subscriptions
+AUTUMN_SECRET_KEY=              # For billing (am_sk_test_... or am_sk_live_...)
+
+# Analytics
+NEXT_PUBLIC_POSTHOG_KEY=
+NEXT_PUBLIC_POSTHOG_HOST=       # Defaults to https://us.i.posthog.com
+
+# Local AI
+OLLAMA_BASE_URL=http://localhost:11434
+DISABLE_OLLAMA=false            # Set true to disable in dev
+
+# Production
+NEXT_PUBLIC_VERCEL_URL=
+```
+
+---
+
+## Database Setup
+
+### Run Migrations
+
+```bash
+# Automated (recommended)
+npm run migrate
+
+# Manual: Copy migrations/001_initial_schema.sql to Supabase SQL Editor
+```
+
+### Core Tables
+
+| Table | Purpose |
+|-------|---------|
+| `users` | Profile, message counts, daily limits, system_prompt |
+| `chats` | Chat metadata (title, model, pinned) |
+| `messages` | Content, role, attachments, parts |
+| `user_keys` | Encrypted BYOK API keys |
+| `user_preferences` | UI settings (layout, hidden_models) |
+| `user_memories` | AI memory with vector embeddings |
+| `onboarding_data` | User onboarding responses |
+| `projects` | Chat organization |
+| `chat_attachments` | File upload metadata |
+| `feedback` | User feedback |
+
+### Post-Migration Steps
+
+1. **Create Storage Buckets** in Supabase:
+   - `chat-attachments` (public)
+   - `avatars` (public)
+
+2. **Enable Authentication**:
+   - Google OAuth (configure in Supabase Auth > Providers)
+   - Anonymous sign-ins (for guest users)
+
+3. **Configure RLS Policies** (included in migration)
+
+---
+
+## Architecture Overview
+
+### Directory Structure
+
+```
+/app                    # Next.js 15 app router
+  /api                  # Backend API endpoints
+  /components           # App-specific components
+  /onboarding          # Onboarding flow
+/components            # Shared UI components (shadcn/ui)
+/lib                   # Core business logic
+  /chat-store          # Chat state (Context + IndexedDB + Supabase)
+  /memory              # AI memory system
+  /models              # AI model definitions
+  /openproviders       # Provider abstraction
+  /posthog             # Analytics
+  /subscription        # Autumn billing
+  /supabase            # Database client
+  /tools               # AI tools (search, memory, RAG)
+/migrations            # SQL migrations
+```
+
+### Hybrid Architecture
+
+Rōmy works with or without Supabase:
+
+- **With Supabase**: Full persistence, auth, file storage
+- **Without Supabase**: Local-only using IndexedDB, guest access
+
+All database calls check `isSupabaseEnabled` before executing.
+
+### State Management
+
+Uses **React Context + React Query** (not Zustand):
+
+- `UserPreferencesProvider` - UI settings
+- `ModelProvider` - Available models, API key status
+- `UserProvider` - User profile with realtime subscriptions
+- `ChatsProvider` - Chat list with optimistic updates
+- `MessagesProvider` - Messages for current chat
+- `MemoryProvider` - User memories
+
+---
+
+## AI Provider Integration
+
+### Default Model
+
+Rōmy uses **Grok** via OpenRouter as the default AI model. This provides:
+- Fast, intelligent responses
+- Web search capabilities
+- Tool invocations
+
+### BYOK (Bring Your Own Key)
+
+Users can add their own API keys through Settings to access additional models. Keys are encrypted before storage using AES-256-GCM.
+
+```typescript
+// How BYOK works
+const encryptedKey = encrypt(userApiKey, ENCRYPTION_KEY)
+await supabase.from('user_keys').insert({
+  user_id: userId,
+  provider: 'openrouter',
+  encrypted_key: encryptedKey,
+  iv: initializationVector
+})
+```
+
+### Streaming Flow
+
+1. Validate user and check rate limits
+2. Log user message to Supabase
+3. Retrieve relevant memories (parallel)
+4. Call `streamText()` from Vercel AI SDK
+5. `onFinish` saves response and extracts memories
+6. Return `toDataStreamResponse()` for streaming
+
+---
+
+## AI Memory System
+
+The memory system enables personalized, context-aware conversations.
+
+### Features
+
+- **Automatic Extraction**: AI identifies and saves important facts
+- **Explicit Commands**: "Remember that..." triggers manual save
+- **Semantic Search**: Vector embeddings for intelligent retrieval
+- **Auto-Injection**: Relevant memories injected into system prompt
+
+### Configuration
+
+```typescript
+// /lib/memory/config.ts
+MAX_MEMORIES_PER_USER = 1000
+AUTO_INJECT_MEMORY_COUNT = 5
+DEFAULT_SIMILARITY_THRESHOLD = 0.5
+EXPLICIT_MEMORY_IMPORTANCE = 0.9
+```
+
+### Memory Categories
+
+| Category | Importance | Example |
+|----------|------------|---------|
+| `user_info` | 0.95 | Name, personal details |
+| `preferences` | 0.85 | Likes, communication style |
+| `context` | 0.75 | Current projects, goals |
+| `relationships` | 0.70 | People, organizations |
+| `skills` | 0.65 | Expertise, abilities |
+| `facts` | 0.70 | Specific information |
+
+### Memory Flow
+
+```
+User sends message
+  → Retrieve relevant memories (semantic search, 200ms timeout)
+  → Inject top 5 memories into system prompt
+  → AI generates response
+  → Extract new facts from conversation (background)
+  → Save to database with embeddings
+```
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/memories` | GET | List all memories |
+| `/api/memories` | POST | Create memory |
+| `/api/memories/:id` | PUT | Update memory |
+| `/api/memories/:id` | DELETE | Delete memory |
+| `/api/memories/search` | POST | Semantic search |
+
+---
+
+## Web Search (Linkup)
+
+Linkup provides pre-synthesized answers with source citations, preventing AI from getting stuck processing raw results.
+
+### Linkup Search Tool
+
+```typescript
+// /lib/tools/linkup-search.ts
+const linkupSearchTool = tool({
+  description: "Search the web for current information",
+  parameters: z.object({
+    query: z.string(),
+    depth: z.enum(["standard", "deep"]).optional(),
+  }),
+  execute: async ({ query, depth }) => {
+    // Returns pre-synthesized answer with sources
+  },
+})
+```
+
+### Configuration
+
+```bash
+LINKUP_API_KEY=your_linkup_key  # Get free at https://app.linkup.so
+```
+
+Search is enabled when:
+- User toggles search button in chat
+- `LINKUP_API_KEY` is configured
+
+---
+
+## Subscriptions (Autumn)
+
+Rōmy uses [Autumn](https://useautumn.com) for billing over Stripe.
+
+### Setup
+
+1. Get API key from [Autumn Dashboard](https://app.useautumn.com/sandbox/dev)
+2. Add to environment:
+   ```bash
+   AUTUMN_SECRET_KEY=am_sk_test_your_key_here
+   ```
+3. Create products in Autumn:
+   - `basic` - $29/month, 100 messages
+   - `premium` - $89/month, unlimited
+   - `pro` - $200/month, unlimited + consultation
+
+### Integration
+
+```typescript
+// Check message access
+const hasAccess = await checkMessageAccess(userId)
+
+// Track usage
+await trackMessageUsage(userId)
+
+// Checkout
+import { useCustomer } from "autumn-js/react"
+const { checkout, openBillingPortal } = useCustomer()
+await checkout({ productId: "premium" })
+```
+
+### Subscription Statuses
+
+| Status | Description |
+|--------|-------------|
+| `active` | Paid and active |
+| `trialing` | In trial period |
+| `past_due` | Payment failed |
+| `expired` | Cancelled/ended |
+| `scheduled` | Plan change pending |
+
+### Fallback Behavior
+
+Without Autumn configured:
+- Subscription features disabled
+- Existing rate limits still apply
+- App works normally
+
+---
+
+## Analytics (PostHog)
+
+Privacy-first analytics with automatic pageview tracking.
+
+### Setup
+
+```bash
+NEXT_PUBLIC_POSTHOG_KEY=phc_your_key_here
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com  # optional
+```
+
+### Usage
+
+```typescript
+// Event functions
+import { trackChatCreated, trackMessageSent } from '@/lib/posthog'
+trackChatCreated(chatId, model)
+trackMessageSent({ chatId, model, hasAttachments: true })
+
+// React hook
+import { useAnalytics } from '@/lib/posthog'
+const { track, identify, isAvailable } = useAnalytics()
+
+// Feature flags
+import { useIsFeatureEnabled } from '@/lib/posthog'
+const showNewFeature = useIsFeatureEnabled('new_feature')
+```
+
+### Available Events
+
+| Category | Events |
+|----------|--------|
+| Chat | `chat_created`, `message_sent`, `chat_deleted`, `chat_pinned` |
+| Model | `model_selected`, `model_switched` |
+| Files | `file_uploaded`, `file_upload_failed` |
+| Search | `search_toggled`, `search_used` |
+| Auth | `user_signed_in`, `user_signed_out` |
+| Subscription | `subscription_started`, `subscription_cancelled` |
+
+---
+
+## Onboarding System
+
+Typeform-like onboarding for new users.
+
+### Questions (10 total)
+
+1. First name
+2. Nonprofit name
+3. Location
+4. Sector (Education, Health, etc.)
+5. Annual budget
+6. Donor count
+7. Is fundraising primary responsibility?
+8. Prior tools used
+9. Purpose/goals
+10. Custom AI agent name
+
+### Flow
+
+```
+New user signs in
+  → Auth callback checks onboarding_completed
+  → Redirects to /onboarding
+  → User completes 10 questions
+  → Data saved to onboarding_data table
+  → users.onboarding_completed = true
+  → Redirect to home
+```
+
+### Using Onboarding Data
+
+```typescript
+const { data } = await supabase
+  .from("onboarding_data")
+  .select("*")
+  .eq("user_id", userId)
+  .single()
+
+// Enhance system prompt
+const context = `
+User: ${data.first_name}
+Organization: ${data.nonprofit_name} (${data.nonprofit_sector})
+Location: ${data.nonprofit_location}
+Budget: ${data.annual_budget}
+Goals: ${data.purpose}
+`
+```
+
+---
+
+## API Routes Reference
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/chat` | POST | Stream AI responses |
+| `/api/create-chat` | POST | Create new chat |
+| `/api/models` | GET | Get available models |
+| `/api/user-preferences` | GET/PUT | User settings |
+| `/api/user-preferences/favorite-models` | PUT | Save favorites |
+| `/api/user-key-status` | GET | Check BYOK keys |
+| `/api/user-keys` | POST/DELETE | Manage API keys |
+| `/api/toggle-chat-pin` | POST | Pin/unpin chat |
+| `/api/update-chat-model` | POST | Change chat model |
+| `/api/csrf` | GET | Get CSRF token |
+| `/api/create-guest` | POST | Create anonymous user |
+| `/api/memories` | GET/POST | Memory CRUD |
+| `/api/memories/:id` | PUT/DELETE | Memory operations |
+| `/api/onboarding` | GET/POST | Onboarding data |
+| `/api/autumn/[...all]` | ALL | Autumn billing proxy |
+
+---
+
+## Development Commands
+
+```bash
+# Development
+npm run dev              # Start with Turbopack
+npm run build            # Production build
+npm run start            # Production server
+npm run lint             # ESLint
+npm run type-check       # TypeScript check
+
+# Database
+npm run migrate          # Run migrations
+npm run migrate:manual   # Get manual instructions
+
+# Docker
+docker-compose -f docker-compose.ollama.yml up    # With Ollama
+docker build -t romy .                            # Build image
+
+# Generate secrets
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"     # CSRF_SECRET
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # ENCRYPTION_KEY
+```
+
+---
+
+## Common Pitfalls
+
+1. **Don't use Zustand** - Dependency exists but not used. Use React Context.
+
+2. **Always check `isSupabaseEnabled`** before database calls.
+
+3. **Use optimistic updates** for UX, but always revert on error.
+
+4. **File uploads require Supabase** - No local fallback.
+
+5. **CSRF tokens required** for POST/PUT/DELETE - Frontend fetches from `/api/csrf`.
+
+6. **Message parts are complex** - Contains text, tool invocations, reasoning.
+
+7. **Model IDs must match exactly** - Check `model.id` in definitions.
+
+8. **Encryption key must be 32 bytes** - Base64-encoded.
+
+9. **Memory retrieval has 200ms timeout** - Returns empty if slow.
+
+10. **Autumn uses `expired` not `canceled`** for cancelled subscriptions.
+
+---
+
+## Troubleshooting
+
+### Supabase Connection Fails
+
+- Verify URL and keys in `.env.local`
+- Check IP allowlist in Supabase dashboard
+- Ensure RLS policies exist
+
+### Models Not Responding
+
+- Verify API keys are set
+- Check model IDs match exactly
+- Review server logs for errors
+
+### Memory Not Working
+
+- Verify `OPENROUTER_API_KEY` is set (for embeddings)
+- Check pgvector extension is enabled
+- Run migration `006_add_memory_system.sql`
+
+### Subscription Issues
+
+- Verify `AUTUMN_SECRET_KEY` is set
+- Check Stripe connection in Autumn dashboard
+- Review webhook configuration
+
+### Docker Container Exits
+
+- Check logs: `docker logs <container_id>`
+- Verify all required env vars are set
+- Ensure ports aren't in use
+
+### Type Errors
+
+```bash
+npm run type-check
+# Fix errors in app/, lib/, components/
+```
+
+---
+
+## License
+
+Apache License 2.0
+
+---
+
+## Support
+
+- GitHub Issues: [Report bugs or request features](https://github.com/anthropics/claude-code/issues)
+- Autumn Docs: [docs.useautumn.com](https://docs.useautumn.com)
+- PostHog Docs: [posthog.com/docs](https://posthog.com/docs)

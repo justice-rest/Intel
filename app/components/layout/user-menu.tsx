@@ -1,0 +1,213 @@
+"use client"
+
+import XIcon from "@/components/icons/x"
+import { GoldVerifiedBadge } from "@/components/icons/gold-verified-badge"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { useUser } from "@/lib/user-store/provider"
+import { InstagramLogoIcon, LinkedinLogoIcon, SignOut } from "@phosphor-icons/react"
+import { useState, useEffect } from "react"
+import { useCustomer } from "autumn-js/react"
+import { createClient } from "@/lib/supabase/client"
+import { useRouter } from "next/navigation"
+import { AppInfoTrigger } from "./app-info/app-info-trigger"
+import { FeedbackTrigger } from "./feedback/feedback-trigger"
+import { SettingsTrigger } from "./settings/settings-trigger"
+import type { TabType } from "./settings/settings-content"
+
+export function UserMenu() {
+  const { user } = useUser()
+  const { customer } = useCustomer()
+  const router = useRouter()
+  const [isMenuOpen, setMenuOpen] = useState(false)
+  const [isSettingsOpen, setSettingsOpen] = useState(false)
+  const [settingsDefaultTab, setSettingsDefaultTab] = useState<TabType>("general")
+  const [onboardingFirstName, setOnboardingFirstName] = useState<string | null>(null)
+
+  // Fetch full name from onboarding data
+  useEffect(() => {
+    const fetchOnboardingName = async () => {
+      if (!user?.id) return
+
+      const supabase = createClient()
+      if (!supabase) return
+
+      const { data } = await supabase
+        .from("onboarding_data")
+        .select("first_name")
+        .eq("user_id", user.id)
+        .single()
+
+      setOnboardingFirstName(data?.first_name || null)
+    }
+
+    fetchOnboardingName()
+  }, [user?.id])
+
+  // Listen for custom event to open settings with a specific tab
+  useEffect(() => {
+    const handleOpenSettings = (event: CustomEvent<{ tab?: TabType }>) => {
+      const tab = event.detail?.tab || "general"
+      setSettingsDefaultTab(tab)
+      setSettingsOpen(true)
+      setMenuOpen(true)
+    }
+
+    window.addEventListener("open-settings", handleOpenSettings as EventListener)
+
+    return () => {
+      window.removeEventListener("open-settings", handleOpenSettings as EventListener)
+    }
+  }, [])
+
+  if (!user) return null
+
+  // Use onboarding full first_name if available, otherwise fall back to display_name
+  const displayName = onboardingFirstName || user?.display_name
+
+  const handleSettingsOpenChange = (isOpen: boolean) => {
+    setSettingsOpen(isOpen)
+    if (!isOpen) {
+      setMenuOpen(false)
+      // Reset to general tab when closing
+      setSettingsDefaultTab("general")
+    }
+  }
+
+  const handleSignOut = async () => {
+    const supabase = createClient()
+    if (!supabase) return
+
+    await supabase.auth.signOut()
+    router.push("/auth")
+    router.refresh()
+  }
+
+  // Check if user has an active subscription (any paid plan, including trials)
+  const productStatus = customer?.products?.[0]?.status
+  const hasActiveSubscription =
+    productStatus === "active" || productStatus === "trialing"
+
+  // Get the subscription tier
+  const currentProductId = customer?.products?.[0]?.id
+  const planType = currentProductId?.replace("-yearly", "")
+  const isPremiumTier = planType === "pro" || planType === "scale"
+
+  return (
+    // fix shadcn/ui / radix bug when dialog into dropdown menu
+    <DropdownMenu open={isMenuOpen} onOpenChange={setMenuOpen} modal={false}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger>
+            <Avatar className="bg-background hover:bg-muted">
+              <AvatarImage src={user?.profile_image ?? undefined} />
+              <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Profile</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent
+        className="w-56"
+        align="end"
+        forceMount
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onInteractOutside={(e) => {
+          if (isSettingsOpen) {
+            e.preventDefault()
+            return
+          }
+          setMenuOpen(false)
+        }}
+      >
+        <DropdownMenuItem className="flex flex-col items-start gap-0 no-underline hover:bg-transparent focus:bg-transparent">
+          <div className="flex items-center gap-1.5">
+            <span>{displayName}</span>
+            {hasActiveSubscription && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center">
+                    {isPremiumTier ? (
+                      <GoldVerifiedBadge className="h-4 w-4" />
+                    ) : (
+                      <img
+                        src="/verified.png"
+                        alt="Verified"
+                        className="h-4 w-4"
+                        width={16}
+                        height={16}
+                      />
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-sm">Verified Subscriber</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+          <span className="text-muted-foreground max-w-full truncate">
+            {user?.email}
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <SettingsTrigger
+          onOpenChange={handleSettingsOpenChange}
+          defaultTab={settingsDefaultTab}
+          externalOpen={isSettingsOpen}
+        />
+        <FeedbackTrigger />
+        <AppInfoTrigger />
+        <DropdownMenuItem onClick={handleSignOut} className="flex items-center gap-2">
+          <SignOut className="size-4" />
+          <span>Sign out</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <a
+            href="https://x.com/RomyFindsMoney"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2"
+          >
+            <XIcon className="size-4 p-0.5" />
+            <span>@RomyFindsMoney</span>
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a
+            href="https://www.instagram.com/getromy.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2"
+          >
+            <InstagramLogoIcon className="size-4" />
+            <span>@getromy.app</span>
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a
+            href="https://www.linkedin.com/company/107042684/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2"
+          >
+            <LinkedinLogoIcon className="size-4" />
+            <span>Rōmy</span>
+          </a>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
