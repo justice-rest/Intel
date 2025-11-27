@@ -430,7 +430,7 @@ function renderNode(node: MarkdownNode, index: number): React.ReactNode {
             >
               {row.map((cell, cellIdx) => (
                 <Text key={cellIdx} style={styles.tableCell}>
-                  {cell}
+                  {renderInlineText(cell)}
                 </Text>
               ))}
             </View>
