@@ -69,6 +69,7 @@
     "shiki": "^3.4.0",
     "slugify": "^1.6.6",
     "sonner": "^2.0.1",
+    "streamdown": "^1.6.8",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
     "unpdf": "^1.4.0",

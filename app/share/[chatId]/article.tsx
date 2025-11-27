@@ -13,6 +13,7 @@ import {
   MessageContent,
 } from "@/components/prompt-kit/message"
 import { Button } from "@/components/ui/button"
+import { APP_NAME } from "@/lib/config"
 import { exportToPdf } from "@/lib/pdf-export"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -118,12 +119,13 @@ export default function Article({
         <div className="fixed bottom-6 left-0 z-50 flex w-full justify-center">
           <Link href={authHref}>
             <Button
-              variant="secondary"
-              className="group"
-              size="lg"
+              variant="outline"
+              className="group flex h-12 items-center justify-between rounded-full border-foreground bg-foreground py-2 pr-2 pl-6 text-background shadow-sm transition-all hover:scale-[1.02] hover:bg-background hover:text-foreground active:scale-[0.98]"
             >
-              <span>Ask Rōmy</span>
-              <ArrowUpRight className="ml-2 h-4 w-4 rotate-45 transition-transform duration-300 group-hover:rotate-90" />
+              Ask {APP_NAME}
+              <div className="ml-2 rounded-full bg-background/20 p-2 backdrop-blur-sm transition-colors group-hover:bg-foreground">
+                <ArrowUpRight className="h-4 w-4 text-background transition-transform duration-300 group-hover:rotate-45 group-hover:text-background" weight="bold" />
+              </div>
             </Button>
           </Link>
         </div>
