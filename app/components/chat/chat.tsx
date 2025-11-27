@@ -316,7 +316,19 @@ export function Chat({
             </h1>
           </motion.div>
         ) : (
-          <Conversation key="conversation" {...conversationProps} />
+          <motion.div
+            key={chatId || "new-chat"}
+            className="h-full w-full"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{
+              duration: 0.2,
+              ease: "easeOut",
+            }}
+          >
+            <Conversation {...conversationProps} />
+          </motion.div>
         )}
       </AnimatePresence>
 
