@@ -429,19 +429,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
             </div>
           </motion.div>
         ) : (
-          <motion.div
-            key={`conversation-${projectId}`}
-            className="h-full w-full"
-            initial={{ opacity: 0, x: 8, filter: "blur(4px)" }}
-            animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, x: -8, filter: "blur(4px)" }}
-            transition={{
-              duration: 0.3,
-              ease: [0.25, 0.46, 0.45, 0.94],
-            }}
-          >
-            <Conversation {...conversationProps} />
-          </motion.div>
+          <Conversation key={`conversation-${projectId}`} {...conversationProps} />
         )}
       </AnimatePresence>
 

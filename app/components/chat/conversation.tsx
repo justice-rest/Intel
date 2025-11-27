@@ -34,7 +34,7 @@ export function Conversation({
     return <div className="h-full w-full"></div>
 
   return (
-    <div className="relative flex h-full w-full flex-col items-center overflow-x-hidden overflow-y-auto">
+    <div className="relative flex h-full w-full flex-col items-center overflow-x-hidden overflow-y-auto animate-in fade-in duration-200">
       <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 mx-auto flex w-full flex-col justify-center">
         <div className="h-app-header bg-background flex w-full lg:hidden lg:h-0" />
         <div className="h-app-header bg-background flex w-full mask-b-from-4% mask-b-to-100% lg:hidden" />
