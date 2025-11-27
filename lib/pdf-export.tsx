@@ -262,7 +262,9 @@ function parseMarkdown(text: string): MarkdownNode[] {
       !lines[i].startsWith(">") &&
       !/^[-*+]\s+/.test(lines[i]) &&
       !/^\d+\.\s+/.test(lines[i]) &&
-      !/^(-{3,}|_{3,}|\*{3,})$/.test(lines[i].trim())
+      !/^(-{3,}|_{3,}|\*{3,})$/.test(lines[i].trim()) &&
+      // Stop if we hit a table (current line has | and next line is separator)
+      !(lines[i].includes("|") && i + 1 < lines.length && /^\|?[-:| ]+\|?$/.test(lines[i + 1]))
     ) {
       paragraphLines.push(lines[i])
       i++
