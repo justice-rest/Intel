@@ -2,7 +2,7 @@
 
 import { LinkMarkdown } from "@/app/components/chat/link-markdown"
 import { cn } from "@/lib/utils"
-import { memo, useId, useMemo } from "react"
+import { lazy, memo, Suspense, useId, useMemo } from "react"
 import { Streamdown, type StreamdownProps } from "streamdown"
 import type { BundledTheme } from "shiki"
 import { ButtonCopy } from "../common/button-copy"
@@ -11,6 +11,9 @@ import {
   CodeBlockCode,
   CodeBlockGroup,
 } from "../prompt-kit/code-block"
+
+// Lazy load mermaid renderer to avoid bundle bloat
+const MermaidDiagram = lazy(() => import("@/components/prompt-kit/mermaid-diagram"))
 
 // Re-export the Components type for consumers
 type Components = StreamdownProps["components"]
@@ -60,6 +63,22 @@ const INITIAL_COMPONENTS: Components = {
         ? children.join("")
         : String(children || "")
 
+    // Handle mermaid diagrams separately
+    if (language === "mermaid") {
+      return (
+        <Suspense
+          fallback={
+            <div className="my-4 flex items-center justify-center rounded-xl border p-8">
+              <span className="text-sm text-muted-foreground">Rendering diagram...</span>
+            </div>
+          }
+        >
+          <MermaidDiagram chart={codeString} />
+        </Suspense>
+      )
+    }
+
+    // Regular code blocks with custom styling
     return (
       <CodeBlock className={className}>
         <CodeBlockGroup className="flex h-9 items-center justify-between px-4">
