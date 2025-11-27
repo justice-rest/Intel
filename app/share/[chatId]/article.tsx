@@ -168,7 +168,7 @@ export default function Article({
                     message.role === "user" && "w-full items-end"
                   )}
                 >
-                  <div className="flex min-w-full flex-col gap-2">
+                  <div className="flex min-w-full max-w-full flex-col gap-2 overflow-hidden">
                     {/* Render reasoning for assistant messages */}
                     {message.role === "assistant" && reasoningParts && reasoningParts.reasoning && (
                       <Reasoning
@@ -206,7 +206,7 @@ export default function Article({
 
                     {/* Render sources for assistant messages */}
                     {message.role === "assistant" && sources && sources.length > 0 && (
-                      <SourcesList sources={sources} className="max-w-sm" />
+                      <SourcesList sources={sources} />
                     )}
 
                     {/* Copy and Export PDF buttons for assistant messages */}
