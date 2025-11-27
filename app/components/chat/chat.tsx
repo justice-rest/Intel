@@ -312,7 +312,21 @@ export function Chat({
             }}
           >
             <h1 className="mb-6 text-xl sm:text-2xl md:text-3xl font-medium tracking-tight text-center md:text-left">
-              Who should I search for, {firstName?.split(' ')[0]}?
+              Who should I search for
+              <AnimatePresence mode="wait">
+                {firstName ? (
+                  <motion.span
+                    key="name"
+                    initial={{ opacity: 0, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, filter: "blur(0px)" }}
+                    exit={{ opacity: 0, filter: "blur(4px)" }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    , {firstName.split(" ")[0]}
+                  </motion.span>
+                ) : null}
+              </AnimatePresence>
+              ?
             </h1>
           </motion.div>
         ) : (
