@@ -50,7 +50,7 @@ export default function LoginPage() {
               Welcome to Rōmy
             </h1>
             <p className="text-muted-foreground mt-3">
-              Sign in to explore a new path.
+              Explore a new path.
             </p>
           </div>
           {error && (
