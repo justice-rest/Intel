@@ -174,6 +174,8 @@ export function useChatCore({
   // Submit action
   const submit = useCallback(async () => {
     setIsSubmitting(true)
+    // Mark immediately to prevent onboarding flash
+    hasSentFirstMessageRef.current = true
 
     const uid = await getOrCreateGuestUserId(user)
     if (!uid) {
@@ -193,9 +195,6 @@ export function useChatCore({
       setIsSubmitting(false)
       return
     }
-
-    // Mark that we've sent a message to prevent onboarding flash
-    hasSentFirstMessageRef.current = true
 
     const optimisticId = `optimistic-${Date.now().toString()}`
     const optimisticAttachments =

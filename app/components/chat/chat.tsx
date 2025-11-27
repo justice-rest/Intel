@@ -272,7 +272,7 @@ export function Chat({
     return redirect("/")
   }
 
-  const showOnboarding = !chatId && messages.length === 0 && !hasSentFirstMessageRef.current
+  const showOnboarding = !chatId && messages.length === 0 && !isSubmitting && !hasSentFirstMessageRef.current
 
   return (
     <div
