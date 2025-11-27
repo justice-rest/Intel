@@ -206,7 +206,7 @@ export default function Article({
 
                     {/* Render sources for assistant messages */}
                     {message.role === "assistant" && sources && sources.length > 0 && (
-                      <SourcesList sources={sources} />
+                      <SourcesList sources={sources} className="max-w-sm" />
                     )}
 
                     {/* Copy and Export PDF buttons for assistant messages */}
