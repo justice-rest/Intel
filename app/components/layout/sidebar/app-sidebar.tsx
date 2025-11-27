@@ -24,12 +24,14 @@ import { Pin } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { useMemo } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { HistoryTrigger } from "../../history/history-trigger"
 import { UserMenu } from "../user-menu"
 import { DialogPublish } from "../dialog-publish"
 import { SidebarList } from "./sidebar-list"
 import { SidebarProject } from "./sidebar-project"
+
+const SCROLL_STORAGE_KEY = "sidebar-scroll-position"
 
 export function AppSidebar() {
   const isMobile = useBreakpoint(768)
@@ -45,6 +47,30 @@ export function AppSidebar() {
   }, [chats])
   const hasChats = chats.length > 0
   const router = useRouter()
+
+  // Preserve scroll position across navigations
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  // Restore scroll position on mount
+  useEffect(() => {
+    const savedPosition = sessionStorage.getItem(SCROLL_STORAGE_KEY)
+    if (savedPosition && scrollRef.current) {
+      const viewport = scrollRef.current.querySelector(
+        "[data-slot='scroll-area-viewport']"
+      )
+      if (viewport) {
+        viewport.scrollTop = parseInt(savedPosition, 10)
+      }
+    }
+  }, [])
+
+  // Save scroll position on scroll
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement
+    if (target.getAttribute("data-slot") === "scroll-area-viewport") {
+      sessionStorage.setItem(SCROLL_STORAGE_KEY, String(target.scrollTop))
+    }
+  }, [])
 
   return (
     <Sidebar
@@ -106,6 +132,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       <SidebarContent className="border-border/40 border-t">
+        <div ref={scrollRef} onScrollCapture={handleScroll} className="min-h-0 flex-1">
         <ScrollArea className="flex h-full px-3 [&>div>div]:!block">
           <div className="mt-3 mb-5 flex w-full flex-col items-start gap-0">
             <button
@@ -174,6 +201,7 @@ export function AppSidebar() {
             </div>
           )}
         </ScrollArea>
+        </div>
       </SidebarContent>
       <SidebarFooter className="border-border/40 mb-2 border-t p-3">
         <a
