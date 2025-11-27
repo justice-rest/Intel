@@ -386,7 +386,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         {showOnboarding ? (
           <motion.div
             key="onboarding"
-            className="absolute bottom-[60%] mx-auto max-w-[50rem] md:relative md:bottom-auto"
+            className="relative z-10 mx-auto mb-4 max-w-[50rem]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
