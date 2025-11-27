@@ -13,6 +13,7 @@ import { MESSAGE_MAX_LENGTH, SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
 import { Attachment } from "@/lib/file-handling"
 import { API_ROUTE_CHAT } from "@/lib/routes"
 import { useUser } from "@/lib/user-store/provider"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { useChat } from "@ai-sdk/react"
 import { ChatCircleIcon } from "@phosphor-icons/react"
@@ -51,7 +52,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
   } = useFileUpload()
 
   // Fetch project details
-  const { data: project } = useQuery<Project>({
+  const { data: project, isLoading: isProjectLoading } = useQuery<Project>({
     queryKey: ["project", projectId],
     queryFn: async () => {
       const response = await fetch(`/api/projects/${projectId}`)
@@ -399,13 +400,48 @@ export function ProjectView({ projectId }: ProjectViewProps) {
           >
             <div className="mb-6 flex items-center justify-center gap-2">
               <ChatCircleIcon className="text-muted-foreground" size={24} />
-              <h1 className="text-center text-3xl font-medium tracking-tight">
-                {project?.name || ""}
-              </h1>
+              <AnimatePresence mode="wait">
+                {isProjectLoading ? (
+                  <motion.div
+                    key="skeleton"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <Skeleton className="h-9 w-48 rounded-lg" />
+                  </motion.div>
+                ) : (
+                  <motion.h1
+                    key="project-name"
+                    className="text-center text-3xl font-medium tracking-tight"
+                    initial={{ opacity: 0, y: 4, filter: "blur(4px)" }}
+                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                    transition={{
+                      duration: 0.3,
+                      ease: [0.25, 0.46, 0.45, 0.94],
+                    }}
+                  >
+                    {project?.name || "Untitled Project"}
+                  </motion.h1>
+                )}
+              </AnimatePresence>
             </div>
           </motion.div>
         ) : (
-          <Conversation key="conversation" {...conversationProps} />
+          <motion.div
+            key={`conversation-${projectId}`}
+            className="h-full w-full"
+            initial={{ opacity: 0, x: 8, filter: "blur(4px)" }}
+            animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, x: -8, filter: "blur(4px)" }}
+            transition={{
+              duration: 0.3,
+              ease: [0.25, 0.46, 0.45, 0.94],
+            }}
+          >
+            <Conversation {...conversationProps} />
+          </motion.div>
         )}
       </AnimatePresence>
 

@@ -319,12 +319,12 @@ export function Chat({
           <motion.div
             key={chatId || "new-chat"}
             className="h-full w-full"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, x: 8, filter: "blur(4px)" }}
+            animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, x: -8, filter: "blur(4px)" }}
             transition={{
-              duration: 0.2,
-              ease: "easeOut",
+              duration: 0.3,
+              ease: [0.25, 0.46, 0.45, 0.94],
             }}
           >
             <Conversation {...conversationProps} />
