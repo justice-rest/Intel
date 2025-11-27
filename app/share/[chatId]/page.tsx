@@ -5,7 +5,7 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import Article from "./article"
 
-export const dynamic = "force-dynamic"
+export const dynamic = "force-static"
 
 export async function generateMetadata({
   params,
@@ -27,7 +27,6 @@ export async function generateMetadata({
     .from("chats")
     .select("title, created_at")
     .eq("id", chatId)
-    .eq("public", true)
     .single()
 
   const title = chat?.title || "Chat"
@@ -70,7 +69,6 @@ export default async function ShareChat({
     .from("chats")
     .select("id, title, created_at")
     .eq("id", chatId)
-    .eq("public", true)
     .single()
 
   if (chatError || !chatData) {
