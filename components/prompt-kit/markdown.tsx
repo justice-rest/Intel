@@ -1,10 +1,10 @@
+"use client"
+
 import { LinkMarkdown } from "@/app/components/chat/link-markdown"
 import { cn } from "@/lib/utils"
-import { marked } from "marked"
 import { memo, useId, useMemo } from "react"
-import ReactMarkdown, { Components } from "react-markdown"
-import remarkBreaks from "remark-breaks"
-import remarkGfm from "remark-gfm"
+import { Streamdown, type StreamdownProps } from "streamdown"
+import type { BundledTheme } from "shiki"
 import { ButtonCopy } from "../common/button-copy"
 import {
   CodeBlock,
@@ -12,16 +12,15 @@ import {
   CodeBlockGroup,
 } from "../prompt-kit/code-block"
 
+// Re-export the Components type for consumers
+type Components = StreamdownProps["components"]
+
 export type MarkdownProps = {
   children: string
   id?: string
   className?: string
-  components?: Partial<Components>
-}
-
-function parseMarkdownIntoBlocks(markdown: string): string[] {
-  const tokens = marked.lexer(markdown)
-  return tokens.map((token) => token.raw)
+  components?: Components
+  isAnimating?: boolean
 }
 
 function extractLanguage(className?: string): string {
@@ -30,11 +29,15 @@ function extractLanguage(className?: string): string {
   return match ? match[1] : "plaintext"
 }
 
-const INITIAL_COMPONENTS: Partial<Components> = {
-  code: function CodeComponent({ className, children, ...props }) {
-    const isInline =
-      !props.node?.position?.start.line ||
-      props.node?.position?.start.line === props.node?.position?.end.line
+const INITIAL_COMPONENTS: Components = {
+  code: function CodeComponent({ className, children, node, ...props }) {
+    // Determine if inline based on whether there's a parent <pre> element
+    // In Streamdown/rehype, code blocks are wrapped in <pre><code>
+    // We detect this by checking if node's parent is a pre element
+    const isInline = !node?.position || (
+      node?.position?.start.line === node?.position?.end.line &&
+      !className?.includes("language-")
+    )
 
     if (isInline) {
       return (
@@ -51,6 +54,11 @@ const INITIAL_COMPONENTS: Partial<Components> = {
     }
 
     const language = extractLanguage(className)
+    const codeString = typeof children === "string"
+      ? children
+      : Array.isArray(children)
+        ? children.join("")
+        : String(children || "")
 
     return (
       <CodeBlock className={className}>
@@ -61,10 +69,10 @@ const INITIAL_COMPONENTS: Partial<Components> = {
         </CodeBlockGroup>
         <div className="sticky top-16 lg:top-0">
           <div className="absolute right-0 bottom-0 flex h-9 items-center pr-1.5">
-            <ButtonCopy code={children as string} />
+            <ButtonCopy code={codeString} />
           </div>
         </div>
-        <CodeBlockCode code={children as string} language={language} />
+        <CodeBlockCode code={codeString} language={language} />
       </CodeBlock>
     )
   },
@@ -82,49 +90,43 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   },
 }
 
-const MemoizedMarkdownBlock = memo(
-  function MarkdownBlock({
-    content,
-    components = INITIAL_COMPONENTS,
-  }: {
-    content: string
-    components?: Partial<Components>
-  }) {
-    return (
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
-        components={components}
-      >
-        {content}
-      </ReactMarkdown>
-    )
-  },
-  function propsAreEqual(prevProps, nextProps) {
-    return prevProps.content === nextProps.content
-  }
-)
-
-MemoizedMarkdownBlock.displayName = "MemoizedMarkdownBlock"
-
 function MarkdownComponent({
   children,
   id,
   className,
-  components = INITIAL_COMPONENTS,
+  components,
+  isAnimating = false,
 }: MarkdownProps) {
   const generatedId = useId()
   const blockId = id ?? generatedId
-  const blocks = useMemo(() => parseMarkdownIntoBlocks(children), [children])
+
+  // Merge custom components with defaults
+  const mergedComponents = useMemo(() => {
+    if (!components) return INITIAL_COMPONENTS
+    return { ...INITIAL_COMPONENTS, ...components }
+  }, [components])
+
+  // Shiki theme for syntax highlighting (light/dark)
+  const shikiTheme: [BundledTheme, BundledTheme] = useMemo(() => {
+    return ["github-light", "github-dark"]
+  }, [])
 
   return (
-    <div className={className}>
-      {blocks.map((block, index) => (
-        <MemoizedMarkdownBlock
-          key={`${blockId}-block-${index}`}
-          content={block}
-          components={components}
-        />
-      ))}
+    <div className={className} key={blockId}>
+      <Streamdown
+        components={mergedComponents}
+        shikiTheme={shikiTheme}
+        isAnimating={isAnimating}
+        controls={{
+          table: true,
+          code: false, // We use our own copy button
+          mermaid: true,
+        }}
+        mode="streaming"
+        parseIncompleteMarkdown={true}
+      >
+        {children}
+      </Streamdown>
     </div>
   )
 }

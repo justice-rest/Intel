@@ -197,3 +197,29 @@ code {
 [data-sonner-toaster] > li {
   width: 100%;
 }
+
+/* Streamdown table controls - position below table */
+[data-streamdown="table-wrapper"] {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-streamdown="table-wrapper"] > [data-streamdown="table-controls"] {
+  order: 1;
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+[data-streamdown="table-wrapper"] > table,
+[data-streamdown="table-wrapper"] > div:has(table) {
+  order: 0;
+}
+
+/* Streamdown code block styling to match existing */
+[data-streamdown="code-block"] {
+  @apply border-border bg-card text-card-foreground rounded-xl border;
+}
+
+[data-streamdown="code-block"] pre {
+  @apply bg-background px-4 py-4;
+}
