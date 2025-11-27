@@ -194,6 +194,9 @@ export function useChatCore({
       return
     }
 
+    // Mark that we've sent a message to prevent onboarding flash
+    hasSentFirstMessageRef.current = true
+
     const optimisticId = `optimistic-${Date.now().toString()}`
     const optimisticAttachments =
       files.length > 0 ? createOptimisticAttachments(files) : []
