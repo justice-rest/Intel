@@ -24,7 +24,7 @@ import { Pin } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef } from "react"
 import { HistoryTrigger } from "../../history/history-trigger"
 import { UserMenu } from "../user-menu"
 import { DialogPublish } from "../dialog-publish"
@@ -51,8 +51,8 @@ export function AppSidebar() {
   // Preserve scroll position across navigations
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  // Restore scroll position on mount
-  useEffect(() => {
+  // Restore scroll position on mount (useLayoutEffect to avoid visual flicker)
+  useLayoutEffect(() => {
     const savedPosition = sessionStorage.getItem(SCROLL_STORAGE_KEY)
     if (savedPosition && scrollRef.current) {
       const viewport = scrollRef.current.querySelector(
