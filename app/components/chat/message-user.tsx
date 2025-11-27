@@ -258,7 +258,7 @@ export function MessageUser({
         </div>
       ) : (
         <MessageContent
-          className="bg-[var(--color-blue-600)] text-white prose relative w-fit max-w-[70%] rounded-3xl px-5 py-2.5"
+          className="bg-[var(--color-blue-600)] text-white prose prose-p:my-0 relative w-fit max-w-[70%] rounded-3xl px-5 py-2"
           markdown={true}
           ref={contentRef}
           components={{
