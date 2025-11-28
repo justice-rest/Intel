@@ -10,7 +10,7 @@ import { exportToPdf } from "@/lib/pdf-export"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { cn } from "@/lib/utils"
 import type { Message as MessageAISDK } from "@ai-sdk/react"
-import { ArrowClockwise, Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
+import { ArrowClockwise, Check, Copy, FilePdf, NotePencil, SpinnerGap } from "@phosphor-icons/react"
 import { useCallback, useRef, useState } from "react"
 import { getSources } from "./get-sources"
 import { getCitations } from "./get-citations"
@@ -21,6 +21,7 @@ import { SourcesList } from "./sources-list"
 import { CitationSources } from "./citation-sources"
 import { ToolInvocation } from "./tool-invocation"
 import { useAssistantMessageSelection } from "./useAssistantMessageSelection"
+import { NotesTrigger } from "./notes/notes-trigger"
 
 type MessageAssistantProps = {
   children: string
@@ -209,6 +210,17 @@ export function MessageAssistant({
                 )}
               </button>
             </MessageAction>
+            <NotesTrigger messageId={messageId}>
+              <MessageAction tooltip="Notes" side="bottom">
+                <button
+                  className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition"
+                  aria-label="Notes"
+                  type="button"
+                >
+                  <NotePencil className="size-4" />
+                </button>
+              </MessageAction>
+            </NotesTrigger>
             {isLast ? (
               <MessageAction
                 tooltip="Regenerate"
