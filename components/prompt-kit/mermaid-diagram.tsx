@@ -138,10 +138,10 @@ export default function MermaidDiagram({ chart, className }: MermaidDiagramProps
         />
       </div>
 
-      {/* Fullscreen modal */}
+      {/* Fullscreen modal - z-[100] to cover chat input which uses z-50 */}
       {isFullscreen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm"
           onClick={() => setIsFullscreen(false)}
         >
           <button
