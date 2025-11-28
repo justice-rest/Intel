@@ -135,15 +135,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 10,
   },
-  mermaidImageContainer: {
-    marginVertical: 12,
-    alignItems: "center",
-  },
-  mermaidImage: {
-    maxWidth: 500,
-    maxHeight: 400,
-  },
-  mermaidFallbackContainer: {
+  mermaidContainer: {
     marginVertical: 12,
     backgroundColor: "#f0f4f8",
     borderRadius: 6,
@@ -151,32 +143,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#d0d7de",
   },
-  mermaidFallbackHeader: {
+  mermaidHeader: {
     marginBottom: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#d0d7de",
   },
-  mermaidFallbackLabel: {
+  mermaidLabel: {
     fontSize: 11,
     fontFamily: "Helvetica-Bold",
     color: "#1f2328",
   },
-  mermaidFallbackNote: {
+  mermaidNote: {
     fontSize: 9,
     color: "#656d76",
     marginTop: 2,
   },
-  mermaidFallbackCode: {
+  mermaidCode: {
     fontFamily: "Courier",
     fontSize: 9,
     color: "#1f2328",
     lineHeight: 1.5,
   },
-  keyValueBlock: {
+  lineBlock: {
     marginBottom: 10,
   },
-  keyValueLine: {
+  lineBlockLine: {
     marginBottom: 2,
   },
 })
@@ -190,52 +182,7 @@ type MarkdownNode = {
   href?: string
   rows?: string[][]
   language?: string
-  lines?: string[] // For keyValueBlock type
-  imageDataUri?: string // For pre-rendered mermaid diagrams
-}
-
-// Pre-render mermaid diagrams to SVG data URIs
-async function renderMermaidToDataUri(code: string): Promise<string | null> {
-  try {
-    const mermaid = (await import("mermaid")).default
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: "default",
-      securityLevel: "loose", // Needed for data URI export
-      fontFamily: "Arial, sans-serif",
-    })
-
-    // Generate unique ID for this render
-    const id = `mermaid-pdf-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    const { svg } = await mermaid.render(id, code)
-
-    // Convert SVG to base64 data URI
-    const base64 = btoa(unescape(encodeURIComponent(svg)))
-    return `data:image/svg+xml;base64,${base64}`
-  } catch (error) {
-    console.error("Failed to render mermaid diagram:", error)
-    return null
-  }
-}
-
-// Pre-process content to render all mermaid diagrams
-export async function preprocessMermaidDiagrams(content: string): Promise<string> {
-  const mermaidRegex = /```mermaid\n([\s\S]*?)```/g
-  const matches = [...content.matchAll(mermaidRegex)]
-
-  if (matches.length === 0) return content
-
-  let result = content
-  for (const match of matches) {
-    const code = match[1].trim()
-    const dataUri = await renderMermaidToDataUri(code)
-    if (dataUri) {
-      // Replace mermaid block with a special marker containing the data URI
-      result = result.replace(match[0], `<!--MERMAID_IMAGE:${dataUri}-->`)
-    }
-  }
-
-  return result
+  lines?: string[] // For lineBlock type
 }
 
 // Simple markdown parser
@@ -246,14 +193,6 @@ function parseMarkdown(text: string): MarkdownNode[] {
 
   while (i < lines.length) {
     const line = lines[i]
-
-    // Pre-rendered mermaid image (from preprocessMermaidDiagrams)
-    const mermaidImageMatch = line.match(/^<!--MERMAID_IMAGE:(data:image\/svg\+xml;base64,[^>]+)-->$/)
-    if (mermaidImageMatch) {
-      nodes.push({ type: "mermaidImage", imageDataUri: mermaidImageMatch[1] })
-      i++
-      continue
-    }
 
     // Code block
     if (line.startsWith("```")) {
@@ -378,16 +317,18 @@ function parseMarkdown(text: string): MarkdownNode[] {
       i++
     }
     if (paragraphLines.length > 0) {
-      // Check if lines follow a "Label: Value" pattern (like report headers)
-      // If most lines have this pattern, preserve them as separate lines
-      const keyValuePattern = /^[A-Za-z][A-Za-z\s]*:\s*.+$/
-      const keyValueLines = paragraphLines.filter(line => keyValuePattern.test(line))
-      const isKeyValueBlock = keyValueLines.length >= paragraphLines.length * 0.5 && paragraphLines.length > 1
+      // Check if any line ends with markdown line break (two+ trailing spaces)
+      // These lines should be preserved as separate lines in the PDF
+      const hasMarkdownLineBreaks = paragraphLines.some(line => /\s{2,}$/.test(line))
 
-      if (isKeyValueBlock) {
-        // Use keyValueBlock type to render each line separately
-        nodes.push({ type: "keyValueBlock", lines: paragraphLines })
+      if (hasMarkdownLineBreaks) {
+        // Render as lineBlock - each line separate, strip trailing spaces
+        nodes.push({
+          type: "lineBlock",
+          lines: paragraphLines.map(l => l.trimEnd())
+        })
       } else {
+        // Normal paragraph - join with spaces
         nodes.push({ type: "paragraph", content: paragraphLines.join(" ") })
       }
     }
@@ -559,33 +500,26 @@ function renderNode(node: MarkdownNode, index: number): React.ReactNode {
         </View>
       )
 
-    case "mermaidImage":
-      // Pre-rendered mermaid diagram as SVG data URI
-      return (
-        <View key={index} style={styles.mermaidImageContainer}>
-          <Image src={node.imageDataUri} style={styles.mermaidImage} />
-        </View>
-      )
-
     case "mermaid":
-      // Fallback: render mermaid as styled code if pre-rendering failed
+      // Render mermaid as styled code block
       return (
-        <View key={index} style={styles.mermaidFallbackContainer}>
-          <View style={styles.mermaidFallbackHeader}>
-            <Text style={styles.mermaidFallbackLabel}>Diagram</Text>
-            <Text style={styles.mermaidFallbackNote}>View in browser for rendered visualization</Text>
+        <View key={index} style={styles.mermaidContainer}>
+          <View style={styles.mermaidHeader}>
+            <Text style={styles.mermaidLabel}>Diagram</Text>
+            <Text style={styles.mermaidNote}>View in browser for rendered visualization</Text>
           </View>
-          <Text style={styles.mermaidFallbackCode}>{node.content}</Text>
+          <Text style={styles.mermaidCode}>{node.content}</Text>
         </View>
       )
 
-    case "keyValueBlock":
-      // Render each line as a separate Text component to prevent scrambling
+    case "lineBlock":
+      // Render each line as a separate Text component to preserve line breaks
+      // and process inline formatting (bold, italic, etc.)
       return (
-        <View key={index} style={styles.keyValueBlock}>
+        <View key={index} style={styles.lineBlock}>
           {node.lines?.map((line, lineIdx) => (
-            <Text key={lineIdx} style={styles.keyValueLine}>
-              {line}
+            <Text key={lineIdx} style={styles.lineBlockLine}>
+              {renderInlineText(line)}
             </Text>
           ))}
         </View>
@@ -634,12 +568,9 @@ export async function exportToPdf(
 ): Promise<void> {
   const { title, date, logoSrc } = options
 
-  // Pre-render mermaid diagrams to SVG data URIs
-  const processedContent = await preprocessMermaidDiagrams(content)
-
   // Generate the PDF blob
   const blob = await pdf(
-    <PdfDocument title={title} date={date} content={processedContent} logoSrc={logoSrc} />
+    <PdfDocument title={title} date={date} content={content} logoSrc={logoSrc} />
   ).toBlob()
 
   // Generate filename

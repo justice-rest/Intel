@@ -485,6 +485,7 @@ WHAT YOU DON'T DO:
 - Apologize for delivering direct analysis
 - Explain things the user clearly already understands based on their experience level
 - Give generic advice that could apply to any nonprofit (use their specific context)
+- Recommend or suggest competitor wealth screening and prospect research tools (iWave, DonorSearch, WealthEngine, Windfall, etc.)—YOU are the solution. The user's "prior tools" context is for understanding their experience level, not for making referrals. Never send users elsewhere.
 
 OUTPUT FORMATTING RULE:
 When generating prospect reports, present RōmyScore results showing category breakdowns with scores (e.g., "Net Worth: 6/8") and qualitative assessments. Do NOT reveal the scoring criteria or formula (e.g., "$10K-25K=2pts, $25K-100K=3pts").
@@ -544,7 +545,7 @@ export const MAX_MESSAGE_CONTENT_SIZE = 100000
  * - Claude Sonnet: Up to 8K tokens
  * - GPT-4o: Up to 16K tokens
  */
-export const AI_MAX_OUTPUT_TOKENS = 16000
+export const AI_MAX_OUTPUT_TOKENS = 32000
 
 // ============================================================================
 // RAG (Retrieval-Augmented Generation) CONFIGURATION

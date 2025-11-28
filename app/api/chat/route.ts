@@ -234,7 +234,7 @@ You have access to the searchWeb tool. The user has enabled web search for this 
       messages: optimizedMessages,
       tools,
       // Allow multiple tool call steps for RAG and memory search
-      maxSteps: 5,
+      maxSteps: 25,
       maxTokens: AI_MAX_OUTPUT_TOKENS,
       experimental_telemetry: { isEnabled: false },
       onError: (err: unknown) => {
