@@ -7,6 +7,7 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useMemo } from "react"
+import { Envelope } from "@phosphor-icons/react"
 
 const endorsements = [
   {
@@ -97,48 +98,46 @@ export default function LoginPage() {
             </div>
           )}
           <div className="mt-8 space-y-3">
-            <Button
-              variant="secondary"
-              className="w-full text-base sm:text-base"
-              size="lg"
-              onClick={handleSignInWithGoogle}
-              disabled={isLoading}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.4 }}
             >
-              <img
-                src="https://www.google.com/favicon.ico"
-                alt="Google logo"
-                width={20}
-                height={20}
-                className="mr-2 size-4"
-              />
-              <span>
-                {isLoading ? "Connecting..." : "Sign-In with Google"}
-              </span>
-            </Button>
-
-            <Button
-              variant="secondary"
-              className="w-full text-base sm:text-base"
-              size="lg"
-              onClick={() => router.push("/auth/email")}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="mr-2 size-4"
+              <Button
+                variant="secondary"
+                className="w-full text-base sm:text-base border-2 border-transparent transition-all hover:border-blue-600/50 hover:bg-blue-600/5"
+                size="lg"
+                onClick={handleSignInWithGoogle}
+                disabled={isLoading}
               >
-                <rect width="20" height="16" x="2" y="4" rx="2" />
-                <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
-              </svg>
-              <span>Sign-In with Email</span>
-            </Button>
+                <img
+                  src="https://www.google.com/favicon.ico"
+                  alt="Google logo"
+                  width={20}
+                  height={20}
+                  className="mr-2 size-4"
+                />
+                <span>
+                  {isLoading ? "Connecting..." : "Sign-In with Google"}
+                </span>
+              </Button>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.4 }}
+            >
+              <Button
+                variant="secondary"
+                className="w-full text-base sm:text-base border-2 border-transparent transition-all hover:border-blue-600/50 hover:bg-blue-600/5"
+                size="lg"
+                onClick={() => router.push("/auth/email")}
+              >
+                <Envelope className="mr-2 size-4" weight="regular" />
+                <span>Sign-In with Email</span>
+              </Button>
+            </motion.div>
           </div>
         </div>
       </main>

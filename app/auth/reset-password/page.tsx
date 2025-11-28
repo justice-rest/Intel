@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
+import { ArrowUpRight } from "@phosphor-icons/react"
+import { motion } from "motion/react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -100,9 +102,14 @@ function ResetPasswordContent() {
   return (
     <div className="bg-background flex h-dvh w-full flex-col">
       <main className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6">
-        <div className="w-full max-w-md space-y-8">
+        <motion.div
+          className="w-full max-w-lg space-y-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <div className="text-center">
-            <h1 className="text-foreground text-3xl font-medium tracking-tight sm:text-4xl">
+            <h1 className="text-foreground text-2xl font-medium tracking-tight sm:text-3xl">
               Set New Password
             </h1>
             <p className="text-muted-foreground mt-3">
@@ -111,22 +118,32 @@ function ResetPasswordContent() {
           </div>
 
           {error && (
-            <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-destructive/10 text-destructive rounded-lg p-4 text-sm border border-destructive/20"
+            >
               {error}
-            </div>
+            </motion.div>
           )}
 
           {success && (
-            <div className="bg-green-500/10 text-green-600 dark:text-green-400 rounded-md p-3 text-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-green-500/10 text-green-600 dark:text-green-400 rounded-lg p-4 text-sm border border-green-500/20"
+            >
               {success}
-            </div>
+            </motion.div>
           )}
 
           {isReady && !success && (
             <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">New Password</Label>
+              <div className="space-y-6">
+                <div>
+                  <Label htmlFor="password" className="text-lg font-medium text-foreground">
+                    New Password
+                  </Label>
                   <Input
                     id="password"
                     name="password"
@@ -138,11 +155,14 @@ function ResetPasswordContent() {
                     placeholder="Enter new password"
                     disabled={isLoading}
                     minLength={6}
+                    className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm Password</Label>
+                <div>
+                  <Label htmlFor="confirm-password" className="text-lg font-medium text-foreground">
+                    Confirm Password
+                  </Label>
                   <Input
                     id="confirm-password"
                     name="confirm-password"
@@ -154,17 +174,23 @@ function ResetPasswordContent() {
                     placeholder="Confirm new password"
                     disabled={isLoading}
                     minLength={6}
+                    className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
               </div>
 
               <Button
                 type="submit"
-                className="w-full text-base sm:text-base"
-                size="lg"
+                variant="outline"
+                className="group flex h-12 w-full items-center justify-center gap-2 rounded-full border-foreground bg-foreground py-2 px-6 text-background shadow-sm transition-all hover:scale-[1.02] hover:bg-background hover:text-foreground active:scale-[0.98]"
                 disabled={isLoading}
               >
-                {isLoading ? "Updating..." : "Update Password"}
+                <span>{isLoading ? "Updating..." : "Update Password"}</span>
+                {!isLoading && (
+                  <div className="rounded-full bg-background/20 p-1.5 backdrop-blur-sm transition-colors group-hover:bg-foreground">
+                    <ArrowUpRight className="h-4 w-4 text-background transition-transform duration-300 group-hover:rotate-45 group-hover:text-background" weight="bold" />
+                  </div>
+                )}
               </Button>
             </form>
           )}
@@ -178,12 +204,12 @@ function ResetPasswordContent() {
           <div className="text-center">
             <Link
               href="/auth"
-              className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer"
+              className="text-muted-foreground hover:text-blue-600 text-sm transition-colors cursor-pointer"
             >
               Back to sign in
             </Link>
           </div>
-        </div>
+        </motion.div>
       </main>
 
       <footer className="text-muted-foreground py-6 text-center text-sm">
@@ -191,7 +217,7 @@ function ResetPasswordContent() {
           By continuing, you agree to our{" "}
           <Link
             href="/terms"
-            className="text-foreground underline hover:text-primary transition-colors cursor-pointer"
+            className="text-foreground underline hover:text-blue-600 transition-colors cursor-pointer"
             target="_blank"
           >
             Terms of Service
@@ -199,7 +225,7 @@ function ResetPasswordContent() {
           and{" "}
           <Link
             href="/privacy"
-            className="text-foreground underline hover:text-primary transition-colors cursor-pointer"
+            className="text-foreground underline hover:text-blue-600 transition-colors cursor-pointer"
             target="_blank"
           >
             Privacy Policy
