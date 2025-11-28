@@ -3,14 +3,17 @@
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
-import { CaretLeft, SealCheck, Spinner } from "@phosphor-icons/react"
+import { CaretLeft, Check, CloudArrowUp } from "@phosphor-icons/react"
 import { AnimatePresence, motion } from "motion/react"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 
 const TRANSITION_CONTENT = {
   ease: "easeOut",
   duration: 0.2,
 }
+
+// Auto-save delay in ms (1 second after user stops typing)
+const AUTO_SAVE_DELAY = 1000
 
 // Convert markdown to HTML for inline rendering
 function markdownToHtml(text: string): string {
@@ -22,16 +25,16 @@ function markdownToHtml(text: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
 
-  // Bold: **text** or __text__ (non-greedy, no nesting)
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>')
-  html = html.replace(/__([^_]+)__/g, '<strong class="font-semibold">$1</strong>')
+  // Bold: **text** - must have non-whitespace content and proper boundaries
+  html = html.replace(/\*\*(\S(?:[^*]*\S)?)\*\*(?!\*)/g, '<strong class="font-semibold">$1</strong>')
+  html = html.replace(/__(\S(?:[^_]*\S)?)__(?!_)/g, '<strong class="font-semibold">$1</strong>')
 
-  // Italic: *text* or _text_ (non-greedy, avoid matching bold markers)
-  html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em class="italic">$1</em>')
-  html = html.replace(/(?<!_)_([^_]+)_(?!_)/g, '<em class="italic">$1</em>')
+  // Italic: *text* - must have non-whitespace content and not be part of bold
+  html = html.replace(/(?<!\*)\*(\S(?:[^*]*\S)?)\*(?!\*)/g, '<em class="italic">$1</em>')
+  html = html.replace(/(?<!_)_(\S(?:[^_]*\S)?)_(?!_)/g, '<em class="italic">$1</em>')
 
   // Strikethrough: ~~text~~
-  html = html.replace(/~~([^~]+)~~/g, '<del class="line-through">$1</del>')
+  html = html.replace(/~~(\S(?:[^~]*\S)?)~~/g, '<del class="line-through">$1</del>')
 
   // Inline code: `text` (no nested backticks)
   html = html.replace(/`([^`]+)`/g, '<code class="bg-muted rounded px-1 py-0.5 font-mono text-xs">$1</code>')
@@ -139,14 +142,62 @@ type NotesFormProps = {
   onClose: () => void
 }
 
+type SaveStatus = "idle" | "saving" | "saved" | "error"
+
 export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) {
-  const [status, setStatus] = useState<
-    "idle" | "submitting" | "success" | "error"
-  >("idle")
   const [note, setNote] = useState(existingNote || "")
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
   const editorRef = useRef<HTMLDivElement>(null)
-  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const markdownDebounceRef = useRef<NodeJS.Timeout | null>(null)
+  const autoSaveDebounceRef = useRef<NodeJS.Timeout | null>(null)
   const isComposingRef = useRef(false)
+  const lastSavedNoteRef = useRef(existingNote || "")
+
+  // Auto-save function
+  const saveNote = useCallback(async (content: string) => {
+    if (!content.trim() || content === lastSavedNoteRef.current) return
+
+    setSaveStatus("saving")
+
+    try {
+      const response = await fetch("/api/message-notes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messageId,
+          content,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        toast({
+          title: data.error || "Failed to save note",
+          status: "error",
+        })
+        setSaveStatus("error")
+        return
+      }
+
+      lastSavedNoteRef.current = content
+      setSaveStatus("saved")
+
+      // Reset to idle after showing "saved" briefly
+      setTimeout(() => {
+        setSaveStatus((current) => (current === "saved" ? "idle" : current))
+      }, 2000)
+    } catch (error) {
+      console.error("Failed to save note:", error)
+      toast({
+        title: "Failed to save note",
+        status: "error",
+      })
+      setSaveStatus("error")
+    }
+  }, [messageId])
 
   // Initialize and update editor content
   useEffect(() => {
@@ -154,14 +205,18 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
       const content = existingNote || ""
       editorRef.current.innerHTML = markdownToHtml(content)
       setNote(content)
+      lastSavedNoteRef.current = content
     }
   }, [existingNote])
 
-  // Cleanup debounce on unmount
+  // Cleanup debounces on unmount
   useEffect(() => {
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
+      if (markdownDebounceRef.current) {
+        clearTimeout(markdownDebounceRef.current)
+      }
+      if (autoSaveDebounceRef.current) {
+        clearTimeout(autoSaveDebounceRef.current)
       }
     }
   }, [])
@@ -171,8 +226,12 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
   }
 
   const handleClose = () => {
+    // Save immediately if there are unsaved changes
+    if (note.trim() && note !== lastSavedNoteRef.current) {
+      saveNote(note)
+    }
     setNote("")
-    setStatus("idle")
+    setSaveStatus("idle")
     if (editorRef.current) {
       editorRef.current.innerHTML = ""
     }
@@ -195,20 +254,33 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
       editorRef.current.innerHTML = newHtml
       setCursorOffset(editorRef.current, cursorOffset)
     }
+
+    // Trigger auto-save after markdown processing
+    if (autoSaveDebounceRef.current) {
+      clearTimeout(autoSaveDebounceRef.current)
+    }
+    autoSaveDebounceRef.current = setTimeout(() => {
+      saveNote(markdown)
+    }, AUTO_SAVE_DELAY)
   }
 
   const handleInput = () => {
     if (!editorRef.current) return
 
-    // Update note state immediately for button enable/disable
+    // Update note state immediately
     const markdown = htmlToMarkdown(editorRef.current.innerHTML)
     setNote(markdown)
 
-    // Debounce the markdown processing to avoid flickering
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
+    // Reset save status when typing
+    if (saveStatus === "saved" || saveStatus === "error") {
+      setSaveStatus("idle")
     }
-    debounceRef.current = setTimeout(processMarkdown, 150)
+
+    // Debounce the markdown processing to avoid flickering
+    if (markdownDebounceRef.current) {
+      clearTimeout(markdownDebounceRef.current)
+    }
+    markdownDebounceRef.current = setTimeout(processMarkdown, 150)
   }
 
   const handleCompositionStart = () => {
@@ -260,163 +332,92 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
     handleInput()
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!note.trim()) return
-
-    // Clear any pending debounce
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current)
-    }
-
-    setStatus("submitting")
-
-    try {
-      const response = await fetch("/api/message-notes", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messageId,
-          content: note,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        toast({
-          title: data.error || "Failed to save note",
-          status: "error",
-        })
-        setStatus("error")
-        return
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 800))
-
-      setStatus("success")
-
-      setTimeout(() => {
-        handleClose()
-      }, 1500)
-    } catch (error) {
-      toast({
-        title: `Error saving note: ${error}`,
-        status: "error",
-      })
-      setStatus("error")
-    }
-  }
-
   const hasContent = note.trim().length > 0
 
   return (
     <div className="h-[200px] w-full">
-      <AnimatePresence mode="popLayout">
-        {status === "success" ? (
-          <motion.div
-            key="success"
-            className="flex h-[200px] w-full flex-col items-center justify-center"
-            initial={{ opacity: 0, y: -10, filter: "blur(2px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: 10, filter: "blur(2px)" }}
-            transition={TRANSITION_CONTENT}
+      <motion.div
+        className="flex h-full flex-col"
+        initial={{ opacity: 0, y: -10, filter: "blur(2px)" }}
+        animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+        transition={TRANSITION_CONTENT}
+      >
+        <div className="relative flex-1 overflow-hidden">
+          {!hasContent && (
+            <span
+              aria-hidden="true"
+              className="text-muted-foreground pointer-events-none absolute top-3.5 left-4 text-sm leading-[1.4] select-none"
+            >
+              Write your notes here...
+            </span>
+          )}
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            className="text-foreground h-full w-full overflow-y-auto bg-transparent px-4 py-3.5 text-sm outline-none"
+            onInput={handleInput}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
+            style={{
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word'
+            }}
+          />
+        </div>
+        <div className="flex shrink-0 items-center justify-between pt-2 pr-3 pb-3 pl-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleClose}
+            aria-label="Close"
+            className="rounded-lg"
           >
-            <div className="rounded-full bg-green-500/10 p-1">
-              <SealCheck className="size-6 text-green-500" />
-            </div>
-            <p className="text-foreground mt-3 mb-1 text-center text-sm font-medium">
-              Note saved!
-            </p>
-          </motion.div>
-        ) : (
-          <motion.form
-            key="form"
-            className="flex h-full flex-col"
-            onSubmit={handleSubmit}
-            initial={{ opacity: 0, y: -10, filter: "blur(2px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: 10, filter: "blur(2px)" }}
-            transition={TRANSITION_CONTENT}
-          >
-            <div className="relative flex-1 overflow-hidden">
-              {!hasContent && (
-                <span
-                  aria-hidden="true"
-                  className="text-muted-foreground pointer-events-none absolute top-3.5 left-4 text-sm leading-[1.4] select-none"
-                >
-                  Write your notes here...
-                </span>
-              )}
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                className="text-foreground h-full w-full overflow-y-auto bg-transparent px-4 py-3.5 text-sm outline-none"
-                onInput={handleInput}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                onCompositionStart={handleCompositionStart}
-                onCompositionEnd={handleCompositionEnd}
-                style={{
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                  overflowWrap: 'break-word'
-                }}
-              />
-            </div>
-            <div className="flex shrink-0 justify-between pt-2 pr-3 pb-3 pl-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={handleClose}
-                aria-label="Close"
-                disabled={status === "submitting"}
-                className="rounded-lg"
+            <CaretLeft size={16} className="text-foreground" />
+          </Button>
+          <AnimatePresence mode="wait">
+            {saveStatus === "saving" && (
+              <motion.div
+                key="saving"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-muted-foreground flex items-center gap-1.5 text-xs"
               >
-                <CaretLeft size={16} className="text-foreground" />
-              </Button>
-              <Button
-                type="submit"
-                variant="outline"
-                size="sm"
-                aria-label="Save note"
-                className="rounded-lg"
-                disabled={status === "submitting" || !hasContent}
+                <CloudArrowUp className="size-3.5 animate-pulse" />
+                <span>Saving...</span>
+              </motion.div>
+            )}
+            {saveStatus === "saved" && (
+              <motion.div
+                key="saved"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-500"
               >
-                <AnimatePresence mode="popLayout">
-                  {status === "submitting" ? (
-                    <motion.span
-                      key="submitting"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={TRANSITION_CONTENT}
-                      className="inline-flex items-center gap-2"
-                    >
-                      <Spinner className="size-4 animate-spin" />
-                      Saving...
-                    </motion.span>
-                  ) : (
-                    <motion.span
-                      key="save"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={TRANSITION_CONTENT}
-                    >
-                      Save
-                    </motion.span>
-                  )}
-                </AnimatePresence>
-              </Button>
-            </div>
-          </motion.form>
-        )}
-      </AnimatePresence>
+                <Check className="size-3.5" weight="bold" />
+                <span>Saved</span>
+              </motion.div>
+            )}
+            {saveStatus === "error" && (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-destructive text-xs"
+              >
+                Failed to save
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
     </div>
   )
 }
