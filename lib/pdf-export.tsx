@@ -11,6 +11,7 @@ import {
   Link,
   Font,
 } from "@react-pdf/renderer"
+import pako from "pako"
 
 // Register a monospace font for code blocks
 Font.register({
@@ -162,15 +163,16 @@ type MarkdownNode = {
   language?: string
 }
 
-// Generate mermaid.ink URL for rendering mermaid diagrams as images
+// Generate Kroki URL for rendering mermaid diagrams as images
+// Kroki requires deflate compression + base64 URL-safe encoding
 function getMermaidImageUrl(code: string): string {
-  // mermaid.ink uses base64 encoded diagram definition
-  // Use btoa for browser compatibility, with URL-safe base64 encoding
-  const encoded = btoa(unescape(encodeURIComponent(code)))
+  // Compress the code using deflate
+  const compressed = pako.deflate(code, { level: 9 })
+  // Convert to base64 and make URL-safe
+  const base64 = btoa(String.fromCharCode.apply(null, Array.from(compressed)))
     .replace(/\+/g, "-")
     .replace(/\//g, "_")
-    .replace(/=+$/, "")
-  return `https://mermaid.ink/img/${encoded}?type=png&bgColor=white`
+  return `https://kroki.io/mermaid/png/${base64}`
 }
 
 // Simple markdown parser

@@ -82,6 +82,7 @@
     "@tanstack/eslint-plugin-query": "^5.78.0",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^20",
+    "@types/pako": "^2.0.4",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/webpack": "^5.28.5",
