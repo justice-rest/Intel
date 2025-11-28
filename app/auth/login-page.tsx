@@ -3,15 +3,33 @@
 import { Button } from "@/components/ui/button"
 import { signInWithGoogle } from "@/lib/api"
 import { createClient } from "@/lib/supabase/client"
-import Image from "next/image"
+import { motion } from "motion/react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useMemo } from "react"
+
+const endorsements = [
+  {
+    quote: "The recommendations are super helpful, especially the employer match and peer-to-peer ideas.",
+    author: "Sofia Carvalho",
+    title: "founder, GoodestDogs.org"
+  },
+  {
+    quote: "I'm impressed! The deep dive is deep.",
+    author: "Kristin",
+    title: "Teens, Inc."
+  }
+]
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+
+  // Random endorsement selected on mount (rotates on refresh)
+  const endorsement = useMemo(() => {
+    return endorsements[Math.floor(Math.random() * endorsements.length)]
+  }, [])
 
   async function handleSignInWithGoogle() {
     const supabase = createClient()
@@ -49,9 +67,29 @@ export default function LoginPage() {
             <h1 className="text-foreground text-3xl font-medium tracking-tight sm:text-4xl">
               Welcome to Rōmy
             </h1>
-            <p className="text-muted-foreground mt-3">
-              Explore a new path.
-            </p>
+            <motion.div
+              className="mt-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+              <motion.p
+                className="text-muted-foreground italic text-base leading-relaxed"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+              >
+                &ldquo;{endorsement.quote}&rdquo;
+              </motion.p>
+              <motion.p
+                className="text-muted-foreground/70 mt-2 text-sm"
+                initial={{ opacity: 0, x: -5 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5, duration: 0.4 }}
+              >
+                — {endorsement.author}, <span className="text-muted-foreground/60">{endorsement.title}</span>
+              </motion.p>
+            </motion.div>
           </div>
           {error && (
             <div className="bg-destructive/10 text-destructive rounded-md p-3 text-sm">

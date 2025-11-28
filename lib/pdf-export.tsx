@@ -135,6 +135,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 10,
   },
+  mermaidContainer: {
+    marginVertical: 10,
+    alignItems: "center",
+  },
+  mermaidImage: {
+    maxWidth: "100%",
+    maxHeight: 400,
+  },
+  mermaidCaption: {
+    fontSize: 9,
+    color: "#666666",
+    marginTop: 4,
+    textAlign: "center",
+  },
 })
 
 type MarkdownNode = {
@@ -145,6 +159,18 @@ type MarkdownNode = {
   ordered?: boolean
   href?: string
   rows?: string[][]
+  language?: string
+}
+
+// Generate mermaid.ink URL for rendering mermaid diagrams as images
+function getMermaidImageUrl(code: string): string {
+  // mermaid.ink uses base64 encoded diagram definition
+  // Use btoa for browser compatibility, with URL-safe base64 encoding
+  const encoded = btoa(unescape(encodeURIComponent(code)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "")
+  return `https://mermaid.ink/img/${encoded}?type=png&bgColor=white`
 }
 
 // Simple markdown parser
@@ -158,13 +184,22 @@ function parseMarkdown(text: string): MarkdownNode[] {
 
     // Code block
     if (line.startsWith("```")) {
+      // Extract language identifier (e.g., ```mermaid, ```javascript)
+      const language = line.slice(3).trim().toLowerCase()
       const codeLines: string[] = []
       i++
       while (i < lines.length && !lines[i].startsWith("```")) {
         codeLines.push(lines[i])
         i++
       }
-      nodes.push({ type: "codeBlock", content: codeLines.join("\n") })
+      const content = codeLines.join("\n")
+
+      // Handle mermaid diagrams specially
+      if (language === "mermaid") {
+        nodes.push({ type: "mermaid", content, language })
+      } else {
+        nodes.push({ type: "codeBlock", content, language })
+      }
       i++
       continue
     }
@@ -270,7 +305,18 @@ function parseMarkdown(text: string): MarkdownNode[] {
       i++
     }
     if (paragraphLines.length > 0) {
-      nodes.push({ type: "paragraph", content: paragraphLines.join(" ") })
+      // Check if lines follow a "Label: Value" pattern (like report headers)
+      // If most lines have this pattern, preserve them as separate lines
+      const keyValuePattern = /^[A-Za-z][A-Za-z\s]*:\s*.+$/
+      const keyValueLines = paragraphLines.filter(line => keyValuePattern.test(line))
+      const isKeyValueBlock = keyValueLines.length >= paragraphLines.length * 0.5 && paragraphLines.length > 1
+
+      if (isKeyValueBlock) {
+        // Preserve each line separately using newline character
+        nodes.push({ type: "paragraph", content: paragraphLines.join("\n") })
+      } else {
+        nodes.push({ type: "paragraph", content: paragraphLines.join(" ") })
+      }
     }
   }
 
@@ -437,6 +483,15 @@ function renderNode(node: MarkdownNode, index: number): React.ReactNode {
               ))}
             </View>
           ))}
+        </View>
+      )
+
+    case "mermaid":
+      const mermaidUrl = getMermaidImageUrl(node.content || "")
+      return (
+        <View key={index} style={styles.mermaidContainer}>
+          <Image src={mermaidUrl} style={styles.mermaidImage} />
+          <Text style={styles.mermaidCaption}>Diagram</Text>
         </View>
       )
 

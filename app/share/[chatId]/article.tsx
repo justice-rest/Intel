@@ -168,7 +168,11 @@ export default function Article({
                     message.role === "user" && "w-full items-end"
                   )}
                 >
-                  <div className="flex min-w-full max-w-full flex-col gap-2 overflow-hidden">
+                  <div className={cn(
+                    "flex flex-col gap-2 overflow-hidden",
+                    message.role === "assistant" && "min-w-full max-w-full",
+                    message.role === "user" && "max-w-[85%]"
+                  )}>
                     {/* Render reasoning for assistant messages */}
                     {message.role === "assistant" && reasoningParts && reasoningParts.reasoning && (
                       <Reasoning
