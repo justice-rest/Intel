@@ -1,7 +1,9 @@
 "use client"
 
+import { Skeleton } from "@/components/ui/skeleton"
 import { FolderPlusIcon } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
+import { AnimatePresence, motion } from "motion/react"
 import { useState } from "react"
 import { DialogCreateProject } from "./dialog-create-project"
 import { SidebarProjectItem } from "./sidebar-project-item"
@@ -40,13 +42,45 @@ export function SidebarProject() {
         </div>
       </button>
 
-      {isLoading ? null : (
-        <div className="space-y-1">
-          {projects.map((project) => (
-            <SidebarProjectItem key={project.id} project={project} />
-          ))}
-        </div>
-      )}
+      <AnimatePresence mode="popLayout">
+        {isLoading ? (
+          <motion.div
+            key="skeleton"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-1"
+          >
+            {[0, 1, 2].map((i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="flex items-center gap-2 px-2 py-2"
+              >
+                <Skeleton className="h-5 w-5 rounded" />
+                <Skeleton className="h-4 flex-1" />
+              </motion.div>
+            ))}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="projects"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-1"
+          >
+            {projects.map((project, index) => (
+              <SidebarProjectItem
+                key={project.id}
+                project={project}
+                index={index}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <DialogCreateProject isOpen={isDialogOpen} setIsOpen={setIsDialogOpen} />
     </div>

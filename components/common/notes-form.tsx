@@ -6,10 +6,52 @@ import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { CaretLeft, SealCheck, Spinner } from "@phosphor-icons/react"
 import { AnimatePresence, motion } from "motion/react"
 import { useState, useEffect } from "react"
+import { Streamdown, type StreamdownProps } from "streamdown"
 
 const TRANSITION_CONTENT = {
   ease: "easeOut",
   duration: 0.2,
+}
+
+// Custom components for inline-only markdown (no block elements)
+const NOTES_MARKDOWN_COMPONENTS: StreamdownProps["components"] = {
+  // Allow inline formatting
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  em: ({ children }) => <em className="italic">{children}</em>,
+  code: ({ children }) => (
+    <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">{children}</code>
+  ),
+  del: ({ children }) => <del className="line-through">{children}</del>,
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      className="text-primary underline"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  ),
+  // Block elements render as plain inline text
+  h1: ({ children }) => <span>{children}</span>,
+  h2: ({ children }) => <span>{children}</span>,
+  h3: ({ children }) => <span>{children}</span>,
+  h4: ({ children }) => <span>{children}</span>,
+  h5: ({ children }) => <span>{children}</span>,
+  h6: ({ children }) => <span>{children}</span>,
+  blockquote: ({ children }) => <span>{children}</span>,
+  pre: ({ children }) => <span>{children}</span>,
+  ul: ({ children }) => <span>{children}</span>,
+  ol: ({ children }) => <span>{children}</span>,
+  li: ({ children }) => <span>{children} </span>,
+  hr: () => null,
+  table: ({ children }) => <span>{children}</span>,
+  thead: ({ children }) => <span>{children}</span>,
+  tbody: ({ children }) => <span>{children}</span>,
+  tr: ({ children }) => <span>{children}</span>,
+  th: ({ children }) => <span>{children} </span>,
+  td: ({ children }) => <span>{children} </span>,
+  p: ({ children }) => <span>{children}</span>,
 }
 
 type NotesFormProps = {
@@ -85,6 +127,8 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
     }
   }
 
+  const hasContent = note.trim().length > 0
+
   return (
     <div className="h-[200px] w-full">
       <AnimatePresence mode="popLayout">
@@ -130,12 +174,21 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
               Write your notes here...
             </motion.span>
             <textarea
-              className="text-foreground h-full w-full resize-none rounded-md bg-transparent px-4 py-3.5 text-sm outline-hidden"
+              className="text-foreground h-full min-h-[80px] w-full flex-1 resize-none rounded-md bg-transparent px-4 py-3.5 text-sm outline-hidden"
               autoFocus
               value={note}
               onChange={(e) => setNote(e.target.value)}
               disabled={status === "submitting"}
             />
+            {hasContent && (
+              <div className="border-border/50 border-t px-4 py-2">
+                <div className="text-foreground/90 max-h-[50px] overflow-y-auto text-sm leading-relaxed">
+                  <Streamdown components={NOTES_MARKDOWN_COMPONENTS}>
+                    {note}
+                  </Streamdown>
+                </div>
+              </div>
+            )}
             <div
               key="close"
               className="flex justify-between pt-2 pr-3 pb-3 pl-2"

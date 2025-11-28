@@ -7,6 +7,7 @@ import { useSplitView } from "@/lib/split-view-store/provider"
 import { cn } from "@/lib/utils"
 import { Check, FolderIcon, X } from "@phosphor-icons/react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { motion } from "motion/react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useCallback, useMemo, useRef, useState } from "react"
@@ -21,9 +22,10 @@ type Project = {
 
 type SidebarProjectItemProps = {
   project: Project
+  index?: number
 }
 
-export function SidebarProjectItem({ project }: SidebarProjectItemProps) {
+export function SidebarProjectItem({ project, index = 0 }: SidebarProjectItemProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState(project.name || "")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -232,7 +234,10 @@ export function SidebarProjectItem({ project }: SidebarProjectItemProps) {
   )
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: index * 0.03 }}
       className={containerClassName}
       onClick={handleContainerClick}
       ref={containerRef}
@@ -291,6 +296,6 @@ export function SidebarProjectItem({ project }: SidebarProjectItemProps) {
           </div>
         </>
       )}
-    </div>
+    </motion.div>
   )
 }
