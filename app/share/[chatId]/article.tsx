@@ -160,7 +160,7 @@ export default function Article({
             const contentNullOrEmpty = !message.content || message.content === ""
 
             return (
-              <div key={message.id} className="mb-8">
+              <div key={message.id}>
                 <Message
                   className={cn(
                     "group mb-4 flex flex-col gap-0",
@@ -168,96 +168,90 @@ export default function Article({
                     message.role === "user" && "w-full items-end"
                   )}
                 >
-                  <div className={cn(
-                    "flex flex-col gap-2 overflow-hidden",
-                    message.role === "assistant" && "min-w-full max-w-full"
-                  )}>
-                    {/* Render reasoning for assistant messages */}
-                    {message.role === "assistant" && reasoningParts && reasoningParts.reasoning && (
-                      <Reasoning
-                        reasoning={reasoningParts.reasoning}
-                        isStreaming={false}
-                      />
+                  {/* Render reasoning for assistant messages */}
+                  {message.role === "assistant" && reasoningParts && reasoningParts.reasoning && (
+                    <Reasoning
+                      reasoning={reasoningParts.reasoning}
+                      isStreaming={false}
+                    />
+                  )}
+
+                  {/* Render tool invocations for assistant messages - always show in share view */}
+                  {message.role === "assistant" &&
+                    toolInvocationParts &&
+                    toolInvocationParts.length > 0 && (
+                      <ToolInvocation toolInvocations={toolInvocationParts} />
                     )}
 
-                    {/* Render tool invocations for assistant messages - always show in share view */}
-                    {message.role === "assistant" &&
-                      toolInvocationParts &&
-                      toolInvocationParts.length > 0 && (
-                        <ToolInvocation toolInvocations={toolInvocationParts} />
+                  {/* Render search images for assistant messages */}
+                  {message.role === "assistant" && searchImageResults.length > 0 && (
+                    <SearchImages results={searchImageResults} />
+                  )}
+
+                  {/* Render message content if not empty */}
+                  {!contentNullOrEmpty && (
+                    <MessageContent
+                      markdown={true}
+                      className={cn(
+                        message.role === "user" && "bg-blue-600 text-white",
+                        message.role === "assistant" &&
+                          "w-full min-w-full bg-transparent",
+                        "prose-h1:scroll-m-20 prose-h1:text-2xl prose-h1:font-semibold prose-h2:mt-8 prose-h2:scroll-m-20 prose-h2:text-xl prose-h2:mb-3 prose-h2:font-medium prose-h3:scroll-m-20 prose-h3:text-base prose-h3:font-medium prose-h4:scroll-m-20 prose-h5:scroll-m-20 prose-h6:scroll-m-20 prose-strong:font-medium prose-table:block prose-table:overflow-y-auto"
                       )}
-
-                    {/* Render search images for assistant messages */}
-                    {message.role === "assistant" && searchImageResults.length > 0 && (
-                      <SearchImages results={searchImageResults} />
-                    )}
-
-                    {/* Render message content if not empty */}
-                    {!contentNullOrEmpty && (
-                      <MessageContent
-                        markdown={true}
-                        className={cn(
-                          message.role === "user" && "bg-blue-600 text-white w-fit max-w-[70%] rounded-3xl px-5 py-2",
-                          message.role === "assistant" &&
-                            "prose dark:prose-invert w-full min-w-full bg-transparent",
-                          "prose-h1:scroll-m-20 prose-h1:text-2xl prose-h1:font-semibold prose-h2:mt-8 prose-h2:scroll-m-20 prose-h2:text-xl prose-h2:mb-3 prose-h2:font-medium prose-h3:scroll-m-20 prose-h3:text-base prose-h3:font-medium prose-h4:scroll-m-20 prose-h5:scroll-m-20 prose-h6:scroll-m-20 prose-strong:font-medium prose-table:block prose-table:overflow-y-auto"
-                        )}
-                      >
-                        {message.content!}
-                      </MessageContent>
-                    )}
-
-                    {/* Render sources for assistant messages */}
-                    {message.role === "assistant" && sources && sources.length > 0 && (
-                      <SourcesList sources={sources} />
-                    )}
-
-                    {/* Copy and Export PDF buttons for assistant messages */}
-                    {message.role === "assistant" && !contentNullOrEmpty && (
-                      <MessageActions
-                        className={cn(
-                          "-ml-2 flex gap-0 opacity-0 transition-opacity group-hover:opacity-100"
-                        )}
-                      >
-                        <MessageAction
-                          tooltip={copiedId === message.id ? "Copied!" : "Copy text"}
-                          side="bottom"
-                        >
-                          <button
-                            className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition"
-                            aria-label="Copy text"
-                            onClick={() => copyToClipboard(message.id, message.content!)}
-                            type="button"
-                          >
-                            {copiedId === message.id ? (
-                              <Check className="size-4" />
-                            ) : (
-                              <Copy className="size-4" />
-                            )}
-                          </button>
-                        </MessageAction>
-                        <MessageAction
-                          tooltip={exportingId === message.id ? "Exporting..." : "Export PDF"}
-                          side="bottom"
-                        >
-                          <button
-                            className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
-                            aria-label="Export PDF"
-                            onClick={() => handleExportPdf(message.id, message.content!)}
-                            type="button"
-                            disabled={exportingId === message.id}
-                          >
-                            {exportingId === message.id ? (
-                              <SpinnerGap className="size-4 animate-spin" />
-                            ) : (
-                              <FilePdf className="size-4" />
-                            )}
-                          </button>
-                        </MessageAction>
-                      </MessageActions>
-                    )}
-                  </div>
+                    >
+                      {message.content!}
+                    </MessageContent>
+                  )}
                 </Message>
+                {/* Render sources for assistant messages */}
+                {message.role === "assistant" && sources && sources.length > 0 && (
+                  <SourcesList sources={sources} />
+                )}
+
+                {/* Copy and Export PDF buttons for assistant messages */}
+                {message.role === "assistant" && !contentNullOrEmpty && (
+                  <MessageActions
+                    className={cn(
+                      "-ml-2 mb-4 flex gap-0 opacity-0 transition-opacity group-hover:opacity-100"
+                    )}
+                  >
+                    <MessageAction
+                      tooltip={copiedId === message.id ? "Copied!" : "Copy text"}
+                      side="bottom"
+                    >
+                      <button
+                        className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition"
+                        aria-label="Copy text"
+                        onClick={() => copyToClipboard(message.id, message.content!)}
+                        type="button"
+                      >
+                        {copiedId === message.id ? (
+                          <Check className="size-4" />
+                        ) : (
+                          <Copy className="size-4" />
+                        )}
+                      </button>
+                    </MessageAction>
+                    <MessageAction
+                      tooltip={exportingId === message.id ? "Exporting..." : "Export PDF"}
+                      side="bottom"
+                    >
+                      <button
+                        className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
+                        aria-label="Export PDF"
+                        onClick={() => handleExportPdf(message.id, message.content!)}
+                        type="button"
+                        disabled={exportingId === message.id}
+                      >
+                        {exportingId === message.id ? (
+                          <SpinnerGap className="size-4 animate-spin" />
+                        ) : (
+                          <FilePdf className="size-4" />
+                        )}
+                      </button>
+                    </MessageAction>
+                  </MessageActions>
+                )}
               </div>
             )
           })}
