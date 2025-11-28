@@ -162,13 +162,24 @@ export function useChatCore({
   }, [prompt, setInput])
 
   // Reset messages and state when navigating from a chat to home
-  if (prevChatIdRef.current !== null && chatId === null) {
+  // Check actual URL to avoid false positives from pushState not updating usePathname
+  const isActuallyOnHome = typeof window !== "undefined" &&
+    !window.location.pathname.startsWith("/c/")
+
+  if (prevChatIdRef.current !== null && chatId === null && isActuallyOnHome) {
+    // Stop any ongoing streaming when navigating away
+    stop()
     if (messages.length > 0) {
       setMessages([])
     }
     hasSentFirstMessageRef.current = false
   }
-  prevChatIdRef.current = chatId
+
+  // Only update prevChatIdRef when NOT in pushState limbo
+  // (pushState limbo = chatId is null but URL shows we're on a chat page)
+  if (chatId !== null || isActuallyOnHome) {
+    prevChatIdRef.current = chatId
+  }
 
   // Submit action
   const submit = useCallback(async () => {

@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useId, useState } from "react"
+import { useContext, useEffect, useId, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import { ButtonCopy } from "../common/button-copy"
 import { DownloadIcon, Maximize2Icon, XIcon } from "lucide-react"
+import { StreamdownContext } from "streamdown"
 
 interface MermaidDiagramProps {
   chart: string
@@ -13,13 +14,32 @@ interface MermaidDiagramProps {
 export default function MermaidDiagram({ chart, className }: MermaidDiagramProps) {
   const [svg, setSvg] = useState<string>("")
   const [error, setError] = useState<string>("")
+  const [isRendering, setIsRendering] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const id = useId().replace(/:/g, "-")
+  const renderCountRef = useRef(0)
+
+  // Get streaming state from Streamdown context
+  const streamdownContext = useContext(StreamdownContext)
+  const isAnimating = streamdownContext?.isAnimating ?? false
 
   useEffect(() => {
-    let cancelled = false
+    // Don't attempt to render while streaming
+    if (isAnimating) {
+      setIsRendering(false)
+      return
+    }
 
-    async function renderDiagram() {
+    let cancelled = false
+    const currentRender = ++renderCountRef.current
+
+    // Debounce rendering to avoid rapid re-renders
+    const timeoutId = setTimeout(async () => {
+      if (cancelled || currentRender !== renderCountRef.current) return
+
+      setIsRendering(true)
+      setError("") // Clear any previous errors
+
       try {
         const mermaid = (await import("mermaid")).default
         mermaid.initialize({
@@ -27,23 +47,30 @@ export default function MermaidDiagram({ chart, className }: MermaidDiagramProps
           theme: "default",
           securityLevel: "strict",
           fontFamily: "monospace",
+          suppressErrorRendering: true,
         })
 
-        const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}`, chart)
-        if (!cancelled) {
+        const { svg: renderedSvg } = await mermaid.render(`mermaid-${id}-${currentRender}`, chart)
+        if (!cancelled && currentRender === renderCountRef.current) {
           setSvg(renderedSvg)
           setError("")
         }
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && currentRender === renderCountRef.current) {
           setError(err instanceof Error ? err.message : "Failed to render diagram")
         }
+      } finally {
+        if (!cancelled && currentRender === renderCountRef.current) {
+          setIsRendering(false)
+        }
       }
-    }
+    }, 500) // 500ms debounce
 
-    renderDiagram()
-    return () => { cancelled = true }
-  }, [chart, id])
+    return () => {
+      cancelled = true
+      clearTimeout(timeoutId)
+    }
+  }, [chart, id, isAnimating])
 
   const handleDownloadSvg = () => {
     const blob = new Blob([svg], { type: "image/svg+xml" })
@@ -55,6 +82,24 @@ export default function MermaidDiagram({ chart, className }: MermaidDiagramProps
     URL.revokeObjectURL(url)
   }
 
+  // While streaming or debouncing, show code preview
+  if (isAnimating || isRendering || (!svg && !error)) {
+    return (
+      <div className={cn("my-4 rounded-xl border overflow-hidden", className)} data-streamdown="mermaid-block">
+        <div className="flex h-9 items-center justify-between px-4 border-b bg-muted/50">
+          <span className="text-muted-foreground font-mono text-xs">mermaid</span>
+          <span className="text-muted-foreground text-xs">
+            {isAnimating ? "Streaming..." : "Rendering..."}
+          </span>
+        </div>
+        <pre className="p-4 text-sm font-mono text-muted-foreground overflow-auto max-h-64">
+          {chart}
+        </pre>
+      </div>
+    )
+  }
+
+  // Show error only after streaming complete and render failed
   if (error) {
     return (
       <div className="my-4 rounded-xl border border-destructive/50 bg-destructive/10 p-4">
@@ -64,14 +109,7 @@ export default function MermaidDiagram({ chart, className }: MermaidDiagramProps
     )
   }
 
-  if (!svg) {
-    return (
-      <div className="my-4 flex items-center justify-center rounded-xl border p-8">
-        <span className="text-sm text-muted-foreground">Rendering diagram...</span>
-      </div>
-    )
-  }
-
+  // Show rendered diagram
   return (
     <>
       <div className={cn("group relative my-4 rounded-xl border p-4", className)} data-streamdown="mermaid-block">
