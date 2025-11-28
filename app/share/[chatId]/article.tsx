@@ -234,7 +234,7 @@ export default function Article({
                     {message.role === "assistant" && !contentNullOrEmpty && (
                       <MessageActions
                         className={cn(
-                          "-ml-3 flex gap-0"
+                          "-ml-1 flex gap-0"
                         )}
                       >
                         <MessageAction

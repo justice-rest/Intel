@@ -330,7 +330,7 @@ export function Chat({
             </h1>
           </motion.div>
         ) : (
-          <Conversation key={chatId || "conversation"} {...conversationProps} />
+          <Conversation {...conversationProps} />
         )}
       </AnimatePresence>
 

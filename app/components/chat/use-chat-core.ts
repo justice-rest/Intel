@@ -127,6 +127,7 @@ export function useChatCore({
     setInput,
     append,
   } = useChat({
+    id: chatId || "new-chat",
     api: API_ROUTE_CHAT,
     initialMessages,
     initialInput: draftValue,
