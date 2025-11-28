@@ -161,13 +161,12 @@ export function useChatCore({
     }
   }, [prompt, setInput])
 
-  // Reset messages when navigating from a chat to home
-  if (
-    prevChatIdRef.current !== null &&
-    chatId === null &&
-    messages.length > 0
-  ) {
-    setMessages([])
+  // Reset messages and state when navigating from a chat to home
+  if (prevChatIdRef.current !== null && chatId === null) {
+    if (messages.length > 0) {
+      setMessages([])
+    }
+    hasSentFirstMessageRef.current = false
   }
   prevChatIdRef.current = chatId
 
@@ -183,19 +182,7 @@ export function useChatCore({
       return
     }
 
-    // CHECK RATE LIMITS BEFORE adding optimistic message to prevent delay
-    try {
-      const allowed = await checkLimitsAndNotify(uid)
-      if (!allowed) {
-        setIsSubmitting(false)
-        return
-      }
-    } catch (err) {
-      console.error("Rate limit check failed:", err)
-      setIsSubmitting(false)
-      return
-    }
-
+    // Create and show optimistic message FIRST for immediate UI feedback
     const optimisticId = `optimistic-${Date.now().toString()}`
     const optimisticAttachments =
       files.length > 0 ? createOptimisticAttachments(files) : []
@@ -216,6 +203,13 @@ export function useChatCore({
     setFiles([])
 
     try {
+      // Check rate limits AFTER showing optimistic message (rollback if fails)
+      const allowed = await checkLimitsAndNotify(uid)
+      if (!allowed) {
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
+        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        return
+      }
 
       const currentChatId = await ensureChatExists(uid, input)
       if (!currentChatId) {
