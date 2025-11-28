@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Drawer, DrawerContent } from "@/components/ui/drawer"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { NotePencil } from "@phosphor-icons/react"
-import { useState, useEffect, useCallback, forwardRef } from "react"
+import { useState, useEffect, useCallback, forwardRef, memo } from "react"
 
 type NotesTriggerProps = {
   messageId: string
@@ -114,3 +114,6 @@ export const NotesTrigger = forwardRef<HTMLButtonElement, NotesTriggerProps>(
 )
 
 NotesTrigger.displayName = "NotesTrigger"
+
+// Memoize to prevent unnecessary re-renders when parent re-renders
+export const MemoizedNotesTrigger = memo(NotesTrigger)

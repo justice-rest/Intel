@@ -6,6 +6,19 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
+import { sanitizeUserInput } from "@/lib/sanitize"
+
+// Maximum note content length (10KB should be plenty for notes)
+const MAX_CONTENT_LENGTH = 10000
+
+/**
+ * Validate messageId is a positive integer
+ */
+function isValidMessageId(id: string | null): id is string {
+  if (!id) return false
+  const num = parseInt(id, 10)
+  return !isNaN(num) && num > 0 && String(num) === id
+}
 
 /**
  * GET /api/message-notes?messageId=X
@@ -42,9 +55,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const messageId = searchParams.get("messageId")
 
-    if (!messageId) {
+    if (!isValidMessageId(messageId)) {
       return NextResponse.json(
-        { success: false, error: "messageId is required" },
+        { success: false, error: "Valid messageId is required" },
         { status: 400 }
       )
     }
@@ -52,7 +65,7 @@ export async function GET(req: Request) {
     const { data: note, error } = await supabase
       .from("message_notes")
       .select("*")
-      .eq("message_id", parseInt(messageId))
+      .eq("message_id", parseInt(messageId, 10))
       .eq("user_id", user.id)
       .single()
 
@@ -60,7 +73,7 @@ export async function GET(req: Request) {
       // PGRST116 = no rows returned
       console.error("GET /api/message-notes error:", error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "Failed to fetch note" },
         { status: 500 }
       )
     }
@@ -72,10 +85,7 @@ export async function GET(req: Request) {
   } catch (error) {
     console.error("GET /api/message-notes error:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to fetch note",
-      },
+      { success: false, error: "Failed to fetch note" },
       { status: 500 }
     )
   }
@@ -113,31 +123,61 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json()
-    const { messageId, content } = body
-
-    if (!messageId) {
+    let body
+    try {
+      body = await req.json()
+    } catch {
       return NextResponse.json(
-        { success: false, error: "messageId is required" },
+        { success: false, error: "Invalid JSON body" },
         { status: 400 }
       )
     }
 
-    if (!content || content.trim().length === 0) {
+    const { messageId, content } = body
+
+    // Validate messageId
+    const messageIdStr = String(messageId || "")
+    if (!isValidMessageId(messageIdStr)) {
+      return NextResponse.json(
+        { success: false, error: "Valid messageId is required" },
+        { status: 400 }
+      )
+    }
+
+    // Validate content
+    if (!content || typeof content !== "string") {
       return NextResponse.json(
         { success: false, error: "Note content is required" },
         { status: 400 }
       )
     }
 
+    const trimmedContent = content.trim()
+    if (trimmedContent.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Note content cannot be empty" },
+        { status: 400 }
+      )
+    }
+
+    if (trimmedContent.length > MAX_CONTENT_LENGTH) {
+      return NextResponse.json(
+        { success: false, error: `Note content exceeds maximum length of ${MAX_CONTENT_LENGTH} characters` },
+        { status: 400 }
+      )
+    }
+
+    // Sanitize content to prevent XSS
+    const sanitizedContent = sanitizeUserInput(trimmedContent)
+
     // Upsert: insert or update if exists
     const { data: note, error } = await supabase
       .from("message_notes")
       .upsert(
         {
-          message_id: parseInt(messageId),
+          message_id: parseInt(messageIdStr, 10),
           user_id: user.id,
-          content: content.trim(),
+          content: sanitizedContent,
           updated_at: new Date().toISOString(),
         },
         {
@@ -150,7 +190,7 @@ export async function POST(req: Request) {
     if (error) {
       console.error("POST /api/message-notes error:", error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "Failed to save note" },
         { status: 500 }
       )
     }
@@ -158,15 +198,11 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       note,
-      message: "Note saved successfully",
     })
   } catch (error) {
     console.error("POST /api/message-notes error:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to save note",
-      },
+      { success: false, error: "Failed to save note" },
       { status: 500 }
     )
   }
@@ -207,9 +243,9 @@ export async function DELETE(req: Request) {
     const { searchParams } = new URL(req.url)
     const messageId = searchParams.get("messageId")
 
-    if (!messageId) {
+    if (!isValidMessageId(messageId)) {
       return NextResponse.json(
-        { success: false, error: "messageId is required" },
+        { success: false, error: "Valid messageId is required" },
         { status: 400 }
       )
     }
@@ -217,28 +253,24 @@ export async function DELETE(req: Request) {
     const { error } = await supabase
       .from("message_notes")
       .delete()
-      .eq("message_id", parseInt(messageId))
+      .eq("message_id", parseInt(messageId, 10))
       .eq("user_id", user.id)
 
     if (error) {
       console.error("DELETE /api/message-notes error:", error)
       return NextResponse.json(
-        { success: false, error: error.message },
+        { success: false, error: "Failed to delete note" },
         { status: 500 }
       )
     }
 
     return NextResponse.json({
       success: true,
-      message: "Note deleted successfully",
     })
   } catch (error) {
     console.error("DELETE /api/message-notes error:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to delete note",
-      },
+      { success: false, error: "Failed to delete note" },
       { status: 500 }
     )
   }

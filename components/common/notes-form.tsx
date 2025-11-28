@@ -5,53 +5,132 @@ import { toast } from "@/components/ui/toast"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { CaretLeft, SealCheck, Spinner } from "@phosphor-icons/react"
 import { AnimatePresence, motion } from "motion/react"
-import { useState, useEffect } from "react"
-import { Streamdown, type StreamdownProps } from "streamdown"
+import { useState, useEffect, useRef } from "react"
 
 const TRANSITION_CONTENT = {
   ease: "easeOut",
   duration: 0.2,
 }
 
-// Custom components for inline-only markdown (no block elements)
-const NOTES_MARKDOWN_COMPONENTS: StreamdownProps["components"] = {
-  // Allow inline formatting
-  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
-  em: ({ children }) => <em className="italic">{children}</em>,
-  code: ({ children }) => (
-    <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">{children}</code>
-  ),
-  del: ({ children }) => <del className="line-through">{children}</del>,
-  a: ({ href, children }) => (
-    <a
-      href={href}
-      className="text-primary underline"
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      {children}
-    </a>
-  ),
-  // Block elements render as plain inline text
-  h1: ({ children }) => <span>{children}</span>,
-  h2: ({ children }) => <span>{children}</span>,
-  h3: ({ children }) => <span>{children}</span>,
-  h4: ({ children }) => <span>{children}</span>,
-  h5: ({ children }) => <span>{children}</span>,
-  h6: ({ children }) => <span>{children}</span>,
-  blockquote: ({ children }) => <span>{children}</span>,
-  pre: ({ children }) => <span>{children}</span>,
-  ul: ({ children }) => <span>{children}</span>,
-  ol: ({ children }) => <span>{children}</span>,
-  li: ({ children }) => <span>{children} </span>,
-  hr: () => null,
-  table: ({ children }) => <span>{children}</span>,
-  thead: ({ children }) => <span>{children}</span>,
-  tbody: ({ children }) => <span>{children}</span>,
-  tr: ({ children }) => <span>{children}</span>,
-  th: ({ children }) => <span>{children} </span>,
-  td: ({ children }) => <span>{children} </span>,
-  p: ({ children }) => <span>{children}</span>,
+// Convert markdown to HTML for inline rendering
+function markdownToHtml(text: string): string {
+  if (!text) return ""
+
+  let html = text
+    // Escape HTML first
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+
+  // Bold: **text** or __text__ (non-greedy, no nesting)
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-semibold">$1</strong>')
+  html = html.replace(/__([^_]+)__/g, '<strong class="font-semibold">$1</strong>')
+
+  // Italic: *text* or _text_ (non-greedy, avoid matching bold markers)
+  html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em class="italic">$1</em>')
+  html = html.replace(/(?<!_)_([^_]+)_(?!_)/g, '<em class="italic">$1</em>')
+
+  // Strikethrough: ~~text~~
+  html = html.replace(/~~([^~]+)~~/g, '<del class="line-through">$1</del>')
+
+  // Inline code: `text` (no nested backticks)
+  html = html.replace(/`([^`]+)`/g, '<code class="bg-muted rounded px-1 py-0.5 font-mono text-xs">$1</code>')
+
+  // Links: [text](url)
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-primary underline" target="_blank" rel="noopener noreferrer">$1</a>')
+
+  // Preserve newlines
+  html = html.replace(/\n/g, '<br>')
+
+  return html
+}
+
+// Convert HTML back to markdown for storage
+function htmlToMarkdown(html: string): string {
+  if (!html) return ""
+
+  let text = html
+
+  // Convert <br> and divs to newlines
+  text = text.replace(/<br\s*\/?>/gi, '\n')
+  text = text.replace(/<\/div><div>/gi, '\n')
+  text = text.replace(/<div>/gi, '\n')
+  text = text.replace(/<\/div>/gi, '')
+
+  // Convert formatting tags back to markdown
+  text = text.replace(/<strong[^>]*>([^<]*)<\/strong>/gi, '**$1**')
+  text = text.replace(/<em[^>]*>([^<]*)<\/em>/gi, '*$1*')
+  text = text.replace(/<del[^>]*>([^<]*)<\/del>/gi, '~~$1~~')
+  text = text.replace(/<code[^>]*>([^<]*)<\/code>/gi, '`$1`')
+  text = text.replace(/<a[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi, '[$2]($1)')
+
+  // Remove any remaining HTML tags
+  text = text.replace(/<[^>]+>/g, '')
+
+  // Decode HTML entities
+  text = text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+
+  // Clean up multiple newlines at start
+  text = text.replace(/^\n+/, '')
+
+  return text
+}
+
+// Get cursor offset from start of element's text content
+function getCursorOffset(element: HTMLElement): number {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) return -1
+
+  const range = selection.getRangeAt(0)
+  if (!element.contains(range.startContainer)) return -1
+
+  const preCaretRange = range.cloneRange()
+  preCaretRange.selectNodeContents(element)
+  preCaretRange.setEnd(range.startContainer, range.startOffset)
+  return preCaretRange.toString().length
+}
+
+// Set cursor at specific text offset
+function setCursorOffset(element: HTMLElement, targetOffset: number) {
+  if (targetOffset < 0) return
+
+  const selection = window.getSelection()
+  if (!selection) return
+
+  let currentOffset = 0
+
+  function traverse(node: Node): boolean {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const len = node.textContent?.length || 0
+      if (currentOffset + len >= targetOffset) {
+        const range = document.createRange()
+        range.setStart(node, targetOffset - currentOffset)
+        range.collapse(true)
+        selection!.removeAllRanges()
+        selection!.addRange(range)
+        return true
+      }
+      currentOffset += len
+    } else {
+      for (const child of Array.from(node.childNodes)) {
+        if (traverse(child)) return true
+      }
+    }
+    return false
+  }
+
+  if (!traverse(element)) {
+    // Fallback: place cursor at end
+    const range = document.createRange()
+    range.selectNodeContents(element)
+    range.collapse(false)
+    selection.removeAllRanges()
+    selection.addRange(range)
+  }
 }
 
 type NotesFormProps = {
@@ -65,12 +144,27 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
     "idle" | "submitting" | "success" | "error"
   >("idle")
   const [note, setNote] = useState(existingNote || "")
+  const editorRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const isComposingRef = useRef(false)
 
+  // Initialize and update editor content
   useEffect(() => {
-    if (existingNote) {
-      setNote(existingNote)
+    if (editorRef.current) {
+      const content = existingNote || ""
+      editorRef.current.innerHTML = markdownToHtml(content)
+      setNote(content)
     }
   }, [existingNote])
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+      }
+    }
+  }, [])
 
   if (!isSupabaseEnabled) {
     return null
@@ -79,12 +173,101 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
   const handleClose = () => {
     setNote("")
     setStatus("idle")
+    if (editorRef.current) {
+      editorRef.current.innerHTML = ""
+    }
     onClose()
+  }
+
+  const processMarkdown = () => {
+    if (!editorRef.current || isComposingRef.current) return
+
+    const cursorOffset = getCursorOffset(editorRef.current)
+    const markdown = htmlToMarkdown(editorRef.current.innerHTML)
+
+    setNote(markdown)
+
+    const newHtml = markdownToHtml(markdown)
+    const currentHtml = editorRef.current.innerHTML
+
+    // Only update if HTML actually changed (prevents unnecessary reflows)
+    if (currentHtml !== newHtml) {
+      editorRef.current.innerHTML = newHtml
+      setCursorOffset(editorRef.current, cursorOffset)
+    }
+  }
+
+  const handleInput = () => {
+    if (!editorRef.current) return
+
+    // Update note state immediately for button enable/disable
+    const markdown = htmlToMarkdown(editorRef.current.innerHTML)
+    setNote(markdown)
+
+    // Debounce the markdown processing to avoid flickering
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
+    debounceRef.current = setTimeout(processMarkdown, 150)
+  }
+
+  const handleCompositionStart = () => {
+    isComposingRef.current = true
+  }
+
+  const handleCompositionEnd = () => {
+    isComposingRef.current = false
+    processMarkdown()
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+
+      const selection = window.getSelection()
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        range.deleteContents()
+
+        const br = document.createElement('br')
+        range.insertNode(br)
+
+        // Move cursor after the br
+        range.setStartAfter(br)
+        range.setEndAfter(br)
+        selection.removeAllRanges()
+        selection.addRange(range)
+      }
+
+      handleInput()
+    }
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault()
+    const text = e.clipboardData.getData('text/plain')
+
+    const selection = window.getSelection()
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      range.deleteContents()
+      range.insertNode(document.createTextNode(text))
+      range.collapse(false)
+      selection.removeAllRanges()
+      selection.addRange(range)
+    }
+
+    handleInput()
   }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!note.trim()) return
+
+    // Clear any pending debounce
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current)
+    }
 
     setStatus("submitting")
 
@@ -158,41 +341,33 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
             exit={{ opacity: 0, y: 10, filter: "blur(2px)" }}
             transition={TRANSITION_CONTENT}
           >
-            <motion.span
-              aria-hidden="true"
-              initial={{
-                opacity: 1,
-              }}
-              animate={{
-                opacity: note ? 0 : 1,
-              }}
-              transition={{
-                duration: 0,
-              }}
-              className="text-muted-foreground pointer-events-none absolute top-3.5 left-4 text-sm leading-[1.4] select-none"
-            >
-              Write your notes here...
-            </motion.span>
-            <textarea
-              className="text-foreground h-full min-h-[80px] w-full flex-1 resize-none rounded-md bg-transparent px-4 py-3.5 text-sm outline-hidden"
-              autoFocus
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              disabled={status === "submitting"}
-            />
-            {hasContent && (
-              <div className="border-border/50 border-t px-4 py-2">
-                <div className="text-foreground/90 max-h-[50px] overflow-y-auto text-sm leading-relaxed">
-                  <Streamdown components={NOTES_MARKDOWN_COMPONENTS}>
-                    {note}
-                  </Streamdown>
-                </div>
-              </div>
-            )}
-            <div
-              key="close"
-              className="flex justify-between pt-2 pr-3 pb-3 pl-2"
-            >
+            <div className="relative flex-1 overflow-hidden">
+              {!hasContent && (
+                <span
+                  aria-hidden="true"
+                  className="text-muted-foreground pointer-events-none absolute top-3.5 left-4 text-sm leading-[1.4] select-none"
+                >
+                  Write your notes here...
+                </span>
+              )}
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                className="text-foreground h-full w-full overflow-y-auto bg-transparent px-4 py-3.5 text-sm outline-none"
+                onInput={handleInput}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                onCompositionStart={handleCompositionStart}
+                onCompositionEnd={handleCompositionEnd}
+                style={{
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  overflowWrap: 'break-word'
+                }}
+              />
+            </div>
+            <div className="flex shrink-0 justify-between pt-2 pr-3 pb-3 pl-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -210,7 +385,7 @@ export function NotesForm({ messageId, existingNote, onClose }: NotesFormProps) 
                 size="sm"
                 aria-label="Save note"
                 className="rounded-lg"
-                disabled={status === "submitting" || !note.trim()}
+                disabled={status === "submitting" || !hasContent}
               >
                 <AnimatePresence mode="popLayout">
                   {status === "submitting" ? (
