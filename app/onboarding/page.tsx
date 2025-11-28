@@ -5,9 +5,11 @@ import { OnboardingForm } from "./onboarding-form"
 import { OnboardingFormData } from "@/app/api/onboarding/route"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
+import { useUser } from "@/lib/user-store/provider"
 
 export default function OnboardingPage() {
   const router = useRouter()
+  const { refreshUser } = useUser()
   const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
@@ -59,6 +61,9 @@ export default function OnboardingPage() {
       if (!response.ok) {
         throw new Error("Failed to save onboarding data")
       }
+
+      // Refresh user state to get updated onboarding_completed status
+      await refreshUser()
 
       // Redirect to home page
       router.push("/")
