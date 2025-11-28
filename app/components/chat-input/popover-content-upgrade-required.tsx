@@ -6,6 +6,12 @@ import { APP_NAME } from "@/lib/config"
 import Image from "next/image"
 
 export function PopoverContentUpgradeRequired() {
+  const handleSubscribe = () => {
+    window.dispatchEvent(
+      new CustomEvent("open-settings", { detail: { tab: "subscription" } })
+    )
+  }
+
   return (
     <PopoverContent
       className="w-[300px] overflow-hidden rounded-xl p-0"
@@ -23,9 +29,12 @@ export function PopoverContentUpgradeRequired() {
         <p className="text-primary mb-1 text-base font-medium">
           Upgrade to use Rōmy
         </p>
-        <p className="text-muted-foreground mb-5 text-base">
-          Subscribe to start chatting with AI models and unlock all features. Visit Settings → Subscription to view plans.
+        <p className="text-muted-foreground mb-3 text-base">
+          Subscribe to start chatting with AI models and unlock all features. Start with a free 2-week trial!
         </p>
+        <Button onClick={handleSubscribe} className="w-full">
+          Start Free Trial
+        </Button>
       </div>
     </PopoverContent>
   )
