@@ -4,7 +4,7 @@ import { toast } from "@/components/ui/toast"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { useStandaloneChatSession } from "@/lib/chat-store/session/standalone-provider"
 import type { Message as MessageAISDK } from "ai"
-import { createContext, useContext, useEffect, useState } from "react"
+import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { writeToIndexedDB } from "../persist"
 import {
   cacheMessages,
@@ -42,9 +42,10 @@ export function MessagesProvider({
   chatIdOverride?: string | null
 }) {
   const [messages, setMessages] = useState<MessageAISDK[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const urlSession = useChatSession()
   const standaloneSession = useStandaloneChatSession()
+  const prevChatIdRef = useRef<string | null | undefined>(undefined)
 
   // Priority: prop override > standalone context > URL-based context
   const chatId =
@@ -53,23 +54,37 @@ export function MessagesProvider({
       : standaloneSession.chatId ?? urlSession.chatId
 
   useEffect(() => {
+    // Track if this is initial mount (not a chatId change during navigation)
+    const isInitialMount = prevChatIdRef.current === undefined
+    prevChatIdRef.current = chatId
+
+    // Handle null chatId - clear messages
     if (chatId === null) {
       setMessages([])
       setIsLoading(false)
+      return
     }
-  }, [chatId])
 
-  useEffect(() => {
-    if (!chatId) return
+    let cancelled = false
 
     const load = async () => {
-      setIsLoading(true)
+      // Only show loading state on initial mount, not during navigation
+      // This prevents flash during chat-to-chat navigation
+      if (isInitialMount) {
+        setIsLoading(true)
+      }
+
       const cached = await getCachedMessages(chatId)
+      if (cancelled) return
+
+      // Set cached messages immediately - this is the key to preventing flash
+      // During navigation: old messages → cached messages (no empty state)
       setMessages(cached)
 
       try {
         const fresh = await getMessagesFromDb(chatId)
-        // Only update state if data changed to prevent flash on startup
+        if (cancelled) return
+        // Only update state if data changed to prevent unnecessary re-renders
         const hasChanged =
           cached.length !== fresh.length ||
           (fresh.length > 0 &&
@@ -81,11 +96,17 @@ export function MessagesProvider({
       } catch (error) {
         console.error("Failed to fetch messages:", error)
       } finally {
-        setIsLoading(false)
+        if (!cancelled) {
+          setIsLoading(false)
+        }
       }
     }
 
     load()
+
+    return () => {
+      cancelled = true
+    }
   }, [chatId])
 
   const refresh = async () => {

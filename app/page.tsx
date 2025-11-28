@@ -2,7 +2,6 @@
 
 import { ChatContainer } from "@/app/components/chat/chat-container"
 import { LayoutApp } from "@/app/components/layout/layout-app"
-import { MessagesProvider } from "@/lib/chat-store/messages/provider"
 import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/lib/user-store/provider"
 import { useQuery } from "@tanstack/react-query"
@@ -60,17 +59,15 @@ export default function Home() {
   }
 
   return (
-    <MessagesProvider>
-      <LayoutApp>
-        <ChatContainer
-          showWelcome={showWelcome}
-          firstName={firstName}
-          onWelcomeDismiss={() => {
-            setShowWelcome(false)
-            localStorage.setItem("hasSeenWelcome", "true")
-          }}
-        />
-      </LayoutApp>
-    </MessagesProvider>
+    <LayoutApp>
+      <ChatContainer
+        showWelcome={showWelcome}
+        firstName={firstName}
+        onWelcomeDismiss={() => {
+          setShowWelcome(false)
+          localStorage.setItem("hasSeenWelcome", "true")
+        }}
+      />
+    </LayoutApp>
   )
 }

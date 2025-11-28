@@ -5,6 +5,7 @@ import { SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ChatsProvider } from "@/lib/chat-store/chats/provider"
+import { MessagesProvider } from "@/lib/chat-store/messages/provider"
 import { ChatSessionProvider } from "@/lib/chat-store/session/provider"
 import { SplitViewProvider } from "@/lib/split-view-store/provider"
 import { ModelProvider } from "@/lib/model-store/provider"
@@ -65,8 +66,9 @@ export default async function RootLayout({
                 <ModelProvider>
                   <ChatsProvider userId={userProfile?.id}>
                     <ChatSessionProvider>
-                      <Suspense fallback={null}>
-                        <SplitViewProvider>
+                      <MessagesProvider>
+                        <Suspense fallback={null}>
+                          <SplitViewProvider>
                           <UserPreferencesProvider
                             userId={userProfile?.id}
                             initialPreferences={userProfile?.preferences}
@@ -90,8 +92,9 @@ export default async function RootLayout({
                               </TooltipProvider>
                             </MemoryProvider>
                           </UserPreferencesProvider>
-                        </SplitViewProvider>
-                      </Suspense>
+                          </SplitViewProvider>
+                        </Suspense>
+                      </MessagesProvider>
                     </ChatSessionProvider>
                   </ChatsProvider>
                 </ModelProvider>
