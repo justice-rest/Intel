@@ -21,7 +21,7 @@ import type { Message as MessageAISDK } from "@ai-sdk/react"
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
 import { Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { Header } from "./header"
 
 type MessageType = Tables<"messages">
@@ -198,11 +198,28 @@ export default function Article({
                       <MessageContent
                         markdown={true}
                         className={cn(
-                          message.role === "user" && "bg-blue-600 text-white",
+                          message.role === "user" &&
+                            "bg-[var(--color-blue-600)] text-white prose prose-p:my-0 w-fit max-w-full rounded-3xl px-5 py-2",
                           message.role === "assistant" &&
                             "prose dark:prose-invert w-full min-w-full bg-transparent",
                           "prose-h1:scroll-m-20 prose-h1:text-2xl prose-h1:font-semibold prose-h2:mt-8 prose-h2:scroll-m-20 prose-h2:text-xl prose-h2:mb-3 prose-h2:font-medium prose-h3:scroll-m-20 prose-h3:text-base prose-h3:font-medium prose-h4:scroll-m-20 prose-h5:scroll-m-20 prose-h6:scroll-m-20 prose-strong:font-medium prose-table:block prose-table:overflow-y-auto"
                         )}
+                        {...(message.role === "user" && {
+                          components: {
+                            code: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+                            pre: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+                            h1: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
+                            h2: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
+                            h3: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
+                            h4: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
+                            h5: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
+                            h6: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
+                            p: ({ children }: { children?: React.ReactNode }) => <p>{children}</p>,
+                            li: ({ children }: { children?: React.ReactNode }) => <p>- {children}</p>,
+                            ul: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+                            ol: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
+                          },
+                        })}
                       >
                         {message.content!}
                       </MessageContent>
