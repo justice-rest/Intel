@@ -149,7 +149,7 @@ export default function EmailAuthPage() {
       {/* Back Button */}
       <button
         onClick={() => router.push("/auth")}
-        className="fixed left-4 top-4 z-50 flex items-center gap-2 text-gray-600 transition-colors hover:text-gray-900 sm:left-8 sm:top-8"
+        className="fixed left-4 top-4 z-50 flex items-center gap-2 text-muted-foreground/70 transition-colors hover:text-foreground sm:left-8 sm:top-8"
       >
         <CaretLeft className="size-5" weight="bold" />
         <span className="text-sm font-medium">Back</span>
@@ -218,7 +218,7 @@ export default function EmailAuthPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="you@example.com"
                       disabled={isLoading}
-                      className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                      className="h-10 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 pb-2 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
                   </div>
 
@@ -238,7 +238,7 @@ export default function EmailAuthPage() {
                         placeholder="Enter your password"
                         disabled={isLoading}
                         minLength={6}
-                        className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="h-10 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 pb-2 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                   )}
@@ -259,7 +259,7 @@ export default function EmailAuthPage() {
                         placeholder="Confirm your password"
                         disabled={isLoading}
                         minLength={6}
-                        className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                        className="h-10 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 pb-2 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
                     </div>
                   )}

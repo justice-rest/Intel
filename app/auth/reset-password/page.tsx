@@ -155,7 +155,7 @@ function ResetPasswordContent() {
                     placeholder="Enter new password"
                     disabled={isLoading}
                     minLength={6}
-                    className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="h-10 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 pb-2 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
 
@@ -174,7 +174,7 @@ function ResetPasswordContent() {
                     placeholder="Confirm new password"
                     disabled={isLoading}
                     minLength={6}
-                    className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="h-10 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 pb-2 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
                 </div>
               </div>
