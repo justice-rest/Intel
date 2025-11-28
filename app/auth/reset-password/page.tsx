@@ -104,9 +104,9 @@ function ResetPasswordContent() {
       <main className="flex flex-1 flex-col items-center justify-center px-4 sm:px-6">
         <motion.div
           className="w-full max-w-lg space-y-8"
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <div className="text-center">
             <h1 className="text-foreground text-2xl font-medium tracking-tight sm:text-3xl">
@@ -204,7 +204,7 @@ function ResetPasswordContent() {
           <div className="text-center">
             <Link
               href="/auth"
-              className="text-muted-foreground hover:text-blue-600 text-sm transition-colors cursor-pointer"
+              className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer"
             >
               Back to sign in
             </Link>
@@ -217,7 +217,7 @@ function ResetPasswordContent() {
           By continuing, you agree to our{" "}
           <Link
             href="/terms"
-            className="text-foreground underline hover:text-blue-600 transition-colors cursor-pointer"
+            className="text-foreground underline hover:text-foreground/80 transition-colors cursor-pointer"
             target="_blank"
           >
             Terms of Service
@@ -225,7 +225,7 @@ function ResetPasswordContent() {
           and{" "}
           <Link
             href="/privacy"
-            className="text-foreground underline hover:text-blue-600 transition-colors cursor-pointer"
+            className="text-foreground underline hover:text-foreground/80 transition-colors cursor-pointer"
             target="_blank"
           >
             Privacy Policy

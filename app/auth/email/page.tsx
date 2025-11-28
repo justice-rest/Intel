@@ -160,10 +160,10 @@ export default function EmailAuthPage() {
           <AnimatePresence mode="wait">
             <motion.div
               key={showResetPassword ? "reset" : isSignUp ? "signup" : "signin"}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
             >
               <div className="text-center mb-8">
                 <h1 className="text-foreground text-2xl font-medium tracking-tight sm:text-3xl">
@@ -223,12 +223,7 @@ export default function EmailAuthPage() {
                   </div>
 
                   {!showResetPassword && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
+                    <div>
                       <Label htmlFor="password" className="text-lg font-medium text-foreground">
                         Password
                       </Label>
@@ -245,16 +240,11 @@ export default function EmailAuthPage() {
                         minLength={6}
                         className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
-                    </motion.div>
+                    </div>
                   )}
 
                   {isSignUp && !showResetPassword && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.2, delay: 0.1 }}
-                    >
+                    <div>
                       <Label htmlFor="confirm-password" className="text-lg font-medium text-foreground">
                         Confirm Password
                       </Label>
@@ -271,7 +261,7 @@ export default function EmailAuthPage() {
                         minLength={6}
                         className="h-14 rounded-none border-b-2 border-l-0 border-r-0 border-t-0 border-border !bg-transparent px-0 text-lg text-foreground shadow-none placeholder:text-muted-foreground focus-visible:border-blue-600 focus-visible:ring-0 focus-visible:ring-offset-0"
                       />
-                    </motion.div>
+                    </div>
                   )}
                 </div>
 
@@ -306,13 +296,13 @@ export default function EmailAuthPage() {
                         setError(null)
                         setSuccess(null)
                       }}
-                      className="text-muted-foreground hover:text-blue-600 text-sm transition-colors cursor-pointer"
+                      className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer"
                     >
                       Back to sign in
                     </button>
                   </div>
                 ) : (
-                  <div className="text-center">
+                  <div className="text-center space-y-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -320,12 +310,23 @@ export default function EmailAuthPage() {
                         setError(null)
                         setSuccess(null)
                       }}
-                      className="text-muted-foreground hover:text-blue-600 text-sm transition-colors cursor-pointer"
+                      className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer"
                     >
                       {isSignUp
                         ? "Already have an account? Sign in"
                         : "Don't have an account? Sign up"}
                     </button>
+                    {!isSignUp && (
+                      <p>
+                        <button
+                          type="button"
+                          onClick={() => setShowResetPassword(true)}
+                          className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer"
+                        >
+                          Forgot password?
+                        </button>
+                      </p>
+                    )}
                   </div>
                 )}
               </form>
@@ -334,23 +335,12 @@ export default function EmailAuthPage() {
         </div>
       </main>
 
-      <footer className="text-muted-foreground py-6 text-center text-sm space-y-3">
-        {!showResetPassword && !isSignUp && (
-          <p>
-            <button
-              type="button"
-              onClick={() => setShowResetPassword(true)}
-              className="text-foreground hover:text-blue-600 transition-colors cursor-pointer underline"
-            >
-              Forgot password?
-            </button>
-          </p>
-        )}
+      <footer className="text-muted-foreground py-6 text-center text-sm">
         <p>
           By continuing, you agree to our{" "}
           <Link
             href="/terms"
-            className="text-foreground underline hover:text-blue-600 transition-colors cursor-pointer"
+            className="text-foreground underline hover:text-foreground/80 transition-colors cursor-pointer"
             target="_blank"
           >
             Terms of Service
@@ -358,7 +348,7 @@ export default function EmailAuthPage() {
           and{" "}
           <Link
             href="/privacy"
-            className="text-foreground underline hover:text-blue-600 transition-colors cursor-pointer"
+            className="text-foreground underline hover:text-foreground/80 transition-colors cursor-pointer"
             target="_blank"
           >
             Privacy Policy

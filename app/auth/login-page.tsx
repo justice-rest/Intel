@@ -99,13 +99,13 @@ export default function LoginPage() {
           )}
           <div className="mt-8 space-y-3">
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3, duration: 0.4 }}
+              transition={{ delay: 0.2, duration: 0.2, ease: "easeOut" }}
             >
               <Button
                 variant="secondary"
-                className="w-full text-base sm:text-base border-2 border-transparent transition-all hover:border-blue-600/50 hover:bg-blue-600/5"
+                className="w-full text-base sm:text-base"
                 size="lg"
                 onClick={handleSignInWithGoogle}
                 disabled={isLoading}
@@ -124,13 +124,13 @@ export default function LoginPage() {
             </motion.div>
 
             <motion.div
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.4 }}
+              transition={{ delay: 0.25, duration: 0.2, ease: "easeOut" }}
             >
               <Button
                 variant="secondary"
-                className="w-full text-base sm:text-base border-2 border-transparent transition-all hover:border-blue-600/50 hover:bg-blue-600/5"
+                className="w-full text-base sm:text-base"
                 size="lg"
                 onClick={() => router.push("/auth/email")}
               >
