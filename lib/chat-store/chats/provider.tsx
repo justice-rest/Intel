@@ -67,7 +67,18 @@ export function ChatsProvider({
 
       try {
         const fresh = await fetchAndCacheChats(userId)
-        setChats(fresh)
+        // Only update state if data changed to prevent flash on startup
+        const cachedIds = new Set(cached.map((c) => c.id))
+        const cachedUpdates = new Map(cached.map((c) => [c.id, c.updated_at]))
+        const hasChanged =
+          cached.length !== fresh.length ||
+          fresh.some(
+            (c) =>
+              !cachedIds.has(c.id) || cachedUpdates.get(c.id) !== c.updated_at
+          )
+        if (hasChanged) {
+          setChats(fresh)
+        }
       } finally {
         setIsLoading(false)
       }

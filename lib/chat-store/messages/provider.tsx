@@ -69,7 +69,14 @@ export function MessagesProvider({
 
       try {
         const fresh = await getMessagesFromDb(chatId)
-        setMessages(fresh)
+        // Only update state if data changed to prevent flash on startup
+        const hasChanged =
+          cached.length !== fresh.length ||
+          (fresh.length > 0 &&
+            fresh.some((m) => !cached.find((c) => c.id === m.id)))
+        if (hasChanged) {
+          setMessages(fresh)
+        }
         cacheMessages(chatId, fresh)
       } catch (error) {
         console.error("Failed to fetch messages:", error)
