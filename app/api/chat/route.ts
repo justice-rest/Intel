@@ -9,7 +9,7 @@ import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, ToolSet } from "ai"
+import { Message as MessageAISDK, streamText, ToolSet, smoothStream } from "ai"
 import {
   incrementMessageCount,
   logUserMessage,
@@ -237,6 +237,20 @@ You have access to the searchWeb tool. The user has enabled web search for this 
       maxSteps: 25,
       maxTokens: AI_MAX_OUTPUT_TOKENS,
       experimental_telemetry: { isEnabled: false },
+
+      /**
+       * OPTIMIZATION: Smooth streaming for better perceived performance
+       * Providers sometimes send chunks in irregular bursts.
+       * smoothStream creates a more consistent, natural text flow.
+       *
+       * Using 'word' chunking to ensure complete words are sent,
+       * avoiding partial word renders that look jarring.
+       */
+      experimental_transform: smoothStream({
+        chunking: "word",
+        delayInMs: 10, // Small delay for smooth word-by-word rendering
+      }),
+
       onError: (err: unknown) => {
         console.error("[Chat API] Streaming error:", err)
       },

@@ -13,6 +13,7 @@ import {
   CreditCardIcon,
   XIcon,
   HardDrives,
+  GraduationCap,
 } from "@phosphor-icons/react"
 import { useState, useEffect } from "react"
 import { SubscriptionSection } from "@/components/subscription/subscription-section"
@@ -27,8 +28,9 @@ import { OnboardingDataSection } from "./general/onboarding-data"
 import { UserProfile } from "./general/user-profile"
 import { DataSection } from "./data/data-section"
 import { MemoryList } from "@/app/components/memory"
+import { RewardsSection } from "@/app/components/quiz"
 
-export type TabType = "general" | "appearance" | "data" | "memory" | "subscription" | "connections"
+export type TabType = "general" | "appearance" | "data" | "memory" | "rewards" | "subscription" | "connections"
 
 type SettingsContentProps = {
   isDrawer?: boolean
@@ -111,6 +113,15 @@ export function SettingsContent({
                 )}
                 {isSupabaseEnabled && (
                   <TabsTrigger
+                    value="rewards"
+                    className="flex shrink-0 items-center gap-2"
+                  >
+                    <GraduationCap className="size-4" />
+                    <span>Rewards</span>
+                  </TabsTrigger>
+                )}
+                {isSupabaseEnabled && (
+                  <TabsTrigger
                     value="subscription"
                     className="flex shrink-0 items-center gap-2"
                   >
@@ -168,6 +179,10 @@ export function SettingsContent({
               )}
             </TabsContent>
 
+            <TabsContent value="rewards" className="space-y-6 px-6">
+              {isSupabaseEnabled && <RewardsSection />}
+            </TabsContent>
+
             <TabsContent value="subscription" className="space-y-6 px-6">
               {isSupabaseEnabled && <SubscriptionSection />}
             </TabsContent>
@@ -223,6 +238,18 @@ export function SettingsContent({
                     <div className="flex items-center gap-2">
                       <HardDrives className="size-4" />
                       <span>Memory</span>
+                    </div>
+                  </TabsTrigger>
+                )}
+
+                {isSupabaseEnabled && (
+                  <TabsTrigger
+                    value="rewards"
+                    className="w-full justify-start rounded-md px-3 py-2 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <GraduationCap className="size-4" />
+                      <span>Rewards</span>
                     </div>
                   </TabsTrigger>
                 )}
@@ -290,6 +317,10 @@ export function SettingsContent({
                     <MemoryList />
                   </div>
                 )}
+              </TabsContent>
+
+              <TabsContent value="rewards" className="mt-0 space-y-6">
+                {isSupabaseEnabled && <RewardsSection />}
               </TabsContent>
 
               <TabsContent value="subscription" className="mt-0 space-y-6">

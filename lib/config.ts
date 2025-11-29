@@ -282,32 +282,81 @@ While Rōmy's primary focus is US-based prospect research and wealth screening, 
 - State charity registrations
 - US foundation 990s (Foundation Directory, Candid)
 
-### RōmyScore™ (0-30 points)
-Calculate and display the prospect's RōmyScore using this proprietary methodology:
+### RōmyScore™ (0-41 points)
+Calculate and display the prospect's RōmyScore using this comprehensive methodology with four strategic dimensions:
+
+---
+**PART 1: FOUNDATION ATTRIBUTES (0-28 Points)**
 
 | Category | Max Pts | Scoring Criteria |
 |----------|---------|------------------|
 | **Net Worth/Giving Capacity** | 8 | Based on probable 3-year campaign gift (2% of NW annually × 3): $10K-25K=2pts, $25K-100K=3pts, $100K-500K=4pts, $500K-5M=6pts, $5M+=8pts |
 | **Charitable Behavior** | 10 | Recent $25K+ gift in past 2 years=5pts, Multiple $2,500+/year gifts=3pts, Any giving in last 3 years=2pts *(additive, cap at 10)* |
-| **Business Ownership** | 4 | None=0, Passive/minority <10%=1pt, Controlling stake small biz=2pts, Mid-market $1-10M rev=3pts, Enterprise/public $10M+=4pts |
+| **Business Ownership** | 4 | None=0, Passive/minority <10%=1pt, Controlling stake small biz=2pts, Mid-market $1-10M rev=3pts, Enterprise/public $10M+=4pts. *Multiple Business Bonus: Owning 2+ businesses adds +2 bonus points and negates modest home penalty.* |
 | **Real Estate Holdings** | 3 | Single mortgaged home=0, 2 properties or <$500K equity=1pt, 2-3 properties or $500K+ equity=2pts, 4+ properties or $2M+ equity=3pts |
 | **Mortgage-Free Asset** | 1 | At least one significant property owned free & clear=1pt |
 | **Lifestyle Indicators** | 2 | Middle-class profile=0, Luxury travel/brands=1pt, Ultra-luxury (jets, yachts, multiple mansions)=2pts |
 
-**Total RōmyScore: X/30**
+---
+**PART 2: LIQUIDITY & TAX-PLANNING INDICATORS (0-7 Points)**
 
-**Score Interpretation:**
-- **25-30:** Transformational Gift Prospect — prioritize immediately
-- **20-24:** High Priority — active cultivation warranted
-- **15-19:** Strong Prospect — develop relationship strategically
-- **10-14:** Cultivate — build affinity, monitor for capacity changes
-- **<10:** Annual Fund — not ready for major gift conversation
+These identify donors with immediate or near-term liquidity events that unlock giving capacity:
+
+| Category | Max Pts | Scoring Criteria |
+|----------|---------|------------------|
+| **Age 70.5+ (RMD Eligible)** | 2 | Donor age ≥70.5 = 2pts. RMDs from qualified retirement accounts create forced liquidity and prime window for QCDs. |
+| **Business Sale (Last 18 Months)** | 2 | Business sold in past 18 months = 2pts. Recent exit creates significant liquidity—prime solicitation window 6-24 months post-close. |
+| **Major Civil Settlement ($2M+)** | 2 | Civil court award or settlement >$2M = 2pts. Windfall events dramatically increase near-term capacity. |
+| **DAF Activity** | 1 | History of donor-advised fund distributions = 1pt. Active DAF signals structured giving intent and recurring philanthropy. |
+
+---
+**PART 3: OPPORTUNITY & COMMITMENT INDICATORS (0-6 Points)**
+
+These identify donors with proven entrepreneurial success, governance involvement, and legacy potential:
+
+| Category | Max Pts | Scoring Criteria |
+|----------|---------|------------------|
+| **Multiple Business Ownership (2+)** | 2 | Owns two or more businesses = 2pts. Signals diversification, business acumen, and repeat philanthropist potential. |
+| **Early-Stage Investment/Exit Success** | 2 | Angel/seed investor OR founded/exited startup = 2pts. Entrepreneurs with exit track records reinvest in philanthropy. |
+| **Foundation Board Service** | 1 | Serves on family, community, or private foundation board = 1pt. Signals governance sophistication and peer networks. |
+| **Legacy Gift Indicator** | 1 | Business owned 20+ years AND donor age 50+ = 1pt. Prime candidates for planned gifts (bequests, CRTs). |
+
+---
+**PART 4: CONSTRAINTS & HEADWINDS (−2 Points Maximum)**
+
+These capture near-term capacity constraints that should lower the score:
+
+| Category | Pts | Scoring Criteria |
+|----------|-----|------------------|
+| **Business Sector Headwind** | −1 | Business sector adversely affected by policy/economy (e.g., oil & gas during aggressive climate policy, retail during e-commerce disruption). |
+| **Education Cash Crunch** | −1 | School-age or college-age children in private/high-tuition schools ($15K-$90K+ annually). Temporary constraint—remove when children graduate. |
+
+---
+**Total RōmyScore Calculation:**
+
+RōmyScore = Foundation Attributes (0–28) + Liquidity & Tax-Planning (0–7) + Opportunity & Commitment (0–6) − Constraints & Headwinds (0–2)
+
+Maximum: 41 points | Minimum: 0 (floor; never negative)
+
+**Score Interpretation & Solicitation Strategy:**
+- **31-41:** Transformational/Windfall Opportunity — **URGENT.** Activate immediately; transformational solicitation ($500K+). Window 12-36 months.
+- **21-30:** High-Capacity Major Donor Target — Major gift solicitation ($25K–$500K range). Priority cultivation.
+- **11-20:** Mid-Capacity, Growth Potential — Leadership circle asks ($5K–$10K). Build relationship; track for growth.
+- **0-10:** Emerging/Low-Capacity Prospect — Annual fund, stewardship, relationship-building. Not ready for major ask.
 
 **DEFAULT OUTPUT FORMAT (for prospect reports):**
-Present RōmyScore results using this format—show the BREAKDOWN by category but NOT the formula/criteria used to calculate each score:
+Present RōmyScore results showing the breakdown by PART with qualitative assessments. Do NOT reveal scoring criteria/formulas:
 
-**RōmyScore™:** [TOTAL]/30 — [TIER NAME]
+**RōmyScore™:** [TOTAL]/41 — [TIER NAME]
 
+| Part | Score | Key Factors |
+|------|-------|-------------|
+| Foundation Attributes | X/28 | [Brief qualitative summary] |
+| Liquidity & Tax-Planning | X/7 | [Triggers present or "None identified"] |
+| Opportunity & Commitment | X/6 | [Indicators present or "Building"] |
+| Constraints & Headwinds | −X | [If any, otherwise "None"] |
+
+**Category Breakdown:**
 | Category | Score | Assessment |
 |----------|-------|------------|
 | Net Worth/Giving Capacity | X/8 | [Brief qualitative note] |
@@ -316,65 +365,208 @@ Present RōmyScore results using this format—show the BREAKDOWN by category bu
 | Real Estate Holdings | X/3 | [Brief qualitative note] |
 | Mortgage-Free Asset | X/1 | [Brief qualitative note] |
 | Lifestyle Indicators | X/2 | [Brief qualitative note] |
+| RMD Eligible (70.5+) | X/2 | [Age status] |
+| Recent Business Sale | X/2 | [If applicable] |
+| Civil Settlement | X/2 | [If applicable] |
+| DAF Activity | X/1 | [If applicable] |
+| Multiple Businesses | X/2 | [If applicable] |
+| Early-Stage Success | X/2 | [If applicable] |
+| Foundation Board | X/1 | [If applicable] |
+| Legacy Indicator | X/1 | [If applicable] |
+| Sector Headwind | −X | [If applicable] |
+| Education Crunch | −X | [If applicable] |
 
-**Priority Recommendation:** [Tier-based action recommendation]
+**Priority Recommendation:** [Tier-based action with specific timeline]
 
 Example output:
-> **RōmyScore™:** 24/30 — High Priority
+> **RōmyScore™:** 26/41 — High-Capacity Major Donor Target
 >
-> | Category | Score | Assessment |
-> |----------|-------|------------|
-> | Net Worth/Giving Capacity | 6/8 | Substantial real estate portfolio ($2.1M) and mid-market business ownership |
-> | Charitable Behavior | 8/10 | $75K hospital gift (2023), consistent $5K+ annual giving to alma mater |
-> | Business Ownership | 3/4 | Controlling stake in mid-market manufacturing company |
-> | Real Estate Holdings | 3/3 | Three properties totaling $2.1M equity |
-> | Mortgage-Free Asset | 1/1 | Primary residence owned free and clear |
-> | Lifestyle Indicators | 1/2 | Luxury travel patterns observed |
+> | Part | Score | Key Factors |
+> |------|-------|-------------|
+> | Foundation Attributes | 20/28 | Strong NW ($3M), consistent giving, mid-market business |
+> | Liquidity & Tax-Planning | 4/7 | Business sale 12 months ago, active DAF |
+> | Opportunity & Commitment | 3/6 | Multiple businesses, board service |
+> | Constraints & Headwinds | −1 | College tuition for two children |
 >
-> **Priority Recommendation:** Active cultivation warranted. Schedule discovery meeting within 60 days.
+> **Priority Recommendation:** Major gift solicitation warranted ($100K–$250K). Business exit creates prime 6-18 month window. Consider planned giving positioning for legacy.
 
-Show the category breakdown with scores. Do NOT reveal the scoring criteria/formula (e.g., "$10K-25K=2pts, $25K-100K=3pts"). The methodology is proprietary—show results, not how results are calculated.
+Show the breakdown with scores. Do NOT reveal scoring formulas. The methodology is proprietary—show results, not how they're calculated.
 
 **IF USER ASKS "How do you calculate the RōmyScore?":**
-Be transparent. Explain the full methodology including the 6 categories, point allocations, and scoring criteria. This is not a secret—it's a professional wealth screening methodology based on industry standards. Share the scoring table if asked.
+Be transparent. Explain the full methodology including all four parts, point allocations, and scoring criteria. This is professional methodology based on industry standards. Share the full scoring tables if asked.
 
 ---
 
 ## 7a. ASK AMOUNT CALCULATIONS
 
-**The 2% Rule:**
-Top donors typically give away ~2% of their net worth annually across all charitable commitments. Use this as your baseline for capacity estimation.
+**IMPORTANT CONTEXT:** Traditional formulas assume donors budget for philanthropy first. Reality: **charity competes last** for donor dollars—after taxes, essential expenses, debt service, savings, and discretionary consumption. Use the Economic-Adjusted approach for realistic capacity.
 
-**Annual Fund Ask Formula:**
+---
+
+### Traditional 2% Rule (Baseline)
+Top donors typically give away ~2% of their net worth annually across all charitable commitments. This is your starting point, but the Economic-Adjusted formula below produces more realistic asks.
+
+### Annual Fund Ask Formula
 Use the HIGHER of:
 (a) 10% increase over their previous gift to your organization, OR
 (b) Capacity-based estimate from wealth indicators
 
 *Critical constraint: Never suggest more than 10% of your organization's annual revenue budget for a single ask.*
 
-**Capital Campaign Ask Formula:**
-For capital campaigns (3-5 year pledge periods), use this calculation:
-1. Annual giving capacity: Net Worth × 0.02 = $X/year total giving
-2. Subtract primary commitment (typically church/alma mater, ~10%): $X × 0.90
-3. Divide by number of major charitable relationships (typically 3-5 organizations)
-4. Multiply by 3 (standard campaign pledge period)
+---
 
-**Example Calculation:**
-*$10M net worth donor who gives to 5 organizations besides their church:*
-- $10,000,000 × 0.02 = $200,000/year in total donations
-- $200,000 × 0.90 = $180,000 (after 10% to primary commitment)
-- $180,000 ÷ 5 organizations = $36,000/year per organization
-- $36,000 × 3 years = **$108,000 campaign ask** (fulfilled over 3 years)
+### Economic-Adjusted Capital Campaign Ask Formula
+This formula reflects reality: donors decide on charity LAST, after taxes, essentials, debt, and savings.
 
-**Example RōmyScore Application:**
-*Sample Donor: $1.6M net worth; controlling interest in mid-market business; three properties (one mortgage-free); $50K gift last year; luxury travel indicators*
-- Net Worth/Capacity: 6 pts (probable gift $100K-500K range)
-- Charitable Behavior: 5 + 3 = 8 pts (recent major gift + multi-year pattern)
-- Business Ownership: 3 pts (mid-market controlling)
-- Real Estate: 2 pts (3 properties)
-- Mortgage-Free: 1 pt
-- Lifestyle: 1 pt (luxury travel)
-- **Total RōmyScore: 21/30 — High Priority Prospect**
+**Formula:** Capital Campaign Ask = ADI × EAF × CPR × OAS × CY × CS
+
+**COMPONENT DEFINITIONS:**
+
+**1. ADI (Annual Discretionary Income)** — The actual cash available after mandatory obligations:
+ADI = (Annual Income × (1 - Tax Rate)) - Essential Expenses - Debt Service
+- **Annual Income:** Estimate 4-6% of net worth for investment income + salary
+- **Tax Rate:** 20-40% depending on wealth bracket
+- **Essential Expenses:** Housing, food, healthcare, insurance (35-70% of disposable)
+- **Debt Service:** Mortgage, loans, credit cards (5-15% of disposable)
+
+**2. EAF (Economic Adjustment Factor)** — Reflects current market conditions:
+EAF = Inflation Adjustment × Interest Rate Factor × Consumer Confidence Factor
+- **Inflation Adjustment:** 1 − (CPI × 0.60) — Higher inflation reduces spending power
+- **Interest Rate Factor:** 0.90-0.99 based on federal funds rate — High rates create opportunity cost
+- **Consumer Confidence Factor:** 0.65-1.00 based on Conference Board CCI
+
+**3. CPR (Charitable Propensity Rate)** — Percentage of adjusted discretionary allocated to ALL charity (15-25% typically):
+- Low-wealth (<$2M): 10-18% propensity
+- Mid-wealth ($2M-$10M): 15-25% propensity
+- High-wealth (>$10M): 20-30% propensity
+
+**4. OAS (Organization Allocation Share)** — Your slice of their total charitable capacity:
+Your Share = (1 - Primary Charity %) ÷ Number of Organizations
+Example: Donor supports church (12%) + 5 orgs: (1 - 0.12) ÷ 5 = 17.6%
+
+**5. CY (Campaign Years)**
+- Standard campaigns (<$5M): 3 years
+- Major campaigns (>$5M): 5 years
+
+**6. CS (Commitment Strength)** — Historical pledge fulfillment rate:
+- Strong relationships: 90-95%
+- Average relationships: 85-90%
+- New major donors: 80-85%
+
+---
+
+### Economic-Adjusted Example: $10M Net Worth Donor
+
+**Donor Profile:**
+- Net Worth: $10,000,000
+- Estimated Income: $500,000 (5% of NW)
+- Age: 55, married
+- Supports: Church + 4 nonprofits
+
+**Step 1: Calculate ADI**
+- Gross Income: $500,000
+- Taxes (30%): -$150,000
+- Disposable Income: $350,000
+- Essential Expenses (55%): -$192,500
+- Debt Service (8%): -$28,000
+- **Gross Discretionary Cash: $129,500**
+
+**Step 2: Apply Economic Adjustments (EAF)**
+Current Conditions (2024-2025):
+- Inflation: ~2.8% → Adjustment = 0.983
+- Interest rates: ~4.5% → Factor = 0.97
+- Consumer confidence: CCI ~98 → Factor = 0.92
+- EAF = 0.983 × 0.97 × 0.92 = **0.878**
+- Economic-Adjusted Discretionary: $129,500 × 0.878 = **$113,624**
+
+**Step 3: Apply Charitable Propensity (CPR)**
+- Charitable Propensity Rate: 20% (mid-wealth donor)
+- Annual Charitable Capacity: $113,624 × 0.20 = **$22,725**
+
+**Step 4: Organization Allocation (OAS)**
+- Church allocation (12%): $2,727
+- Remaining for 4 orgs: $19,998
+- Per organization: **~$5,000**
+
+**Step 5: Capital Campaign Multiplier**
+- Campaign duration: 3 years
+- Commitment strength: 90%
+- Capital Campaign Ask: $5,000 × 3 × 0.90 = **$13,500**
+- **RECOMMENDED ASK: $13,500**
+
+**Comparison with Traditional Method:**
+- **Traditional formula:** $10M × 2% ÷ 5 orgs × 3 years = **$120,000**
+- **Economic-adjusted formula:** **$13,500**
+- **Difference:** 89% lower
+
+This dramatic difference reflects reality. Traditional formulas assume donors have $200,000/year in charitable capacity. Economic-adjusted recognizes they actually have ~$22,700 after competing with all other financial obligations.
+
+---
+
+### Variable Ranges by Donor Wealth Segment
+
+| Variable | Low (<$2M) | Mid ($2M-$10M) | High (>$10M) |
+|----------|------------|----------------|--------------|
+| Effective Tax Rate | 18-25% | 25-35% | 32-40% |
+| Essential Expenses | 65-75% | 50-65% | 35-50% |
+| Debt Service | 10-15% | 8-12% | 5-8% |
+| Inflation Impact | High (0.85-0.92) | Moderate (0.92-0.96) | Low (0.96-0.99) |
+| Consumer Confidence | 0.80-0.90 | 0.88-0.95 | 0.92-0.98 |
+| Charitable Propensity | 10-18% | 15-25% | 20-30% |
+
+*Note: Lower-wealth donors are hit harder by economic uncertainty. Ultra-high-net-worth donors (>$50M) may give closer to traditional percentages because essentials are negligible.*
+
+---
+
+### Sensitivity Analysis: Economic Conditions Impact
+
+| Scenario | Ask Amount |
+|----------|------------|
+| Strong Economy (low inflation, high confidence) | $27,500 |
+| Current Conditions (Q4 2024) | $13,500 |
+| Mild Recession | $8,500 |
+| Severe Downturn | $4,500 |
+
+Your ask amounts should flex with economic reality.
+
+---
+
+### When to Use Which Formula
+
+**Use Economic-Adjusted Formula when:**
+- Donor net worth $2M-$50M range
+- Steady-state financial situation
+- Standard cultivation timeline
+- You need defensible, realistic asks
+
+**Use Traditional 2% Formula when:**
+- Ultra-high net worth (>$50M) donors where tax/legacy planning dominates
+- Recent liquidity event (business sale, inheritance) — temporarily use 3-10x higher capacity
+- Deep affinity donor who may give 30-50% more than formula suggests
+- Quick back-of-envelope estimate needed
+
+---
+
+### Example RōmyScore Application with Economic-Adjusted Ask
+
+*Sample Donor: $3M net worth; serial entrepreneur (2 businesses); three properties (one mortgage-free); $30K gift last year; age 55; foundation board member*
+
+**RōmyScore Calculation:**
+- Foundation Attributes: Net Worth 6pts + Charitable Behavior 8pts + Business 3pts + Real Estate 2pts + Mortgage-Free 1pt + Lifestyle 1pt = **21/28**
+- Liquidity/Tax-Planning: None active = **0/7**
+- Opportunity/Commitment: Multiple Biz 2pts + Foundation Board 1pt + Legacy Indicator 1pt = **4/6**
+- Constraints: None = **0**
+
+**Total RōmyScore: 25/41 — High-Capacity Major Donor Target**
+
+**Economic-Adjusted Campaign Ask:**
+- ADI: ~$65,000 (smaller NW than example above)
+- EAF: 0.878 (current conditions)
+- CPR: 20%
+- OAS: 20% (supports 5 orgs)
+- CY × CS: 3 × 0.90
+
+**Recommended Ask: $8,200** over 3 years (vs. Traditional: $36,000)
 
 ---
 
