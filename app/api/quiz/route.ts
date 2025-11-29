@@ -1,9 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import {
-  QUIZ_QUESTIONS,
   getQuestionOfTheDay,
-  MAX_MONTHLY_BONUS,
   getQuestionById,
 } from "@/lib/quiz/questions"
 
@@ -19,21 +17,19 @@ interface QuizProgress {
   answered_at: string
 }
 
-interface MonthlyLimit {
-  id: string
-  user_id: string
-  month_year: string
-  total_bonus_earned: number
-}
+// Penalty for wrong answers (negative bonus)
+const WRONG_ANSWER_PENALTY = 3
+
+// Maximum bonus credits a user can have (rollover allowed, but capped)
+const MAX_BONUS_CREDITS = 100
 
 /**
  * GET /api/quiz
  *
  * Returns quiz data including:
- * - Question of the day
- * - All available questions
- * - User's progress (which questions they've answered)
- * - Current month's bonus balance and remaining capacity
+ * - Question of the day (only one question per day)
+ * - Whether user has already answered today's question
+ * - Current bonus balance (rolls over, capped at 100)
  */
 export async function GET() {
   try {
@@ -53,22 +49,16 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get current month for tracking
-    const now = new Date()
-    const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+    // Get question of the day
+    const questionOfTheDay = getQuestionOfTheDay()
 
-    // Fetch user's quiz progress and monthly limit in parallel
-    // Using type assertions since these tables may not be in generated types yet
-    const [progressResult, monthlyResult, userResult] = await Promise.all([
+    // Fetch user's progress for today's question and bonus balance in parallel
+    const [progressResult, userResult] = await Promise.all([
       supabase
         .from("user_quiz_progress" as any)
         .select("question_id, answered_correctly, bonus_messages_earned, answered_at")
-        .eq("user_id", user.id) as any,
-      supabase
-        .from("user_quiz_monthly_limits" as any)
-        .select("total_bonus_earned")
         .eq("user_id", user.id)
-        .eq("month_year", monthYear)
+        .eq("question_id", questionOfTheDay.id)
         .maybeSingle() as any,
       supabase
         .from("users")
@@ -77,45 +67,8 @@ export async function GET() {
         .single(),
     ])
 
-    // Handle errors gracefully - these tables may not exist yet
-    const progress: QuizProgress[] = progressResult.error ? [] : (progressResult.data || [])
-    const monthlyBonusEarned: number = monthlyResult.error ? 0 : (monthlyResult.data?.total_bonus_earned || 0)
-    // Handle case where bonus_messages column doesn't exist yet
+    const todayProgress: QuizProgress | null = progressResult.data || null
     const currentBonusBalance: number = userResult.error ? 0 : ((userResult.data as any)?.bonus_messages || 0)
-
-    // Build a map of answered questions
-    const answeredQuestions = new Map(
-      progress.map((p) => [p.question_id, p])
-    )
-
-    // Get question of the day
-    const questionOfTheDay = getQuestionOfTheDay()
-
-    // Build questions list with completion status (without revealing answers)
-    const questionsWithStatus = QUIZ_QUESTIONS.map((q) => {
-      const answered = answeredQuestions.get(q.id)
-      return {
-        id: q.id,
-        level: q.level,
-        category: q.category,
-        question: q.question,
-        options: q.options,
-        bonusMessages: q.bonusMessages,
-        // Only include answer-related info if already answered
-        answered: !!answered,
-        answeredCorrectly: answered?.answered_correctly ?? null,
-        earnedBonus: answered?.bonus_messages_earned ?? 0,
-      }
-    })
-
-    // Calculate stats
-    const totalQuestionsAnswered = progress.length
-    const totalCorrect = progress.filter((p) => p.answered_correctly).length
-    const totalBonusEarned = progress.reduce(
-      (sum, p) => sum + (p.bonus_messages_earned || 0),
-      0
-    )
-    const remainingMonthlyCapacity = Math.max(0, MAX_MONTHLY_BONUS - monthlyBonusEarned)
 
     return NextResponse.json({
       questionOfTheDay: {
@@ -125,19 +78,13 @@ export async function GET() {
         question: questionOfTheDay.question,
         options: questionOfTheDay.options,
         bonusMessages: questionOfTheDay.bonusMessages,
-        answered: answeredQuestions.has(questionOfTheDay.id),
+        penalty: WRONG_ANSWER_PENALTY,
+        answered: !!todayProgress,
+        answeredCorrectly: todayProgress?.answered_correctly ?? null,
+        earnedBonus: todayProgress?.bonus_messages_earned ?? 0,
       },
-      questions: questionsWithStatus,
-      stats: {
-        totalQuestions: QUIZ_QUESTIONS.length,
-        totalAnswered: totalQuestionsAnswered,
-        totalCorrect,
-        totalBonusEarned,
-        currentBonusBalance,
-        monthlyBonusEarned,
-        remainingMonthlyCapacity,
-        maxMonthlyBonus: MAX_MONTHLY_BONUS,
-      },
+      currentBonusBalance,
+      maxBonusCredits: MAX_BONUS_CREDITS,
     })
   } catch (error) {
     console.error("[Quiz API] Error fetching quiz data:", error)
@@ -152,6 +99,8 @@ export async function GET() {
  * POST /api/quiz
  *
  * Submit an answer to a quiz question
+ * - Correct answer: +bonusMessages points
+ * - Wrong answer: -3 points (penalty)
  *
  * Body: { questionId: string, answer: string }
  */
@@ -208,26 +157,26 @@ export async function POST(request: Request) {
     // Check answer
     const isCorrect = answer === question.correctAnswer
 
-    // Get current month
-    const now = new Date()
-    const monthYear = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+    // Get current user bonus balance
+    const { data: currentUser } = await supabase
+      .from("users")
+      .select("bonus_messages" as any)
+      .eq("id", user.id)
+      .single()
 
-    // Get current monthly bonus
-    const { data: monthlyData } = await (supabase
-      .from("user_quiz_monthly_limits" as any)
-      .select("total_bonus_earned")
-      .eq("user_id", user.id)
-      .eq("month_year", monthYear)
-      .maybeSingle() as any)
+    const currentBonus = (currentUser as any)?.bonus_messages || 0
 
-    const currentMonthlyBonus = monthlyData?.total_bonus_earned || 0
+    // Calculate bonus: positive for correct (capped at 100), negative (penalty) for wrong
+    let bonusChange = isCorrect ? question.bonusMessages : -WRONG_ANSWER_PENALTY
 
-    // Calculate bonus (only if correct and under monthly cap)
-    let bonusEarned = 0
-    if (isCorrect) {
-      const remainingCapacity = MAX_MONTHLY_BONUS - currentMonthlyBonus
-      bonusEarned = Math.min(question.bonusMessages, remainingCapacity)
+    // Cap bonus at MAX_BONUS_CREDITS (100)
+    if (isCorrect && currentBonus + bonusChange > MAX_BONUS_CREDITS) {
+      bonusChange = MAX_BONUS_CREDITS - currentBonus
+      if (bonusChange < 0) bonusChange = 0 // Already at max
     }
+
+    // Don't let bonus go below 0
+    const newBonus = Math.max(0, Math.min(MAX_BONUS_CREDITS, currentBonus + bonusChange))
 
     // Record the answer
     const { error: insertError } = await (supabase
@@ -236,7 +185,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         question_id: questionId,
         answered_correctly: isCorrect,
-        bonus_messages_earned: bonusEarned,
+        bonus_messages_earned: bonusChange, // Can be negative for penalties
       }) as any)
 
     if (insertError) {
@@ -247,48 +196,18 @@ export async function POST(request: Request) {
       )
     }
 
-    // Update monthly limit tracking
-    if (bonusEarned > 0) {
-      const { error: upsertError } = await (supabase
-        .from("user_quiz_monthly_limits" as any)
-        .upsert(
-          {
-            user_id: user.id,
-            month_year: monthYear,
-            total_bonus_earned: currentMonthlyBonus + bonusEarned,
-          },
-          {
-            onConflict: "user_id,month_year",
-          }
-        ) as any)
-
-      if (upsertError) {
-        console.error("[Quiz API] Error updating monthly limit:", upsertError)
-      }
-
-      // Update user's bonus_messages balance
-      // First get current balance
-      const { data: currentUser } = await supabase
-        .from("users")
-        .select("bonus_messages" as any)
-        .eq("id", user.id)
-        .single()
-
-      const currentBonus = (currentUser as any)?.bonus_messages || 0
-
-      // Then update with new total
-      await supabase
-        .from("users")
-        .update({ bonus_messages: currentBonus + bonusEarned } as any)
-        .eq("id", user.id)
-    }
+    // Update user's bonus_messages balance
+    await supabase
+      .from("users")
+      .update({ bonus_messages: newBonus } as any)
+      .eq("id", user.id)
 
     return NextResponse.json({
       correct: isCorrect,
       correctAnswer: question.correctAnswer,
       explanation: question.explanation,
-      bonusEarned,
-      monthlyBonusRemaining: MAX_MONTHLY_BONUS - (currentMonthlyBonus + bonusEarned),
+      bonusChange, // Positive or negative
+      newBonusBalance: newBonus,
     })
   } catch (error) {
     console.error("[Quiz API] Error submitting answer:", error)

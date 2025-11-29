@@ -32,6 +32,50 @@ import {
   type ProviderWithoutOllama,
 } from "@/lib/user-keys"
 
+/**
+ * Check and use bonus credits for Growth plan users
+ * Returns: { hasBonus: boolean, usedBonus: boolean }
+ *
+ * Bonus credits:
+ * - Only available for Growth plan users
+ * - Roll over month to month (capped at 100 max)
+ * - Used when subscription credits are exhausted
+ */
+async function checkAndUseBonusCredits(
+  supabase: SupabaseClientType,
+  userId: string,
+  planType: string | null
+): Promise<{ hasBonus: boolean; usedBonus: boolean }> {
+  // Only Growth plan users can use bonus credits
+  if (planType !== "growth") {
+    return { hasBonus: false, usedBonus: false }
+  }
+
+  // Get user's bonus balance
+  const { data: userData } = await supabase
+    .from("users")
+    .select("bonus_messages")
+    .eq("id", userId)
+    .single()
+
+  const currentBonus = (userData as any)?.bonus_messages || 0
+
+  // Check if user has bonus credits to use
+  if (currentBonus <= 0) {
+    return { hasBonus: false, usedBonus: false }
+  }
+
+  // Deduct 1 bonus credit
+  await supabase
+    .from("users")
+    .update({ bonus_messages: currentBonus - 1 } as any)
+    .eq("id", userId)
+
+  console.log(`[Bonus Credits] Used 1 bonus credit for user ${userId}. Remaining: ${currentBonus - 1}`)
+
+  return { hasBonus: true, usedBonus: true }
+}
+
 const isFreeModel = (modelId: string) => FREE_MODELS_IDS.includes(modelId)
 const isProModel = (modelId: string) => !isFreeModel(modelId)
 
@@ -206,6 +250,20 @@ export async function validateAndTrackUsage({
         isProTier,
         productId: currentProductId,
       })
+
+      // For Growth plan users, check if they have bonus credits to use
+      if (planType === "growth") {
+        const bonusResult = await checkAndUseBonusCredits(supabase, userId, planType)
+        if (bonusResult.usedBonus) {
+          console.log("[Subscription Check] Using bonus credit instead of blocking")
+          // Allow the request - bonus credit was used
+          return supabase
+        }
+        // No bonus credits available - show limit error
+        throw new Error(
+          `You've reached your message limit${autumnCheck.limit ? ` of ${autumnCheck.limit} messages` : ""}. Answer daily quiz questions to earn bonus messages, or upgrade your subscription.`
+        )
+      }
 
       if (isProTier) {
         throw new ProLimitReachedError(

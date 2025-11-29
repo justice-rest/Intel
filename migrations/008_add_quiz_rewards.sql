@@ -44,7 +44,7 @@ CREATE TABLE IF NOT EXISTS user_quiz_monthly_limits (
 -- ============================================================================
 -- Add bonus_messages column to users table
 -- ============================================================================
--- This column stores the user's current bonus message balance
+-- bonus_messages: Current bonus message balance (rolls over, capped at 100)
 ALTER TABLE users
 ADD COLUMN IF NOT EXISTS bonus_messages INTEGER DEFAULT 0;
 

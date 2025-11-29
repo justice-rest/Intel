@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useCustomer, CheckoutDialog } from "autumn-js/react"
 import { useUser } from "@/lib/user-store/provider"
+import { createClient } from "@/lib/supabase/client"
 import { Certificate, Truck, CalendarBlank } from "@phosphor-icons/react"
 
 interface SubscriptionProductCardProps {
@@ -19,6 +20,7 @@ export function SubscriptionProductCard({ features }: SubscriptionProductCardPro
   const [selectedPlan, setSelectedPlan] = useState<"growth" | "pro" | "scale">("growth")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [bonusMessages, setBonusMessages] = useState<number>(0)
 
   const isGuest = user?.anonymous === true || !user
   const currentProduct = customer?.products?.[0]?.id
@@ -79,6 +81,28 @@ export function SubscriptionProductCard({ features }: SubscriptionProductCardPro
       setSelectedPlan(currentProduct)
     }
   }, [currentProduct])
+
+  // Fetch bonus messages from user's profile
+  useEffect(() => {
+    const fetchBonusMessages = async () => {
+      if (!user?.id) return
+
+      const supabase = createClient()
+      if (!supabase) return
+
+      const { data } = await supabase
+        .from("users")
+        .select("bonus_messages")
+        .eq("id", user.id)
+        .single()
+
+      setBonusMessages((data as any)?.bonus_messages || 0)
+    }
+
+    fetchBonusMessages()
+
+    // Refetch when user changes
+  }, [user?.id])
 
   const selectedPlanConfig = plans[selectedPlan]
 
@@ -168,6 +192,13 @@ export function SubscriptionProductCard({ features }: SubscriptionProductCardPro
         <div className="credits-line">
           <span className="credits_name">Credits</span>
           <span className="credits_value">{displayCredits}</span>
+        </div>
+      )}
+
+      {hasPaidPlan && (
+        <div className="bonus-line">
+          <span className="bonus_name">Bonus</span>
+          <span className="bonus_value">{bonusMessages}</span>
         </div>
       )}
 
@@ -428,6 +459,39 @@ export function SubscriptionProductCard({ features }: SubscriptionProductCardPro
 
         :global(.dark) .credits_value {
           color: white;
+        }
+
+        .bonus-line {
+          text-align: right;
+          font-size: 16px;
+          font-weight: 700;
+          color: black;
+          margin-bottom: 10px;
+          position: relative;
+        }
+
+        :global(.dark) .bonus-line {
+          color: white;
+        }
+
+        .bonus_name {
+          position: absolute;
+          left: 0;
+          font-weight: 400;
+          color: #666;
+        }
+
+        :global(.dark) .bonus_name {
+          color: #999;
+        }
+
+        .bonus_value {
+          color: #8b5cf6;
+          font-size: 16px;
+        }
+
+        :global(.dark) .bonus_value {
+          color: #a78bfa;
         }
 
         h3 {

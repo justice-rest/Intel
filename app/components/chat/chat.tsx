@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils"
 import { AnimatePresence, motion } from "motion/react"
 import dynamic from "next/dynamic"
 import { redirect } from "next/navigation"
-import { useCallback, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useChatCore } from "./use-chat-core"
 import { useChatOperations } from "./use-chat-operations"
 import { useFileUpload } from "./use-file-upload"
@@ -44,6 +44,14 @@ const DialogLimitReached = dynamic(
   () => import("./dialog-limit-reached").then((mod) => mod.DialogLimitReached),
   { ssr: false }
 )
+
+const QuizPopup = dynamic(
+  () => import("@/app/components/quiz").then((mod) => mod.QuizPopup),
+  { ssr: false }
+)
+
+// Time threshold (in ms) before showing quiz popup during AI response
+const QUIZ_POPUP_DELAY = 15000 // 15 seconds
 
 interface ChatProps {
   showWelcome?: boolean
@@ -93,8 +101,11 @@ export function Chat({
 
   // Check if user has an active subscription (any paid plan, including trials)
   const productStatus = customer?.products?.[0]?.status
+  const productId = customer?.products?.[0]?.id
   const hasActiveSubscription =
     productStatus === "active" || productStatus === "trialing"
+  // Quiz popup only shows for Growth plan users
+  const isGrowthPlan = productId === "growth"
   const { draftValue, clearDraft } = useChatDraft(chatId)
 
   // File upload functionality
@@ -121,6 +132,9 @@ export function Chat({
   const [hasDialogSubscriptionRequired, setHasDialogSubscriptionRequired] =
     useState(false)
   const [hasDialogLimitReached, setHasDialogLimitReached] = useState(false)
+  const [showQuizPopup, setShowQuizPopup] = useState(false)
+  const quizTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const hasShownQuizThisSession = useRef(false)
   const isAuthenticated = useMemo(() => !!user?.id, [user?.id])
   const systemPrompt = useMemo(
     () => user?.system_prompt || SYSTEM_PROMPT_DEFAULT,
@@ -187,6 +201,31 @@ export function Chat({
     setHasDialogSubscriptionRequired,
     setHasDialogLimitReached,
   })
+
+  // Quiz popup timer: Show popup when AI takes more than 15 seconds to respond
+  // Only show once per session, and only for authenticated Growth plan users
+  useEffect(() => {
+    // Start timer when streaming begins - ONLY for Growth plan users
+    if (status === "streaming" && isAuthenticated && isGrowthPlan && !hasShownQuizThisSession.current) {
+      quizTimerRef.current = setTimeout(() => {
+        setShowQuizPopup(true)
+        hasShownQuizThisSession.current = true
+      }, QUIZ_POPUP_DELAY)
+    }
+
+    // Clear timer when streaming ends or status changes
+    if (status !== "streaming" && quizTimerRef.current) {
+      clearTimeout(quizTimerRef.current)
+      quizTimerRef.current = null
+    }
+
+    return () => {
+      if (quizTimerRef.current) {
+        clearTimeout(quizTimerRef.current)
+        quizTimerRef.current = null
+      }
+    }
+  }, [status, isAuthenticated, isGrowthPlan])
 
   // Memoize the conversation props to prevent unnecessary rerenders
   const conversationProps = useMemo(
@@ -293,6 +332,10 @@ export function Chat({
       <DialogLimitReached
         open={hasDialogLimitReached}
         setOpen={setHasDialogLimitReached}
+      />
+      <QuizPopup
+        open={showQuizPopup}
+        onClose={() => setShowQuizPopup(false)}
       />
 
       <AnimatePresence initial={false} mode="popLayout">
