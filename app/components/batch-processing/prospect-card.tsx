@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import {
   User,
@@ -24,10 +25,34 @@ import {
   Buildings,
   House,
   ArrowUpRight,
+  Link as LinkIcon,
+  Globe,
+  CaretDown,
+  FileText,
 } from "@phosphor-icons/react"
-import { motion } from "motion/react"
+import { motion, AnimatePresence } from "motion/react"
 import type { BatchProspectItem } from "@/lib/batch-processing"
 import { Markdown } from "@/components/prompt-kit/markdown"
+import Image from "next/image"
+
+// Helper functions for sources display
+function getFavicon(url: string): string | null {
+  try {
+    const urlObj = new URL(url)
+    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`
+  } catch {
+    return null
+  }
+}
+
+function formatUrl(url: string): string {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.hostname.replace("www.", "")
+  } catch {
+    return url
+  }
+}
 
 interface ProspectCardProps {
   item: BatchProspectItem
@@ -349,7 +374,7 @@ export function ProspectCard({ item, compact = false }: ProspectCardProps) {
         </div>
       )}
 
-      {/* Report Dialog */}
+      {/* Report Dialog with Tabs for Report and Sources */}
       <Dialog open={showReport} onOpenChange={setShowReport}>
         <DialogContent className="max-w-4xl max-h-[90vh]">
           <DialogHeader>
@@ -362,11 +387,112 @@ export function ProspectCard({ item, compact = false }: ProspectCardProps) {
               )}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] pr-4">
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <Markdown>{item.report_content || ""}</Markdown>
-            </div>
-          </ScrollArea>
+
+          <Tabs defaultValue="report" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="report" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Report
+              </TabsTrigger>
+              <TabsTrigger value="sources" className="gap-2">
+                <Globe className="h-4 w-4" />
+                Sources
+                {item.sources_found && item.sources_found.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {item.sources_found.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="report" className="mt-4">
+              <ScrollArea className="max-h-[60vh] pr-4">
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <Markdown>{item.report_content || ""}</Markdown>
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="sources" className="mt-4">
+              <ScrollArea className="max-h-[60vh] pr-4">
+                {item.sources_found && item.sources_found.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {item.sources_found.length} sources were used to generate this report.
+                    </p>
+                    <div className="space-y-2">
+                      {item.sources_found.map((source, index) => {
+                        const faviconUrl = getFavicon(source.url)
+                        return (
+                          <a
+                            key={`${source.url}-${index}`}
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors group"
+                          >
+                            <div className="flex-shrink-0 mt-0.5">
+                              {faviconUrl ? (
+                                <Image
+                                  src={faviconUrl}
+                                  alt=""
+                                  width={20}
+                                  height={20}
+                                  className="rounded"
+                                />
+                              ) : (
+                                <div className="h-5 w-5 bg-muted rounded flex items-center justify-center">
+                                  <Globe className="h-3 w-3 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm truncate group-hover:text-primary">
+                                  {source.name || formatUrl(source.url)}
+                                </span>
+                                <ArrowUpRight className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+                              </div>
+                              <span className="text-xs text-muted-foreground truncate block">
+                                {formatUrl(source.url)}
+                              </span>
+                            </div>
+                          </a>
+                        )
+                      })}
+                    </div>
+
+                    {/* Search queries used */}
+                    {item.search_queries_used && item.search_queries_used.length > 0 && (
+                      <div className="mt-6 pt-4 border-t">
+                        <h4 className="text-sm font-medium mb-3">Search Queries Used</h4>
+                        <div className="space-y-2">
+                          {item.search_queries_used.map((query, index) => (
+                            <div
+                              key={index}
+                              className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md"
+                            >
+                              {query}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Globe className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p className="text-sm text-muted-foreground">
+                      No sources available for this report.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Web search may have been disabled for this batch job.
+                    </p>
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </motion.div>

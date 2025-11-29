@@ -18,7 +18,6 @@ import {
   InstagramLogo,
   MagnifyingGlass,
   NotePencilIcon,
-  Users,
   X,
 } from "@phosphor-icons/react"
 import { Pin } from "lucide-react"
@@ -31,6 +30,7 @@ import { UserMenu } from "../user-menu"
 import { DialogPublish } from "../dialog-publish"
 import { SidebarList } from "./sidebar-list"
 import { SidebarProject } from "./sidebar-project"
+import { SidebarBatch } from "./sidebar-batch"
 
 const SCROLL_STORAGE_KEY = "sidebar-scroll-position"
 
@@ -42,7 +42,6 @@ export function AppSidebar() {
   const params = useParams<{ chatId: string }>()
   const pathname = usePathname()
   const currentChatId = params.chatId
-  const isBatchActive = pathname === "/batch"
 
   const groupedChats = useMemo(() => {
     const result = groupChatsByDate(chats, "")
@@ -165,20 +164,8 @@ export function AppSidebar() {
               }
               hasPopover={false}
             />
-            <Link
-              href="/batch"
-              className={`relative inline-flex w-full items-center rounded-md px-2 py-2 text-sm transition-colors group/batch ${
-                isBatchActive
-                  ? "bg-accent text-foreground"
-                  : "bg-transparent hover:bg-accent/80 hover:text-foreground text-primary"
-              }`}
-            >
-              <div className="flex w-full items-center gap-2">
-                <Users size={20} />
-                <span>Batch Research</span>
-              </div>
-            </Link>
           </div>
+          <SidebarBatch />
           <SidebarProject />
           {isLoading ? (
             <div className="h-full" />

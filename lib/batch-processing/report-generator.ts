@@ -271,6 +271,30 @@ IMPORTANT RULES:
 // EXTRACT METRICS FROM REPORT
 // ============================================================================
 
+/**
+ * Parse a dollar amount from various formats
+ * Handles: $1,000,000 | $1M | $1.5M | $500K | **$1,000,000** etc.
+ */
+function parseDollarAmount(str: string): number | null {
+  if (!str) return null
+
+  // Remove markdown formatting and trim
+  const cleaned = str.replace(/\*\*/g, "").replace(/\*/g, "").trim()
+
+  // Match patterns like $1.5M, $500K, or $1,000,000
+  const match = cleaned.match(/\$?\s*([\d,]+(?:\.\d+)?)\s*([MmKkBb])?/i)
+  if (!match) return null
+
+  let value = parseFloat(match[1].replace(/,/g, ""))
+  const suffix = match[2]?.toUpperCase()
+
+  if (suffix === "M") value *= 1000000
+  else if (suffix === "K") value *= 1000
+  else if (suffix === "B") value *= 1000000000
+
+  return isNaN(value) ? null : value
+}
+
 function extractMetricsFromReport(content: string): {
   romy_score?: number
   romy_score_tier?: string
@@ -281,41 +305,138 @@ function extractMetricsFromReport(content: string): {
 } {
   const metrics: ReturnType<typeof extractMetricsFromReport> = {}
 
-  // Extract RōmyScore - look for pattern like "X/41" or "RōmyScore™: X/41"
-  const romyScoreMatch = content.match(/RōmyScore[™]?[:\s]*(\d+)\/41/i)
-  if (romyScoreMatch) {
-    metrics.romy_score = parseInt(romyScoreMatch[1], 10)
+  // Extract RōmyScore - multiple patterns for flexibility
+  // Pattern 1: "RōmyScore™: X/41" or "RōmyScore: X/41"
+  // Pattern 2: "**RōmyScore™:** X/41"
+  // Pattern 3: Just "X/41" near RōmyScore mention
+  const romyScorePatterns = [
+    /R[oō]myScore[™]?\s*[:=]\s*\**(\d+)\s*\/\s*41/i,
+    /\*\*R[oō]myScore[™]?\*\*\s*[:=]?\s*\**(\d+)\s*\/\s*41/i,
+    /R[oō]myScore[™]?[:\s]*\**(\d+)\**\s*\/\s*41/i,
+    /(\d+)\s*\/\s*41\s*(?:points?)?/i,
+  ]
+
+  for (const pattern of romyScorePatterns) {
+    const match = content.match(pattern)
+    if (match) {
+      const score = parseInt(match[1], 10)
+      if (score >= 0 && score <= 41) {
+        metrics.romy_score = score
+        break
+      }
+    }
   }
 
-  // Extract tier
-  const tierMatch = content.match(/(\d+)\/41\s*[—–-]\s*([\w\s-]+)/i)
-  if (tierMatch) {
-    metrics.romy_score_tier = tierMatch[2].trim()
+  // Extract tier - look for tier names after score or in dedicated section
+  const tierPatterns = [
+    /(\d+)\s*\/\s*41\s*[—–-]+\s*\**([A-Za-z\s-]+?)(?:\**|\n|$)/i,
+    /Score\s*Tier[:\s]*\**([A-Za-z\s-]+?)(?:\**|\n|\||$)/i,
+    /\*\*(Transformational|High-Capacity|Mid-Capacity|Emerging|Low)[^*]*\*\*/i,
+    /(Transformational|High-Capacity Major|Mid-Capacity Growth|Emerging|Low)[\s-]*(?:Donor)?[\s-]*(?:Target)?/i,
+  ]
+
+  for (const pattern of tierPatterns) {
+    const match = content.match(pattern)
+    if (match) {
+      const tier = (match[2] || match[1]).trim().replace(/\*+/g, "")
+      if (tier && tier.length > 2) {
+        metrics.romy_score_tier = tier
+        break
+      }
+    }
   }
 
-  // Extract capacity rating
-  const capacityMatch = content.match(
-    /\*\*\[(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\]\*\*/i
-  )
-  if (capacityMatch) {
-    metrics.capacity_rating = capacityMatch[1].toUpperCase()
+  // Extract capacity rating - multiple formats
+  const capacityPatterns = [
+    /\*\*\[?\s*(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\s*\]?\*\*/i,
+    /Capacity\s*Rating[:\s]*\**\[?\s*(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\s*\]?\**/i,
+    /(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\s*(?:Gift)?\s*Prospect/i,
+    /\|\s*Capacity[^|]*\|\s*\**\s*(Major|Principal|Leadership|Annual)\s*\**/i,
+  ]
+
+  for (const pattern of capacityPatterns) {
+    const match = content.match(pattern)
+    if (match) {
+      metrics.capacity_rating = match[1].toUpperCase()
+      break
+    }
   }
 
-  // Extract net worth - look for "TOTAL ESTIMATED NET WORTH" row
-  const netWorthMatch = content.match(
-    /TOTAL ESTIMATED NET WORTH[^$]*\$\*?\*?([\d,]+(?:\.\d+)?)/i
-  )
-  if (netWorthMatch) {
-    metrics.estimated_net_worth = parseFloat(
-      netWorthMatch[1].replace(/,/g, "")
-    )
+  // Extract net worth - multiple formats
+  const netWorthPatterns = [
+    /TOTAL\s*(?:ESTIMATED)?\s*NET\s*WORTH[^$\n]*\$\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+    /Estimated\s*Net\s*Worth[:\s]*\$?\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+    /Net\s*Worth[:\s|]*\$?\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+  ]
+
+  for (const pattern of netWorthPatterns) {
+    const match = content.match(pattern)
+    if (match) {
+      let value = parseFloat(match[1].replace(/,/g, ""))
+      const suffix = match[2]?.toUpperCase()
+      if (suffix === "M") value *= 1000000
+      else if (suffix === "K") value *= 1000
+      else if (suffix === "B") value *= 1000000000
+      if (!isNaN(value) && value > 0) {
+        metrics.estimated_net_worth = value
+        break
+      }
+    }
   }
 
-  // Extract recommended ask
-  const askMatch = content.match(/Ask Amount[:\s]*\$\*?\*?([\d,]+(?:\.\d+)?)/i)
-  if (askMatch) {
-    metrics.recommended_ask = parseFloat(askMatch[1].replace(/,/g, ""))
+  // Extract gift capacity
+  const giftCapacityPatterns = [
+    /(?:Est\.?\s*)?Gift\s*Capacity[:\s|]*\$?\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+    /Giving\s*Capacity[:\s|]*\$?\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+  ]
+
+  for (const pattern of giftCapacityPatterns) {
+    const match = content.match(pattern)
+    if (match) {
+      let value = parseFloat(match[1].replace(/,/g, ""))
+      const suffix = match[2]?.toUpperCase()
+      if (suffix === "M") value *= 1000000
+      else if (suffix === "K") value *= 1000
+      else if (suffix === "B") value *= 1000000000
+      if (!isNaN(value) && value > 0) {
+        metrics.estimated_gift_capacity = value
+        break
+      }
+    }
   }
+
+  // Extract recommended ask - multiple formats
+  const askPatterns = [
+    /Ask\s*Amount[:\s]*\$\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+    /Recommended\s*Ask[:\s]*\$\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+    /\*\*Ask\s*Amount:?\*\*\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+    /Ask[:\s]+\$\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+  ]
+
+  for (const pattern of askPatterns) {
+    const match = content.match(pattern)
+    if (match) {
+      let value = parseFloat(match[1].replace(/,/g, ""))
+      const suffix = match[2]?.toUpperCase()
+      if (suffix === "M") value *= 1000000
+      else if (suffix === "K") value *= 1000
+      else if (suffix === "B") value *= 1000000000
+      if (!isNaN(value) && value > 0) {
+        metrics.recommended_ask = value
+        break
+      }
+    }
+  }
+
+  // Debug logging for troubleshooting
+  console.log("[BatchProcessor] Extracted metrics:", {
+    romy_score: metrics.romy_score ?? "NOT FOUND",
+    romy_score_tier: metrics.romy_score_tier ?? "NOT FOUND",
+    capacity_rating: metrics.capacity_rating ?? "NOT FOUND",
+    estimated_net_worth: metrics.estimated_net_worth ?? "NOT FOUND",
+    estimated_gift_capacity: metrics.estimated_gift_capacity ?? "NOT FOUND",
+    recommended_ask: metrics.recommended_ask ?? "NOT FOUND",
+  })
 
   return metrics
 }
