@@ -4,7 +4,7 @@
  */
 
 import { streamText } from "ai"
-import { openproviders } from "@/lib/openproviders"
+import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { LinkupClient } from "linkup-sdk"
 import { isLinkupEnabled, getLinkupApiKey } from "@/lib/linkup/config"
 import { ProspectInputData, BatchProspectItem } from "./types"
@@ -375,8 +375,11 @@ ${searchContext ? `## WEB SEARCH RESULTS\n\n${searchContext}` : "**Note:** No we
 
 Generate the full report now.`
 
-    // Generate report using AI
-    const model = openproviders("openrouter:x-ai/grok-4.1-fast", undefined, apiKey)
+    // Generate report using AI via OpenRouter
+    const openrouter = createOpenRouter({
+      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+    })
+    const model = openrouter.chat("x-ai/grok-4.1-fast")
 
     const result = await streamText({
       model,
