@@ -60,7 +60,7 @@ async function performWebSearch(query: string): Promise<WebSearchResult | null> 
     const result = await Promise.race([
       client.search({
         query,
-        depth: "standard",
+        depth: "deep",
         outputType: "sourcedAnswer",
       }),
       new Promise<never>((_, reject) =>
