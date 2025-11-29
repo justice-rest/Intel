@@ -434,14 +434,48 @@ export function getQuestionById(id: string): QuizQuestion | undefined {
 
 /**
  * Get the question of the day based on current date
- * Rotates through all 20 questions over 20 days
+ *
+ * For the first week of a Growth plan user:
+ * - Only show basic (easy) questions
+ *
+ * After the first week:
+ * - Mix between all difficulty levels
+ *
+ * @param userCreatedAt - When the user signed up (ISO string or Date)
  */
-export function getQuestionOfTheDay(): QuizQuestion {
+export function getQuestionOfTheDay(userCreatedAt?: string | Date | null): QuizQuestion {
   const startDate = new Date("2025-01-01").getTime()
-  const today = new Date().getTime()
-  const daysSinceStart = Math.floor((today - startDate) / (1000 * 60 * 60 * 24))
+  const today = new Date()
+  const todayTime = today.getTime()
+  const daysSinceStart = Math.floor((todayTime - startDate) / (1000 * 60 * 60 * 24))
+
+  // Check if user is in their first week
+  const isFirstWeek = userCreatedAt
+    ? isWithinFirstWeek(userCreatedAt)
+    : false
+
+  if (isFirstWeek) {
+    // First week: only basic questions
+    const basicQuestions = QUIZ_QUESTIONS.filter(q => q.level === "basic")
+    const questionIndex = daysSinceStart % basicQuestions.length
+    return basicQuestions[questionIndex]
+  }
+
+  // After first week: rotate through all questions
   const questionIndex = daysSinceStart % QUIZ_QUESTIONS.length
   return QUIZ_QUESTIONS[questionIndex]
+}
+
+/**
+ * Check if a user is within their first week of signup
+ */
+function isWithinFirstWeek(createdAt: string | Date): boolean {
+  const signupDate = new Date(createdAt)
+  const now = new Date()
+  const daysSinceSignup = Math.floor(
+    (now.getTime() - signupDate.getTime()) / (1000 * 60 * 60 * 24)
+  )
+  return daysSinceSignup < 7
 }
 
 /**

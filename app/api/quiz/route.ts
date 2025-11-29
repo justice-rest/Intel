@@ -49,26 +49,32 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get question of the day
-    const questionOfTheDay = getQuestionOfTheDay()
+    // Fetch user data including created_at for first-week check
+    const { data: userData, error: userError } = await supabase
+      .from("users")
+      .select("bonus_messages, created_at")
+      .eq("id", user.id)
+      .single()
 
-    // Fetch user's progress for today's question and bonus balance in parallel
-    const [progressResult, userResult] = await Promise.all([
-      supabase
-        .from("user_quiz_progress" as any)
-        .select("question_id, answered_correctly, bonus_messages_earned, answered_at")
-        .eq("user_id", user.id)
-        .eq("question_id", questionOfTheDay.id)
-        .maybeSingle() as any,
-      supabase
-        .from("users")
-        .select("bonus_messages")
-        .eq("id", user.id)
-        .single(),
-    ])
+    if (userError) {
+      console.error("[Quiz API] Error fetching user data:", userError)
+    }
 
-    const todayProgress: QuizProgress | null = progressResult.data || null
-    const currentBonusBalance: number = userResult.error ? 0 : ((userResult.data as any)?.bonus_messages || 0)
+    const userCreatedAt = (userData as any)?.created_at || null
+    const currentBonusBalance: number = (userData as any)?.bonus_messages || 0
+
+    // Get question of the day (easy questions for first week)
+    const questionOfTheDay = getQuestionOfTheDay(userCreatedAt)
+
+    // Fetch user's progress for today's question
+    const { data: progressData } = await supabase
+      .from("user_quiz_progress" as any)
+      .select("question_id, answered_correctly, bonus_messages_earned, answered_at")
+      .eq("user_id", user.id)
+      .eq("question_id", questionOfTheDay.id)
+      .maybeSingle() as any
+
+    const todayProgress: QuizProgress | null = progressData || null
 
     return NextResponse.json({
       questionOfTheDay: {

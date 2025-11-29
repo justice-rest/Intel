@@ -123,20 +123,20 @@ export function QuizPopup({ open, onClose }: QuizPopupProps) {
   if (question?.answered && !result) {
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
-          <div className="checkout__box">
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          <div className="checkout__box compact">
             <h2>Daily Quiz Complete</h2>
 
             <div className="status-line">
-              <span className="status_name">Bonus Balance</span>
+              <span className="status_name">Bonus</span>
               <span className="status_value text-purple-600 dark:text-purple-400">{currentBonusBalance}/{maxBonusCredits}</span>
             </div>
 
             <hr />
 
-            <div className="flex flex-col items-center py-8">
-              <Trophy className="size-16 text-yellow-500 mb-4" weight="fill" />
-              <p className="text-center text-sm text-muted-foreground">
+            <div className="flex flex-col items-center py-4">
+              <Trophy className="size-12 text-yellow-500 mb-2" weight="fill" />
+              <p className="text-center text-xs text-muted-foreground">
                 You&apos;ve already answered today&apos;s question.<br />
                 Come back tomorrow for a new one!
               </p>
@@ -163,8 +163,8 @@ export function QuizPopup({ open, onClose }: QuizPopupProps) {
 
     return (
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
-          <div className="checkout__box">
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+          <div className="checkout__box compact">
             <h2>{result.correct ? "Correct!" : "Incorrect"}</h2>
 
             <div className="status-line">
@@ -175,31 +175,21 @@ export function QuizPopup({ open, onClose }: QuizPopupProps) {
             </div>
 
             <div className="status-line">
-              <span className="status_name">New Balance</span>
+              <span className="status_name">Balance</span>
               <span className="status_value text-purple-600 dark:text-purple-400">{result.newBonusBalance}/{maxBonusCredits}</span>
             </div>
 
             <hr />
 
             {!result.correct && (
-              <div className="checkout__opts">
-                <div className="opt selected" style={{ cursor: "default" }}>
-                  <div className="gridme">
-                    <div className="radio">
-                      <span className="radio_btn"></span>
-                    </div>
-                    <div className="lbl">
-                      Correct <b>Answer</b>
-                    </div>
-                  </div>
-                  <div className="info-txt" style={{ fontStyle: "normal" }}>{correctOption?.label}</div>
-                </div>
+              <div className="correct-answer-box">
+                <span className="correct-label">Correct answer:</span> {correctOption?.label}
               </div>
             )}
 
             <div className="explanation-box">
               <div className="explanation-title">
-                <GraduationCap size={18} weight="fill" className="inline-block mr-2" />
+                <GraduationCap size={14} weight="fill" className="inline-block mr-1" />
                 Why?
               </div>
               <p className="explanation-text">{result.explanation}</p>
@@ -223,19 +213,14 @@ export function QuizPopup({ open, onClose }: QuizPopupProps) {
   // Show question
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
-        <div className="checkout__box">
+      <DialogContent className="sm:max-w-md p-0 overflow-hidden max-h-[90vh] overflow-y-auto">
+        <div className="checkout__box compact">
           <h2>Daily Quiz</h2>
 
           <div className="status-line">
-            <span className="status_name">Bonus Balance</span>
+            <span className="status_name">Bonus</span>
             <span className="status_value text-purple-600 dark:text-purple-400">{currentBonusBalance}/{maxBonusCredits}</span>
           </div>
-
-          <h4 className="price">
-            <span className="price_name">Reward</span>
-            <span className="sub_price" style={{ color: "#3ab54b" }}>+{question?.bonusMessages} bonus</span>
-          </h4>
 
           <hr />
 
@@ -254,12 +239,7 @@ export function QuizPopup({ open, onClose }: QuizPopupProps) {
                       <div className="radio">
                         <span className="radio_btn"></span>
                       </div>
-                      <div className="lbl">
-                        {option.value}. <b>{option.label.split(" ")[0]}</b>
-                      </div>
-                    </div>
-                    <div className="info-txt" style={{ fontStyle: "normal" }}>
-                      {option.label}
+                      <div className="lbl">{option.value}. {option.label}</div>
                     </div>
                   </div>
                 ))}
@@ -276,26 +256,26 @@ export function QuizPopup({ open, onClose }: QuizPopupProps) {
                     {isSubmitting ? "Checking..." : "Submit Answer"}
                   </button>
                 </div>
-                <div className="cart_btn full-width" style={{ marginTop: "10px" }}>
+                <div className="cart_btn full-width" style={{ marginTop: "8px" }}>
                   <button
                     type="button"
                     className="btn manage-billing"
                     onClick={onClose}
                   >
-                    Skip for now
+                    Skip
                   </button>
                 </div>
               </div>
 
               <div className="guarantee">
                 <div>
-                  <Gift size={28} weight="regular" className="mx-auto mb-2" />
-                  +{question.bonusMessages} if correct
+                  <Gift size={20} weight="regular" className="mx-auto mb-1" />
+                  +{question.bonusMessages} correct
                 </div>
                 <div className="line"></div>
                 <div>
-                  <XCircle size={28} weight="regular" className="mx-auto mb-2" />
-                  -{question.penalty} if wrong
+                  <XCircle size={20} weight="regular" className="mx-auto mb-1" />
+                  -{question.penalty} wrong
                 </div>
               </div>
             </>
@@ -310,12 +290,16 @@ export function QuizPopup({ open, onClose }: QuizPopupProps) {
 
 const styles = `
   .checkout__box {
-    padding: 20px;
+    padding: 16px;
     background: #fff;
     margin: 0 auto;
     border: 1px solid #ddd;
     max-width: 600px;
     width: 100%;
+  }
+
+  .checkout__box.compact {
+    padding: 14px;
   }
 
   :global(.dark) .checkout__box {
@@ -324,9 +308,9 @@ const styles = `
   }
 
   .checkout__box h2 {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     color: black;
   }
 
@@ -334,43 +318,12 @@ const styles = `
     color: white;
   }
 
-  .price {
-    text-align: right;
-    font-size: 16px;
-    font-weight: 700;
-    color: black;
-    margin-bottom: 10px;
-    position: relative;
-  }
-
-  :global(.dark) .price {
-    color: white;
-  }
-
-  .price_name {
-    position: absolute;
-    left: 0;
-    font-weight: 400;
-  }
-
-  :global(.dark) .price_name {
-    color: #999;
-  }
-
-  .sub_price {
-    color: black;
-  }
-
-  :global(.dark) .sub_price {
-    color: white;
-  }
-
   .status-line {
     text-align: right;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 700;
     color: black;
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     position: relative;
   }
 
@@ -390,28 +343,48 @@ const styles = `
   }
 
   .status_value {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
   }
 
   .question-text {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 500;
     color: black;
-    margin-bottom: 15px;
-    line-height: 1.5;
+    margin-bottom: 12px;
+    line-height: 1.4;
   }
 
   :global(.dark) .question-text {
     color: white;
   }
 
+  .correct-answer-box {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 5px;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #991b1b;
+  }
+
+  :global(.dark) .correct-answer-box {
+    background: #2a1515;
+    border-color: #7f1d1d;
+    color: #fca5a5;
+  }
+
+  .correct-label {
+    font-weight: 600;
+  }
+
   .explanation-box {
     background: #f9f9f9;
     border: 1px solid #eee;
     border-radius: 5px;
-    padding: 15px;
-    margin-bottom: 15px;
+    padding: 10px;
+    margin-bottom: 12px;
   }
 
   :global(.dark) .explanation-box {
@@ -420,10 +393,10 @@ const styles = `
   }
 
   .explanation-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: black;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   :global(.dark) .explanation-title {
@@ -431,9 +404,9 @@ const styles = `
   }
 
   .explanation-text {
-    font-size: 13px;
+    font-size: 12px;
     color: #666;
-    line-height: 1.5;
+    line-height: 1.4;
   }
 
   :global(.dark) .explanation-text {
@@ -442,7 +415,7 @@ const styles = `
 
   hr {
     border: none;
-    margin: 10px 0;
+    margin: 8px 0;
     padding: 0;
     border-bottom: 1px solid #ddd;
   }
@@ -452,11 +425,11 @@ const styles = `
   }
 
   .checkout__opts .opt {
-    padding: 15px 0;
+    padding: 10px 0;
     border: 1px solid #ccc;
     border-radius: 5px;
-    margin-bottom: 15px;
-    font-size: 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
     cursor: pointer;
   }
 
@@ -478,8 +451,8 @@ const styles = `
 
   .checkout__opts .opt.selected .radio_btn::before {
     content: "";
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
     display: block;
     position: absolute;
     background: #3ab54b;
@@ -489,29 +462,11 @@ const styles = `
     transform: translate(-50%, -50%);
   }
 
-  .checkout__opts .opt .lbl b {
-    color: #3ab54b;
-  }
-
-  .checkout__opts .opt .info-txt {
-    padding-left: 40px;
-    font-size: 12px;
-    padding-bottom: 5px;
-    padding-top: 6px;
-    color: #666;
-    font-style: italic;
-    padding-right: 15px;
-  }
-
-  :global(.dark) .checkout__opts .opt .info-txt {
-    color: #999;
-  }
-
   .gridme {
     display: grid;
-    grid-template-columns: 30px 1fr;
+    grid-template-columns: 28px 1fr;
     align-items: center;
-    padding: 0 15px;
+    padding: 0 12px;
     color: black;
   }
 
@@ -519,9 +474,14 @@ const styles = `
     color: white;
   }
 
+  .lbl {
+    font-size: 13px;
+    line-height: 1.3;
+  }
+
   .radio_btn {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     border: 1px solid #bbb;
     display: block;
@@ -534,7 +494,7 @@ const styles = `
 
   .checkout__btns {
     display: block;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
   }
 
   .full-width {
@@ -546,13 +506,13 @@ const styles = `
     display: block;
     border-radius: 4px;
     color: black;
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 14px;
+    font-weight: 600;
     width: 100%;
     border: 1px solid rgb(255, 187, 16);
     background-color: rgb(255, 187, 16);
-    height: 60px;
-    letter-spacing: 1px;
+    height: 44px;
+    letter-spacing: 0.5px;
     transition: all 0.3s ease;
     cursor: pointer;
   }
@@ -577,6 +537,8 @@ const styles = `
   .btn.manage-billing {
     background-color: transparent;
     border-color: #ccc;
+    height: 36px;
+    font-size: 13px;
   }
 
   :global(.dark) .btn.manage-billing {
@@ -589,24 +551,22 @@ const styles = `
     grid-template-columns: 1fr 2px 1fr;
     grid-column-gap: 5px;
     text-align: center;
-    padding: 8px 0;
+    padding: 6px 0;
     border-top: 1px solid #ddd;
-    border-bottom: 1px solid #ddd;
   }
 
   :global(.dark) .guarantee {
     border-top-color: #333;
-    border-bottom-color: #333;
   }
 
   .guarantee div {
-    padding: 10px;
-    font-size: 12px;
-    color: black;
+    padding: 6px;
+    font-size: 11px;
+    color: #666;
   }
 
   :global(.dark) .guarantee div {
-    color: white;
+    color: #999;
   }
 
   .guarantee div.line {
@@ -619,10 +579,10 @@ const styles = `
   }
 
   .guarantee svg {
-    color: black;
+    color: #666;
   }
 
   :global(.dark) .guarantee svg {
-    color: white;
+    color: #999;
   }
 `
