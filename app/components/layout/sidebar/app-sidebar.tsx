@@ -18,12 +18,13 @@ import {
   InstagramLogo,
   MagnifyingGlass,
   NotePencilIcon,
+  Users,
   X,
 } from "@phosphor-icons/react"
 import { Pin } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, usePathname, useRouter } from "next/navigation"
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react"
 import { HistoryTrigger } from "../../history/history-trigger"
 import { UserMenu } from "../user-menu"
@@ -39,7 +40,9 @@ export function AppSidebar() {
   const { chats, pinnedChats, isLoading } = useChats()
   const { isActive: isSplitActive } = useSplitView()
   const params = useParams<{ chatId: string }>()
+  const pathname = usePathname()
   const currentChatId = params.chatId
+  const isBatchActive = pathname === "/batch"
 
   const groupedChats = useMemo(() => {
     const result = groupChatsByDate(chats, "")
@@ -162,6 +165,19 @@ export function AppSidebar() {
               }
               hasPopover={false}
             />
+            <Link
+              href="/batch"
+              className={`relative inline-flex w-full items-center rounded-md px-2 py-2 text-sm transition-colors group/batch ${
+                isBatchActive
+                  ? "bg-accent text-foreground"
+                  : "bg-transparent hover:bg-accent/80 hover:text-foreground text-primary"
+              }`}
+            >
+              <div className="flex w-full items-center gap-2">
+                <Users size={20} />
+                <span>Batch Research</span>
+              </div>
+            </Link>
           </div>
           <SidebarProject />
           {isLoading ? (

@@ -23,5 +23,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "chaterface", "zola"]
+  "exclude": ["node_modules", "chaterface", "zola", "gemini-chatbot"]
 }
