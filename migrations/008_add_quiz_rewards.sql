@@ -63,6 +63,15 @@ CREATE INDEX IF NOT EXISTS idx_quiz_monthly_user_month ON user_quiz_monthly_limi
 ALTER TABLE user_quiz_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_quiz_monthly_limits ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist (for idempotent re-runs)
+DROP POLICY IF EXISTS "Users can view their own quiz progress" ON user_quiz_progress;
+DROP POLICY IF EXISTS "Users can insert their own quiz progress" ON user_quiz_progress;
+DROP POLICY IF EXISTS "Users can view their own monthly limits" ON user_quiz_monthly_limits;
+DROP POLICY IF EXISTS "Users can insert their own monthly limits" ON user_quiz_monthly_limits;
+DROP POLICY IF EXISTS "Users can update their own monthly limits" ON user_quiz_monthly_limits;
+DROP POLICY IF EXISTS "Service role can manage all quiz progress" ON user_quiz_progress;
+DROP POLICY IF EXISTS "Service role can manage all monthly limits" ON user_quiz_monthly_limits;
+
 -- user_quiz_progress policies
 CREATE POLICY "Users can view their own quiz progress"
   ON user_quiz_progress FOR SELECT
