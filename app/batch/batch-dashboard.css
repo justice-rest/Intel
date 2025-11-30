@@ -381,27 +381,30 @@
 }
 
 .tile-olive {
-  background-color: var(--c-olive-500);
+  background-color: #00A5E4;
+  color: #ffffff;
 }
 
 .tile-olive:focus-within {
-  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px var(--c-olive-500);
+  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px #00A5E4;
 }
 
 .tile-green {
-  background-color: var(--c-green-500);
+  background-color: #E39C4D;
+  color: #ffffff;
 }
 
 .tile-green:focus-within {
-  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px var(--c-green-500);
+  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px #E39C4D;
 }
 
 .tile-gray {
-  background-color: var(--c-gray-300);
+  background-color: #60818E;
+  color: #ffffff;
 }
 
 .tile-gray:focus-within {
-  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px var(--c-gray-300);
+  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px #60818E;
 }
 
 .tile a {
@@ -1101,23 +1104,23 @@ button:focus-visible {
   --c-text-tertiary: #6c757d;
 }
 
-/* Tiles keep vibrant colors in light mode - matches view details section colors */
+/* Tiles keep vibrant colors in light mode */
 :root.light .tile-olive,
 .light .tile-olive {
-  background-color: #e3ffa8;
-  color: #1f1f1f;
+  background-color: #00A5E4;
+  color: #ffffff;
 }
 
 :root.light .tile-green,
 .light .tile-green {
-  background-color: #45ffbc;
-  color: #1f1f1f;
+  background-color: #E39C4D;
+  color: #ffffff;
 }
 
 :root.light .tile-gray,
 .light .tile-gray {
-  background-color: #bdbbb7;
-  color: #1f1f1f;
+  background-color: #60818E;
+  color: #ffffff;
 }
 
 /* Cards keep vibrant colors in light mode - matches view details section colors */
