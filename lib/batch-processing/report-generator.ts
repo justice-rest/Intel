@@ -67,16 +67,16 @@ async function performWebSearch(query: string): Promise<WebSearchResult | null> 
   try {
     const client = getLinkupClient()
 
-    // Use "standard" mode for speed (deep is slower agentic workflow)
-    // 15s timeout - standard mode is much faster than deep
+    // Use "deep" mode for thorough research (agentic workflow)
+    // 30s timeout for deep mode
     const result = await Promise.race([
       client.search({
         query,
-        depth: "standard",
+        depth: "deep",
         outputType: "sourcedAnswer",
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Search timeout")), 15000)
+        setTimeout(() => reject(new Error("Search timeout")), 30000)
       ),
     ])
 
