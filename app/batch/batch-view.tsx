@@ -20,7 +20,6 @@ import {
   Target,
   ChartBar,
   Plus,
-  Gear,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -390,16 +389,13 @@ function BatchUploadSidebar({
         <div className="error-message">{error}</div>
       )}
 
-      <div className="payment-section-footer flex gap-2">
+      <div className="payment-section-footer">
         <ResearchPlayButton
           onClick={handleUpload}
           isProcessing={isUploading}
           disabled={!selectedFile || isUploading}
+          className="w-full"
         />
-        <button className="settings-button" onClick={() => window.location.href = '/settings'}>
-          <Gear />
-          <span>Settings</span>
-        </button>
       </div>
     </section>
   )
