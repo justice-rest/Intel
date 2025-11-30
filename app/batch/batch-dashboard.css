@@ -1,7 +1,7 @@
-/* Batch Dashboard - Dark UI Bank Style */
+/* Batch Dashboard - Theme-aware styling */
 
-/* CSS Variables */
-.batch-app {
+/* CSS Variables - Dark mode (default) */
+.batch-app-container {
   --c-gray-900: #000000;
   --c-gray-800: #1f1f1f;
   --c-gray-700: #2e2e2e;
@@ -22,24 +22,21 @@
   --c-text-tertiary: var(--c-gray-500);
 }
 
-/* Main App Container */
-.batch-app {
+/* Main App Container - flows within layout, no full-page background */
+.batch-app-container {
   min-height: 100%;
   width: 100%;
-  background-color: var(--c-gray-800);
-  padding: 2rem;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   font-family: inherit;
-  color: var(--c-text-primary);
 }
 
 .batch-app-body {
   height: 100%;
   display: grid;
-  grid-template-columns: 1fr minmax(min-content, 400px);
-  column-gap: 4rem;
-  padding-top: 1rem;
+  grid-template-columns: 1fr minmax(min-content, 320px);
+  column-gap: 2rem;
 }
 
 @media (max-width: 1200px) {
@@ -47,7 +44,13 @@
     grid-template-columns: 1fr;
   }
   .batch-app-body > * {
-    margin-bottom: 3.5rem;
+    margin-bottom: 2.5rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .batch-app-container {
+    padding: 1rem;
   }
 }
 
@@ -385,8 +388,6 @@
   align-items: center;
   gap: 1rem;
   margin-top: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--c-gray-600);
 }
 
 .transfer-section-controls .search-field {
@@ -957,8 +958,8 @@ button:focus-visible {
 }
 
 /* Light Mode Support */
-:root.light .batch-app,
-.light .batch-app {
+:root.light .batch-app-container,
+.light .batch-app-container {
   --c-gray-900: #ffffff;
   --c-gray-800: #f8f9fa;
   --c-gray-700: #e9ecef;
@@ -969,8 +970,9 @@ button:focus-visible {
   --c-gray-200: #343a40;
   --c-gray-100: #212529;
 
-  --c-green-500: #00b377;
-  --c-olive-500: #7cb342;
+  /* Keep vibrant tile colors in light mode */
+  --c-green-500: #10b981;
+  --c-olive-500: #84cc16;
 
   --c-white: var(--c-gray-100);
 
@@ -979,15 +981,42 @@ button:focus-visible {
   --c-text-tertiary: #6c757d;
 }
 
-:root.light .batch-app,
-.light .batch-app {
-  background-color: var(--c-gray-800);
-  color: var(--c-text-primary);
+/* Tiles keep vibrant colors in light mode */
+:root.light .tile-olive,
+.light .tile-olive {
+  background-color: #84cc16;
+  color: #1a1a1a;
 }
 
-:root.light .tile,
-.light .tile {
-  color: #212529;
+:root.light .tile-green,
+.light .tile-green {
+  background-color: #10b981;
+  color: #1a1a1a;
+}
+
+:root.light .tile-gray,
+.light .tile-gray {
+  background-color: #d1d5db;
+  color: #1a1a1a;
+}
+
+/* Cards keep vibrant colors in light mode */
+:root.light .card-green,
+.light .card-green {
+  background-color: #10b981;
+  color: #1a1a1a;
+}
+
+:root.light .card-olive,
+.light .card-olive {
+  background-color: #84cc16;
+  color: #1a1a1a;
+}
+
+:root.light .card-gray,
+.light .card-gray {
+  background-color: #d1d5db;
+  color: #1a1a1a;
 }
 
 :root.light .transfer-logo,
@@ -997,12 +1026,7 @@ button:focus-visible {
 
 :root.light .transfer-logo svg,
 .light .transfer-logo svg {
-  color: var(--c-green-500);
-}
-
-:root.light .card,
-.light .card {
-  color: #212529;
+  color: #10b981;
 }
 
 :root.light .icon-button,
@@ -1056,9 +1080,9 @@ button:focus-visible {
 
 :root.light .save-button-active,
 .light .save-button-active {
-  background-color: var(--c-green-500);
+  background-color: #10b981;
   color: #ffffff;
-  border-color: var(--c-green-500);
+  border-color: #10b981;
 }
 
 :root.light .plan-badge,
@@ -1075,8 +1099,8 @@ button:focus-visible {
 
 :root.light .status-badge-completed,
 .light .status-badge-completed {
-  background-color: rgba(0, 179, 119, 0.15);
-  color: var(--c-green-500);
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #10b981;
 }
 
 :root.light .upload-zone,
@@ -1088,16 +1112,26 @@ button:focus-visible {
 :root.light .upload-zone-active,
 .light .upload-zone-active {
   background-color: var(--c-gray-700);
-  border-color: var(--c-green-500);
+  border-color: #10b981;
 }
 
 :root.light .batch-upload-modal,
 .light .batch-upload-modal {
   --c-gray-600: #dee2e6;
   --c-gray-700: #e9ecef;
-  --c-green-500: #00b377;
+  --c-green-500: #10b981;
   --c-text-tertiary: #6c757d;
   --c-text-primary: #212529;
+}
+
+:root.light .job-name-link:hover,
+.light .job-name-link:hover {
+  color: #10b981;
+}
+
+:root.light .file-icon,
+.light .file-icon {
+  color: #10b981;
 }
 
 /* Light mode mobile cards */

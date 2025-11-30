@@ -684,7 +684,7 @@ export function BatchView() {
   const completedProspects = jobs.reduce((sum, j) => sum + j.completed_count, 0)
 
   return (
-    <div className="batch-app">
+    <div className="batch-app-container">
       <div className="batch-app-body">
         {/* Main Content */}
         <div className="app-body-main-content">
