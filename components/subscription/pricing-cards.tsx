@@ -16,15 +16,17 @@ import { useUser } from "@/lib/user-store/provider"
  */
 
 const PRICING_CONSTANTS = {
-  PRO_FEATURES: ["100 messages", "file uploads", "email support"],
+  PRO_FEATURES: ["100 messages", "file uploads", "email support", "10 batch research/mo"],
   MAX_FEATURES: [
-    "everything in pro",
+    "everything in growth",
     "unlimited messaging",
     "dedicated support",
+    "50 batch research/mo",
   ],
   ULTRA_FEATURES: [
-    "everything in max",
+    "everything in pro",
     "fundraising consultation",
+    "100 batch research/mo",
   ],
   CARD_STYLES: {
     base: "relative flex-1 min-w-[280px] max-w-[384px] min-h-[630px] flex flex-col items-start justify-between overflow-hidden rounded-2xl border border-[#2D2D2D] bg-[#18181a] p-5",
