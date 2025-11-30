@@ -22,10 +22,6 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
     appUrl = "https://intel.getromy.app",
   } = data
 
-  const successRate = totalProspects > 0
-    ? Math.round((completedCount / totalProspects) * 100)
-    : 0
-
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
 <head>
@@ -172,7 +168,7 @@ text-decoration: none
 </td></tr></table>
 </td></tr><tr><td><div class="t12" style="mso-line-height-rule:exactly;mso-line-height-alt:17px;line-height:17px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
 <table class="t16" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="308" class="t15" style="width:308px;">
-<table class="t14" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t13"><p class="t11" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:15px;text-decoration:none;text-transform:none;letter-spacing:-0.6px;direction:ltr;color:#424040;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">Your batch research "<strong>${jobName}</strong>" has finished processing.</p></td></tr></table>
+<table class="t14" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t13"><p class="t11" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:15px;text-decoration:none;text-transform:none;letter-spacing:-0.6px;direction:ltr;color:#424040;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">Your batch research <strong>${jobName}</strong> has finished processing.</p></td></tr></table>
 </td></tr></table>
 </td></tr><tr><td><div class="t18" style="mso-line-height-rule:exactly;mso-line-height-alt:25px;line-height:25px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
 
@@ -201,9 +197,6 @@ text-decoration: none
 </table>
 </td>
 </tr>
-</table>
-<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin-top:12px;">
-<tr><td align="center" style="font-size:13px;color:#84828E;font-family:Inter,sans-serif;">Success Rate: <strong style="color:#424040;">${successRate}%</strong></td></tr>
 </table>
 </td>
 </tr>
