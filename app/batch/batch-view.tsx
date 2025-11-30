@@ -1,17 +1,6 @@
 "use client"
 
 import { useState, useRef, useCallback } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import {
-  ChartConfig,
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 import { cn, formatRelativeTime } from "@/lib/utils"
 import {
   UsersThree,
@@ -26,6 +15,13 @@ import {
   Clock,
   X,
   Pause,
+  CaretRight,
+  Lightning,
+  Target,
+  ChartBar,
+  Funnel,
+  Plus,
+  Gear,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -38,50 +34,40 @@ import {
 import { MAX_BATCH_FILE_SIZE, ALLOWED_BATCH_EXTENSIONS } from "@/lib/batch-processing/config"
 import { toast } from "@/components/ui/toast"
 
-// Chart config
-const chartConfig = {
-  completed: {
-    label: "Completed",
-    color: "var(--chart-1)",
-  },
-  pending: {
-    label: "Pending",
-    color: "var(--chart-2)",
-  },
-} satisfies ChartConfig
+import "@/app/batch/batch-dashboard.css"
 
-// Status badge component (like RAG)
+// Status badge component
 function StatusBadge({ status }: { status: BatchProspectJob["status"] }) {
   const config = {
     pending: {
       icon: Clock,
       label: "Pending",
-      className: "bg-muted text-muted-foreground",
+      className: "status-badge status-badge-pending",
     },
     processing: {
       icon: Spinner,
       label: "Processing",
-      className: "bg-[#422F10] text-yellow-600",
+      className: "status-badge status-badge-processing",
     },
     paused: {
       icon: Pause,
       label: "Paused",
-      className: "bg-blue-500/10 text-blue-500",
+      className: "status-badge status-badge-paused",
     },
     completed: {
       icon: CheckCircle,
       label: "Completed",
-      className: "bg-[#B183FF]/20 text-[#B183FF]",
+      className: "status-badge status-badge-completed",
     },
     failed: {
       icon: WarningCircle,
       label: "Failed",
-      className: "bg-red-500/10 text-red-500",
+      className: "status-badge status-badge-failed",
     },
     cancelled: {
       icon: X,
       label: "Cancelled",
-      className: "bg-muted text-muted-foreground",
+      className: "status-badge status-badge-cancelled",
     },
   }
 
@@ -89,24 +75,142 @@ function StatusBadge({ status }: { status: BatchProspectJob["status"] }) {
   const isSpinner = status === "processing"
 
   return (
-    <Badge variant="secondary" className={cn("gap-1", className)}>
-      <Icon className={cn("h-3 w-3", isSpinner && "animate-spin")} weight="fill" />
+    <span className={className}>
+      <Icon className={cn("status-icon", isSpinner && "animate-spin")} weight="fill" />
       {label}
-    </Badge>
+    </span>
   )
 }
 
-// Upload component (like document-upload)
-function BatchUploadArea({
+// Service tile component
+function ServiceTile({
+  icon: Icon,
+  title,
+  subtitle,
+  href,
+  variant = "olive",
+}: {
+  icon: React.ElementType
+  title: string
+  subtitle: string
+  href: string
+  variant?: "olive" | "green" | "gray"
+}) {
+  return (
+    <article className={cn("tile", `tile-${variant}`)}>
+      <div className="tile-header">
+        <Icon className="tile-icon" weight="light" />
+        <h3>
+          <span>{title}</span>
+          <span>{subtitle}</span>
+        </h3>
+      </div>
+      <a href={href}>
+        <span>Start Research</span>
+        <span className="icon-button">
+          <CaretRight weight="bold" />
+        </span>
+      </a>
+    </article>
+  )
+}
+
+// Transfer/Job item component
+function JobItem({
+  job,
+  onDelete,
+  onView,
+  onExport,
+}: {
+  job: BatchProspectJob
+  onDelete: (id: string) => Promise<void>
+  onView: (id: string) => void
+  onExport: (id: string) => void
+}) {
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this batch job?")) return
+
+    try {
+      setIsDeleting(true)
+      await onDelete(job.id)
+    } catch (error) {
+      console.error("Delete failed:", error)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -100 }}
+      className="transfer"
+    >
+      <div className="transfer-logo">
+        <UsersThree weight="fill" />
+      </div>
+      <dl className="transfer-details">
+        <div>
+          <dt>
+            <button onClick={() => onView(job.id)} className="job-name-link">
+              {job.name}
+            </button>
+          </dt>
+          <dd><StatusBadge status={job.status} /></dd>
+        </div>
+        <div>
+          <dt>{job.completed_count}/{job.total_prospects}</dt>
+          <dd>Prospects researched</dd>
+        </div>
+        <div>
+          <dt>{formatRelativeTime(new Date(job.created_at))}</dt>
+          <dd>Created</dd>
+        </div>
+      </dl>
+      <div className="transfer-actions">
+        {job.status === "completed" && (
+          <button
+            onClick={() => onExport(job.id)}
+            className="icon-button"
+            title="Export CSV"
+          >
+            <Download />
+          </button>
+        )}
+        <button
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="icon-button icon-button-danger"
+          title="Delete"
+        >
+          {isDeleting ? (
+            <Spinner className="animate-spin" />
+          ) : (
+            <Trash />
+          )}
+        </button>
+      </div>
+    </motion.div>
+  )
+}
+
+// Upload component in sidebar style
+function BatchUploadSidebar({
   onUpload,
   isUploading,
   batchLimit,
   planName,
+  stats,
 }: {
   onUpload: (file: File) => Promise<void>
   isUploading: boolean
   batchLimit: number
   planName: string
+  stats: { totalJobs: number; totalProspects: number; completedProspects: number }
 }) {
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -180,326 +284,121 @@ function BatchUploadArea({
   }
 
   return (
-    <div className="space-y-4">
-      <div
-        onDragEnter={(e) => { e.preventDefault(); setIsDragging(true) }}
-        onDragOver={(e) => e.preventDefault()}
-        onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
-        onDrop={handleDrop}
-        className={cn(
-          "border-border relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors",
-          isDragging && "border-primary bg-primary/5",
-          !isDragging && "hover:border-muted-foreground/50"
-        )}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,.xlsx,.xls"
-          onChange={handleFileSelect}
-          className="hidden"
-          disabled={isUploading}
-        />
+    <section className="payment-section">
+      <h2>New Research</h2>
+      <div className="payment-section-header">
+        <p>Upload a prospect list to research</p>
+        <div>
+          <span className="plan-badge">{planName}</span>
+        </div>
+      </div>
 
-        <AnimatePresence mode="wait">
+      {/* Stats cards */}
+      <div className="payments">
+        <div className="payment">
+          <div className="card card-green">
+            <span>Jobs</span>
+            <span>{stats.totalJobs}</span>
+          </div>
+          <div className="payment-details">
+            <h3>Total Batches</h3>
+            <div>
+              <span>{stats.totalJobs}</span>
+            </div>
+          </div>
+        </div>
+        <div className="payment">
+          <div className="card card-olive">
+            <span>Done</span>
+            <span>{stats.completedProspects}</span>
+          </div>
+          <div className="payment-details">
+            <h3>Researched</h3>
+            <div>
+              <span>{stats.completedProspects}/{stats.totalProspects}</span>
+            </div>
+          </div>
+        </div>
+        <div className="payment">
+          <div className="card card-gray">
+            <span>Limit</span>
+            <span>{batchLimit}</span>
+          </div>
+          <div className="payment-details">
+            <h3>Per Batch</h3>
+            <div>
+              <span>{batchLimit} max</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Upload area */}
+      <div className="faq">
+        <p>Drop or select a file to start</p>
+        <div
+          onDragEnter={(e) => { e.preventDefault(); setIsDragging(true) }}
+          onDragOver={(e) => e.preventDefault()}
+          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
+          onDrop={handleDrop}
+          className={cn("upload-zone", isDragging && "upload-zone-active")}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={handleFileSelect}
+            className="hidden"
+            disabled={isUploading}
+          />
+
           {!selectedFile ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="flex flex-col items-center gap-3 text-center"
-            >
-              <CloudArrowUp className="h-12 w-12 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">
-                  Drag and drop your prospect list here
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  or click to browse (CSV, Excel)
-                </p>
-              </div>
-              <Badge variant="secondary" className="capitalize">
-                {planName} Plan: Up to {batchLimit} prospects
-              </Badge>
-              <Button
-                variant="outline"
-                size="sm"
+            <>
+              <CloudArrowUp className="upload-icon" />
+              <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
+                className="flat-button"
               >
                 Choose File
-              </Button>
-            </motion.div>
+              </button>
+              <span className="upload-hint">CSV or Excel</span>
+            </>
           ) : (
-            <motion.div
-              key="selected"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="flex w-full items-center gap-3"
-            >
-              <FileCsv className="text-primary h-10 w-10 flex-shrink-0" weight="fill" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{selectedFile.name}</p>
-                <p className="text-muted-foreground text-xs">
-                  {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
-                </p>
+            <div className="selected-file">
+              <FileCsv className="file-icon" weight="fill" />
+              <div className="file-info">
+                <span className="file-name">{selectedFile.name}</span>
+                <span className="file-size">{(selectedFile.size / 1024).toFixed(1)} KB</span>
               </div>
               {!isUploading && (
-                <Button variant="ghost" size="icon" onClick={handleCancel} className="flex-shrink-0">
-                  <X className="h-4 w-4" />
-                </Button>
+                <button onClick={handleCancel} className="icon-button icon-button-small">
+                  <X />
+                </button>
               )}
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
+        </div>
       </div>
 
       {error && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="text-destructive rounded-md bg-destructive/10 p-3 text-sm"
-        >
-          {error}
-        </motion.div>
+        <div className="error-message">{error}</div>
       )}
 
-      {selectedFile && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          className="flex gap-2"
+      <div className="payment-section-footer">
+        <button
+          className={cn("save-button", selectedFile && !isUploading && "save-button-active")}
+          onClick={handleUpload}
+          disabled={!selectedFile || isUploading}
         >
-          <Button onClick={handleUpload} disabled={isUploading} className="flex-1">
-            {isUploading ? "Processing..." : "Start Batch Research"}
-          </Button>
-          {!isUploading && (
-            <Button variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-          )}
-        </motion.div>
-      )}
-
-      {isUploading && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-          <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-            <motion.div
-              className="bg-primary h-full"
-              initial={{ width: "0%" }}
-              animate={{ width: "100%" }}
-              transition={{ duration: 10, ease: "linear" }}
-            />
-          </div>
-          <p className="text-muted-foreground text-center text-xs">
-            Parsing file and creating batch job...
-          </p>
-        </motion.div>
-      )}
-    </div>
-  )
-}
-
-// Chart component (like memory-chart)
-function BatchChart({ jobs }: { jobs: BatchProspectJob[] }) {
-  // Generate chart data from jobs (last 14 days)
-  const chartData = (() => {
-    const days = 14
-    const data: { date: string; completed: number; pending: number }[] = []
-    const today = new Date()
-
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(today)
-      date.setDate(date.getDate() - i)
-      const dateStr = date.toISOString().split("T")[0]
-
-      const dayJobs = jobs.filter((job) => {
-        const jobDate = new Date(job.created_at).toISOString().split("T")[0]
-        return jobDate === dateStr
-      })
-
-      data.push({
-        date: dateStr,
-        completed: dayJobs.filter((j) => j.status === "completed").reduce((sum, j) => sum + j.completed_count, 0),
-        pending: dayJobs.filter((j) => j.status !== "completed").reduce((sum, j) => sum + j.total_prospects - j.completed_count, 0),
-      })
-    }
-
-    return data
-  })()
-
-  const hasData = chartData.some((d) => d.completed > 0 || d.pending > 0)
-
-  return (
-    <Card className="py-0">
-      <CardContent className="px-2 pt-4 sm:p-6 sm:pt-6">
-        {!hasData ? (
-          <div className="flex h-[200px] items-center justify-center">
-            <p className="text-sm text-muted-foreground">No batch data available yet</p>
-          </div>
-        ) : (
-          <ChartContainer config={chartConfig} className="aspect-auto h-[200px] w-full">
-            <BarChart accessibilityLayer data={chartData} margin={{ left: 12, right: 12 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="date"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-                minTickGap={32}
-                tickFormatter={(value: string) => {
-                  const date = new Date(value)
-                  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-                }}
-              />
-              <ChartTooltip
-                content={
-                  <ChartTooltipContent
-                    className="w-[150px]"
-                    labelFormatter={(value: string) => {
-                      return new Date(value).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    }}
-                  />
-                }
-              />
-              <Bar dataKey="completed" fill="var(--color-completed)" />
-              <Bar dataKey="pending" fill="var(--color-pending)" />
-            </BarChart>
-          </ChartContainer>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
-
-// Job item component (like document-list item)
-function JobItem({
-  job,
-  onDelete,
-  onView,
-  onExport,
-}: {
-  job: BatchProspectJob
-  onDelete: (id: string) => Promise<void>
-  onView: (id: string) => void
-  onExport: (id: string) => void
-}) {
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this batch job?")) return
-
-    try {
-      setIsDeleting(true)
-      await onDelete(job.id)
-    } catch (error) {
-      console.error("Delete failed:", error)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  const progress = job.total_prospects > 0
-    ? Math.round((job.completed_count / job.total_prospects) * 100)
-    : 0
-
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, x: -100 }}
-      className="border-border group flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-accent/50"
-    >
-      {/* Icon */}
-      <div className={cn(
-        "flex h-10 w-10 items-center justify-center rounded-full flex-shrink-0",
-        job.status === "completed" ? "bg-[#B183FF]/10" :
-        job.status === "processing" ? "bg-yellow-500/10" :
-        "bg-muted"
-      )}>
-        <UsersThree className={cn(
-          "h-5 w-5",
-          job.status === "completed" ? "text-[#B183FF]" :
-          job.status === "processing" ? "text-yellow-600" :
-          "text-muted-foreground"
-        )} weight="fill" />
+          {isUploading ? "Processing..." : "Start Research"}
+        </button>
+        <button className="settings-button" onClick={() => window.location.href = '/settings'}>
+          <Gear />
+          <span>Settings</span>
+        </button>
       </div>
-
-      {/* Job Info */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          {/* Clickable job name to view report */}
-          <button
-            onClick={() => onView(job.id)}
-            className="truncate text-sm font-medium text-primary hover:underline text-left"
-          >
-            {job.name}
-          </button>
-          <StatusBadge status={job.status} />
-        </div>
-
-        {/* Progress bar for processing jobs */}
-        {job.status === "processing" && (
-          <div className="mt-2 h-1.5 w-full bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-yellow-500 transition-all duration-300"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        )}
-
-        {/* Metadata */}
-        <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-2 text-xs">
-          <span>{job.total_prospects} prospects</span>
-          <span>•</span>
-          <span>{job.completed_count} completed</span>
-          {job.failed_count > 0 && (
-            <>
-              <span>•</span>
-              <span className="text-destructive">{job.failed_count} failed</span>
-            </>
-          )}
-          <span>•</span>
-          <span>{formatRelativeTime(new Date(job.created_at))}</span>
-        </div>
-      </div>
-
-      {/* Actions - Export and Delete */}
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {job.status === "completed" && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onExport(job.id)}
-            className="opacity-0 transition-opacity group-hover:opacity-100"
-            title="Export CSV"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={handleDelete}
-          disabled={isDeleting}
-          className="opacity-0 transition-opacity group-hover:opacity-100 text-destructive hover:text-destructive"
-          title="Delete"
-        >
-          {isDeleting ? (
-            <Spinner className="h-4 w-4 animate-spin" />
-          ) : (
-            <Trash className="h-4 w-4" />
-          )}
-        </Button>
-      </div>
-    </motion.div>
+    </section>
   )
 }
 
@@ -508,7 +407,7 @@ export function BatchView() {
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState("")
   const [batchLimit, setBatchLimit] = useState(10)
-  const [planName, setPlanName] = useState("growth")
+  const [planName, setPlanName] = useState("Growth")
   const [isUploading, setIsUploading] = useState(false)
 
   // Fetch batch limit
@@ -535,7 +434,7 @@ export function BatchView() {
       const data = await response.json()
       return data.jobs || []
     },
-    refetchInterval: 10000, // Refresh every 10 seconds
+    refetchInterval: 10000,
   })
 
   // Delete mutation
@@ -558,13 +457,11 @@ export function BatchView() {
     setIsUploading(true)
 
     try {
-      // Parse file
       const result = await parseProspectFile(file)
       if (!result.success) {
         throw new Error(result.errors.join(". "))
       }
 
-      // Auto-map columns
       const columnMapping: ColumnMapping = {
         name: result.suggested_mapping.name || null,
         address: result.suggested_mapping.address || null,
@@ -579,7 +476,6 @@ export function BatchView() {
         notes: result.suggested_mapping.notes || null,
       }
 
-      // Transform to prospect data
       const { prospects } = transformToProspectData(result.rows, columnMapping)
 
       if (prospects.length === 0) {
@@ -590,7 +486,6 @@ export function BatchView() {
         throw new Error(`Your ${planName} plan allows up to ${batchLimit} prospects per batch.`)
       }
 
-      // Create batch job
       const response = await fetch("/api/batch-prospects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -629,91 +524,146 @@ export function BatchView() {
   const completedProspects = jobs.reduce((sum, j) => sum + j.completed_count, 0)
 
   return (
-    <div className="mx-auto max-w-4xl px-4 pt-20 pb-8 sm:pt-8">
-      <div className="space-y-6">
-        {/* Header with stats */}
-        <div>
-          <div className="mb-1 flex items-center justify-between">
-            <h1 className="text-xl font-semibold flex items-center gap-2">
-              <UsersThree className="h-6 w-6" />
-              Batch Research
-            </h1>
-            <div className="flex items-center gap-3">
-              {jobs.length > 0 && (
-                <button
-                  onClick={() => document.getElementById('prospects-list')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="text-primary hover:underline text-xs font-medium"
-                >
-                  View Reports
-                </button>
-              )}
-              <span className="text-muted-foreground text-xs">
-                {jobs.length} jobs • {completedProspects}/{totalProspects} prospects
-              </span>
+    <div className="batch-app">
+      <div className="batch-app-body">
+        {/* Left Navigation */}
+        <div className="app-body-navigation">
+          <nav className="navigation">
+            <a href="/batch" className="active">
+              <UsersThree />
+              <span>Batch Research</span>
+            </a>
+            <a href="/">
+              <MagnifyingGlass />
+              <span>Single Search</span>
+            </a>
+            <a href="/settings">
+              <Gear />
+              <span>Settings</span>
+            </a>
+          </nav>
+          <footer className="footer">
+            <h1>Rōmy<small>©</small></h1>
+            <div>
+              Donor Research<br />
+              for Nonprofits
             </div>
-          </div>
-          <p className="text-muted-foreground text-sm">
-            Upload prospect lists to research multiple donors at once
-          </p>
+          </footer>
         </div>
 
-        {/* Chart */}
-        <BatchChart jobs={jobs} />
+        {/* Main Content */}
+        <div className="app-body-main-content">
+          {/* Service Section - Quick Actions */}
+          <section className="service-section">
+            <h2>Research</h2>
+            <div className="service-section-header">
+              <div className="search-field">
+                <MagnifyingGlass />
+                <input
+                  type="text"
+                  placeholder="Search batch jobs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <button className="flat-button" onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
+                New Batch
+              </button>
+            </div>
+            <div className="mobile-only">
+              <button className="flat-button" onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
+                Upload Prospects
+              </button>
+            </div>
+            <div className="tiles">
+              <ServiceTile
+                icon={Lightning}
+                title="Quick Research"
+                subtitle="Up to 10 prospects"
+                href="/batch"
+                variant="olive"
+              />
+              <ServiceTile
+                icon={Target}
+                title="Deep Analysis"
+                subtitle="Comprehensive profiles"
+                href="/batch"
+                variant="green"
+              />
+              <ServiceTile
+                icon={ChartBar}
+                title="View Reports"
+                subtitle="All past research"
+                href="/batch#jobs-list"
+                variant="gray"
+              />
+            </div>
+            <div className="service-section-footer">
+              <p>Research is performed using AI to analyze public data and build donor profiles.</p>
+            </div>
+          </section>
 
-        {/* Upload area */}
-        <BatchUploadArea
-          onUpload={handleUpload}
-          isUploading={isUploading}
-          batchLimit={batchLimit}
-          planName={planName}
-        />
+          {/* Transfer Section - Recent Jobs */}
+          <section className="transfer-section" id="jobs-list">
+            <div className="transfer-section-header">
+              <h2>Recent Batches</h2>
+              <div className="filter-options">
+                <p>{jobs.length} total jobs • {completedProspects}/{totalProspects} prospects</p>
+                <button className="icon-button">
+                  <Funnel />
+                </button>
+                <button className="icon-button" onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
+                  <Plus />
+                </button>
+              </div>
+            </div>
+            <div className="transfers">
+              {isLoading ? (
+                <div className="loading-state">
+                  <Spinner className="animate-spin" />
+                  <span>Loading batches...</span>
+                </div>
+              ) : jobs.length === 0 ? (
+                <div className="empty-state">
+                  <UsersThree />
+                  <span>No batch jobs yet. Upload a prospect list to get started.</span>
+                </div>
+              ) : filteredJobs.length === 0 ? (
+                <div className="empty-state">
+                  <MagnifyingGlass />
+                  <span>No batch jobs match your search.</span>
+                </div>
+              ) : (
+                <AnimatePresence mode="popLayout">
+                  {filteredJobs.map((job) => (
+                    <JobItem
+                      key={job.id}
+                      job={job}
+                      onDelete={(id) => deleteMutation.mutateAsync(id)}
+                      onView={(id) => window.location.href = `/batch/${id}`}
+                      onExport={(id) => window.open(`/api/batch-prospects/${id}/export?format=csv`, "_blank")}
+                    />
+                  ))}
+                </AnimatePresence>
+              )}
+            </div>
+          </section>
+        </div>
 
-        {/* Search */}
-        <div className="relative">
-          <MagnifyingGlass className="text-muted-foreground absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-          <Input
-            type="text"
-            placeholder="Search batch jobs..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-transparent border-border"
+        {/* Sidebar */}
+        <div className="app-body-sidebar" id="upload-section">
+          <BatchUploadSidebar
+            onUpload={handleUpload}
+            isUploading={isUploading}
+            batchLimit={batchLimit}
+            planName={planName}
+            stats={{
+              totalJobs: jobs.length,
+              totalProspects,
+              completedProspects,
+            }}
           />
         </div>
-
-        {/* Job list */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Spinner className="text-muted-foreground h-8 w-8 animate-spin" />
-          </div>
-        ) : jobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <UsersThree className="text-muted-foreground mb-3 h-12 w-12" />
-            <p className="text-muted-foreground text-sm">
-              No batch jobs yet. Upload a prospect list to get started.
-            </p>
-          </div>
-        ) : filteredJobs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <MagnifyingGlass className="text-muted-foreground mb-3 h-12 w-12" />
-            <p className="text-muted-foreground text-sm">
-              No batch jobs match your search.
-            </p>
-          </div>
-        ) : (
-          <motion.div id="prospects-list" layout className="space-y-2">
-            <AnimatePresence mode="popLayout">
-              {filteredJobs.map((job) => (
-                <JobItem
-                  key={job.id}
-                  job={job}
-                  onDelete={(id) => deleteMutation.mutateAsync(id)}
-                  onView={(id) => window.location.href = `/batch/${id}`}
-                  onExport={(id) => window.open(`/api/batch-prospects/${id}/export?format=csv`, "_blank")}
-                />
-              ))}
-            </AnimatePresence>
-          </motion.div>
-        )}
       </div>
     </div>
   )
