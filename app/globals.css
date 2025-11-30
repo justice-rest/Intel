@@ -12,6 +12,15 @@
   font-display: swap;
 }
 
+/* Roboto Round Font */
+@font-face {
+  font-family: "roboto-round";
+  src: url("/fonts/Roboto-Round/Roboto-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme {

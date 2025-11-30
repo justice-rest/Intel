@@ -103,9 +103,9 @@
 
 .batch-logo-text {
   font-size: 1.125rem;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--c-text-primary);
-  font-family: 'rb-freigeist-neue', ui-sans-serif, system-ui, sans-serif;
+  font-family: 'roboto-round', ui-sans-serif, system-ui, sans-serif;
 }
 
 .batch-header-divider {

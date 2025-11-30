@@ -57,7 +57,7 @@ export function Header() {
               className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-200 group-hover/logo:opacity-100"
             />
           </span>
-          <span style={{ fontFamily: 'rb-freigeist-neue, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"' }}>
+          <span style={{ fontFamily: 'roboto-round, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"' }}>
             {APP_NAME}
           </span>
         </Link>

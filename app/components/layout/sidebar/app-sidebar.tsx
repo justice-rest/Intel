@@ -115,7 +115,7 @@ export function AppSidebar() {
                 className="text-foreground"
                 style={{
                   fontFamily:
-                    'rb-freigeist-neue, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
+                    'roboto-round, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
                 }}
               >
                 {APP_NAME}
