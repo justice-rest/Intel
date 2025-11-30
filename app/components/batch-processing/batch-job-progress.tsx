@@ -4,14 +4,12 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import {
   Play,
@@ -27,10 +25,10 @@ import {
   Fire,
   File,
   CaretRight,
+  CaretDown,
   Eye,
   Globe,
-  FileText,
-  ArrowUpRight,
+  Link,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -68,6 +66,116 @@ function formatUrl(url: string): string {
   } catch {
     return url
   }
+}
+
+// Report Sources List Component (chat-style collapsible)
+function ReportSourcesList({ sources }: { sources: { url: string; name?: string }[] }) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [failedFavicons, setFailedFavicons] = useState<Set<string>>(new Set())
+
+  const handleFaviconError = (url: string) => {
+    setFailedFavicons((prev) => new Set(prev).add(url))
+  }
+
+  return (
+    <div className="my-4">
+      <div className="border-border flex flex-col gap-0 overflow-hidden rounded-md border">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          type="button"
+          className="hover:bg-accent flex w-full flex-row items-center rounded-t-md px-3 py-2 transition-colors"
+        >
+          <div className="flex flex-1 flex-row items-center gap-2 text-left text-sm">
+            Sources
+            <div className="flex -space-x-1">
+              {sources?.slice(0, 5).map((source, index) => {
+                const faviconUrl = getFavicon(source.url)
+                const showFallback = !faviconUrl || failedFavicons.has(source.url)
+
+                return showFallback ? (
+                  <div
+                    key={`${source.url}-${index}`}
+                    className="bg-muted border-background h-4 w-4 rounded-full border"
+                  />
+                ) : (
+                  <Image
+                    key={`${source.url}-${index}`}
+                    src={faviconUrl}
+                    alt=""
+                    width={16}
+                    height={16}
+                    className="border-background h-4 w-4 rounded-sm border"
+                    onError={() => handleFaviconError(source.url)}
+                  />
+                )
+              })}
+              {sources.length > 5 && (
+                <span className="text-muted-foreground ml-1 text-xs">
+                  +{sources.length - 5}
+                </span>
+              )}
+            </div>
+          </div>
+          <CaretDown
+            className={cn(
+              "h-4 w-4 transition-transform",
+              isExpanded ? "rotate-180 transform" : ""
+            )}
+          />
+        </button>
+
+        <AnimatePresence initial={false}>
+          {isExpanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.2, bounce: 0 }}
+              className="overflow-hidden"
+            >
+              <ul className="space-y-2 px-3 pt-3 pb-3">
+                {sources.map((source, index) => {
+                  const faviconUrl = getFavicon(source.url)
+                  const showFallback = !faviconUrl || failedFavicons.has(source.url)
+
+                  return (
+                    <li key={`${source.url}-${index}`} className="flex items-center text-sm">
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <a
+                          href={source.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary group line-clamp-1 flex items-center gap-1 hover:underline"
+                        >
+                          {showFallback ? (
+                            <div className="bg-muted h-4 w-4 flex-shrink-0 rounded-full" />
+                          ) : (
+                            <Image
+                              src={faviconUrl}
+                              alt=""
+                              width={16}
+                              height={16}
+                              className="h-4 w-4 flex-shrink-0 rounded-sm"
+                              onError={() => handleFaviconError(source.url)}
+                            />
+                          )}
+                          <span className="truncate">{source.name || formatUrl(source.url)}</span>
+                          <Link className="inline h-3 w-3 flex-shrink-0 opacity-70 transition-opacity group-hover:opacity-100" />
+                        </a>
+                        <div className="text-muted-foreground line-clamp-1 text-xs">
+                          {formatUrl(source.url)}
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  )
 }
 
 // Status Card Component (dark-uibank-dashboard-concept style)
@@ -601,7 +709,7 @@ export function BatchJobProgress({
 
       {/* Report Dialog */}
       <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <span>{selectedItem?.input_data.name}</span>
@@ -613,111 +721,17 @@ export function BatchJobProgress({
             </DialogTitle>
           </DialogHeader>
 
-          <Tabs defaultValue="report" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="report" className="gap-2">
-                <FileText className="h-4 w-4" />
-                Report
-              </TabsTrigger>
-              <TabsTrigger value="sources" className="gap-2">
-                <Globe className="h-4 w-4" />
-                Sources
-                {selectedItem?.sources_found && selectedItem.sources_found.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                    {selectedItem.sources_found.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-            </TabsList>
+          <div className="flex-1 overflow-auto">
+            {/* Report Content */}
+            <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden break-words">
+              <Markdown>{selectedItem?.report_content || ""}</Markdown>
+            </div>
 
-            <TabsContent value="report" className="mt-4">
-              <ScrollArea className="max-h-[60vh] pr-4">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <Markdown>{selectedItem?.report_content || ""}</Markdown>
-                </div>
-              </ScrollArea>
-            </TabsContent>
-
-            <TabsContent value="sources" className="mt-4">
-              <ScrollArea className="max-h-[60vh] pr-4">
-                {selectedItem?.sources_found && selectedItem.sources_found.length > 0 ? (
-                  <div className="space-y-3">
-                    <p className="text-sm text-muted-foreground mb-4">
-                      {selectedItem.sources_found.length} sources were used to generate this report.
-                    </p>
-                    <div className="space-y-2">
-                      {selectedItem.sources_found.map((source, index) => {
-                        const faviconUrl = getFavicon(source.url)
-                        return (
-                          <a
-                            key={`${source.url}-${index}`}
-                            href={source.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors group"
-                          >
-                            <div className="flex-shrink-0 mt-0.5">
-                              {faviconUrl ? (
-                                <Image
-                                  src={faviconUrl}
-                                  alt=""
-                                  width={20}
-                                  height={20}
-                                  className="rounded"
-                                />
-                              ) : (
-                                <div className="h-5 w-5 bg-muted rounded flex items-center justify-center">
-                                  <Globe className="h-3 w-3 text-muted-foreground" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm truncate group-hover:text-primary">
-                                  {source.name || formatUrl(source.url)}
-                                </span>
-                                <ArrowUpRight className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-                              </div>
-                              <span className="text-xs text-muted-foreground truncate block">
-                                {formatUrl(source.url)}
-                              </span>
-                            </div>
-                          </a>
-                        )
-                      })}
-                    </div>
-
-                    {/* Search queries used */}
-                    {selectedItem.search_queries_used && selectedItem.search_queries_used.length > 0 && (
-                      <div className="mt-6 pt-4 border-t">
-                        <h4 className="text-sm font-medium mb-3">Search Queries Used</h4>
-                        <div className="space-y-2">
-                          {selectedItem.search_queries_used.map((query, index) => (
-                            <div
-                              key={index}
-                              className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md"
-                            >
-                              {query}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <Globe className="h-12 w-12 text-muted-foreground/50 mb-4" />
-                    <p className="text-sm text-muted-foreground">
-                      No sources available for this report.
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Web search may have been disabled for this batch job.
-                    </p>
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
+            {/* Sources Section - Chat Style */}
+            {selectedItem?.sources_found && selectedItem.sources_found.length > 0 && (
+              <ReportSourcesList sources={selectedItem.sources_found} />
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
