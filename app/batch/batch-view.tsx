@@ -863,10 +863,16 @@ export function BatchView() {
         throw new Error(data.error || "Failed to create batch job")
       }
 
+      const data = await response.json()
       toast({ title: `Batch job created with ${limitedProspects.length} prospects`, status: "success" })
       queryClient.invalidateQueries({ queryKey: ["batch-jobs"] })
       setIsMappingDialogOpen(false)
       setParsedFileData(null)
+
+      // Redirect to the job detail page
+      if (data.job?.id) {
+        window.location.href = `/batch/${data.job.id}`
+      }
     } catch (err) {
       throw err
     } finally {

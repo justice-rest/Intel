@@ -1,7 +1,31 @@
 "use client"
 
+import { useEffect, useCallback } from "react"
 import { Switch } from "@/components/ui/switch"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
+
+// Audio clip cache for toggle sound
+const CLIPS: Record<string, HTMLAudioElement> = {}
+
+function useClickSound() {
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (CLIPS["/click.wav"]) return
+
+    const audio = new Audio("/click.wav")
+    audio.preload = "auto"
+    audio.load()
+    CLIPS["/click.wav"] = audio
+  }, [])
+
+  return useCallback(() => {
+    const audio = CLIPS["/click.wav"]
+    if (!audio) return
+    audio.volume = 0.3
+    audio.currentTime = 0
+    audio.play().catch(() => {})
+  }, [])
+}
 
 export function InteractionPreferences() {
   const {
@@ -9,6 +33,8 @@ export function InteractionPreferences() {
     setShowToolInvocations,
     setShowConversationPreviews,
   } = useUserPreferences()
+
+  const playClick = useClickSound()
 
   return (
     <div className="space-y-6 pb-12">
@@ -23,7 +49,10 @@ export function InteractionPreferences() {
           </div>
           <Switch
             checked={preferences.showToolInvocations}
-            onCheckedChange={setShowToolInvocations}
+            onCheckedChange={(checked) => {
+              playClick()
+              setShowToolInvocations(checked)
+            }}
           />
         </div>
       </div>
@@ -38,7 +67,10 @@ export function InteractionPreferences() {
           </div>
           <Switch
             checked={preferences.showConversationPreviews}
-            onCheckedChange={setShowConversationPreviews}
+            onCheckedChange={(checked) => {
+              playClick()
+              setShowConversationPreviews(checked)
+            }}
           />
         </div>
       </div>
