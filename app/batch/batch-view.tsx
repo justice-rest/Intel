@@ -293,46 +293,6 @@ function BatchUploadSidebar({
         </div>
       </div>
 
-      {/* Stats cards */}
-      <div className="payments">
-        <div className="payment">
-          <div className="card card-green">
-            <span>Jobs</span>
-            <span>{stats.totalJobs}</span>
-          </div>
-          <div className="payment-details">
-            <h3>Total Batches</h3>
-            <div>
-              <span>{stats.totalJobs}</span>
-            </div>
-          </div>
-        </div>
-        <div className="payment">
-          <div className="card card-olive">
-            <span>Done</span>
-            <span>{stats.completedProspects}</span>
-          </div>
-          <div className="payment-details">
-            <h3>Researched</h3>
-            <div>
-              <span>{stats.completedProspects}/{stats.totalProspects}</span>
-            </div>
-          </div>
-        </div>
-        <div className="payment">
-          <div className="card card-gray">
-            <span>Limit</span>
-            <span>{batchLimit}</span>
-          </div>
-          <div className="payment-details">
-            <h3>Per Batch</h3>
-            <div>
-              <span>{batchLimit} max</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Upload area */}
       <div className="faq">
         <p>Drop or select a file to start</p>
@@ -378,6 +338,46 @@ function BatchUploadSidebar({
               )}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Stats cards */}
+      <div className="payments">
+        <div className="payment">
+          <div className="card card-green">
+            <span>Jobs</span>
+            <span>{stats.totalJobs}</span>
+          </div>
+          <div className="payment-details">
+            <h3>Total Batches</h3>
+            <div>
+              <span>{stats.totalJobs}</span>
+            </div>
+          </div>
+        </div>
+        <div className="payment">
+          <div className="card card-olive">
+            <span>Done</span>
+            <span>{stats.completedProspects}</span>
+          </div>
+          <div className="payment-details">
+            <h3>Researched</h3>
+            <div>
+              <span>{stats.completedProspects}/{stats.totalProspects}</span>
+            </div>
+          </div>
+        </div>
+        <div className="payment">
+          <div className="card card-gray">
+            <span>Limit</span>
+            <span>{batchLimit}</span>
+          </div>
+          <div className="payment-details">
+            <h3>Per Batch</h3>
+            <div>
+              <span>{batchLimit} max</span>
+            </div>
+          </div>
         </div>
       </div>
 
