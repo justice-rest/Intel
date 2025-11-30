@@ -29,6 +29,10 @@ import {
   Eye,
   Globe,
   Link,
+  Copy,
+  Check,
+  FilePdf,
+  SpinnerGap,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -38,6 +42,12 @@ import {
 } from "@/lib/batch-processing"
 import { formatDuration, calculateEstimatedTimeRemaining, MIN_DELAY_BETWEEN_PROSPECTS_MS } from "@/lib/batch-processing/config"
 import { Markdown } from "@/components/prompt-kit/markdown"
+import { exportToPdf } from "@/lib/pdf-export"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import Image from "next/image"
 import { ResearchPlayButton, ResearchStopButton } from "./research-play-button"
 
@@ -756,9 +766,61 @@ export function BatchJobProgress({
       </div>
 
       {/* Report Dialog */}
-      <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+      <ReportDialog
+        selectedItem={selectedItem}
+        onClose={() => setSelectedItem(null)}
+      />
+    </div>
+  )
+}
+
+// Report Dialog Component with Copy and Export PDF buttons
+function ReportDialog({
+  selectedItem,
+  onClose,
+}: {
+  selectedItem: BatchProspectItem | null
+  onClose: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
+  const copyToClipboard = useCallback(() => {
+    if (!selectedItem?.report_content) return
+    navigator.clipboard.writeText(selectedItem.report_content)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [selectedItem?.report_content])
+
+  const handleExportPdf = async () => {
+    if (!selectedItem?.report_content) return
+
+    setIsExporting(true)
+    try {
+      const title = `${selectedItem.input_data.name} - Prospect Report`
+      const formattedDate = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+
+      await exportToPdf(selectedItem.report_content, {
+        title,
+        date: formattedDate,
+        logoSrc: "/BrandmarkRōmy.png",
+      })
+    } catch (error) {
+      console.error("Failed to export PDF:", error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  return (
+    <Dialog open={!!selectedItem} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               <span>{selectedItem?.input_data.name}</span>
               {selectedItem?.romy_score !== undefined && (
@@ -767,21 +829,62 @@ export function BatchJobProgress({
                 </Badge>
               )}
             </DialogTitle>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-auto">
-            {/* Report Content */}
-            <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden break-words">
-              <Markdown>{selectedItem?.report_content || ""}</Markdown>
+            <div className="flex items-center gap-1 mr-6">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-8 items-center justify-center rounded-full bg-transparent transition"
+                    aria-label="Copy text"
+                    onClick={copyToClipboard}
+                    type="button"
+                  >
+                    {copied ? (
+                      <Check className="size-4" />
+                    ) : (
+                      <Copy className="size-4" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {copied ? "Copied!" : "Copy text"}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-8 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
+                    aria-label="Export PDF"
+                    onClick={handleExportPdf}
+                    type="button"
+                    disabled={isExporting}
+                  >
+                    {isExporting ? (
+                      <SpinnerGap className="size-4 animate-spin" />
+                    ) : (
+                      <FilePdf className="size-4" />
+                    )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isExporting ? "Exporting..." : "Export PDF"}
+                </TooltipContent>
+              </Tooltip>
             </div>
-
-            {/* Sources Section - Chat Style */}
-            {selectedItem?.sources_found && selectedItem.sources_found.length > 0 && (
-              <ReportSourcesList sources={selectedItem.sources_found} />
-            )}
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-auto">
+          {/* Report Content */}
+          <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden break-words">
+            <Markdown>{selectedItem?.report_content || ""}</Markdown>
+          </div>
+
+          {/* Sources Section - Chat Style */}
+          {selectedItem?.sources_found && selectedItem.sources_found.length > 0 && (
+            <ReportSourcesList sources={selectedItem.sources_found} />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
