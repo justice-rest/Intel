@@ -36,7 +36,7 @@ import {
   BatchProspectItem,
   ProcessNextItemResponse,
 } from "@/lib/batch-processing"
-import { formatDuration, calculateEstimatedTimeRemaining } from "@/lib/batch-processing/config"
+import { formatDuration, calculateEstimatedTimeRemaining, MIN_DELAY_BETWEEN_PROSPECTS_MS } from "@/lib/batch-processing/config"
 import { Markdown } from "@/components/prompt-kit/markdown"
 import Image from "next/image"
 
@@ -434,35 +434,26 @@ export function BatchJobProgress({
       body: JSON.stringify({ status: "processing" }),
     })
 
-    // Number of parallel workers (concurrent API calls)
-    const PARALLEL_WORKERS = 3
+    // Process items sequentially with rate-limit-safe delay
+    // Each prospect triggers: ~5 Linkup searches + 1 OpenRouter call
+    // Using MIN_DELAY (2s) respects Linkup (10 QPS) and OpenRouter limits
+    const delay = job.settings?.delay_between_prospects_ms || MIN_DELAY_BETWEEN_PROSPECTS_MS
     let hasMore = true
 
-    const runWorker = async (): Promise<void> => {
-      while (hasMore && !abortControllerRef.current?.signal.aborted) {
-        const shouldContinue = await processNextItem()
+    while (hasMore && !abortControllerRef.current?.signal.aborted) {
+      const shouldContinue = await processNextItem()
 
-        if (!shouldContinue) {
-          hasMore = false
-          break
-        }
-
-        // Small delay to prevent hammering the API (500ms instead of 3000ms)
-        await new Promise<void>((resolve) => {
-          delayTimeoutRef.current = setTimeout(resolve, 500)
-        })
+      if (!shouldContinue) {
+        hasMore = false
+        break
       }
-    }
 
-    // Start parallel workers
-    const workers: Promise<void>[] = []
-    for (let i = 0; i < PARALLEL_WORKERS; i++) {
-      workers.push(runWorker())
+      // Rate-limit-safe delay between prospects
+      await new Promise<void>((resolve) => {
+        delayTimeoutRef.current = setTimeout(resolve, delay)
+      })
     }
-
-    // Wait for all workers to complete
-    await Promise.all(workers)
-  }, [job.id, processNextItem])
+  }, [job.id, job.settings?.delay_between_prospects_ms, processNextItem])
 
   // Pause processing
   const pauseProcessing = useCallback(async () => {
