@@ -9,7 +9,12 @@ import { Button } from "@/components/ui/button"
 import { APP_NAME } from "@/lib/config"
 import { useSplitView } from "@/lib/split-view-store/provider"
 import { useUser } from "@/lib/user-store/provider"
-import { Info } from "@phosphor-icons/react"
+import { Info, UsersThree } from "@phosphor-icons/react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import Image from "next/image"
 import Link from "next/link"
 import { DialogPublish } from "./dialog-publish"
@@ -92,6 +97,21 @@ export function Header({ hasSidebar }: { hasSidebar: boolean }) {
                   <DialogPublish />
                   <ButtonNewChat />
                   {!hasSidebar && <HistoryTrigger hasSidebar={hasSidebar} />}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link href="/batch">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-full"
+                          aria-label="Batch Research"
+                        >
+                          <UsersThree className="size-4" />
+                        </Button>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>Batch Research</TooltipContent>
+                  </Tooltip>
                   <UserMenu />
                 </div>
               )}
