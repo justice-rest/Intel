@@ -23,7 +23,7 @@ export function UpgradePrompt() {
         </p>
         <p className="text-muted-foreground mb-5 text-base">
           Upload and search your own documents with AI-powered RAG. Unlock
-          unlimited potential with fundraising insights from your data. Visit the Subscription tab above to upgrade to Scale.
+          unlimited potential with fundraising insights from your data. Visit the Subscription tab below to upgrade to Scale.
         </p>
       </div>
     </PopoverContent>
