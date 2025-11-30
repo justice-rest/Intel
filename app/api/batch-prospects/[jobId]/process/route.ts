@@ -20,6 +20,11 @@ import {
 import { generateProspectReport } from "@/lib/batch-processing/report-generator"
 import { getEffectiveApiKey } from "@/lib/user-keys"
 import { MAX_RETRIES_PER_PROSPECT } from "@/lib/batch-processing/config"
+import {
+  sendEmail,
+  getBatchCompleteEmailHtml,
+  getBatchCompleteEmailSubject,
+} from "@/lib/email"
 
 // Allow up to 2 minutes for processing (web searches + AI generation)
 export const runtime = "nodejs"
@@ -172,6 +177,26 @@ export async function POST(
           .select("*")
           .eq("id", jobId)
           .single() as { data: BatchProspectJob | null }
+
+        // Send completion email
+        if (user.email) {
+          const emailHtml = getBatchCompleteEmailHtml({
+            jobName: finalJob?.name || job.name || "Batch Research",
+            totalProspects: finalJob?.total_prospects || job.total_prospects,
+            completedCount: finalJob?.completed_count || job.completed_count,
+            failedCount: finalJob?.failed_count || job.failed_count,
+            jobId,
+            appUrl: process.env.NEXT_PUBLIC_VERCEL_URL
+              ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+              : "https://romyai.com",
+          })
+
+          await sendEmail({
+            to: user.email,
+            subject: getBatchCompleteEmailSubject(finalJob?.name || job.name || "Batch Research"),
+            html: emailHtml,
+          })
+        }
 
         const response: ProcessNextItemResponse = {
           job_status: "completed",
