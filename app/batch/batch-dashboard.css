@@ -774,15 +774,18 @@
 }
 
 .card-green {
-  background-color: var(--c-green-500);
+  background-color: #00A5E4;
+  color: #ffffff;
 }
 
 .card-olive {
-  background-color: var(--c-olive-500);
+  background-color: #E39C4D;
+  color: #ffffff;
 }
 
 .card-gray {
-  background-color: var(--c-gray-300);
+  background-color: #60818E;
+  color: #ffffff;
 }
 
 .card span:last-child {
@@ -1123,23 +1126,23 @@ button:focus-visible {
   color: #ffffff;
 }
 
-/* Cards keep vibrant colors in light mode - matches view details section colors */
+/* Cards keep vibrant colors in light mode - matches main tiles */
 :root.light .card-green,
 .light .card-green {
-  background-color: #45ffbc;
-  color: #1f1f1f;
+  background-color: #00A5E4;
+  color: #ffffff;
 }
 
 :root.light .card-olive,
 .light .card-olive {
-  background-color: #e3ffa8;
-  color: #1f1f1f;
+  background-color: #E39C4D;
+  color: #ffffff;
 }
 
 :root.light .card-gray,
 .light .card-gray {
-  background-color: #bdbbb7;
-  color: #1f1f1f;
+  background-color: #60818E;
+  color: #ffffff;
 }
 
 :root.light .transfer-logo,
