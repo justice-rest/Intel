@@ -139,7 +139,7 @@ export function ResearchPlayButton({
     ? isPaused
       ? "Resume"
       : "Stop"
-    : "Play"
+    : "Begin"
 
   return (
     <div
@@ -152,8 +152,8 @@ export function ResearchPlayButton({
         }
       }}
       className={cn(
-        // Base styles - compact button
-        "flex items-center justify-center gap-2 flex-1 rounded-md py-2.5 px-4",
+        // Base styles - openai-fm Button style
+        "flex items-center justify-center gap-2 flex-1 rounded-md p-3",
         "cursor-pointer select-none transition-all duration-200",
         // Primary color - openai-fm orange #ff4a00
         "text-white bg-[#ff4a00]",
@@ -171,7 +171,7 @@ export function ResearchPlayButton({
       ) : (
         <PlayIcon />
       )}
-      <span className="uppercase hidden md:inline font-medium text-sm">
+      <span className="uppercase pr-3 font-medium">
         {buttonText}
       </span>
     </div>
@@ -207,8 +207,8 @@ export function ResearchStopButton({
         }
       }}
       className={cn(
-        // Base styles - compact button (matching play button)
-        "flex items-center justify-center gap-2 flex-1 rounded-md py-2.5 px-4",
+        // Base styles - openai-fm Button style (matching play button)
+        "flex items-center justify-center gap-2 flex-1 rounded-md p-3",
         "cursor-pointer select-none transition-all duration-200",
         // Secondary color - dark gray
         "text-white bg-[#222] dark:bg-[#333]",
@@ -231,7 +231,7 @@ export function ResearchStopButton({
       >
         <rect x="4" y="4" width="12" height="12" rx="2" />
       </svg>
-      <span className="uppercase hidden md:inline font-medium text-sm">
+      <span className="uppercase pr-3 font-medium">
         Cancel
       </span>
     </div>
