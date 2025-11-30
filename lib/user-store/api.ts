@@ -2,6 +2,7 @@
 import { toast } from "@/components/ui/toast"
 import { createClient } from "@/lib/supabase/client"
 import type { UserProfile } from "@/lib/user/types"
+import { generateDiceBearAvatar } from "@/lib/utils/avatar"
 
 export async function fetchUserProfile(
   id: string
@@ -23,9 +24,12 @@ export async function fetchUserProfile(
   // Don't return anonymous users
   if (data.anonymous) return null
 
+  // Always use DiceBear avatar instead of stored profile_image
+  const diceBearAvatar = generateDiceBearAvatar(id)
+
   return {
     ...data,
-    profile_image: data.profile_image || "",
+    profile_image: diceBearAvatar,
     display_name: data.display_name || "",
   }
 }
@@ -84,7 +88,12 @@ export function subscribeToUserUpdates(
         filter: `id=eq.${userId}`,
       },
       (payload) => {
-        onUpdate(payload.new as Partial<UserProfile>)
+        const newData = payload.new as Partial<UserProfile>
+        // Always use DiceBear avatar instead of stored profile_image
+        if (newData.id) {
+          newData.profile_image = generateDiceBearAvatar(newData.id)
+        }
+        onUpdate(newData)
       }
     )
     .subscribe()
