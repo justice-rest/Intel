@@ -1,4 +1,3 @@
-import { LayoutApp } from "@/app/components/layout/layout-app"
 import { BatchView } from "./batch-view"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { createClient } from "@/lib/supabase/server"
@@ -16,9 +15,5 @@ export default async function BatchPage() {
     }
   }
 
-  return (
-    <LayoutApp forceSidebar>
-      <BatchView />
-    </LayoutApp>
-  )
+  return <BatchView />
 }

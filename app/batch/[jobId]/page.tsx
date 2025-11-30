@@ -1,4 +1,3 @@
-import { LayoutApp } from "@/app/components/layout/layout-app"
 import { BatchJobDetailView } from "./batch-job-detail-view"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { createClient } from "@/lib/supabase/server"
@@ -22,9 +21,5 @@ export default async function BatchJobPage({
     }
   }
 
-  return (
-    <LayoutApp forceSidebar>
-      <BatchJobDetailView jobId={jobId} />
-    </LayoutApp>
-  )
+  return <BatchJobDetailView jobId={jobId} />
 }

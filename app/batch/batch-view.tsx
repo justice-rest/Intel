@@ -685,6 +685,23 @@ export function BatchView() {
 
   return (
     <div className="batch-app-container">
+      {/* Header */}
+      <header className="batch-header">
+        <div className="batch-header-left">
+          <a href="/" className="batch-logo-link">
+            <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo" />
+            <span className="batch-logo-text">Rōmy</span>
+          </a>
+          <span className="batch-header-divider">/</span>
+          <h1>Batch Research</h1>
+        </div>
+        <div className="batch-header-right">
+          <a href="/" className="flat-button">
+            Back to Chat
+          </a>
+        </div>
+      </header>
+
       <div className="batch-app-body">
         {/* Main Content */}
         <div className="app-body-main-content">
