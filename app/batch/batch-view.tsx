@@ -6,12 +6,6 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
@@ -24,16 +18,13 @@ import {
   CloudArrowUp,
   FileCsv,
   MagnifyingGlass,
-  DotsThreeVertical,
   Download,
   Trash,
-  Eye,
   Spinner,
   CheckCircle,
   WarningCircle,
   Clock,
   X,
-  Play,
   Pause,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
@@ -444,7 +435,13 @@ function JobItem({
       {/* Job Info */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <h4 className="truncate text-sm font-medium">{job.name}</h4>
+          {/* Clickable job name to view report */}
+          <button
+            onClick={() => onView(job.id)}
+            className="truncate text-sm font-medium text-primary hover:underline text-left"
+          >
+            {job.name}
+          </button>
           <StatusBadge status={job.status} />
         </div>
 
@@ -474,47 +471,34 @@ function JobItem({
         </div>
       </div>
 
-      {/* Actions */}
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
+      {/* Actions - Export and Delete */}
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {job.status === "completed" && (
           <Button
             variant="ghost"
             size="icon"
-            className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-            disabled={isDeleting}
+            onClick={() => onExport(job.id)}
+            className="opacity-0 transition-opacity group-hover:opacity-100"
+            title="Export CSV"
           >
-            <DotsThreeVertical className="h-4 w-4" />
+            <Download className="h-4 w-4" />
           </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onView(job.id)}>
-            <Eye className="mr-2 h-4 w-4" />
-            View Details
-          </DropdownMenuItem>
-          {job.status === "pending" && (
-            <DropdownMenuItem onClick={() => onView(job.id)}>
-              <Play className="mr-2 h-4 w-4" />
-              Start Processing
-            </DropdownMenuItem>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleDelete}
+          disabled={isDeleting}
+          className="opacity-0 transition-opacity group-hover:opacity-100 text-destructive hover:text-destructive"
+          title="Delete"
+        >
+          {isDeleting ? (
+            <Spinner className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash className="h-4 w-4" />
           )}
-          {job.status === "completed" && (
-            <DropdownMenuItem onClick={() => onExport(job.id)}>
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem onClick={handleDelete} className="text-destructive">
-            <Trash className="mr-2 h-4 w-4" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {isDeleting && (
-        <div className="flex-shrink-0">
-          <Spinner className="h-4 w-4 animate-spin" />
-        </div>
-      )}
+        </Button>
+      </div>
     </motion.div>
   )
 }
@@ -645,7 +629,7 @@ export function BatchView() {
   const completedProspects = jobs.reduce((sum, j) => sum + j.completed_count, 0)
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 pt-20 pb-8 sm:pt-8">
       <div className="space-y-6">
         {/* Header with stats */}
         <div>
@@ -654,9 +638,19 @@ export function BatchView() {
               <UsersThree className="h-6 w-6" />
               Batch Research
             </h1>
-            <span className="text-muted-foreground text-xs">
-              {jobs.length} jobs • {completedProspects}/{totalProspects} prospects
-            </span>
+            <div className="flex items-center gap-3">
+              {jobs.length > 0 && (
+                <button
+                  onClick={() => document.getElementById('prospects-list')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="text-primary hover:underline text-xs font-medium"
+                >
+                  View Reports
+                </button>
+              )}
+              <span className="text-muted-foreground text-xs">
+                {jobs.length} jobs • {completedProspects}/{totalProspects} prospects
+              </span>
+            </div>
           </div>
           <p className="text-muted-foreground text-sm">
             Upload prospect lists to research multiple donors at once
@@ -682,7 +676,7 @@ export function BatchView() {
             placeholder="Search batch jobs..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 bg-transparent border-border"
           />
         </div>
 
@@ -706,7 +700,7 @@ export function BatchView() {
             </p>
           </div>
         ) : (
-          <motion.div layout className="space-y-2">
+          <motion.div id="prospects-list" layout className="space-y-2">
             <AnimatePresence mode="popLayout">
               {filteredJobs.map((job) => (
                 <JobItem

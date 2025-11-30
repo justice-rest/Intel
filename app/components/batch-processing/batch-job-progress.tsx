@@ -5,6 +5,13 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import {
   Play,
@@ -16,15 +23,24 @@ import {
   Spinner,
   Clock,
   Download,
+  Lightning,
+  Fire,
+  File,
+  CaretRight,
+  Eye,
+  Globe,
+  FileText,
+  ArrowUpRight,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
-import { ProspectCard } from "./prospect-card"
 import {
   BatchProspectJob,
   BatchProspectItem,
   ProcessNextItemResponse,
 } from "@/lib/batch-processing"
 import { formatDuration, calculateEstimatedTimeRemaining } from "@/lib/batch-processing/config"
+import { Markdown } from "@/components/prompt-kit/markdown"
+import Image from "next/image"
 
 interface BatchJobProgressProps {
   job: BatchProspectJob
@@ -34,6 +50,192 @@ interface BatchJobProgressProps {
 }
 
 type ProcessingState = "idle" | "running" | "paused" | "completed" | "error"
+
+// Helper functions for sources display
+function getFavicon(url: string): string | null {
+  try {
+    const urlObj = new URL(url)
+    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32`
+  } catch {
+    return null
+  }
+}
+
+function formatUrl(url: string): string {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.hostname.replace("www.", "")
+  } catch {
+    return url
+  }
+}
+
+// Status Card Component (dark-uibank-dashboard-concept style)
+function StatusCard({
+  icon: Icon,
+  title,
+  subtitle,
+  count,
+  variant,
+}: {
+  icon: React.ElementType
+  title: string
+  subtitle: string
+  count: number
+  variant: "green" | "red" | "gray"
+}) {
+  const variantStyles = {
+    green: "bg-[#45ffbc] text-[#1f1f1f]",
+    red: "bg-red-400 text-[#1f1f1f]",
+    gray: "bg-[#bdbbb7] text-[#1f1f1f]",
+  }
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg p-4 min-h-[140px] flex flex-col justify-between transition-transform hover:-translate-y-1",
+        variantStyles[variant]
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="h-8 w-8 opacity-80" weight="light" />
+        <div className="flex flex-col leading-tight">
+          <span className="font-semibold text-sm">{title}</span>
+          <span className="text-xs opacity-70">{subtitle}</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between mt-4">
+        <span className="text-3xl font-bold">{count}</span>
+        <span className="flex items-center gap-1 text-xs font-semibold opacity-80">
+          View details
+          <CaretRight className="h-4 w-4" weight="bold" />
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// Prospect Table Row Component (models.dev style)
+function ProspectTableRow({
+  item,
+  onViewReport,
+}: {
+  item: BatchProspectItem
+  onViewReport: (item: BatchProspectItem) => void
+}) {
+  const formatCurrency = (value?: number) => {
+    if (!value) return "—"
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(1)}M`
+    }
+    if (value >= 1000) {
+      return `$${(value / 1000).toFixed(0)}K`
+    }
+    return `$${value.toLocaleString()}`
+  }
+
+  const address = [
+    item.input_data.address,
+    item.input_data.city,
+    item.input_data.state,
+    item.input_data.zip,
+  ]
+    .filter(Boolean)
+    .join(", ") || item.input_data.full_address || "—"
+
+  const getStatusIcon = () => {
+    switch (item.status) {
+      case "completed":
+        return <CheckCircle className="h-4 w-4 text-green-600" weight="fill" />
+      case "processing":
+        return <Spinner className="h-4 w-4 text-blue-500 animate-spin" />
+      case "failed":
+        return <WarningCircle className="h-4 w-4 text-red-500" weight="fill" />
+      default:
+        return <Clock className="h-4 w-4 text-muted-foreground" />
+    }
+  }
+
+  return (
+    <tr className="border-b border-border hover:bg-accent/30 transition-colors">
+      <td className="py-3 px-3 text-sm text-muted-foreground font-mono">
+        {item.item_index + 1}
+      </td>
+      <td className="py-3 px-3">
+        <button
+          onClick={() => item.status === "completed" && item.report_content && onViewReport(item)}
+          className={cn(
+            "text-sm font-medium text-left",
+            item.status === "completed" && item.report_content
+              ? "text-primary hover:underline cursor-pointer"
+              : "text-foreground cursor-default"
+          )}
+          disabled={item.status !== "completed" || !item.report_content}
+        >
+          {item.input_data.name}
+        </button>
+      </td>
+      <td className="py-3 px-3 text-sm text-muted-foreground max-w-[200px] truncate">
+        {address}
+      </td>
+      <td className="py-3 px-3 text-sm text-muted-foreground">
+        {item.input_data.city || "—"}
+      </td>
+      <td className="py-3 px-3 text-sm text-muted-foreground font-mono">
+        {item.input_data.state || "—"}
+      </td>
+      <td className="py-3 px-3 text-sm text-muted-foreground font-mono">
+        {item.input_data.zip || "—"}
+      </td>
+      <td className="py-3 px-3">
+        <span className={cn(
+          "text-sm font-mono font-medium",
+          item.romy_score !== undefined && item.romy_score >= 31
+            ? "text-purple-500"
+            : item.romy_score !== undefined && item.romy_score >= 21
+              ? "text-green-600"
+              : item.romy_score !== undefined && item.romy_score >= 11
+                ? "text-amber-500"
+                : "text-muted-foreground"
+        )}>
+          {item.romy_score !== undefined ? `${item.romy_score}/41` : "—"}
+        </span>
+      </td>
+      <td className="py-3 px-3 text-sm text-muted-foreground">
+        {item.romy_score_tier || "—"}
+      </td>
+      <td className="py-3 px-3 text-sm text-muted-foreground">
+        {item.capacity_rating || "—"}
+      </td>
+      <td className="py-3 px-3 text-sm font-mono">
+        {formatCurrency(item.estimated_net_worth)}
+      </td>
+      <td className="py-3 px-3 text-sm font-mono">
+        {formatCurrency(item.estimated_gift_capacity)}
+      </td>
+      <td className="py-3 px-3 text-sm font-mono text-green-600 font-medium">
+        {formatCurrency(item.recommended_ask)}
+      </td>
+      <td className="py-3 px-3">
+        <div className="flex items-center gap-1">
+          {getStatusIcon()}
+        </div>
+      </td>
+      <td className="py-3 px-3">
+        {item.status === "completed" && item.report_content && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onViewReport(item)}
+            className="h-7 px-2"
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        )}
+      </td>
+    </tr>
+  )
+}
 
 export function BatchJobProgress({
   job,
@@ -53,6 +255,7 @@ export function BatchJobProgress({
   )
   const [currentItem, setCurrentItem] = useState<BatchProspectItem | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedItem, setSelectedItem] = useState<BatchProspectItem | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const delayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -211,17 +414,42 @@ export function BatchJobProgress({
         <div className="flex items-center gap-2">
           {processingState === "completed" && (
             <Button
-              variant="outline"
               size="sm"
               onClick={() => {
                 window.open(`/api/batch-prospects/${job.id}/export?format=csv`, "_blank")
               }}
+              className="bg-green-600 hover:bg-green-700 text-white gap-2"
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="h-4 w-4" />
               Export CSV
             </Button>
           )}
         </div>
+      </div>
+
+      {/* Status Cards (dark-uibank-dashboard-concept style) */}
+      <div className="grid grid-cols-3 gap-4">
+        <StatusCard
+          icon={Lightning}
+          title="Completed"
+          subtitle="Successfully processed"
+          count={completed}
+          variant="green"
+        />
+        <StatusCard
+          icon={Fire}
+          title="Failed"
+          subtitle="Processing errors"
+          count={failed}
+          variant="red"
+        />
+        <StatusCard
+          icon={File}
+          title="Total"
+          subtitle={`${remaining} remaining`}
+          count={total}
+          variant="gray"
+        />
       </div>
 
       {/* Progress Card */}
@@ -231,30 +459,10 @@ export function BatchJobProgress({
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">Progress</span>
             <span className="text-muted-foreground">
-              {completed} of {total} completed
+              {completed} of {total} completed ({percentage}%)
             </span>
           </div>
           <Progress value={percentage} className="h-3" />
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-4 gap-4">
-          <div className="text-center p-3 rounded-lg bg-muted">
-            <div className="text-2xl font-bold">{total}</div>
-            <div className="text-xs text-muted-foreground">Total</div>
-          </div>
-          <div className="text-center p-3 rounded-lg bg-green-500/10">
-            <div className="text-2xl font-bold text-green-600">{completed}</div>
-            <div className="text-xs text-green-600/80">Completed</div>
-          </div>
-          <div className="text-center p-3 rounded-lg bg-red-500/10">
-            <div className="text-2xl font-bold text-red-500">{failed}</div>
-            <div className="text-xs text-red-500/80">Failed</div>
-          </div>
-          <div className="text-center p-3 rounded-lg bg-blue-500/10">
-            <div className="text-2xl font-bold text-blue-500">{remaining}</div>
-            <div className="text-xs text-blue-500/80">Remaining</div>
-          </div>
         </div>
 
         {/* Time estimate */}
@@ -329,19 +537,183 @@ export function BatchJobProgress({
         </div>
       </div>
 
-      {/* Results list */}
+      {/* Prospects Table (models.dev style) */}
       <div className="space-y-4">
-        <h3 className="text-sm font-medium">Prospects</h3>
-        <ScrollArea className="h-[400px]">
-          <div className="space-y-2 pr-4">
-            <AnimatePresence mode="popLayout">
-              {items.map((item) => (
-                <ProspectCard key={item.id} item={item} compact />
-              ))}
-            </AnimatePresence>
-          </div>
-        </ScrollArea>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Prospects
+          </h3>
+          {processingState === "completed" && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                window.open(`/api/batch-prospects/${job.id}/export?format=csv`, "_blank")
+              }}
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export
+            </Button>
+          )}
+        </div>
+
+        <div className="rounded-lg border overflow-hidden">
+          <ScrollArea className="h-[500px]">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-background/95 backdrop-blur-sm border-b z-10">
+                <tr className="text-left">
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">#</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Name</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Address</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">City</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">State</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">ZIP</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Score</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Tier</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Capacity</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Net Worth</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Gift Cap.</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Ask</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Status</th>
+                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <ProspectTableRow
+                    key={item.id}
+                    item={item}
+                    onViewReport={setSelectedItem}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </ScrollArea>
+        </div>
       </div>
+
+      {/* Report Dialog */}
+      <Dialog open={!!selectedItem} onOpenChange={(open) => !open && setSelectedItem(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span>{selectedItem?.input_data.name}</span>
+              {selectedItem?.romy_score !== undefined && (
+                <Badge className="bg-[#B183FF]/20 text-[#B183FF] border-[#B183FF]/30">
+                  RōmyScore: {selectedItem.romy_score}/41
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <Tabs defaultValue="report" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="report" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Report
+              </TabsTrigger>
+              <TabsTrigger value="sources" className="gap-2">
+                <Globe className="h-4 w-4" />
+                Sources
+                {selectedItem?.sources_found && selectedItem.sources_found.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {selectedItem.sources_found.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="report" className="mt-4">
+              <ScrollArea className="max-h-[60vh] pr-4">
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <Markdown>{selectedItem?.report_content || ""}</Markdown>
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="sources" className="mt-4">
+              <ScrollArea className="max-h-[60vh] pr-4">
+                {selectedItem?.sources_found && selectedItem.sources_found.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {selectedItem.sources_found.length} sources were used to generate this report.
+                    </p>
+                    <div className="space-y-2">
+                      {selectedItem.sources_found.map((source, index) => {
+                        const faviconUrl = getFavicon(source.url)
+                        return (
+                          <a
+                            key={`${source.url}-${index}`}
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-start gap-3 p-3 rounded-lg border hover:bg-accent/50 transition-colors group"
+                          >
+                            <div className="flex-shrink-0 mt-0.5">
+                              {faviconUrl ? (
+                                <Image
+                                  src={faviconUrl}
+                                  alt=""
+                                  width={20}
+                                  height={20}
+                                  className="rounded"
+                                />
+                              ) : (
+                                <div className="h-5 w-5 bg-muted rounded flex items-center justify-center">
+                                  <Globe className="h-3 w-3 text-muted-foreground" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm truncate group-hover:text-primary">
+                                  {source.name || formatUrl(source.url)}
+                                </span>
+                                <ArrowUpRight className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
+                              </div>
+                              <span className="text-xs text-muted-foreground truncate block">
+                                {formatUrl(source.url)}
+                              </span>
+                            </div>
+                          </a>
+                        )
+                      })}
+                    </div>
+
+                    {/* Search queries used */}
+                    {selectedItem.search_queries_used && selectedItem.search_queries_used.length > 0 && (
+                      <div className="mt-6 pt-4 border-t">
+                        <h4 className="text-sm font-medium mb-3">Search Queries Used</h4>
+                        <div className="space-y-2">
+                          {selectedItem.search_queries_used.map((query, index) => (
+                            <div
+                              key={index}
+                              className="text-xs text-muted-foreground bg-muted px-3 py-2 rounded-md"
+                            >
+                              {query}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Globe className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                    <p className="text-sm text-muted-foreground">
+                      No sources available for this report.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Web search may have been disabled for this batch job.
+                    </p>
+                  </div>
+                )}
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

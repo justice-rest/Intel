@@ -68,7 +68,7 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className="mx-auto max-w-4xl px-4 pt-20 pb-8 sm:pt-8">
       <BatchJobProgress
         job={job}
         items={items}
