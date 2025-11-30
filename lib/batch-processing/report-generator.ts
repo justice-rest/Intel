@@ -170,8 +170,11 @@ const PROSPECT_REPORT_PROMPT = `You are generating a COMPREHENSIVE PROSPECT RESE
 Based on the provided prospect information and web search results, create a detailed prospect research report following this EXACT structure:
 
 # PROSPECT RESEARCH REPORT
+
 **Subject:** [Full Name]
+
 **Address:** [Full Address]
+
 **Report Date:** [Current Date]
 
 ---
