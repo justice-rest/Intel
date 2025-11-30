@@ -705,6 +705,7 @@
 .icon-button-danger:focus {
   border-color: #ef4444;
   color: #ef4444;
+  box-shadow: 0 0 0 4px var(--c-gray-800), 0 0 0 5px #ef4444;
 }
 
 /* Payment Section (Sidebar) */
