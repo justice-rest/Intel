@@ -249,10 +249,12 @@ export function OnboardingForm({ onComplete }: OnboardingFormProps) {
                 transition={{ duration: 0.5 }}
                 className="flex h-[80vh] cursor-pointer items-center justify-center"
                 onClick={handleSplashClick}
-                onMouseEnter={() => setIsHoveringLogo(true)}
-                onMouseLeave={() => setIsHoveringLogo(false)}
               >
-                <div className="relative size-28 transition-transform hover:scale-105">
+                <div
+                  className="relative size-28 transition-transform hover:scale-105"
+                  onMouseEnter={() => setIsHoveringLogo(true)}
+                  onMouseLeave={() => setIsHoveringLogo(false)}
+                >
                   <Image
                     src="/PFPs/1.png"
                     alt="Rōmy"
