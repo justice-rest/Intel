@@ -192,7 +192,7 @@ function parseDollarAmount(str: string): number | null {
     return isNaN(value) ? null : value
   }
 
-  // Handle "<$1K" or "<$1,000" or "<1K$" patterns
+  // Handle "<$1K" or "<$1,000" or "<1K$" or "<38K" (no dollar sign) patterns
   const lessThanMatch = cleaned.match(/<\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?\s*\$?/i)
   if (lessThanMatch) {
     let value = parseFloat(lessThanMatch[1].replace(/,/g, ""))
@@ -203,8 +203,8 @@ function parseDollarAmount(str: string): number | null {
     return isNaN(value) ? null : value
   }
 
-  // Handle ">$1K" or ">$1,000" patterns - use the lower bound
-  const greaterThanMatch = cleaned.match(/>\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?/i)
+  // Handle ">$1K" or ">$1,000" or ">38K" (no dollar sign) patterns - use the lower bound
+  const greaterThanMatch = cleaned.match(/>\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?\s*\$?/i)
   if (greaterThanMatch) {
     let value = parseFloat(greaterThanMatch[1].replace(/,/g, ""))
     const suffix = greaterThanMatch[2]?.toUpperCase()
