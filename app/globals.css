@@ -28,6 +28,23 @@
       opacity: 1;
     }
   }
+
+  @keyframes wave {
+    0%,
+    100% {
+      opacity: 0.3;
+      transform: scaleY(0.5);
+    }
+    50% {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+  }
+}
+
+/* Research Play Button Wave Animation */
+.animate-wave {
+  animation: wave 1.2s cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 
 @theme inline {

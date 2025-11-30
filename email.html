@@ -1,35 +1,7 @@
-/**
- * Batch Research Complete Email Template
- * Brand-consistent email design
- */
-
-export interface BatchCompleteEmailData {
-  jobName: string
-  totalProspects: number
-  completedCount: number
-  failedCount: number
-  jobId: string
-  appUrl?: string
-}
-
-export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string {
-  const {
-    jobName,
-    totalProspects,
-    completedCount,
-    failedCount,
-    jobId,
-    appUrl = "https://intel.getromy.app",
-  } = data
-
-  const successRate = totalProspects > 0
-    ? Math.round((completedCount / totalProspects) * 100)
-    : 0
-
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
 <head>
-<title>Research Complete</title>
+<title></title>
 <meta charset="UTF-8" />
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
 <!--[if !mso]>-->
@@ -164,52 +136,23 @@ text-decoration: none
 <table class="t40" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="400" class="t39" style="width:400px;">
 <table class="t38" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t37" style="border:1px solid #CECECE;overflow:hidden;background-color:#FFFFFF;padding:50px 40px 40px 40px;border-radius:20px 20px 20px 20px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100% !important;"><tr><td align="center">
 <table class="t4" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="316" class="t3" style="width:316px;">
-<table class="t2" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t1"><a href="${appUrl}" style="font-size:0px;" target="_blank"><img class="t0" style="display:block;border:0;height:auto;width:100%;Margin:0;max-width:100%;" width="316" height="95.2051282051282" alt="" src="https://the-romy.vercel.app/BrandmarkRōmy.png"/></a></td></tr></table>
+<table class="t2" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t1"><a href="https://intel.getromy.app" style="font-size:0px;" target="_blank"><img class="t0" style="display:block;border:0;height:auto;width:100%;Margin:0;max-width:100%;" width="316" height="95.2051282051282" alt="" src="https://the-romy.vercel.app/BrandmarkRōmy.png"/></a></td></tr></table>
 </td></tr></table>
 </td></tr><tr><td><div class="t5" style="mso-line-height-rule:exactly;mso-line-height-alt:40px;line-height:40px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
 <table class="t10" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="280" class="t9" style="width:280px;">
-<table class="t8" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t7"><h1 class="t6" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:28px;font-weight:600;font-style:normal;font-size:24px;text-decoration:none;text-transform:none;letter-spacing:-1.2px;direction:ltr;color:#111111;text-align:left;mso-line-height-rule:exactly;mso-text-raise:1px;">Your research is ready! 🎉</h1></td></tr></table>
+<table class="t8" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t7"><h1 class="t6" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:28px;font-weight:600;font-style:normal;font-size:24px;text-decoration:none;text-transform:none;letter-spacing:-1.2px;direction:ltr;color:#111111;text-align:left;mso-line-height-rule:exactly;mso-text-raise:1px;">Please verify your email 🫶</h1></td></tr></table>
 </td></tr></table>
 </td></tr><tr><td><div class="t12" style="mso-line-height-rule:exactly;mso-line-height-alt:17px;line-height:17px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
 <table class="t16" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="308" class="t15" style="width:308px;">
-<table class="t14" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t13"><p class="t11" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:15px;text-decoration:none;text-transform:none;letter-spacing:-0.6px;direction:ltr;color:#424040;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">Your batch research "<strong>${jobName}</strong>" has finished processing.</p></td></tr></table>
+<table class="t14" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t13"><p class="t11" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:15px;text-decoration:none;text-transform:none;letter-spacing:-0.6px;direction:ltr;color:#424040;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">To use Rōmy, click the verification button. This helps keep your account secure.</p></td></tr></table>
 </td></tr></table>
-</td></tr><tr><td><div class="t18" style="mso-line-height-rule:exactly;mso-line-height-alt:25px;line-height:25px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
-
-<!-- Stats Section -->
-<table role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;width:100%;">
-<tr>
-<td style="padding:20px;background-color:#F2EFF3;border-radius:12px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr>
-<td align="center" style="padding:10px;">
-<div style="font-size:32px;font-weight:700;color:#45ffbc;font-family:Inter,sans-serif;">${completedCount}</div>
-<div style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;margin-top:4px;">Completed</div>
-</td>
-<td align="center" style="padding:10px;">
-<div style="font-size:32px;font-weight:700;color:#424040;font-family:Inter,sans-serif;">${totalProspects}</div>
-<div style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;margin-top:4px;">Total</div>
-</td>
-<td align="center" style="padding:10px;">
-<div style="font-size:32px;font-weight:700;color:${failedCount > 0 ? '#ef4444' : '#45ffbc'};font-family:Inter,sans-serif;">${failedCount}</div>
-<div style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;margin-top:4px;">Failed</div>
-</td>
-</tr>
-</table>
-<div style="text-align:center;margin-top:12px;">
-<span style="font-size:13px;color:#84828E;font-family:Inter,sans-serif;">Success Rate: <strong style="color:#424040;">${successRate}%</strong></span>
-</div>
-</td>
-</tr>
-</table>
-
-</td></tr><tr><td><div class="t18" style="mso-line-height-rule:exactly;mso-line-height-alt:30px;line-height:30px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
+</td></tr><tr><td><div class="t18" style="mso-line-height-rule:exactly;mso-line-height-alt:40px;line-height:40px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
 <table class="t22" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="154" class="t21" style="width:154px;">
-<table class="t20" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t19" style="overflow:hidden;background-color:#00A5E4;text-align:center;line-height:40px;mso-line-height-rule:exactly;mso-text-raise:8px;border-radius:8px 8px 8px 8px;"><a class="t17" href="${appUrl}/batch?job=${jobId}" style="display:block;margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:40px;font-weight:700;font-style:normal;font-size:15px;text-decoration:none;letter-spacing:-0.5px;direction:ltr;color:#FFFFFF;text-align:center;mso-line-height-rule:exactly;mso-text-raise:8px;" target="_blank">View Results</a></td></tr></table>
+<table class="t20" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t19" style="overflow:hidden;background-color:#00A5E4;text-align:center;line-height:40px;mso-line-height-rule:exactly;mso-text-raise:8px;border-radius:8px 8px 8px 8px;"><a class="t17" href="{{ .ConfirmationURL }}" style="display:block;margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:40px;font-weight:700;font-style:normal;font-size:15px;text-decoration:none;letter-spacing:-0.5px;direction:ltr;color:#FFFFFF;text-align:center;mso-line-height-rule:exactly;mso-text-raise:8px;" target="_blank">Verify my account</a></td></tr></table>
 </td></tr></table>
 </td></tr><tr><td><div class="t25" style="mso-line-height-rule:exactly;mso-line-height-alt:40px;line-height:40px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
 <table class="t29" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="318" class="t28" style="width:318px;">
-<table class="t27" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t26"><p class="t24" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:14px;text-decoration:none;text-transform:none;letter-spacing:-0.6px;direction:ltr;color:#424040;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">You&#39;re receiving this email because you ran a batch research job in Rōmy. If you are not sure why you&#39;re receiving this, please contact us by replying to this <a class="t23" href="mailto:solomon@getromy.app" style="margin:0;Margin:0;font-weight:700;font-style:normal;text-decoration:none;direction:ltr;color:#00A5E4;mso-line-height-rule:exactly;" target="_blank">email</a>.</p></td></tr></table>
+<table class="t27" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t26"><p class="t24" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:14px;text-decoration:none;text-transform:none;letter-spacing:-0.6px;direction:ltr;color:#424040;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">You&#39;re receiving this email because you have an account in Rōmy. If you are not sure why you&#39;re receiving this, please contact us by replying to this <a class="t23" href="mailto:solomon@getromy.app" style="margin:0;Margin:0;font-weight:700;font-style:normal;text-decoration:none;direction:ltr;color:#00A5E4;mso-line-height-rule:exactly;" target="_blank">email</a>.</p></td></tr></table>
 </td></tr></table>
 </td></tr><tr><td><div class="t31" style="mso-line-height-rule:exactly;mso-line-height-alt:30px;line-height:30px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
 <table class="t35" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="318" class="t34" style="width:420px;">
@@ -218,9 +161,4 @@ text-decoration: none
 </td></tr></table></td></tr></table>
 </td></tr></table>
 </td></tr><tr><td><div class="t41" style="mso-line-height-rule:exactly;mso-line-height-alt:70px;line-height:70px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr></table></td></tr></table></div><div class="gmail-fix" style="display: none; white-space: nowrap; font: 15px courier; line-height: 0;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></body>
-</html>`
-}
-
-export function getBatchCompleteEmailSubject(jobName: string): string {
-  return `Research Complete: ${jobName}`
-}
+</html>

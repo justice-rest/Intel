@@ -39,6 +39,7 @@ import {
 import { formatDuration, calculateEstimatedTimeRemaining, MIN_DELAY_BETWEEN_PROSPECTS_MS } from "@/lib/batch-processing/config"
 import { Markdown } from "@/components/prompt-kit/markdown"
 import Image from "next/image"
+import { ResearchPlayButton } from "./research-play-button"
 
 interface BatchJobProgressProps {
   job: BatchProspectJob
@@ -633,14 +634,26 @@ export function BatchJobProgress({
         )}
 
         {/* Control buttons */}
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex items-center gap-3 pt-2">
+          {/* Main Play/Resume button - openai-fm style */}
           {(processingState === "idle" || processingState === "paused") && remaining > 0 && (
-            <Button onClick={startProcessing} className="gap-2">
-              <Play className="h-4 w-4" weight="fill" />
-              {processingState === "paused" ? "Resume" : "Start"} Processing
-            </Button>
+            <ResearchPlayButton
+              onClick={startProcessing}
+              isProcessing={false}
+              isPaused={processingState === "paused"}
+            />
           )}
 
+          {/* Running state with animated waveform */}
+          {processingState === "running" && (
+            <ResearchPlayButton
+              onClick={pauseProcessing}
+              isProcessing={true}
+              isPaused={false}
+            />
+          )}
+
+          {/* Pause button */}
           {processingState === "running" && (
             <Button variant="secondary" onClick={pauseProcessing} className="gap-2">
               <Pause className="h-4 w-4" weight="fill" />
@@ -648,6 +661,7 @@ export function BatchJobProgress({
             </Button>
           )}
 
+          {/* Cancel button */}
           {(processingState === "running" || processingState === "paused") && (
             <Button variant="outline" onClick={cancelProcessing} className="gap-2">
               <Stop className="h-4 w-4" weight="fill" />
@@ -655,6 +669,7 @@ export function BatchJobProgress({
             </Button>
           )}
 
+          {/* Completed badge */}
           {processingState === "completed" && remaining === 0 && (
             <Badge variant="secondary" className="bg-green-500/10 text-green-600 gap-1">
               <CheckCircle className="h-4 w-4" weight="fill" />
@@ -662,19 +677,20 @@ export function BatchJobProgress({
             </Badge>
           )}
 
-          {/* Show restart button if job is "completed" but has unprocessed items */}
+          {/* Restart button for jobs incorrectly marked as completed */}
           {(job.status === "completed" || job.status === "failed") && remaining > 0 && (
-            <Button onClick={restartProcessing} className="gap-2">
-              <Play className="h-4 w-4" weight="fill" />
-              Restart Processing ({remaining} remaining)
-            </Button>
+            <ResearchPlayButton
+              onClick={restartProcessing}
+              isProcessing={false}
+            />
           )}
 
+          {/* Retry button on error */}
           {processingState === "error" && (
-            <Button onClick={startProcessing} className="gap-2">
-              <Play className="h-4 w-4" weight="fill" />
-              Retry
-            </Button>
+            <ResearchPlayButton
+              onClick={startProcessing}
+              isProcessing={false}
+            />
           )}
         </div>
       </div>

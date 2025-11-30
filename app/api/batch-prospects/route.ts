@@ -19,6 +19,7 @@ import {
   MAX_CONCURRENT_JOBS_PER_USER,
   validateProspectData,
 } from "@/lib/batch-processing/config"
+import { checkBatchCredits, trackBatchUsage } from "@/lib/subscription/autumn-client"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -113,6 +114,23 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    // Check if user has enough credits (1 credit per row)
+    const creditCheck = await checkBatchCredits(user.id, validProspects.length)
+    if (!creditCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: `Insufficient credits. You need ${validProspects.length} credits but only have ${creditCheck.balance || 0}. Please upgrade your plan or reduce the number of prospects.`,
+          required: validProspects.length,
+          available: creditCheck.balance || 0,
+          shortfall: creditCheck.shortfall,
+        },
+        { status: 402 } // Payment Required
+      )
+    }
+
+    // Deduct credits upfront (1 credit per row)
+    await trackBatchUsage(user.id, validProspects.length)
 
     // Merge settings with defaults
     const settings = {

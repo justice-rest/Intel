@@ -274,6 +274,82 @@ export async function trackMessageUsage(userId: string): Promise<void> {
 }
 
 /**
+ * Track batch processing credit usage
+ * Deducts 1 credit per row/prospect processed
+ *
+ * @param userId - The user's ID
+ * @param rowCount - Number of rows/prospects being processed
+ */
+export async function trackBatchUsage(userId: string, rowCount: number): Promise<void> {
+  const autumn = getAutumnClient()
+
+  if (!autumn) {
+    return
+  }
+
+  try {
+    await autumn.track({
+      customer_id: userId,
+      feature_id: "messages", // Using messages feature - 1 credit per row
+      value: rowCount,
+    })
+    console.log(`[Autumn] Tracked ${rowCount} batch credits for user ${userId}`)
+  } catch (error) {
+    console.error("Error tracking batch usage:", error)
+    // Don't throw - we don't want to block the user if tracking fails
+  }
+}
+
+/**
+ * Check if user has enough credits for batch processing
+ *
+ * @param userId - The user's ID
+ * @param requiredCredits - Number of credits required
+ * @returns Object with allowed status and current balance
+ */
+export async function checkBatchCredits(
+  userId: string,
+  requiredCredits: number
+): Promise<{ allowed: boolean; balance?: number; shortfall?: number }> {
+  const autumn = getAutumnClient()
+
+  if (!autumn) {
+    // If Autumn is not enabled, allow access (fallback to existing rate limits)
+    return { allowed: true }
+  }
+
+  try {
+    const { data, error } = await autumn.check({
+      customer_id: userId,
+      feature_id: "messages",
+    })
+
+    if (error) {
+      console.error("[Autumn] Check error:", error)
+      return { allowed: true } // Fail open
+    }
+
+    const currentBalance = data.balance ?? 0
+
+    if (currentBalance < requiredCredits) {
+      return {
+        allowed: false,
+        balance: currentBalance,
+        shortfall: requiredCredits - currentBalance,
+      }
+    }
+
+    return {
+      allowed: true,
+      balance: currentBalance,
+    }
+  } catch (error) {
+    console.error("[Autumn] Exception checking batch credits:", error)
+    return { allowed: true } // Fail open
+  }
+}
+
+/**
  * Get customer subscription data
  * OPTIMIZED: Cached for 5 minutes to reduce API calls
  *
