@@ -187,7 +187,7 @@ export async function POST(
       }
 
       // There are still pending items but we couldn't fetch them - something is wrong
-      console.warn(`[BatchProcess] Found ${remainingCount} remaining items but couldn't fetch next item`)
+      console.warn(`[BatchProcess] Found ${remainingCount ?? 0} remaining items but couldn't fetch next item`)
       const response: ProcessNextItemResponse = {
         job_status: job.status as BatchJobStatus,
         progress: {
@@ -195,8 +195,8 @@ export async function POST(
           total: job.total_prospects,
           failed: job.failed_count,
         },
-        has_more: remainingCount > 0,
-        message: `${remainingCount} items remaining but unable to fetch next item`,
+        has_more: (remainingCount ?? 0) > 0,
+        message: `${remainingCount ?? 0} items remaining but unable to fetch next item`,
       }
       return NextResponse.json(response)
     }
