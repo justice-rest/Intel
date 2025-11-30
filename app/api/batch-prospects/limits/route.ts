@@ -6,15 +6,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { getCustomerData, normalizePlanId } from "@/lib/subscription/autumn-client"
-
-// Batch limits by plan
-const BATCH_LIMITS: Record<string, number> = {
-  growth: 10,
-  pro: 50,
-  scale: 100,
-}
-
-const DEFAULT_BATCH_LIMIT = 10
+import { PLAN_ROW_LIMITS, DEFAULT_PLAN_ROW_LIMIT } from "@/lib/batch-processing/config"
 
 export async function GET() {
   try {
@@ -22,7 +14,7 @@ export async function GET() {
 
     if (!supabase) {
       return NextResponse.json({
-        limit: DEFAULT_BATCH_LIMIT,
+        limit: DEFAULT_PLAN_ROW_LIMIT,
         plan: "free",
       })
     }
@@ -34,7 +26,7 @@ export async function GET() {
 
     if (!user) {
       return NextResponse.json({
-        limit: DEFAULT_BATCH_LIMIT,
+        limit: DEFAULT_PLAN_ROW_LIMIT,
         plan: "free",
       })
     }
@@ -52,9 +44,9 @@ export async function GET() {
         if (activeProduct) {
           const planId = normalizePlanId(activeProduct.id)
 
-          if (planId && BATCH_LIMITS[planId]) {
+          if (planId && PLAN_ROW_LIMITS[planId]) {
             return NextResponse.json({
-              limit: BATCH_LIMITS[planId],
+              limit: PLAN_ROW_LIMITS[planId],
               plan: planId,
             })
           }
@@ -66,13 +58,13 @@ export async function GET() {
 
     // Default to growth plan limit
     return NextResponse.json({
-      limit: DEFAULT_BATCH_LIMIT,
+      limit: DEFAULT_PLAN_ROW_LIMIT,
       plan: "growth",
     })
   } catch (error) {
     console.error("[BatchLimits] Error:", error)
     return NextResponse.json({
-      limit: DEFAULT_BATCH_LIMIT,
+      limit: DEFAULT_PLAN_ROW_LIMIT,
       plan: "free",
     })
   }
