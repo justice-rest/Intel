@@ -271,6 +271,71 @@ function SingleToolCard({
   const renderResults = () => {
     if (!parsedResult) return "No result data available"
 
+    // Handle Linkup searchWeb results (sourcedAnswer format)
+    if (
+      toolName === "searchWeb" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "answer" in parsedResult &&
+      "sources" in parsedResult
+    ) {
+      const linkupResult = parsedResult as {
+        answer: string
+        sources: Array<{ name: string; url: string; snippet: string }>
+        query?: string
+        depth?: string
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Answer section */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Answer
+            </div>
+            <div className="text-foreground leading-relaxed whitespace-pre-wrap">
+              {linkupResult.answer}
+            </div>
+          </div>
+
+          {/* Sources section */}
+          {linkupResult.sources && linkupResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources ({linkupResult.sources.length})
+              </div>
+              <div className="space-y-3">
+                {linkupResult.sources.map((source, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                    >
+                      {source.name || "Untitled"}
+                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                    </a>
+                    <div className="text-muted-foreground mt-1 truncate font-mono text-xs">
+                      {source.url}
+                    </div>
+                    {source.snippet && (
+                      <div className="text-muted-foreground mt-1 line-clamp-2 text-sm">
+                        {source.snippet}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
     // Handle Exa search results specifically
     if (
       typeof parsedResult === "object" &&
