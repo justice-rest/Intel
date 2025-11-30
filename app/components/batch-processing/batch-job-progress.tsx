@@ -39,7 +39,7 @@ import {
 import { formatDuration, calculateEstimatedTimeRemaining, MIN_DELAY_BETWEEN_PROSPECTS_MS } from "@/lib/batch-processing/config"
 import { Markdown } from "@/components/prompt-kit/markdown"
 import Image from "next/image"
-import { ResearchPlayButton } from "./research-play-button"
+import { ResearchPlayButton, ResearchStopButton } from "./research-play-button"
 
 interface BatchJobProgressProps {
   job: BatchProspectJob
@@ -633,9 +633,9 @@ export function BatchJobProgress({
           </div>
         )}
 
-        {/* Control buttons */}
-        <div className="flex items-center gap-3 pt-2">
-          {/* Main Play/Resume button - openai-fm style */}
+        {/* Control buttons - openai-fm style */}
+        <div className="flex items-center gap-3 pt-2 max-w-md">
+          {/* Idle/Paused: Show Play button */}
           {(processingState === "idle" || processingState === "paused") && remaining > 0 && (
             <ResearchPlayButton
               onClick={startProcessing}
@@ -644,34 +644,26 @@ export function BatchJobProgress({
             />
           )}
 
-          {/* Running state with animated waveform */}
+          {/* Running: Show Stop button (click to pause) + Cancel button */}
           {processingState === "running" && (
-            <ResearchPlayButton
-              onClick={pauseProcessing}
-              isProcessing={true}
-              isPaused={false}
-            />
+            <>
+              <ResearchPlayButton
+                onClick={pauseProcessing}
+                isProcessing={true}
+                isPaused={false}
+              />
+              <ResearchStopButton onClick={cancelProcessing} />
+            </>
           )}
 
-          {/* Pause button */}
-          {processingState === "running" && (
-            <Button variant="secondary" onClick={pauseProcessing} className="gap-2">
-              <Pause className="h-4 w-4" weight="fill" />
-              Pause
-            </Button>
-          )}
-
-          {/* Cancel button */}
-          {(processingState === "running" || processingState === "paused") && (
-            <Button variant="outline" onClick={cancelProcessing} className="gap-2">
-              <Stop className="h-4 w-4" weight="fill" />
-              Cancel
-            </Button>
+          {/* Paused: Show Resume + Cancel */}
+          {processingState === "paused" && (
+            <ResearchStopButton onClick={cancelProcessing} />
           )}
 
           {/* Completed badge */}
           {processingState === "completed" && remaining === 0 && (
-            <Badge variant="secondary" className="bg-green-500/10 text-green-600 gap-1">
+            <Badge variant="secondary" className="bg-green-500/10 text-green-600 gap-1 py-3 px-4">
               <CheckCircle className="h-4 w-4" weight="fill" />
               Completed
             </Badge>

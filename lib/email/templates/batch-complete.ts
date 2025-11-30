@@ -182,23 +182,29 @@ text-decoration: none
 <td style="padding:20px;background-color:#F2EFF3;border-radius:12px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 <tr>
-<td align="center" style="padding:10px;">
-<div style="font-size:32px;font-weight:700;color:#45ffbc;font-family:Inter,sans-serif;">${completedCount}</div>
-<div style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;margin-top:4px;">Completed</div>
+<td align="center" width="33%" style="padding:10px;vertical-align:top;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
+<tr><td align="center" style="font-size:32px;font-weight:700;color:#45ffbc;font-family:Inter,sans-serif;line-height:1.2;">${completedCount}</td></tr>
+<tr><td align="center" style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;padding-top:8px;">Completed</td></tr>
+</table>
 </td>
-<td align="center" style="padding:10px;">
-<div style="font-size:32px;font-weight:700;color:#424040;font-family:Inter,sans-serif;">${totalProspects}</div>
-<div style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;margin-top:4px;">Total</div>
+<td align="center" width="33%" style="padding:10px;vertical-align:top;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
+<tr><td align="center" style="font-size:32px;font-weight:700;color:#424040;font-family:Inter,sans-serif;line-height:1.2;">${totalProspects}</td></tr>
+<tr><td align="center" style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;padding-top:8px;">Total</td></tr>
+</table>
 </td>
-<td align="center" style="padding:10px;">
-<div style="font-size:32px;font-weight:700;color:${failedCount > 0 ? '#ef4444' : '#45ffbc'};font-family:Inter,sans-serif;">${failedCount}</div>
-<div style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;margin-top:4px;">Failed</div>
+<td align="center" width="33%" style="padding:10px;vertical-align:top;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
+<tr><td align="center" style="font-size:32px;font-weight:700;color:${failedCount > 0 ? '#ef4444' : '#45ffbc'};font-family:Inter,sans-serif;line-height:1.2;">${failedCount}</td></tr>
+<tr><td align="center" style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;padding-top:8px;">Failed</td></tr>
+</table>
 </td>
 </tr>
 </table>
-<div style="text-align:center;margin-top:12px;">
-<span style="font-size:13px;color:#84828E;font-family:Inter,sans-serif;">Success Rate: <strong style="color:#424040;">${successRate}%</strong></span>
-</div>
+<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin-top:12px;">
+<tr><td align="center" style="font-size:13px;color:#84828E;font-family:Inter,sans-serif;">Success Rate: <strong style="color:#424040;">${successRate}%</strong></td></tr>
+</table>
 </td>
 </tr>
 </table>

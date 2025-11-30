@@ -11,28 +11,24 @@ interface ResearchPlayButtonProps {
   className?: string
 }
 
-// Waveform animation component
+// Waveform animation component - exactly like openai-fm
 function PlayingWaveform({
-  audioLoaded,
   amplitudeLevels,
 }: {
-  audioLoaded: boolean
   amplitudeLevels: number[]
 }) {
   return (
-    <div className="w-[36px] h-[16px] relative left-[4px] flex items-center justify-center gap-[4px]">
+    <div className="w-[36px] h-[16px] relative left-[4px]">
       {amplitudeLevels.map((level, idx) => {
         const height = `${Math.min(Math.max(level * 30, 0.2), 1.9) * 100}%`
         return (
           <div
             key={idx}
-            className={cn(
-              "w-[3px] bg-white transition-all duration-150 rounded-[2px]",
-              !audioLoaded && "animate-wave"
-            )}
+            className="w-[2px] bg-white transition-all duration-150 rounded-[2px] absolute top-1/2 -translate-y-1/2 animate-wave"
             style={{
-              height: audioLoaded ? height : "30%",
+              height,
               animationDelay: `${idx * 0.15}s`,
+              left: `${idx * 6}px`,
             }}
           />
         )
@@ -41,12 +37,12 @@ function PlayingWaveform({
   )
 }
 
-// Play Icon SVG
+// Play Icon SVG - exactly like openai-fm
 function PlayIcon() {
   return (
     <svg
-      width="24"
-      height="24"
+      width="36"
+      height="36"
       viewBox="0 0 36 36"
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
@@ -60,19 +56,18 @@ function PlayIcon() {
   )
 }
 
-// Audio clip hook (from openai-fm)
+// Audio clip hook - exactly like openai-fm
 const CLIPS: Record<string, HTMLAudioElement> = {}
 
 function useAudioClip(path: string) {
   useEffect(() => {
-    if (CLIPS[path]) {
-      return
-    }
+    if (typeof window === "undefined") return
+    if (CLIPS[path]) return
 
     const audio = new Audio(path)
     audio.preload = "auto"
 
-    if (typeof window !== "undefined" && window.requestIdleCallback) {
+    if (window.requestIdleCallback) {
       window.requestIdleCallback(() => {
         audio.load()
       })
@@ -88,9 +83,7 @@ function useAudioClip(path: string) {
 
     audio.volume = 0.2
     audio.currentTime = 0
-    audio.play().catch(() => {
-      // Ignore errors (e.g., user hasn't interacted with page yet)
-    })
+    audio.play().catch(() => {})
   }, [path])
 }
 
@@ -101,32 +94,28 @@ export function ResearchPlayButton({
   disabled = false,
   className,
 }: ResearchPlayButtonProps) {
-  const [amplitudeLevels, setAmplitudeLevels] = useState<number[]>(
-    new Array(5).fill(0.032)
-  )
+  const [amplitudeLevels, setAmplitudeLevels] = useState<number[]>([0.032, 0.032, 0.032, 0.032, 0.032])
   const amplitudeIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const playPressed = useAudioClip("/pressed.wav")
 
-  // Generate random amplitudes for animation
+  // Generate random amplitudes for animation - like openai-fm
   const generateRandomAmplitudes = useCallback(
-    () => Array(5).fill(0).map(() => Math.random() * 0.06 + 0.02),
+    () => Array(5).fill(0).map(() => Math.random() * 0.06),
     []
   )
 
   // Start/stop animation when processing state changes
   useEffect(() => {
     if (isProcessing && !isPaused) {
-      // Start animation
       amplitudeIntervalRef.current = setInterval(() => {
         setAmplitudeLevels(generateRandomAmplitudes())
       }, 100)
     } else {
-      // Stop animation
       if (amplitudeIntervalRef.current) {
         clearInterval(amplitudeIntervalRef.current)
         amplitudeIntervalRef.current = null
       }
-      setAmplitudeLevels(new Array(5).fill(0.032))
+      setAmplitudeLevels([0.032, 0.032, 0.032, 0.032, 0.032])
     }
 
     return () => {
@@ -144,45 +133,108 @@ export function ResearchPlayButton({
     onClick()
   }
 
+  const isActive = isProcessing && !isPaused
   const buttonText = isProcessing
     ? isPaused
       ? "Resume"
-      : "Running"
-    : "Start Research"
+      : "Stop"
+    : "Play"
 
   return (
-    <button
+    <div
       onClick={handleClick}
-      disabled={disabled}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (["Enter", " "].includes(e.key)) {
+          handleClick()
+        }
+      }}
       className={cn(
-        // Base styles
-        "relative flex items-center justify-center gap-2 px-5 py-3 rounded-xl",
-        "font-semibold text-white uppercase tracking-wide text-sm",
-        "transition-all duration-300 cursor-pointer select-none",
-        // Primary color (cyan/teal from openai-fm)
-        "bg-[#00A5E4]",
-        // Shadow and depth effect
-        "shadow-[inset_1px_1px_1px_rgba(255,255,255,0.83),inset_-1px_-1px_1px_rgba(0,0,0,0.23),0.4px_0.4px_0.6px_-1px_rgba(0,0,0,0.26),1.2px_1.2px_1.7px_-1.5px_rgba(0,0,0,0.25),2.7px_2.7px_3.8px_-2.25px_rgba(0,0,0,0.23),5.9px_5.9px_8.3px_-3px_rgba(0,0,0,0.19),10px_10px_21px_-3.75px_rgba(0,0,0,0.23),-0.5px_-0.5px_0_0_rgba(149,43,0,0.53)]",
-        // Active/Selected state
-        isProcessing && !isPaused && [
-          "shadow-[inset_0.5px_0.5px_1px_rgba(255,255,255,1),inset_-0.5px_-0.5px_1px_rgba(0,0,0,0.36),0.2px_0.2px_0.3px_-1px_rgba(0,0,0,0.2),0.6px_0.6px_0.9px_-1px_rgba(0,0,0,0.18),1.3px_1.3px_1.9px_-1.5px_rgba(0,0,0,0.25),3px_3px_4.2px_-2px_rgba(0,0,0,0.1),2.5px_2.5px_3px_-2.5px_rgba(0,0,0,0.15),-0.5px_-0.5px_0_0_rgba(0,0,0,0.13)]",
+        // Base styles - exactly like openai-fm Button
+        "flex items-center justify-center gap-2 flex-1 rounded-md p-3",
+        "cursor-pointer select-none transition-shadow duration-300",
+        // Primary color - openai-fm orange #ff4a00
+        "text-white bg-[#ff4a00]",
+        // Default shadow - exactly like openai-fm primary button
+        !isActive && [
+          "shadow-[inset_1px_1px_1px_rgba(255,255,255,0.83),inset_-1px_-1px_1px_rgba(0,0,0,0.23),0.444584px_0.444584px_0.628737px_-1px_rgba(0,0,0,0.26),1.21072px_1.21072px_1.71222px_-1.5px_rgba(0,0,0,0.25),2.6583px_2.6583px_3.75941px_-2.25px_rgba(0,0,0,0.23),5.90083px_5.90083px_8.34503px_-3px_rgba(0,0,0,0.19),10px_10px_21.2132px_-3.75px_rgba(0,0,0,0.23),-0.5px_-0.5px_0_0_rgba(149,43,0,0.53)]",
+        ],
+        // Active/Selected state shadow - exactly like openai-fm
+        isActive && [
+          "shadow-[inset_0.5px_0.5px_1px_rgba(255,255,255,1),inset_-0.5px_-0.5px_1px_rgba(0,0,0,0.36),0.222px_0.222px_0.314px_-1px_rgba(0,0,0,0.2),0.605px_0.605px_0.856px_-1px_rgba(0,0,0,0.18),1.329px_1.329px_1.88px_-1.5px_rgba(0,0,0,0.25),2.95px_2.95px_4.172px_-2px_rgba(0,0,0,0.1),2.5px_2.5px_3px_-2.5px_rgba(0,0,0,0.15),-0.5px_-0.5px_0_0_rgba(0,0,0,0.13)]",
         ],
         // Disabled state
         disabled && "opacity-50 cursor-not-allowed",
-        // Hover effect when not processing
-        !isProcessing && !disabled && "hover:brightness-110 active:brightness-95",
         className
       )}
     >
-      {isProcessing && !isPaused ? (
-        <PlayingWaveform
-          audioLoaded={true}
-          amplitudeLevels={amplitudeLevels}
-        />
+      {isActive ? (
+        <PlayingWaveform amplitudeLevels={amplitudeLevels} />
       ) : (
         <PlayIcon />
       )}
-      <span className="pr-1">{buttonText}</span>
-    </button>
+      <span className="uppercase hidden md:inline pr-3 font-medium text-[1.125rem]">
+        {buttonText}
+      </span>
+    </div>
+  )
+}
+
+// Stop/Cancel Button - openai-fm style secondary button
+export function ResearchStopButton({
+  onClick,
+  disabled = false,
+  className,
+}: {
+  onClick: () => void
+  disabled?: boolean
+  className?: string
+}) {
+  const playPressed = useAudioClip("/pressed.wav")
+
+  const handleClick = () => {
+    if (disabled) return
+    playPressed()
+    onClick()
+  }
+
+  return (
+    <div
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (["Enter", " "].includes(e.key)) {
+          handleClick()
+        }
+      }}
+      className={cn(
+        // Base styles - openai-fm Button
+        "flex items-center justify-center gap-2 flex-1 rounded-md p-3",
+        "cursor-pointer select-none transition-shadow duration-300",
+        // Secondary color - openai-fm dark gray #222
+        "text-white bg-[#222]",
+        // Shadow - openai-fm secondary button
+        "shadow-[inset_1px_1px_1px_rgba(255,255,255,0.7),inset_-1px_-1px_1px_rgba(0,0,0,0.23),0.444584px_0.444584px_0.628737px_-0.75px_rgba(0,0,0,0.26),1.21072px_1.21072px_1.71222px_-1.5px_rgba(0,0,0,0.25),2.6583px_2.6583px_3.75941px_-2.25px_rgba(0,0,0,0.23),5.90083px_5.90083px_8.34503px_-3px_rgba(0,0,0,0.19),14px_14px_21.2132px_-3.75px_rgba(0,0,0,0.2),-0.5px_-0.5px_0_0_rgba(0,0,0,0.69)]",
+        // Disabled state
+        disabled && "opacity-50 cursor-not-allowed",
+        className
+      )}
+    >
+      {/* Stop Icon */}
+      <svg
+        width="36"
+        height="36"
+        viewBox="0 0 36 36"
+        fill="currentColor"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect x="8" y="8" width="20" height="20" rx="2" />
+      </svg>
+      <span className="uppercase hidden md:inline pr-3 font-medium text-[1.125rem]">
+        Cancel
+      </span>
+    </div>
   )
 }
