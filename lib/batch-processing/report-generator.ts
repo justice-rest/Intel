@@ -48,6 +48,16 @@ interface WebSearchResult {
 // WEB SEARCH
 // ============================================================================
 
+// Shared LinkUp client for connection reuse
+let linkupClient: LinkupClient | null = null
+
+function getLinkupClient(): LinkupClient {
+  if (!linkupClient) {
+    linkupClient = new LinkupClient({ apiKey: getLinkupApiKey() })
+  }
+  return linkupClient
+}
+
 async function performWebSearch(query: string): Promise<WebSearchResult | null> {
   if (!isLinkupEnabled()) {
     console.log("[BatchProcessor] Linkup not enabled, skipping web search")
@@ -55,16 +65,18 @@ async function performWebSearch(query: string): Promise<WebSearchResult | null> 
   }
 
   try {
-    const client = new LinkupClient({ apiKey: getLinkupApiKey() })
+    const client = getLinkupClient()
 
+    // Use "standard" mode for speed (deep is slower agentic workflow)
+    // 15s timeout - standard mode is much faster than deep
     const result = await Promise.race([
       client.search({
         query,
-        depth: "deep",
+        depth: "standard",
         outputType: "sourcedAnswer",
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Search timeout")), 30000)
+        setTimeout(() => reject(new Error("Search timeout")), 15000)
       ),
     ])
 
@@ -462,17 +474,12 @@ export async function generateProspectReport(
       const queries = generateSearchQueries(prospect)
       searchQueriesUsed.push(...queries)
 
-      console.log(`[BatchProcessor] Running ${queries.length} web searches for: ${prospect.name}`)
+      console.log(`[BatchProcessor] Running ${queries.length} web searches in parallel for: ${prospect.name}`)
 
-      // Run searches sequentially to respect rate limits
-      const searchResults: (WebSearchResult | null)[] = []
-      for (const query of queries) {
-        const result = await performWebSearch(query)
-        searchResults.push(result)
-
-        // Small delay between searches
-        await new Promise((resolve) => setTimeout(resolve, 500))
-      }
+      // Run all searches in parallel - LinkUp supports 10 QPS, we only have 5 queries
+      const searchResults = await Promise.all(
+        queries.map(query => performWebSearch(query))
+      )
 
       const compiled = compileSearchContext(searchResults)
       searchContext = compiled.context

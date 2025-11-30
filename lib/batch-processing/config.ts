@@ -9,21 +9,35 @@
 
 /**
  * Minimum delay between processing individual prospects (ms)
- * This prevents hitting API rate limits for Linkup (10 QPS) and OpenRouter
+ * With parallel processing enabled, this is less critical
  */
-export const MIN_DELAY_BETWEEN_PROSPECTS_MS = 2000
+export const MIN_DELAY_BETWEEN_PROSPECTS_MS = 500
 
 /**
  * Default delay between prospects (ms)
- * Conservative default to ensure stability
+ * Lower default since we now use parallel processing
  */
-export const DEFAULT_DELAY_BETWEEN_PROSPECTS_MS = 3000
+export const DEFAULT_DELAY_BETWEEN_PROSPECTS_MS = 1000
 
 /**
  * Maximum delay between prospects (ms)
  * User can configure up to this value
  */
 export const MAX_DELAY_BETWEEN_PROSPECTS_MS = 30000
+
+/**
+ * Concurrent processing limits by plan (for parallel batch endpoint)
+ * These define how many prospects can be processed simultaneously
+ */
+export const CONCURRENT_LIMITS: Record<string, number> = {
+  growth: 3,
+  pro: 5,
+  scale: 8,
+  max: 10,
+  ultra: 15,
+}
+
+export const DEFAULT_CONCURRENT_LIMIT = 3
 
 // ============================================================================
 // BATCH LIMITS
@@ -77,9 +91,13 @@ export const MAX_REPORT_OUTPUT_TOKENS = 16000
 
 /**
  * Estimated seconds per prospect (for progress UI)
- * Based on: web searches (30-60s) + AI generation (30-60s) + buffer
+ * With optimizations:
+ * - Parallel web searches (15s max instead of 5 * 30s sequential)
+ * - Standard mode LinkUp (faster than deep)
+ * - AI generation (~20-30s)
+ * Total: ~30-45s per prospect (using 35s estimate)
  */
-export const ESTIMATED_SECONDS_PER_PROSPECT = 90
+export const ESTIMATED_SECONDS_PER_PROSPECT = 35
 
 /**
  * Calculate estimated time remaining
