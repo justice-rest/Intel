@@ -67,10 +67,38 @@
   text-decoration: none;
 }
 
+.batch-logo-wrapper {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
 .batch-logo {
   width: 28px;
   height: 28px;
   border-radius: 6px;
+  position: absolute;
+  inset: 0;
+  transition: opacity 0.2s ease;
+}
+
+.batch-logo-default {
+  opacity: 1;
+}
+
+.batch-logo-hover {
+  opacity: 0;
+}
+
+.batch-logo-link:hover .batch-logo-default,
+.group\/logo:hover .batch-logo-default {
+  opacity: 0;
+}
+
+.batch-logo-link:hover .batch-logo-hover,
+.group\/logo:hover .batch-logo-hover {
+  opacity: 1;
 }
 
 .batch-logo-text {

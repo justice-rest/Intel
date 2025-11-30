@@ -51,8 +51,11 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
       <div className="batch-app-container">
         <header className="batch-header">
           <div className="batch-header-left">
-            <a href="/" className="batch-logo-link">
-              <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo" />
+            <a href="/" className="batch-logo-link group/logo">
+              <span className="batch-logo-wrapper">
+                <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo batch-logo-default" />
+                <img src="/PFPs/2.png" alt="Rōmy" className="batch-logo batch-logo-hover" />
+              </span>
               <span className="batch-logo-text">Rōmy</span>
             </a>
             <span className="batch-header-divider">/</span>
@@ -71,8 +74,11 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
       <div className="batch-app-container">
         <header className="batch-header">
           <div className="batch-header-left">
-            <a href="/" className="batch-logo-link">
-              <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo" />
+            <a href="/" className="batch-logo-link group/logo">
+              <span className="batch-logo-wrapper">
+                <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo batch-logo-default" />
+                <img src="/PFPs/2.png" alt="Rōmy" className="batch-logo batch-logo-hover" />
+              </span>
               <span className="batch-logo-text">Rōmy</span>
             </a>
             <span className="batch-header-divider">/</span>
