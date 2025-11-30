@@ -421,7 +421,7 @@ export function BatchJobProgress({
     }
   }, [job.id, onRefresh])
 
-  // Main processing loop
+  // Main processing loop with parallel processing
   const startProcessing = useCallback(async () => {
     abortControllerRef.current = new AbortController()
     setProcessingState("running")
@@ -434,25 +434,35 @@ export function BatchJobProgress({
       body: JSON.stringify({ status: "processing" }),
     })
 
-    while (processingState !== "paused" && processingState !== "completed") {
-      const shouldContinue = await processNextItem()
+    // Number of parallel workers (concurrent API calls)
+    const PARALLEL_WORKERS = 3
+    let hasMore = true
 
-      if (!shouldContinue) {
-        break
-      }
+    const runWorker = async (): Promise<void> => {
+      while (hasMore && !abortControllerRef.current?.signal.aborted) {
+        const shouldContinue = await processNextItem()
 
-      // Delay between prospects
-      const delay = job.settings?.delay_between_prospects_ms || 3000
-      await new Promise<void>((resolve) => {
-        delayTimeoutRef.current = setTimeout(resolve, delay)
-      })
+        if (!shouldContinue) {
+          hasMore = false
+          break
+        }
 
-      // Check if we should stop
-      if (abortControllerRef.current?.signal.aborted) {
-        break
+        // Small delay to prevent hammering the API (500ms instead of 3000ms)
+        await new Promise<void>((resolve) => {
+          delayTimeoutRef.current = setTimeout(resolve, 500)
+        })
       }
     }
-  }, [job.id, job.settings?.delay_between_prospects_ms, processNextItem, processingState])
+
+    // Start parallel workers
+    const workers: Promise<void>[] = []
+    for (let i = 0; i < PARALLEL_WORKERS; i++) {
+      workers.push(runWorker())
+    }
+
+    // Wait for all workers to complete
+    await Promise.all(workers)
+  }, [job.id, processNextItem])
 
   // Pause processing
   const pauseProcessing = useCallback(async () => {
