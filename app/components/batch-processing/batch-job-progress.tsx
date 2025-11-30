@@ -820,57 +820,14 @@ function ReportDialog({
     <Dialog open={!!selectedItem} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <div className="flex items-center justify-between">
-            <DialogTitle className="flex items-center gap-2">
-              <span>{selectedItem?.input_data.name}</span>
-              {selectedItem?.romy_score !== undefined && (
-                <Badge className="bg-[#B183FF]/20 text-[#B183FF] border-[#B183FF]/30">
-                  RōmyScore: {selectedItem.romy_score}/41
-                </Badge>
-              )}
-            </DialogTitle>
-            <div className="flex items-center gap-1 mr-6">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-8 items-center justify-center rounded-full bg-transparent transition"
-                    aria-label="Copy text"
-                    onClick={copyToClipboard}
-                    type="button"
-                  >
-                    {copied ? (
-                      <Check className="size-4" />
-                    ) : (
-                      <Copy className="size-4" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {copied ? "Copied!" : "Copy text"}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-8 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
-                    aria-label="Export PDF"
-                    onClick={handleExportPdf}
-                    type="button"
-                    disabled={isExporting}
-                  >
-                    {isExporting ? (
-                      <SpinnerGap className="size-4 animate-spin" />
-                    ) : (
-                      <FilePdf className="size-4" />
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {isExporting ? "Exporting..." : "Export PDF"}
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
+          <DialogTitle className="flex items-center gap-2">
+            <span>{selectedItem?.input_data.name}</span>
+            {selectedItem?.romy_score !== undefined && (
+              <Badge className="bg-[#B183FF]/20 text-[#B183FF] border-[#B183FF]/30">
+                RōmyScore: {selectedItem.romy_score}/41
+              </Badge>
+            )}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-auto">
@@ -883,6 +840,49 @@ function ReportDialog({
           {selectedItem?.sources_found && selectedItem.sources_found.length > 0 && (
             <ReportSourcesList sources={selectedItem.sources_found} />
           )}
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-1 mt-4">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-8 items-center justify-center rounded-full bg-transparent transition"
+                  aria-label="Copy text"
+                  onClick={copyToClipboard}
+                  type="button"
+                >
+                  {copied ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {copied ? "Copied!" : "Copy text"}
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-8 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
+                  aria-label="Export PDF"
+                  onClick={handleExportPdf}
+                  type="button"
+                  disabled={isExporting}
+                >
+                  {isExporting ? (
+                    <SpinnerGap className="size-4 animate-spin" />
+                  ) : (
+                    <FilePdf className="size-4" />
+                  )}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {isExporting ? "Exporting..." : "Export PDF"}
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
