@@ -418,12 +418,14 @@
 
 .tile a .icon-button {
   color: inherit;
-  border-color: inherit;
+  border-color: transparent;
+  border: none;
 }
 
 .tile a .icon-button:hover,
 .tile a .icon-button:focus {
   background-color: transparent;
+  box-shadow: none;
 }
 
 .tile a:after {
