@@ -12,8 +12,6 @@ const BATCH_LIMITS: Record<string, number> = {
   growth: 10,
   pro: 50,
   scale: 100,
-  max: 200,
-  ultra: 500,
 }
 
 const DEFAULT_BATCH_LIMIT = 10

@@ -27,8 +27,6 @@ const CONCURRENT_LIMITS: Record<string, number> = {
   growth: 3,
   pro: 5,
   scale: 8,
-  max: 10,
-  ultra: 15,
 }
 
 const DEFAULT_CONCURRENT_LIMIT = 3
