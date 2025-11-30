@@ -222,9 +222,7 @@ export async function POST(
             completedCount: finalJob?.completed_count || job.completed_count,
             failedCount: finalJob?.failed_count || job.failed_count,
             jobId,
-            appUrl: process.env.NEXT_PUBLIC_VERCEL_URL
-              ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-              : "https://intel.getromy.app",
+            appUrl: "https://intel.getromy.app",
           })
 
           await sendEmail({
