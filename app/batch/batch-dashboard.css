@@ -1254,6 +1254,148 @@ button:focus-visible {
   color: #10b981;
 }
 
+/* Column Mapping Dialog Styles */
+.mapping-dialog {
+  max-width: 600px;
+}
+
+.mapping-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.mapping-description {
+  color: var(--c-text-tertiary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.mapping-description strong {
+  color: var(--c-text-primary);
+}
+
+.mapping-warning {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  background-color: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.2);
+  color: #eab308;
+  font-size: 0.875rem;
+}
+
+.mapping-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mapping-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--c-text-tertiary);
+  margin-bottom: 0.25rem;
+}
+
+.mapping-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+.mapping-label {
+  width: 120px;
+  flex-shrink: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--c-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.mapping-required {
+  color: #ef4444;
+}
+
+.mapping-select {
+  flex: 1;
+}
+
+.mapping-select select {
+  width: 100%;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  border-radius: 6px;
+  background-color: var(--c-gray-700);
+  border: 1px solid var(--c-gray-600);
+  color: var(--c-text-primary);
+  font-size: 0.875rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23969593' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  cursor: pointer;
+  transition: 0.25s ease;
+}
+
+.mapping-select select:hover,
+.mapping-select select:focus {
+  border-color: var(--c-green-500);
+  outline: none;
+}
+
+.mapping-preview {
+  border-top: 1px solid var(--c-gray-600);
+  padding-top: 1rem;
+}
+
+.mapping-preview-table {
+  overflow-x: auto;
+  margin-top: 0.5rem;
+}
+
+.mapping-preview-table table {
+  width: 100%;
+  font-size: 0.75rem;
+  border-collapse: collapse;
+}
+
+.mapping-preview-table th {
+  text-align: left;
+  padding: 0.5rem;
+  color: var(--c-text-tertiary);
+  font-weight: 500;
+  border-bottom: 1px solid var(--c-gray-600);
+}
+
+.mapping-preview-table td {
+  padding: 0.5rem;
+  color: var(--c-text-secondary);
+  border-bottom: 1px solid var(--c-gray-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+/* Light mode mapping dialog */
+:root.light .mapping-select select,
+.light .mapping-select select {
+  background-color: var(--c-gray-700);
+  border-color: var(--c-gray-600);
+  color: var(--c-text-primary);
+}
+
+:root.light .mapping-select select:hover,
+:root.light .mapping-select select:focus,
+.light .mapping-select select:hover,
+.light .mapping-select select:focus {
+  border-color: #10b981;
+}
+
 /* Light mode mobile cards */
 @media (max-width: 1000px) {
   :root.light .transfer,

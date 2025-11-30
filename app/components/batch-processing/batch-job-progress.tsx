@@ -201,19 +201,19 @@ function StatusCard({
   return (
     <div
       className={cn(
-        "rounded-lg p-4 min-h-[140px] flex flex-col justify-between transition-transform hover:-translate-y-1",
+        "rounded-lg p-4 min-h-[100px] sm:min-h-[140px] flex flex-col justify-between transition-transform hover:-translate-y-1",
         variantStyles[variant]
       )}
     >
       <div className="flex items-center gap-2">
-        <Icon className="h-8 w-8 opacity-80" weight="light" />
+        <Icon className="h-6 w-6 sm:h-8 sm:w-8 opacity-80" weight="light" />
         <div className="flex flex-col leading-tight">
           <span className="font-semibold text-sm">{title}</span>
           <span className="text-xs opacity-70">{subtitle}</span>
         </div>
       </div>
-      <div className="flex items-center justify-between mt-4">
-        <span className="text-3xl font-bold">{count}</span>
+      <div className="flex items-center justify-between mt-3 sm:mt-4">
+        <span className="text-2xl sm:text-3xl font-bold">{count}</span>
         <span className="flex items-center gap-1 text-xs font-semibold opacity-80">
           View details
           <CaretRight className="h-4 w-4" weight="bold" />
@@ -536,7 +536,7 @@ export function BatchJobProgress({
       </div>
 
       {/* Status Cards (dark-uibank-dashboard-concept style) */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatusCard
           icon={Lightning}
           title="Completed"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { cn, formatRelativeTime } from "@/lib/utils"
 import {
   UsersThree,
@@ -561,6 +561,197 @@ function UploadModal({
   )
 }
 
+// Column Mapping Dialog Component
+interface ParsedFileData {
+  file: File
+  rows: Record<string, string>[]
+  columns: string[]
+  suggested_mapping: Partial<ColumnMapping>
+}
+
+function ColumnMappingDialog({
+  isOpen,
+  onClose,
+  parsedData,
+  onConfirm,
+  isUploading,
+  batchLimit,
+  planName,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  parsedData: ParsedFileData | null
+  onConfirm: (mapping: ColumnMapping) => Promise<void>
+  isUploading: boolean
+  batchLimit: number
+  planName: string
+}) {
+  const [mapping, setMapping] = useState<ColumnMapping>({
+    name: null,
+    address: null,
+    city: null,
+    state: null,
+    zip: null,
+    full_address: null,
+    email: null,
+    phone: null,
+    company: null,
+    title: null,
+    notes: null,
+  })
+  const [error, setError] = useState<string>("")
+
+  // Initialize mapping from suggested_mapping when parsedData changes
+  useEffect(() => {
+    if (parsedData?.suggested_mapping) {
+      setMapping({
+        name: parsedData.suggested_mapping.name || null,
+        address: parsedData.suggested_mapping.address || null,
+        city: parsedData.suggested_mapping.city || null,
+        state: parsedData.suggested_mapping.state || null,
+        zip: parsedData.suggested_mapping.zip || null,
+        full_address: parsedData.suggested_mapping.full_address || null,
+        email: parsedData.suggested_mapping.email || null,
+        phone: parsedData.suggested_mapping.phone || null,
+        company: parsedData.suggested_mapping.company || null,
+        title: parsedData.suggested_mapping.title || null,
+        notes: parsedData.suggested_mapping.notes || null,
+      })
+    }
+  }, [parsedData])
+
+  const handleConfirm = async () => {
+    if (!mapping.name) {
+      setError("Name column is required. Please select which column contains the prospect names.")
+      return
+    }
+    if (!mapping.address && !mapping.full_address && !(mapping.city && mapping.state)) {
+      setError("Address information is required. Please select address, full_address, or both city and state.")
+      return
+    }
+    setError("")
+    try {
+      await onConfirm(mapping)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed")
+    }
+  }
+
+  const requiredFields = ["name"] as const
+  const addressFields = ["address", "full_address", "city", "state", "zip"] as const
+  const optionalFields = ["email", "phone", "company", "title", "notes"] as const
+
+  const renderSelect = (field: keyof ColumnMapping, label: string, required?: boolean) => (
+    <div key={field} className="mapping-row">
+      <label className="mapping-label">
+        {label}
+        {required && <span className="mapping-required">*</span>}
+      </label>
+      <div className="dropdown-field mapping-select">
+        <select
+          value={mapping[field] || ""}
+          onChange={(e) => setMapping({ ...mapping, [field]: e.target.value || null })}
+        >
+          <option value="">-- Not mapped --</option>
+          {parsedData?.columns.map((col) => (
+            <option key={col} value={col}>
+              {col}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  )
+
+  if (!parsedData) return null
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="batch-upload-modal mapping-dialog">
+        <DialogHeader>
+          <DialogTitle>Map Your Columns</DialogTitle>
+        </DialogHeader>
+
+        <div className="mapping-content">
+          <p className="mapping-description">
+            Found <strong>{parsedData.rows.length}</strong> rows in <strong>{parsedData.file.name}</strong>.
+            Please map your CSV columns to the required fields below.
+          </p>
+
+          {parsedData.rows.length > batchLimit && (
+            <div className="mapping-warning">
+              Your {planName} plan allows up to {batchLimit} prospects per batch. Only the first {batchLimit} will be processed.
+            </div>
+          )}
+
+          <div className="mapping-section">
+            <h4 className="mapping-section-title">Required</h4>
+            {requiredFields.map((field) => renderSelect(field, field.charAt(0).toUpperCase() + field.slice(1), true))}
+          </div>
+
+          <div className="mapping-section">
+            <h4 className="mapping-section-title">Address (at least one required)</h4>
+            {addressFields.map((field) => renderSelect(field, field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())))}
+          </div>
+
+          <div className="mapping-section">
+            <h4 className="mapping-section-title">Optional</h4>
+            {optionalFields.map((field) => renderSelect(field, field.charAt(0).toUpperCase() + field.slice(1)))}
+          </div>
+
+          {/* Preview */}
+          <div className="mapping-preview">
+            <h4 className="mapping-section-title">Preview (first 3 rows)</h4>
+            <div className="mapping-preview-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Address</th>
+                    <th>City</th>
+                    <th>State</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsedData.rows.slice(0, 3).map((row, i) => (
+                    <tr key={i}>
+                      <td>{mapping.name ? row[mapping.name] || "—" : "—"}</td>
+                      <td>{mapping.address ? row[mapping.address] || (mapping.full_address ? row[mapping.full_address] : "—") : "—"}</td>
+                      <td>{mapping.city ? row[mapping.city] || "—" : "—"}</td>
+                      <td>{mapping.state ? row[mapping.state] || "—" : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {error && (
+            <div className="error-message">{error}</div>
+          )}
+
+          <div className="payment-section-footer">
+            <button
+              className="save-button"
+              onClick={onClose}
+              disabled={isUploading}
+            >
+              Cancel
+            </button>
+            <button
+              className={cn("save-button", "save-button-active")}
+              onClick={handleConfirm}
+              disabled={isUploading}
+            >
+              {isUploading ? "Creating..." : "Create Batch"}
+            </button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // Main batch view component
 export function BatchView() {
   const queryClient = useQueryClient()
@@ -569,6 +760,8 @@ export function BatchView() {
   const [planName, setPlanName] = useState("Growth")
   const [isUploading, setIsUploading] = useState(false)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [isMappingDialogOpen, setIsMappingDialogOpen] = useState(false)
+  const [parsedFileData, setParsedFileData] = useState<ParsedFileData | null>(null)
 
   // Fetch batch limit
   useQuery({
@@ -612,49 +805,56 @@ export function BatchView() {
     },
   })
 
-  // Handle file upload
+  // Handle file upload - parse and show mapping dialog
   const handleUpload = async (file: File) => {
     setIsUploading(true)
 
     try {
       const result = await parseProspectFile(file)
-      if (!result.success) {
+      if (!result.success && result.rows.length === 0) {
         throw new Error(result.errors.join(". "))
       }
 
-      const columnMapping: ColumnMapping = {
-        name: result.suggested_mapping.name || null,
-        address: result.suggested_mapping.address || null,
-        city: result.suggested_mapping.city || null,
-        state: result.suggested_mapping.state || null,
-        zip: result.suggested_mapping.zip || null,
-        full_address: result.suggested_mapping.full_address || null,
-        email: result.suggested_mapping.email || null,
-        phone: result.suggested_mapping.phone || null,
-        company: result.suggested_mapping.company || null,
-        title: result.suggested_mapping.title || null,
-        notes: result.suggested_mapping.notes || null,
-      }
+      // Store parsed data and show mapping dialog
+      setParsedFileData({
+        file,
+        rows: result.rows,
+        columns: result.columns,
+        suggested_mapping: result.suggested_mapping,
+      })
+      setIsUploadModalOpen(false)
+      setIsMappingDialogOpen(true)
+    } catch (err) {
+      throw err
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
-      const { prospects } = transformToProspectData(result.rows, columnMapping)
+  // Handle mapping confirmation - create the batch job
+  const handleMappingConfirm = async (columnMapping: ColumnMapping) => {
+    if (!parsedFileData) return
+
+    setIsUploading(true)
+    try {
+      const { prospects } = transformToProspectData(parsedFileData.rows, columnMapping)
 
       if (prospects.length === 0) {
-        throw new Error("No valid prospects found. Please ensure your file has a name column.")
+        throw new Error("No valid prospects found. Please check your column mappings.")
       }
 
-      if (prospects.length > batchLimit) {
-        throw new Error(`Your ${planName} plan allows up to ${batchLimit} prospects per batch.`)
-      }
+      // Limit to batch limit
+      const limitedProspects = prospects.slice(0, batchLimit)
 
       const response = await fetch("/api/batch-prospects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: `${file.name.replace(/\.[^/.]+$/, "")} - ${new Date().toLocaleDateString()}`,
-          prospects,
+          name: `${parsedFileData.file.name.replace(/\.[^/.]+$/, "")} - ${new Date().toLocaleDateString()}`,
+          prospects: limitedProspects,
           column_mapping: columnMapping,
-          source_file_name: file.name,
-          source_file_size: file.size,
+          source_file_name: parsedFileData.file.name,
+          source_file_size: parsedFileData.file.size,
         }),
       })
 
@@ -663,13 +863,21 @@ export function BatchView() {
         throw new Error(data.error || "Failed to create batch job")
       }
 
-      toast({ title: `Batch job created with ${prospects.length} prospects`, status: "success" })
+      toast({ title: `Batch job created with ${limitedProspects.length} prospects`, status: "success" })
       queryClient.invalidateQueries({ queryKey: ["batch-jobs"] })
+      setIsMappingDialogOpen(false)
+      setParsedFileData(null)
     } catch (err) {
       throw err
     } finally {
       setIsUploading(false)
     }
+  }
+
+  // Close mapping dialog
+  const handleMappingClose = () => {
+    setIsMappingDialogOpen(false)
+    setParsedFileData(null)
   }
 
   // Filtered jobs
@@ -819,6 +1027,17 @@ export function BatchView() {
         onClose={() => setIsUploadModalOpen(false)}
         onUpload={handleUpload}
         isUploading={isUploading}
+      />
+
+      {/* Column Mapping Dialog */}
+      <ColumnMappingDialog
+        isOpen={isMappingDialogOpen}
+        onClose={handleMappingClose}
+        parsedData={parsedFileData}
+        onConfirm={handleMappingConfirm}
+        isUploading={isUploading}
+        batchLimit={batchLimit}
+        planName={planName}
       />
     </div>
   )

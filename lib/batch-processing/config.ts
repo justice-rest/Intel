@@ -127,6 +127,18 @@ export const COLUMN_NAME_PATTERNS: Record<string, RegExp[]> = {
     /^donor[_\s-]?name$/i,
     /^contact[_\s-]?name$/i,
     /^first[_\s-]?name$/i,  // Will need to combine with last_name
+    /^person$/i,
+    /^individual$/i,
+    /^contact$/i,
+    /^donor$/i,
+    /^constituent$/i,
+    /^owner$/i,
+    /^owner[_\s-]?name$/i,
+    /^resident$/i,
+    /^client$/i,
+    /^customer$/i,
+    /^lead$/i,
+    /name/i,  // Fallback: any column containing "name"
   ],
   address: [
     /^address$/i,
@@ -134,11 +146,17 @@ export const COLUMN_NAME_PATTERNS: Record<string, RegExp[]> = {
     /^address[_\s-]?1$/i,
     /^street$/i,
     /^mailing[_\s-]?address$/i,
+    /^property[_\s-]?address$/i,
+    /^home[_\s-]?address$/i,
+    /^residence$/i,
+    /^location$/i,
+    /address/i,  // Fallback: any column containing "address"
   ],
   city: [
     /^city$/i,
     /^town$/i,
     /^municipality$/i,
+    /^locality$/i,
   ],
   state: [
     /^state$/i,
@@ -151,11 +169,13 @@ export const COLUMN_NAME_PATTERNS: Record<string, RegExp[]> = {
     /^zip[_\s-]?code$/i,
     /^postal[_\s-]?code$/i,
     /^postcode$/i,
+    /^postal$/i,
   ],
   full_address: [
     /^full[_\s-]?address$/i,
     /^complete[_\s-]?address$/i,
     /^mailing[_\s-]?address$/i,
+    /^property[_\s-]?address$/i,
   ],
   email: [
     /^email$/i,
