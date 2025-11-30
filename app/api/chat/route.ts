@@ -224,6 +224,10 @@ You have access to the searchWeb tool. The user has enabled web search for this 
         : {}),
     } as ToolSet
 
+    // Check if any tools are active - smoothStream is incompatible with multi-step tool calls
+    // See: https://github.com/vercel/ai/issues/7720
+    const hasActiveTools = Object.keys(tools).length > 0
+
     // Optimize message payload to prevent FUNCTION_PAYLOAD_TOO_LARGE errors
     // This limits message history, removes blob URLs, and truncates large tool results
     const optimizedMessages = optimizeMessagePayload(messages)
@@ -243,13 +247,19 @@ You have access to the searchWeb tool. The user has enabled web search for this 
        * Providers sometimes send chunks in irregular bursts.
        * smoothStream creates a more consistent, natural text flow.
        *
-       * Using 'word' chunking to ensure complete words are sent,
-       * avoiding partial word renders that look jarring.
+       * IMPORTANT: smoothStream is DISABLED when tools are active because it's
+       * incompatible with multi-step tool calls. The transform interferes with
+       * tool result processing, causing streams to hang after tool execution.
+       * See: https://github.com/vercel/ai/issues/7720
        */
-      experimental_transform: smoothStream({
-        chunking: "word",
-        delayInMs: 10, // Small delay for smooth word-by-word rendering
-      }),
+      ...(hasActiveTools
+        ? {}
+        : {
+            experimental_transform: smoothStream({
+              chunking: "word",
+              delayInMs: 10, // Small delay for smooth word-by-word rendering
+            }),
+          }),
 
       onError: (err: unknown) => {
         console.error("[Chat API] Streaming error:", err)
