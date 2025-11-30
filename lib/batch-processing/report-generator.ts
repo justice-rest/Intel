@@ -7,6 +7,7 @@ import { streamText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { LinkupClient } from "linkup-sdk"
 import { isLinkupEnabled, getLinkupApiKey } from "@/lib/linkup/config"
+import { SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
 import { ProspectInputData, BatchProspectItem } from "./types"
 import { buildProspectQueryString } from "./parser"
 import { PROSPECT_PROCESSING_TIMEOUT_MS } from "./config"
@@ -160,127 +161,6 @@ function compileSearchContext(
     allSources,
   }
 }
-
-// ============================================================================
-// PROSPECT REPORT SYSTEM PROMPT
-// ============================================================================
-
-const PROSPECT_REPORT_PROMPT = `You are generating a COMPREHENSIVE PROSPECT RESEARCH REPORT for fundraising purposes.
-
-Based on the provided prospect information and web search results, create a detailed prospect research report following this EXACT structure:
-
-# PROSPECT RESEARCH REPORT
-
-**Subject:** [Full Name]
-
-**Address:** [Full Address]
-
-**Report Date:** [Current Date]
-
----
-
-## EXECUTIVE SUMMARY
-A 2-3 paragraph overview with key findings: estimated capacity, primary wealth sources, philanthropic patterns, and bottom-line recommendation.
-
----
-
-## 1. BIOGRAPHICAL PROFILE
-
-### Personal Information
-- Full Name, Age (if found), Current Residence
-- Family Members (if found)
-- Education
-
-### Professional Background
-- Current Position
-- Career History
-- Board Memberships
-- Notable Achievements
-
----
-
-## 2. REAL ESTATE HOLDINGS
-List properties found with estimated values. Include Total Real Estate Value.
-
----
-
-## 3. BUSINESS INTERESTS & CORPORATE AFFILIATIONS
-Company ownership, executive positions, board roles.
-
----
-
-## 4. SEC FILINGS & STOCK HOLDINGS
-Any securities holdings or insider transactions found.
-
----
-
-## 5. POLITICAL GIVING
-FEC and state political contributions.
-
----
-
-## 6. CHARITABLE GIVING & PHILANTHROPIC HISTORY
-Foundation connections, known major gifts, nonprofit board service.
-
----
-
-## 7. WEALTH INDICATORS & CAPACITY RATING
-
-### Wealth Indicator Summary Table
-| Indicator | Value | Confidence |
-|-----------|-------|------------|
-| Real Estate | $X | High/Medium/Low |
-| Business Interests | $X | High/Medium/Low |
-| Securities | $X | High/Medium/Low |
-| **TOTAL ESTIMATED NET WORTH** | **$X** | |
-
-### Capacity Rating
-**[MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL]** Gift Prospect
-
-### RōmyScore™ (0-41 points)
-Calculate using the four dimensions:
-- Foundation Attributes (0-28)
-- Liquidity & Tax-Planning (0-7)
-- Opportunity & Commitment (0-6)
-- Constraints & Headwinds (0 to -2)
-
-**RōmyScore™:** X/41 — [TIER NAME]
-
-| Part | Score | Key Factors |
-|------|-------|-------------|
-| Foundation Attributes | X/28 | [Summary] |
-| Liquidity & Tax-Planning | X/7 | [Summary] |
-| Opportunity & Commitment | X/6 | [Summary] |
-| Constraints & Headwinds | -X | [Summary] |
-
----
-
-## 8. CONNECTION POINTS & AFFINITY ANALYSIS
-Mission alignment, existing relationships, engagement opportunities.
-
----
-
-## 9. CULTIVATION STRATEGY & RECOMMENDATIONS
-
-### Recommended Ask
-- **Ask Amount:** $X
-- **Ask Type:** [Type]
-- **Timing:** [When]
-
----
-
-## 10. SOURCES & METHODOLOGY
-List all sources used.
-**Research Confidence Level:** [High/Medium/Low]
-
----
-
-IMPORTANT RULES:
-1. Be SPECIFIC with dollar amounts - use actual figures, not ranges
-2. If information is not found, state "No public records found"
-3. Cross-reference data points for coherent conclusions
-4. The RōmyScore must be calculated based on available indicators
-5. Include concrete next-step recommendations`
 
 // ============================================================================
 // EXTRACT METRICS FROM REPORT
@@ -514,7 +394,7 @@ Generate the full report now.`
 
     const result = await streamText({
       model,
-      system: PROSPECT_REPORT_PROMPT,
+      system: SYSTEM_PROMPT_DEFAULT,
       messages: [{ role: "user", content: userMessage }],
       maxTokens: 16000,
       temperature: 0.3, // Lower temperature for more consistent reports
