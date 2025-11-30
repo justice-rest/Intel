@@ -168,7 +168,7 @@ function compileSearchContext(
 
 /**
  * Parse a dollar amount from various formats
- * Handles: $1,000,000 | $1M | $1.5M | $500K | **$1,000,000** etc.
+ * Handles: $1,000,000 | $1M | $1.5M | $500K | **$1,000,000** | <$1K | <1K$ | $500-$1,000 | Under $500 etc.
  */
 function parseDollarAmount(str: string): number | null {
   if (!str) return null
@@ -176,8 +176,68 @@ function parseDollarAmount(str: string): number | null {
   // Remove markdown formatting and trim
   const cleaned = str.replace(/\*\*/g, "").replace(/\*/g, "").trim()
 
-  // Match patterns like $1.5M, $500K, or $1,000,000
-  const match = cleaned.match(/\$?\s*([\d,]+(?:\.\d+)?)\s*([MmKkBb])?/i)
+  // Skip N/A, None, TBD, etc.
+  if (/^(n\/a|none|tbd|unknown|not\s+available)/i.test(cleaned)) {
+    return null
+  }
+
+  // Handle "Under $X" or "Less than $X" - use the value as upper bound
+  const underMatch = cleaned.match(/(?:under|less\s+than|below)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?/i)
+  if (underMatch) {
+    let value = parseFloat(underMatch[1].replace(/,/g, ""))
+    const suffix = underMatch[2]?.toUpperCase()
+    if (suffix === "M") value *= 1000000
+    else if (suffix === "K") value *= 1000
+    else if (suffix === "B") value *= 1000000000
+    return isNaN(value) ? null : value
+  }
+
+  // Handle "<$1K" or "<$1,000" or "<1K$" patterns
+  const lessThanMatch = cleaned.match(/<\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?\s*\$?/i)
+  if (lessThanMatch) {
+    let value = parseFloat(lessThanMatch[1].replace(/,/g, ""))
+    const suffix = lessThanMatch[2]?.toUpperCase()
+    if (suffix === "M") value *= 1000000
+    else if (suffix === "K") value *= 1000
+    else if (suffix === "B") value *= 1000000000
+    return isNaN(value) ? null : value
+  }
+
+  // Handle ">$1K" or ">$1,000" patterns - use the lower bound
+  const greaterThanMatch = cleaned.match(/>\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?/i)
+  if (greaterThanMatch) {
+    let value = parseFloat(greaterThanMatch[1].replace(/,/g, ""))
+    const suffix = greaterThanMatch[2]?.toUpperCase()
+    if (suffix === "M") value *= 1000000
+    else if (suffix === "K") value *= 1000
+    else if (suffix === "B") value *= 1000000000
+    return isNaN(value) ? null : value
+  }
+
+  // Handle ranges like "$500-$1,000" or "$500 - $1K" - use the higher value
+  const rangeMatch = cleaned.match(/\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?\s*[-–—to]+\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?/i)
+  if (rangeMatch) {
+    let value2 = parseFloat(rangeMatch[3].replace(/,/g, ""))
+    const suffix2 = rangeMatch[4]?.toUpperCase()
+    if (suffix2 === "M") value2 *= 1000000
+    else if (suffix2 === "K") value2 *= 1000
+    else if (suffix2 === "B") value2 *= 1000000000
+    return isNaN(value2) ? null : value2
+  }
+
+  // Handle "1K$" pattern (suffix before or after dollar sign)
+  const reversedMatch = cleaned.match(/([\d,]+(?:\.\d+)?)\s*([MKBmkb])\s*\$?/i)
+  if (reversedMatch) {
+    let value = parseFloat(reversedMatch[1].replace(/,/g, ""))
+    const suffix = reversedMatch[2]?.toUpperCase()
+    if (suffix === "M") value *= 1000000
+    else if (suffix === "K") value *= 1000
+    else if (suffix === "B") value *= 1000000000
+    return isNaN(value) ? null : value
+  }
+
+  // Standard patterns: $1.5M, $500K, $1,000,000
+  const match = cleaned.match(/\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?/i)
   if (!match) return null
 
   let value = parseFloat(match[1].replace(/,/g, ""))
@@ -257,66 +317,61 @@ function extractMetricsFromReport(content: string): {
     }
   }
 
-  // Extract net worth - multiple formats
-  const netWorthPatterns = [
-    /TOTAL\s*(?:ESTIMATED)?\s*NET\s*WORTH[^$\n]*\$\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
-    /Estimated\s*Net\s*Worth[:\s]*\$?\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
-    /Net\s*Worth[:\s|]*\$?\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+  // Extract net worth - multiple formats including ranges, <$X, etc.
+  const netWorthSectionPatterns = [
+    /TOTAL\s*(?:ESTIMATED)?\s*NET\s*WORTH[^|\n]*\|?\s*\**\s*([^\n|]+)/i,
+    /Estimated\s*Net\s*Worth[:\s]*([^\n|]+)/i,
+    /\*\*(?:TOTAL\s*)?(?:ESTIMATED\s*)?NET\s*WORTH\*\*[:\s]*([^\n|]+)/i,
+    /Net\s*Worth[:\s|]*([^\n|]+)/i,
   ]
 
-  for (const pattern of netWorthPatterns) {
+  for (const pattern of netWorthSectionPatterns) {
     const match = content.match(pattern)
-    if (match) {
-      let value = parseFloat(match[1].replace(/,/g, ""))
-      const suffix = match[2]?.toUpperCase()
-      if (suffix === "M") value *= 1000000
-      else if (suffix === "K") value *= 1000
-      else if (suffix === "B") value *= 1000000000
-      if (!isNaN(value) && value > 0) {
+    if (match && match[1]) {
+      const value = parseDollarAmount(match[1])
+      if (value !== null && value > 0) {
         metrics.estimated_net_worth = value
         break
       }
     }
   }
 
-  // Extract gift capacity
-  const giftCapacityPatterns = [
-    /(?:Est\.?\s*)?Gift\s*Capacity[:\s|]*\$?\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
-    /Giving\s*Capacity[:\s|]*\$?\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+  // Extract gift capacity - multiple formats including ranges, <$X, etc.
+  const giftCapacitySectionPatterns = [
+    /(?:Est\.?\s*)?Gift\s*Capacity[:\s|]*([^\n|]+)/i,
+    /Giving\s*Capacity[:\s|]*([^\n|]+)/i,
+    /\*\*Gift\s*Capacity:?\*\*\s*([^\n|]+)/i,
+    /Charitable\s*Capacity[:\s|]*([^\n|]+)/i,
   ]
 
-  for (const pattern of giftCapacityPatterns) {
+  for (const pattern of giftCapacitySectionPatterns) {
     const match = content.match(pattern)
-    if (match) {
-      let value = parseFloat(match[1].replace(/,/g, ""))
-      const suffix = match[2]?.toUpperCase()
-      if (suffix === "M") value *= 1000000
-      else if (suffix === "K") value *= 1000
-      else if (suffix === "B") value *= 1000000000
-      if (!isNaN(value) && value > 0) {
+    if (match && match[1]) {
+      const value = parseDollarAmount(match[1])
+      if (value !== null && value > 0) {
         metrics.estimated_gift_capacity = value
         break
       }
     }
   }
 
-  // Extract recommended ask - multiple formats
-  const askPatterns = [
-    /Ask\s*Amount[:\s]*\$\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
-    /Recommended\s*Ask[:\s]*\$\s*\**\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
-    /\*\*Ask\s*Amount:?\*\*\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
-    /Ask[:\s]+\$\s*([\d,]+(?:\.\d+)?)\s*([MKB])?/i,
+  // Extract recommended ask - multiple formats including <$1K, ranges, etc.
+  // First, try to find the ask section and extract the value using parseDollarAmount
+  const askSectionPatterns = [
+    /Ask\s*Amount[:\s]*([^\n|]+)/i,
+    /Recommended\s*Ask[:\s]*([^\n|]+)/i,
+    /\*\*Ask\s*Amount:?\*\*\s*([^\n|]+)/i,
+    /\*\*Recommended\s*Ask:?\*\*\s*([^\n|]+)/i,
+    /Ask[:\s]+([^\n|]+)/i,
+    /Suggested\s*Ask[:\s]*([^\n|]+)/i,
+    /Initial\s*Ask[:\s]*([^\n|]+)/i,
   ]
 
-  for (const pattern of askPatterns) {
+  for (const pattern of askSectionPatterns) {
     const match = content.match(pattern)
-    if (match) {
-      let value = parseFloat(match[1].replace(/,/g, ""))
-      const suffix = match[2]?.toUpperCase()
-      if (suffix === "M") value *= 1000000
-      else if (suffix === "K") value *= 1000
-      else if (suffix === "B") value *= 1000000000
-      if (!isNaN(value) && value > 0) {
+    if (match && match[1]) {
+      const value = parseDollarAmount(match[1])
+      if (value !== null && value > 0) {
         metrics.recommended_ask = value
         break
       }
