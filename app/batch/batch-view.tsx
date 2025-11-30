@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog"
 
 import "@/app/batch/batch-dashboard.css"
+import { ResearchPlayButton, ResearchStopButton } from "@/app/components/batch-processing/research-play-button"
 
 // Status badge component
 function StatusBadge({ status }: { status: BatchProspectJob["status"] }) {
@@ -389,14 +390,12 @@ function BatchUploadSidebar({
         <div className="error-message">{error}</div>
       )}
 
-      <div className="payment-section-footer">
-        <button
-          className={cn("save-button", selectedFile && !isUploading && "save-button-active")}
+      <div className="payment-section-footer flex gap-2">
+        <ResearchPlayButton
           onClick={handleUpload}
+          isProcessing={isUploading}
           disabled={!selectedFile || isUploading}
-        >
-          {isUploading ? "Processing..." : "Start Research"}
-        </button>
+        />
         <button className="settings-button" onClick={() => window.location.href = '/settings'}>
           <Gear />
           <span>Settings</span>
@@ -548,13 +547,11 @@ function UploadModal({
         )}
 
         <div className="payment-section-footer">
-          <button
-            className={cn("save-button", selectedFile && !isUploading && "save-button-active")}
+          <ResearchPlayButton
             onClick={handleUpload}
+            isProcessing={isUploading}
             disabled={!selectedFile || isUploading}
-          >
-            {isUploading ? "Processing..." : "Start Research"}
-          </button>
+          />
         </div>
       </DialogContent>
     </Dialog>
@@ -730,21 +727,16 @@ function ColumnMappingDialog({
             <div className="error-message">{error}</div>
           )}
 
-          <div className="payment-section-footer">
-            <button
-              className="save-button"
+          <div className="payment-section-footer flex gap-2">
+            <ResearchStopButton
               onClick={onClose}
               disabled={isUploading}
-            >
-              Cancel
-            </button>
-            <button
-              className={cn("save-button", "save-button-active")}
+            />
+            <ResearchPlayButton
               onClick={handleConfirm}
+              isProcessing={isUploading}
               disabled={isUploading}
-            >
-              {isUploading ? "Creating..." : "Create Batch"}
-            </button>
+            />
           </div>
         </div>
       </DialogContent>
