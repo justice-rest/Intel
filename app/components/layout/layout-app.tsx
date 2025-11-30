@@ -7,10 +7,10 @@ import { DragDropProvider } from "@/lib/drag-drop-store/provider"
 import { useSplitView } from "@/lib/split-view-store/provider"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
 
-export function LayoutApp({ children }: { children: React.ReactNode }) {
+export function LayoutApp({ children, forceSidebar = false }: { children: React.ReactNode; forceSidebar?: boolean }) {
   const { preferences } = useUserPreferences()
   const { isActive: isSplitActive } = useSplitView()
-  const hasSidebar = preferences.layout === "sidebar"
+  const hasSidebar = forceSidebar || preferences.layout === "sidebar"
 
   return (
     <DragDropProvider>

@@ -17,7 +17,7 @@ export default async function BatchPage() {
   }
 
   return (
-    <LayoutApp>
+    <LayoutApp forceSidebar>
       <BatchView />
     </LayoutApp>
   )

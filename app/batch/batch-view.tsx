@@ -19,7 +19,6 @@ import {
   Lightning,
   Target,
   ChartBar,
-  Funnel,
   Plus,
   Gear,
 } from "@phosphor-icons/react"
@@ -33,6 +32,12 @@ import {
 } from "@/lib/batch-processing"
 import { MAX_BATCH_FILE_SIZE, ALLOWED_BATCH_EXTENSIONS } from "@/lib/batch-processing/config"
 import { toast } from "@/components/ui/toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 import "@/app/batch/batch-dashboard.css"
 
@@ -285,9 +290,8 @@ function BatchUploadSidebar({
 
   return (
     <section className="payment-section">
-      <h2>New Research</h2>
       <div className="payment-section-header">
-        <p>Upload a prospect list to research</p>
+        <h2>New Research</h2>
         <div>
           <span className="plan-badge">{planName}</span>
         </div>
@@ -402,6 +406,161 @@ function BatchUploadSidebar({
   )
 }
 
+// Upload Modal Component
+function UploadModal({
+  isOpen,
+  onClose,
+  onUpload,
+  isUploading,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  onUpload: (file: File) => Promise<void>
+  isUploading: boolean
+}) {
+  const [isDragging, setIsDragging] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [error, setError] = useState<string>("")
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const validateFile = (file: File): string | null => {
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase()
+    if (!ALLOWED_BATCH_EXTENSIONS.includes(ext)) {
+      return `Only ${ALLOWED_BATCH_EXTENSIONS.join(", ")} files are supported`
+    }
+    if (file.size > MAX_BATCH_FILE_SIZE) {
+      return `File too large. Maximum size is ${MAX_BATCH_FILE_SIZE / (1024 * 1024)}MB`
+    }
+    return null
+  }
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    setError("")
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length > 0) {
+      const file = files[0]
+      const validationError = validateFile(file)
+      if (validationError) {
+        setError(validationError)
+      } else {
+        setSelectedFile(file)
+      }
+    }
+  }, [])
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setError("")
+    const files = e.target.files
+    if (files && files.length > 0) {
+      const file = files[0]
+      const validationError = validateFile(file)
+      if (validationError) {
+        setError(validationError)
+      } else {
+        setSelectedFile(file)
+      }
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!selectedFile) return
+
+    try {
+      setError("")
+      await onUpload(selectedFile)
+      setSelectedFile(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed")
+    }
+  }
+
+  const handleCancel = () => {
+    setSelectedFile(null)
+    setError("")
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="batch-upload-modal">
+        <DialogHeader>
+          <DialogTitle>New Batch Research</DialogTitle>
+        </DialogHeader>
+        <div className="faq">
+          <p>Drop or select a file to start</p>
+          <div
+            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true) }}
+            onDragOver={(e) => e.preventDefault()}
+            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
+            onDrop={handleDrop}
+            className={cn("upload-zone", isDragging && "upload-zone-active")}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={isUploading}
+            />
+
+            {!selectedFile ? (
+              <>
+                <CloudArrowUp className="upload-icon" />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flat-button"
+                >
+                  Choose File
+                </button>
+                <span className="upload-hint">CSV or Excel</span>
+              </>
+            ) : (
+              <div className="selected-file">
+                <FileCsv className="file-icon" weight="fill" />
+                <div className="file-info">
+                  <span className="file-name">{selectedFile.name}</span>
+                  <span className="file-size">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                </div>
+                {!isUploading && (
+                  <button onClick={handleCancel} className="icon-button icon-button-small">
+                    <X />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {error && (
+          <div className="error-message">{error}</div>
+        )}
+
+        <div className="payment-section-footer">
+          <button
+            className={cn("save-button", selectedFile && !isUploading && "save-button-active")}
+            onClick={handleUpload}
+            disabled={!selectedFile || isUploading}
+          >
+            {isUploading ? "Processing..." : "Start Research"}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // Main batch view component
 export function BatchView() {
   const queryClient = useQueryClient()
@@ -409,6 +568,7 @@ export function BatchView() {
   const [batchLimit, setBatchLimit] = useState(10)
   const [planName, setPlanName] = useState("Growth")
   const [isUploading, setIsUploading] = useState(false)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   // Fetch batch limit
   useQuery({
@@ -531,25 +691,6 @@ export function BatchView() {
           {/* Service Section - Quick Actions */}
           <section className="service-section">
             <h2>Research</h2>
-            <div className="service-section-header">
-              <div className="search-field">
-                <MagnifyingGlass />
-                <input
-                  type="text"
-                  placeholder="Search batch jobs..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-              <button className="flat-button" onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
-                New Batch
-              </button>
-            </div>
-            <div className="mobile-only">
-              <button className="flat-button" onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
-                Upload Prospects
-              </button>
-            </div>
             <div className="tiles">
               <ServiceTile
                 icon={Lightning}
@@ -584,13 +725,24 @@ export function BatchView() {
               <h2>Recent Batches</h2>
               <div className="filter-options">
                 <p>{jobs.length} total jobs • {completedProspects}/{totalProspects} prospects</p>
-                <button className="icon-button">
-                  <Funnel />
-                </button>
-                <button className="icon-button" onClick={() => document.getElementById('upload-section')?.scrollIntoView({ behavior: 'smooth' })}>
+                <button className="icon-button" onClick={() => setIsUploadModalOpen(true)}>
                   <Plus />
                 </button>
               </div>
+            </div>
+            <div className="transfer-section-controls">
+              <div className="search-field">
+                <MagnifyingGlass />
+                <input
+                  type="text"
+                  placeholder="Search batch jobs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <button className="flat-button" onClick={() => setIsUploadModalOpen(true)}>
+                New Batch
+              </button>
             </div>
             <div className="transfers">
               {isLoading ? (
@@ -640,6 +792,14 @@ export function BatchView() {
           />
         </div>
       </div>
+
+      {/* Upload Modal */}
+      <UploadModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUpload={handleUpload}
+        isUploading={isUploading}
+      />
     </div>
   )
 }

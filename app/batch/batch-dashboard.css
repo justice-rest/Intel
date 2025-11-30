@@ -380,6 +380,31 @@
   }
 }
 
+.transfer-section-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--c-gray-600);
+}
+
+.transfer-section-controls .search-field {
+  flex: 1;
+}
+
+@media (max-width: 700px) {
+  .transfer-section-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .transfer-section-controls .flat-button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 /* Transfers/Jobs List */
 .transfers {
   display: flex;
@@ -396,13 +421,22 @@
 
 @media (max-width: 1000px) {
   .transfer {
-    align-items: flex-start;
     flex-direction: column;
+    align-items: stretch;
+    background-color: var(--c-gray-700);
+    border-radius: 8px;
+    padding: 1rem;
   }
 }
 
 .transfer + .transfer {
   margin-top: 2rem;
+}
+
+@media (max-width: 1000px) {
+  .transfer + .transfer {
+    margin-top: 1rem;
+  }
 }
 
 .transfer-logo {
@@ -414,6 +448,12 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+}
+
+@media (max-width: 1000px) {
+  .transfer-logo {
+    display: none;
+  }
 }
 
 .transfer-logo svg {
@@ -432,9 +472,10 @@
 
 @media (max-width: 1000px) {
   .transfer-details {
-    flex-wrap: wrap;
     margin-left: 0;
-    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
   }
 }
 
@@ -446,9 +487,14 @@
   .transfer-details div {
     width: 100%;
   }
+
+  .transfer-details div:first-child {
+    grid-column: 1 / -1;
+  }
+
   .transfer-details div + div {
     margin-left: 0;
-    margin-top: 1rem;
+    margin-top: 0;
   }
 }
 
@@ -475,7 +521,10 @@
 @media (max-width: 1000px) {
   .transfer-actions {
     margin-left: 0;
-    margin-top: 1.25rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--c-gray-600);
+    justify-content: flex-end;
   }
 }
 
@@ -887,4 +936,174 @@ button:focus {
 
 button:focus-visible {
   box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px var(--c-gray-300);
+}
+
+/* Upload Modal */
+.batch-upload-modal {
+  --c-gray-600: #313131;
+  --c-gray-700: #2e2e2e;
+  --c-green-500: #45ffbc;
+  --c-text-tertiary: #969593;
+  --c-text-primary: #ffffff;
+}
+
+.batch-upload-modal .faq {
+  margin-top: 0;
+}
+
+.batch-upload-modal .payment-section-footer {
+  margin-top: 1rem;
+  justify-content: flex-end;
+}
+
+/* Light Mode Support */
+:root.light .batch-app,
+.light .batch-app {
+  --c-gray-900: #ffffff;
+  --c-gray-800: #f8f9fa;
+  --c-gray-700: #e9ecef;
+  --c-gray-600: #dee2e6;
+  --c-gray-500: #6c757d;
+  --c-gray-400: #868e96;
+  --c-gray-300: #adb5bd;
+  --c-gray-200: #343a40;
+  --c-gray-100: #212529;
+
+  --c-green-500: #00b377;
+  --c-olive-500: #7cb342;
+
+  --c-white: var(--c-gray-100);
+
+  --c-text-primary: #212529;
+  --c-text-secondary: #343a40;
+  --c-text-tertiary: #6c757d;
+}
+
+:root.light .batch-app,
+.light .batch-app {
+  background-color: var(--c-gray-800);
+  color: var(--c-text-primary);
+}
+
+:root.light .tile,
+.light .tile {
+  color: #212529;
+}
+
+:root.light .transfer-logo,
+.light .transfer-logo {
+  background-color: var(--c-gray-700);
+}
+
+:root.light .transfer-logo svg,
+.light .transfer-logo svg {
+  color: var(--c-green-500);
+}
+
+:root.light .card,
+.light .card {
+  color: #212529;
+}
+
+:root.light .icon-button,
+.light .icon-button {
+  border-color: var(--c-gray-500);
+  color: var(--c-text-primary);
+}
+
+:root.light .icon-button:hover,
+:root.light .icon-button:focus,
+.light .icon-button:hover,
+.light .icon-button:focus {
+  background-color: var(--c-gray-700);
+}
+
+:root.light .flat-button,
+.light .flat-button {
+  background-color: var(--c-gray-700);
+  color: var(--c-text-primary);
+}
+
+:root.light .flat-button:hover,
+:root.light .flat-button:focus,
+.light .flat-button:hover,
+.light .flat-button:focus {
+  background-color: var(--c-gray-600);
+}
+
+:root.light .search-field input,
+.light .search-field input {
+  color: var(--c-text-primary);
+  border-bottom-color: var(--c-gray-600);
+}
+
+:root.light .search-field input::placeholder,
+.light .search-field input::placeholder {
+  color: var(--c-text-tertiary);
+}
+
+:root.light .save-button,
+.light .save-button {
+  color: var(--c-text-tertiary);
+}
+
+:root.light .save-button:hover,
+:root.light .save-button:focus,
+.light .save-button:hover,
+.light .save-button:focus {
+  color: var(--c-text-primary);
+}
+
+:root.light .save-button-active,
+.light .save-button-active {
+  background-color: var(--c-green-500);
+  color: #ffffff;
+  border-color: var(--c-green-500);
+}
+
+:root.light .plan-badge,
+.light .plan-badge {
+  background-color: var(--c-gray-700);
+  color: var(--c-text-primary);
+}
+
+:root.light .status-badge-pending,
+.light .status-badge-pending {
+  background-color: var(--c-gray-700);
+  color: var(--c-text-tertiary);
+}
+
+:root.light .status-badge-completed,
+.light .status-badge-completed {
+  background-color: rgba(0, 179, 119, 0.15);
+  color: var(--c-green-500);
+}
+
+:root.light .upload-zone,
+.light .upload-zone {
+  border-top-color: var(--c-gray-600);
+  border-bottom-color: var(--c-gray-600);
+}
+
+:root.light .upload-zone-active,
+.light .upload-zone-active {
+  background-color: var(--c-gray-700);
+  border-color: var(--c-green-500);
+}
+
+:root.light .batch-upload-modal,
+.light .batch-upload-modal {
+  --c-gray-600: #dee2e6;
+  --c-gray-700: #e9ecef;
+  --c-green-500: #00b377;
+  --c-text-tertiary: #6c757d;
+  --c-text-primary: #212529;
+}
+
+/* Light mode mobile cards */
+@media (max-width: 1000px) {
+  :root.light .transfer,
+  .light .transfer {
+    background-color: var(--c-gray-700);
+  }
 }
