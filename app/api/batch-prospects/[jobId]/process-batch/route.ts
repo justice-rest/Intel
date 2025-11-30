@@ -224,7 +224,7 @@ export async function POST(
             jobId,
             appUrl: process.env.NEXT_PUBLIC_VERCEL_URL
               ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-              : "https://romyai.com",
+              : "https://intel.getromy.app",
           })
 
           await sendEmail({

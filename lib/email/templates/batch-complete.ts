@@ -18,7 +18,7 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
     completedCount,
     failedCount,
     jobId,
-    appUrl = "https://romyai.com",
+    appUrl = "https://intel.getromy.app",
   } = data
 
   const successRate = totalProspects > 0

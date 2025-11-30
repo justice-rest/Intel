@@ -9,7 +9,7 @@ import { Resend } from "resend"
 const resend = new Resend(process.env.RESEND_API_KEY)
 
 // Default sender - update this to your verified domain
-const DEFAULT_FROM = "Rōmy <notifications@romyai.com>"
+const DEFAULT_FROM = "Rōmy <notifications@getromy.app>"
 
 export interface SendEmailOptions {
   to: string | string[]
