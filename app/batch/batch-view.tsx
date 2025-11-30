@@ -526,31 +526,6 @@ export function BatchView() {
   return (
     <div className="batch-app">
       <div className="batch-app-body">
-        {/* Left Navigation */}
-        <div className="app-body-navigation">
-          <nav className="navigation">
-            <a href="/batch" className="active">
-              <UsersThree />
-              <span>Batch Research</span>
-            </a>
-            <a href="/">
-              <MagnifyingGlass />
-              <span>Single Search</span>
-            </a>
-            <a href="/settings">
-              <Gear />
-              <span>Settings</span>
-            </a>
-          </nav>
-          <footer className="footer">
-            <h1>Rōmy<small>©</small></h1>
-            <div>
-              Donor Research<br />
-              for Nonprofits
-            </div>
-          </footer>
-        </div>
-
         {/* Main Content */}
         <div className="app-body-main-content">
           {/* Service Section - Quick Actions */}
