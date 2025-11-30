@@ -33,7 +33,7 @@ export async function GET() {
       // If no preferences exist, return defaults
       if (error.code === "PGRST116") {
         return NextResponse.json({
-          layout: "fullscreen",
+          layout: "sidebar",
           prompt_suggestions: true,
           show_tool_invocations: true,
           show_conversation_previews: true,
