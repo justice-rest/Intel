@@ -917,8 +917,8 @@ export function BatchView() {
               <ServiceTile
                 icon={Lightning}
                 title="Quick Research"
-                subtitle="Up to 10 prospects"
-                href="/batch"
+                subtitle="1 or 2 prospects"
+                href="/"
                 variant="olive"
               />
               <ServiceTile
