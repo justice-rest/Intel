@@ -94,26 +94,69 @@ export async function POST(
     }
 
     // Get next pending item (or failed item under retry limit)
-    const { data: nextItem, error: itemError } = await (supabase as any)
+    // Using limit(1) without .single() to avoid errors on empty results
+    const { data: pendingItems, error: itemError } = await (supabase as any)
       .from("batch_prospect_items")
       .select("*")
       .eq("job_id", jobId)
-      .or(`status.eq.pending,and(status.eq.failed,retry_count.lt.${MAX_RETRIES_PER_PROSPECT})`)
+      .eq("user_id", user.id)  // Explicitly filter by user for safety
+      .in("status", ["pending"])  // First check for pending items
       .order("item_index", { ascending: true })
-      .limit(1)
-      .single() as { data: BatchProspectItem | null; error: any }
+      .limit(1) as { data: BatchProspectItem[] | null; error: any }
 
-    // If no more items, mark job as completed
-    if (itemError || !nextItem) {
-      // Check if there are any remaining items
-      const { count } = await (supabase as any)
+    // Log for debugging
+    console.log(`[BatchProcess] Query for pending items: jobId=${jobId}, found=${pendingItems?.length || 0}, error=${itemError?.message || 'none'}`)
+
+    let nextItem: BatchProspectItem | null = pendingItems?.[0] || null
+
+    // If no pending items, check for failed items that can be retried
+    if (!nextItem && !itemError) {
+      const { data: failedItems } = await (supabase as any)
+        .from("batch_prospect_items")
+        .select("*")
+        .eq("job_id", jobId)
+        .eq("user_id", user.id)
+        .eq("status", "failed")
+        .lt("retry_count", MAX_RETRIES_PER_PROSPECT)
+        .order("item_index", { ascending: true })
+        .limit(1) as { data: BatchProspectItem[] | null }
+
+      nextItem = failedItems?.[0] || null
+      console.log(`[BatchProcess] Query for retry items: found=${failedItems?.length || 0}`)
+    }
+
+    // If query had an error, don't mark job as completed - return error
+    if (itemError) {
+      console.error(`[BatchProcess] Error querying items:`, itemError)
+      return NextResponse.json(
+        { error: `Failed to query items: ${itemError.message}` },
+        { status: 500 }
+      )
+    }
+
+    // If no more items to process, check if job should be marked as completed
+    if (!nextItem) {
+      // Count remaining pending/processing items
+      const { count: remainingCount, error: countError } = await (supabase as any)
         .from("batch_prospect_items")
         .select("*", { count: "exact", head: true })
         .eq("job_id", jobId)
-        .in("status", ["pending", "processing"]) as { count: number | null }
+        .eq("user_id", user.id)
+        .in("status", ["pending", "processing"]) as { count: number | null; error: any }
 
-      if (!count || count === 0) {
-        // Job is complete
+      console.log(`[BatchProcess] Remaining count: ${remainingCount}, error=${countError?.message || 'none'}`)
+
+      // Only mark as completed if we successfully verified there are no remaining items
+      if (countError) {
+        console.error(`[BatchProcess] Error counting remaining items:`, countError)
+        return NextResponse.json(
+          { error: `Failed to check remaining items: ${countError.message}` },
+          { status: 500 }
+        )
+      }
+
+      if (remainingCount === 0) {
+        // Job is truly complete - all items processed
         await (supabase as any)
           .from("batch_prospect_jobs")
           .update({
@@ -121,13 +164,21 @@ export async function POST(
             completed_at: new Date().toISOString(),
           })
           .eq("id", jobId)
+          .eq("user_id", user.id)
+
+        // Fetch final counts
+        const { data: finalJob } = await (supabase as any)
+          .from("batch_prospect_jobs")
+          .select("*")
+          .eq("id", jobId)
+          .single() as { data: BatchProspectJob | null }
 
         const response: ProcessNextItemResponse = {
           job_status: "completed",
           progress: {
-            completed: job.completed_count,
-            total: job.total_prospects,
-            failed: job.failed_count,
+            completed: finalJob?.completed_count || job.completed_count,
+            total: finalJob?.total_prospects || job.total_prospects,
+            failed: finalJob?.failed_count || job.failed_count,
           },
           has_more: false,
           message: "Batch processing completed",
@@ -135,7 +186,8 @@ export async function POST(
         return NextResponse.json(response)
       }
 
-      // Something unexpected
+      // There are still pending items but we couldn't fetch them - something is wrong
+      console.warn(`[BatchProcess] Found ${remainingCount} remaining items but couldn't fetch next item`)
       const response: ProcessNextItemResponse = {
         job_status: job.status as BatchJobStatus,
         progress: {
@@ -143,8 +195,8 @@ export async function POST(
           total: job.total_prospects,
           failed: job.failed_count,
         },
-        has_more: false,
-        message: "No items to process",
+        has_more: remainingCount > 0,
+        message: `${remainingCount} items remaining but unable to fetch next item`,
       }
       return NextResponse.json(response)
     }
@@ -233,14 +285,24 @@ export async function POST(
       .eq("id", jobId)
       .single() as { data: BatchProspectJob | null }
 
-    // Check if there are more items
-    const { count: remainingCount } = await (supabase as any)
+    // Check if there are more items - use simple status check
+    const { count: pendingCount } = await (supabase as any)
       .from("batch_prospect_items")
       .select("*", { count: "exact", head: true })
       .eq("job_id", jobId)
-      .or(`status.eq.pending,and(status.eq.failed,retry_count.lt.${MAX_RETRIES_PER_PROSPECT})`) as { count: number | null }
+      .eq("user_id", user.id)
+      .eq("status", "pending") as { count: number | null }
 
-    const hasMore = (remainingCount || 0) > 0
+    // Also check for retryable failed items
+    const { count: retryableCount } = await (supabase as any)
+      .from("batch_prospect_items")
+      .select("*", { count: "exact", head: true })
+      .eq("job_id", jobId)
+      .eq("user_id", user.id)
+      .eq("status", "failed")
+      .lt("retry_count", MAX_RETRIES_PER_PROSPECT) as { count: number | null }
+
+    const hasMore = ((pendingCount || 0) + (retryableCount || 0)) > 0
 
     // Fetch the updated item
     const { data: updatedItem } = await (supabase as any)

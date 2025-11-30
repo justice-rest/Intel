@@ -298,15 +298,15 @@ function ProspectTableRow({
       <td className="py-3 px-3">
         <span className={cn(
           "text-sm font-mono font-medium",
-          item.romy_score !== undefined && item.romy_score >= 31
+          item.romy_score != null && item.romy_score >= 31
             ? "text-purple-500"
-            : item.romy_score !== undefined && item.romy_score >= 21
+            : item.romy_score != null && item.romy_score >= 21
               ? "text-green-600"
-              : item.romy_score !== undefined && item.romy_score >= 11
+              : item.romy_score != null && item.romy_score >= 11
                 ? "text-amber-500"
                 : "text-muted-foreground"
         )}>
-          {item.romy_score !== undefined ? `${item.romy_score}/41` : "—"}
+          {item.romy_score != null ? `${item.romy_score}/41` : "—"}
         </span>
       </td>
       <td className="py-3 px-3 text-sm text-muted-foreground">
@@ -486,6 +486,31 @@ export function BatchJobProgress({
     onRefresh()
   }, [job.id, onRefresh])
 
+  // Restart processing (for jobs incorrectly marked as completed)
+  const restartProcessing = useCallback(async () => {
+    setError(null)
+
+    // Reset job status to pending
+    const response = await fetch(`/api/batch-prospects/${job.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "pending" }),
+    })
+
+    if (!response.ok) {
+      const data = await response.json()
+      setError(data.error || "Failed to restart job")
+      return
+    }
+
+    // Refresh to get updated job data
+    await onRefresh()
+
+    // Start processing
+    setProcessingState("running")
+    startProcessing()
+  }, [job.id, onRefresh, startProcessing])
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -629,11 +654,19 @@ export function BatchJobProgress({
             </Button>
           )}
 
-          {processingState === "completed" && (
+          {processingState === "completed" && remaining === 0 && (
             <Badge variant="secondary" className="bg-green-500/10 text-green-600 gap-1">
               <CheckCircle className="h-4 w-4" weight="fill" />
               Completed
             </Badge>
+          )}
+
+          {/* Show restart button if job is "completed" but has unprocessed items */}
+          {(job.status === "completed" || job.status === "failed") && remaining > 0 && (
+            <Button onClick={restartProcessing} className="gap-2">
+              <Play className="h-4 w-4" weight="fill" />
+              Restart Processing ({remaining} remaining)
+            </Button>
           )}
 
           {processingState === "error" && (

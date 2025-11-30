@@ -178,9 +178,10 @@ export async function PATCH(
     }
 
     // Check if status transition is valid
-    if (job.status === "completed" || job.status === "failed") {
+    // Allow resetting completed/failed jobs to "pending" for reprocessing
+    if ((job.status === "completed" || job.status === "failed") && newStatus !== "pending") {
       return NextResponse.json(
-        { error: `Cannot update status of ${job.status} job` },
+        { error: `Can only reset ${job.status} job to pending for reprocessing` },
         { status: 400 }
       )
     }
@@ -193,6 +194,24 @@ export async function PATCH(
 
     if (newStatus === "processing" && !job.started_at) {
       updateData.started_at = new Date().toISOString()
+    }
+
+    // If resetting to pending, also reset any non-completed items
+    if (newStatus === "pending" && (job.status === "completed" || job.status === "failed")) {
+      // Reset items that weren't successfully processed
+      await (supabase as any)
+        .from("batch_prospect_items")
+        .update({
+          status: "pending",
+          error_message: null,
+          retry_count: 0,
+        })
+        .eq("job_id", jobId)
+        .neq("status", "completed") // Don't reset items that were successfully completed
+
+      // Clear job timestamps for restart
+      updateData.started_at = null
+      updateData.completed_at = null
     }
 
     const { data: updatedJob, error: updateError } = await (supabase as any)
