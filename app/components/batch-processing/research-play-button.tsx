@@ -11,46 +11,47 @@ interface ResearchPlayButtonProps {
   className?: string
 }
 
-// Waveform animation component - exactly like openai-fm
+// Waveform animation component - consistent sizing
 function PlayingWaveform({
   amplitudeLevels,
 }: {
   amplitudeLevels: number[]
 }) {
   return (
-    <div className="w-[36px] h-[16px] relative left-[4px]">
-      {amplitudeLevels.map((level, idx) => {
-        const height = `${Math.min(Math.max(level * 30, 0.2), 1.9) * 100}%`
-        return (
-          <div
-            key={idx}
-            className="w-[2px] bg-white transition-all duration-150 rounded-[2px] absolute top-1/2 -translate-y-1/2 animate-wave"
-            style={{
-              height,
-              animationDelay: `${idx * 0.15}s`,
-              left: `${idx * 6}px`,
-            }}
-          />
-        )
-      })}
+    <div className="w-5 h-5 relative flex items-center justify-center">
+      <div className="flex items-center gap-[2px]">
+        {amplitudeLevels.map((level, idx) => {
+          const height = Math.min(Math.max(level * 30, 0.3), 1) * 16
+          return (
+            <div
+              key={idx}
+              className="w-[2px] bg-white rounded-full animate-wave"
+              style={{
+                height: `${height}px`,
+                animationDelay: `${idx * 0.1}s`,
+              }}
+            />
+          )
+        })}
+      </div>
     </div>
   )
 }
 
-// Play Icon SVG - exactly like openai-fm
+// Play Icon SVG - consistent 20x20 size
 function PlayIcon() {
   return (
     <svg
-      width="36"
-      height="36"
-      viewBox="0 0 36 36"
+      width="20"
+      height="20"
+      viewBox="0 0 20 20"
       fill="currentColor"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
         fillRule="evenodd"
         clipRule="evenodd"
-        d="M8.85905 6.08889C8.62661 5.96437 8.34585 5.97106 8.11961 6.10652C7.89336 6.24198 7.75488 6.48631 7.75488 6.75V29.25C7.75488 29.5137 7.89336 29.758 8.11961 29.8935C8.34585 30.0289 8.62661 30.0356 8.85905 29.9111L29.8592 18.6611C30.1029 18.5305 30.255 18.2765 30.255 18C30.255 17.7235 30.1029 17.4695 29.8592 17.3389L8.85905 6.08889Z"
+        d="M4.5 3.5C4.5 3.18 4.68 2.89 4.96 2.76C5.24 2.63 5.57 2.67 5.81 2.86L16.19 9.36C16.38 9.52 16.5 9.75 16.5 10C16.5 10.25 16.38 10.48 16.19 10.64L5.81 17.14C5.57 17.33 5.24 17.37 4.96 17.24C4.68 17.11 4.5 16.82 4.5 16.5V3.5Z"
       />
     </svg>
   )
@@ -151,19 +152,15 @@ export function ResearchPlayButton({
         }
       }}
       className={cn(
-        // Base styles - exactly like openai-fm Button
-        "flex items-center justify-center gap-2 flex-1 rounded-md p-3",
-        "cursor-pointer select-none transition-shadow duration-300",
+        // Base styles - compact button
+        "flex items-center justify-center gap-2 flex-1 rounded-md py-2.5 px-4",
+        "cursor-pointer select-none transition-all duration-200",
         // Primary color - openai-fm orange #ff4a00
         "text-white bg-[#ff4a00]",
-        // Default shadow - exactly like openai-fm primary button
-        !isActive && [
-          "shadow-[inset_1px_1px_1px_rgba(255,255,255,0.83),inset_-1px_-1px_1px_rgba(0,0,0,0.23),0.444584px_0.444584px_0.628737px_-1px_rgba(0,0,0,0.26),1.21072px_1.21072px_1.71222px_-1.5px_rgba(0,0,0,0.25),2.6583px_2.6583px_3.75941px_-2.25px_rgba(0,0,0,0.23),5.90083px_5.90083px_8.34503px_-3px_rgba(0,0,0,0.19),10px_10px_21.2132px_-3.75px_rgba(0,0,0,0.23),-0.5px_-0.5px_0_0_rgba(149,43,0,0.53)]",
-        ],
-        // Active/Selected state shadow - exactly like openai-fm
-        isActive && [
-          "shadow-[inset_0.5px_0.5px_1px_rgba(255,255,255,1),inset_-0.5px_-0.5px_1px_rgba(0,0,0,0.36),0.222px_0.222px_0.314px_-1px_rgba(0,0,0,0.2),0.605px_0.605px_0.856px_-1px_rgba(0,0,0,0.18),1.329px_1.329px_1.88px_-1.5px_rgba(0,0,0,0.25),2.95px_2.95px_4.172px_-2px_rgba(0,0,0,0.1),2.5px_2.5px_3px_-2.5px_rgba(0,0,0,0.15),-0.5px_-0.5px_0_0_rgba(0,0,0,0.13)]",
-        ],
+        // Border - white in light mode, dark in dark mode
+        "ring-1 ring-white/30 dark:ring-black/30",
+        // Hover effect
+        "hover:brightness-110 active:brightness-95",
         // Disabled state
         disabled && "opacity-50 cursor-not-allowed",
         className
@@ -174,14 +171,14 @@ export function ResearchPlayButton({
       ) : (
         <PlayIcon />
       )}
-      <span className="uppercase hidden md:inline pr-3 font-medium text-[1.125rem]">
+      <span className="uppercase hidden md:inline font-medium text-sm">
         {buttonText}
       </span>
     </div>
   )
 }
 
-// Stop/Cancel Button - openai-fm style secondary button
+// Stop/Cancel Button - consistent sizing
 export function ResearchStopButton({
   onClick,
   disabled = false,
@@ -210,29 +207,31 @@ export function ResearchStopButton({
         }
       }}
       className={cn(
-        // Base styles - openai-fm Button
-        "flex items-center justify-center gap-2 flex-1 rounded-md p-3",
-        "cursor-pointer select-none transition-shadow duration-300",
-        // Secondary color - openai-fm dark gray #222
-        "text-white bg-[#222]",
-        // Shadow - openai-fm secondary button
-        "shadow-[inset_1px_1px_1px_rgba(255,255,255,0.7),inset_-1px_-1px_1px_rgba(0,0,0,0.23),0.444584px_0.444584px_0.628737px_-0.75px_rgba(0,0,0,0.26),1.21072px_1.21072px_1.71222px_-1.5px_rgba(0,0,0,0.25),2.6583px_2.6583px_3.75941px_-2.25px_rgba(0,0,0,0.23),5.90083px_5.90083px_8.34503px_-3px_rgba(0,0,0,0.19),14px_14px_21.2132px_-3.75px_rgba(0,0,0,0.2),-0.5px_-0.5px_0_0_rgba(0,0,0,0.69)]",
+        // Base styles - compact button (matching play button)
+        "flex items-center justify-center gap-2 flex-1 rounded-md py-2.5 px-4",
+        "cursor-pointer select-none transition-all duration-200",
+        // Secondary color - dark gray
+        "text-white bg-[#222] dark:bg-[#333]",
+        // Border - white in light mode, dark in dark mode
+        "ring-1 ring-white/20 dark:ring-black/30",
+        // Hover effect
+        "hover:brightness-110 active:brightness-95",
         // Disabled state
         disabled && "opacity-50 cursor-not-allowed",
         className
       )}
     >
-      {/* Stop Icon */}
+      {/* Stop Icon - 20x20 matching play icon */}
       <svg
-        width="36"
-        height="36"
-        viewBox="0 0 36 36"
+        width="20"
+        height="20"
+        viewBox="0 0 20 20"
         fill="currentColor"
         xmlns="http://www.w3.org/2000/svg"
       >
-        <rect x="8" y="8" width="20" height="20" rx="2" />
+        <rect x="4" y="4" width="12" height="12" rx="2" />
       </svg>
-      <span className="uppercase hidden md:inline pr-3 font-medium text-[1.125rem]">
+      <span className="uppercase hidden md:inline font-medium text-sm">
         Cancel
       </span>
     </div>

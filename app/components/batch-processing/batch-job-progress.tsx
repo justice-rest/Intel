@@ -635,15 +635,6 @@ export function BatchJobProgress({
 
         {/* Control buttons - openai-fm style */}
         <div className="flex items-center gap-3 pt-2 max-w-md">
-          {/* Idle/Paused: Show Play button */}
-          {(processingState === "idle" || processingState === "paused") && remaining > 0 && (
-            <ResearchPlayButton
-              onClick={startProcessing}
-              isProcessing={false}
-              isPaused={processingState === "paused"}
-            />
-          )}
-
           {/* Running: Show Stop button (click to pause) + Cancel button */}
           {processingState === "running" && (
             <>
@@ -658,10 +649,25 @@ export function BatchJobProgress({
 
           {/* Paused: Show Resume + Cancel */}
           {processingState === "paused" && (
-            <ResearchStopButton onClick={cancelProcessing} />
+            <>
+              <ResearchPlayButton
+                onClick={startProcessing}
+                isProcessing={false}
+                isPaused={true}
+              />
+              <ResearchStopButton onClick={cancelProcessing} />
+            </>
           )}
 
-          {/* Completed badge */}
+          {/* Idle: Show Play button if there are items to process */}
+          {processingState === "idle" && remaining > 0 && (
+            <ResearchPlayButton
+              onClick={startProcessing}
+              isProcessing={false}
+            />
+          )}
+
+          {/* Completed: Show badge if all done */}
           {processingState === "completed" && remaining === 0 && (
             <Badge variant="secondary" className="bg-green-500/10 text-green-600 gap-1 py-3 px-4">
               <CheckCircle className="h-4 w-4" weight="fill" />
@@ -669,8 +675,8 @@ export function BatchJobProgress({
             </Badge>
           )}
 
-          {/* Restart button for jobs incorrectly marked as completed */}
-          {(job.status === "completed" || job.status === "failed") && remaining > 0 && (
+          {/* Restart button for jobs incorrectly marked as completed but have remaining items */}
+          {processingState === "completed" && remaining > 0 && (
             <ResearchPlayButton
               onClick={restartProcessing}
               isProcessing={false}
