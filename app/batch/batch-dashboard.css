@@ -24,7 +24,7 @@
 
 /* Main App Container */
 .batch-app {
-  min-height: 100vh;
+  min-height: 100%;
   width: 100%;
   background-color: var(--c-gray-800);
   padding: 2rem;
