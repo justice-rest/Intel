@@ -981,42 +981,42 @@ button:focus-visible {
   --c-text-tertiary: #6c757d;
 }
 
-/* Tiles keep vibrant colors in light mode */
+/* Tiles keep vibrant colors in light mode - matches view details section colors */
 :root.light .tile-olive,
 .light .tile-olive {
-  background-color: #84cc16;
-  color: #1a1a1a;
+  background-color: #e3ffa8;
+  color: #1f1f1f;
 }
 
 :root.light .tile-green,
 .light .tile-green {
-  background-color: #10b981;
-  color: #1a1a1a;
+  background-color: #45ffbc;
+  color: #1f1f1f;
 }
 
 :root.light .tile-gray,
 .light .tile-gray {
-  background-color: #d1d5db;
-  color: #1a1a1a;
+  background-color: #bdbbb7;
+  color: #1f1f1f;
 }
 
-/* Cards keep vibrant colors in light mode */
+/* Cards keep vibrant colors in light mode - matches view details section colors */
 :root.light .card-green,
 .light .card-green {
-  background-color: #10b981;
-  color: #1a1a1a;
+  background-color: #45ffbc;
+  color: #1f1f1f;
 }
 
 :root.light .card-olive,
 .light .card-olive {
-  background-color: #84cc16;
-  color: #1a1a1a;
+  background-color: #e3ffa8;
+  color: #1f1f1f;
 }
 
 :root.light .card-gray,
 .light .card-gray {
-  background-color: #d1d5db;
-  color: #1a1a1a;
+  background-color: #bdbbb7;
+  color: #1f1f1f;
 }
 
 :root.light .transfer-logo,

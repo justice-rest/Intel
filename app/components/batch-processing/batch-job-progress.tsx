@@ -559,37 +559,39 @@ export function BatchJobProgress({
         </div>
 
         <div className="rounded-lg border overflow-hidden">
-          <ScrollArea className="h-[500px]">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-background/95 backdrop-blur-sm border-b z-10">
-                <tr className="text-left">
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">#</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Name</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Address</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">City</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">State</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">ZIP</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Score</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Tier</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Capacity</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Net Worth</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Gift Cap.</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Ask</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground">Status</th>
-                  <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <ProspectTableRow
-                    key={item.id}
-                    item={item}
-                    onViewReport={setSelectedItem}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </ScrollArea>
+          <div className="overflow-x-auto">
+            <ScrollArea className="h-[500px]">
+              <table className="w-full text-sm min-w-[1200px]">
+                <thead className="sticky top-0 bg-background/95 backdrop-blur-sm border-b z-10">
+                  <tr className="text-left">
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">#</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Name</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Address</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">City</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">State</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">ZIP</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Score</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Tier</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Capacity</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Net Worth</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Gift Cap.</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Ask</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap">Status</th>
+                    <th className="py-3 px-3 text-xs font-normal uppercase tracking-wider text-muted-foreground whitespace-nowrap"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <ProspectTableRow
+                      key={item.id}
+                      item={item}
+                      onViewReport={setSelectedItem}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </ScrollArea>
+          </div>
         </div>
       </div>
 

@@ -23,7 +23,7 @@ export default async function BatchJobPage({
   }
 
   return (
-    <LayoutApp>
+    <LayoutApp forceSidebar>
       <BatchJobDetailView jobId={jobId} />
     </LayoutApp>
   )
