@@ -106,13 +106,21 @@ This document outlines all data sources integrated into Rōmy for prospect resea
 | boardsource.org | Nonprofit board governance |
 | instrumentl.com | Foundation directory, 990 finder |
 
-### Real Estate & Property Records
+### Real Estate, Property Records & Home Valuations
 | Domain | Description |
 |--------|-------------|
-| zillow.com | Property values, Zestimates |
-| redfin.com | Real estate data, home values |
+| zillow.com | Property values, Zestimates, home valuations |
+| redfin.com | Real estate data, home values, estimates |
 | realtor.com | Property listings, valuations |
+| trulia.com | Home valuations, neighborhood data |
+| homes.com | Property values, home estimates |
+| homelight.com | Home value estimator |
+| eppraisal.com | Free home valuations |
+| chase.com | Chase Home Value Estimator |
+| bankofamerica.com | Home value tools |
 | publicrecords.netronline.com | County property records directory |
+| propertyshark.com | Property data, ownership records |
+| blockshopper.com | Recent home sales, property transfers |
 
 ### Business & Corporate Data
 | Domain | Description |

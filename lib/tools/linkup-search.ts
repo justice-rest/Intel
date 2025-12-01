@@ -37,9 +37,9 @@ export const linkupSearchTool = tool({
   description:
     "Search the web for prospect research, wealth screening, and real-time data. " +
     "Returns a synthesized answer with source citations. " +
-    "Use this for: property records, SEC filings, FEC political contributions, foundation 990s, " +
+    "Use this for: property records, home valuations, SEC filings, FEC political contributions, foundation 990s, " +
     "business ownership, charitable giving history, news archives, and professional backgrounds. " +
-    "Deep mode is default for thorough research.",
+    "Always use standard depth (the default).",
   parameters: linkupSearchParametersSchema,
   execute: async ({
     query,

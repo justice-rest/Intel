@@ -35,18 +35,18 @@ export function getLinkupApiKeyOptional(): string | null {
 
 /**
  * Default configuration for Linkup search
- * Using "deep" mode by default for comprehensive prospect research
+ * Using "standard" mode - fast and cost-effective for all searches
  */
 export const LINKUP_DEFAULTS = {
-  depth: "standard" as const, // "standard" for fast searches, "deep" available for thorough prospect research
+  depth: "standard" as const, // Always use standard - deep only if user explicitly requests
   outputType: "sourcedAnswer" as const, // Pre-synthesized answer with sources
   maxResults: 10, // Number of sources to return
 } as const
 
 /**
  * Linkup search depth options
- * - standard: Fast, suited for quick factual lookups
- * - deep: Agentic workflow for prospect research, wealth screening, property records, SEC filings, FEC data, foundation 990s
+ * - standard: Default. Fast and effective for all prospect research needs
+ * - deep: Only use if user explicitly requests. Slower and more expensive.
  */
 export type LinkupDepth = "standard" | "deep"
 
@@ -88,11 +88,19 @@ export const PROSPECT_RESEARCH_DOMAINS = [
   "boardsource.org",            // Nonprofit board governance
   "instrumentl.com",            // Foundation directory, 990 finder
 
-  // Real Estate & Property Records
-  "zillow.com",                 // Property values, Zestimates
-  "redfin.com",                 // Real estate data, home values
+  // Real Estate, Property Records & Home Valuations
+  "zillow.com",                 // Property values, Zestimates, home valuations
+  "redfin.com",                 // Real estate data, home values, estimates
   "realtor.com",                // Property listings, valuations
+  "trulia.com",                 // Home valuations, neighborhood data
+  "homes.com",                  // Property values, home estimates
+  "homelight.com",              // Home value estimator
+  "eppraisal.com",              // Free home valuations
+  "chase.com",                  // Chase Home Value Estimator
+  "bankofamerica.com",          // Home value tools
   "publicrecords.netronline.com", // County property records directory
+  "propertyshark.com",          // Property data, ownership records
+  "blockshopper.com",           // Recent home sales, property transfers
 
   // Business & Corporate Data
   "linkedin.com",               // Professional backgrounds, career history
