@@ -35,10 +35,14 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
  */
 export const linkupSearchTool = tool({
   description:
-    "Search the web for prospect research, wealth screening, and real-time data. " +
-    "Returns a synthesized answer with source citations. " +
-    "Use this for: property records, home valuations, SEC filings, FEC political contributions, foundation 990s, " +
-    "business ownership, charitable giving history, news archives, and professional backgrounds.",
+    "ESSENTIAL prospect research tool for deep wealth screening. Returns synthesized answers with source citations. " +
+    "**HOME VALUATION RESEARCH:** Search '[address] home value', '[address] property records', '[address] Zillow estimate', " +
+    "'[county] assessor [address]' to find property values, purchase prices, and tax assessments. Run MULTIPLE searches with different query formats. " +
+    "**BUSINESS OWNERSHIP RESEARCH:** Search '[name] owner', '[name] founder CEO', '[name] business company', " +
+    "'[name] LLC registered agent', '[state] corporation [name]' to find business interests. Cross-reference with state SOS records. " +
+    "**ALSO SEARCH FOR:** SEC filings, FEC political contributions, foundation 990s, charitable giving, news archives, professional backgrounds. " +
+    "**CRITICAL:** Don't stop at one search. Run 3-5 targeted searches with varied query terms to build a complete picture. " +
+    "Each search costs ~$0.005 - thoroughness is expected, not optional.",
   parameters: linkupSearchParametersSchema,
   execute: async ({
     query,

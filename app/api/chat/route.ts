@@ -200,7 +200,7 @@ export async function POST(req: Request) {
       if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
       if (shouldEnableYahooFinanceTools()) dataTools.push("yahoo_finance_* (stock quotes, company profiles, insider holdings)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
-      if (shouldEnableUsGovDataTools()) dataTools.push("us_gov_data (federal contracts/grants via USAspending, treasury data, regulations)")
+      if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
 
       if (searchTools.length > 0 || dataTools.length > 0) {
@@ -220,9 +220,7 @@ export async function POST(req: Request) {
 - Use fec_contributions to search FEC records for an individual's political contribution history (amounts, dates, recipients, employer, occupation)
 - Use yahoo_finance_quote/search/profile for stock prices, market cap, company profiles, executives, and insider holdings
 - Use propublica_nonprofit_search/details for foundation 990 data, nonprofit financials, and EIN lookups
-- Use us_gov_data with dataSource='usaspending' for federal contracts, grants, loans by recipient name
-- Use us_gov_data with dataSource='treasury' for national debt and government financial data
-- Use us_gov_data with dataSource='federal_register' for regulations, proposed rules, and agency notices
+- Use usaspending_awards to find federal contracts, grants, and loans received by a COMPANY or ORGANIZATION (search by org name like 'Gates Foundation' or 'Lockheed Martin'). NOT for individual donor research.
 - Use wikidata_search to find people/organizations by name and get their Wikidata QID
 - Use wikidata_entity with a QID to get biographical data (education, employers, positions held, net worth, awards, etc.)`
         }
@@ -339,11 +337,11 @@ Example: If user asks about "John Smith's philanthropic activities":
             fec_contributions: fecContributionsTool,
           }
         : {}),
-      // Add US Government Data tool for federal contracts, treasury data, and regulations
-      // Free APIs - no key required
+      // Add USAspending tool for federal contracts, grants, loans by company/org name
+      // Free API - no key required
       ...(enableSearch && shouldEnableUsGovDataTools()
         ? {
-            us_gov_data: usGovDataTool,
+            usaspending_awards: usGovDataTool,
           }
         : {}),
       // Add Wikidata tools for biographical research (education, employers, net worth, etc.)
