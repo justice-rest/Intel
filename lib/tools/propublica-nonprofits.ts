@@ -236,7 +236,9 @@ export const propublicaNonprofitSearchTool = tool({
         `ProPublica search timed out after ${PROPUBLICA_TIMEOUT_MS / 1000} seconds`
       )
 
-      if (!response.ok) {
+      // ProPublica returns 404 for zero results (unusual but valid)
+      // We need to parse the response body even on 404
+      if (!response.ok && response.status !== 404) {
         throw new Error(`ProPublica API error: ${response.status}`)
       }
 
