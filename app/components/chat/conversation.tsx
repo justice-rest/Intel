@@ -38,6 +38,16 @@ export function Conversation({
   if (!messages || messages.length === 0)
     return <div className="h-full w-full"></div>
 
+  // Determine if we should show the loader and time estimate
+  // Show when: submitted OR streaming but no text content yet (tools still running)
+  const lastMessage = messages[messages.length - 1]
+  const isWaitingForTextResponse =
+    status === "submitted" ||
+    (status === "streaming" &&
+      messages.length > 0 &&
+      (lastMessage?.role === "user" ||
+        (lastMessage?.role === "assistant" && !lastMessage.content?.trim())))
+
   return (
     <div className="relative flex h-full w-full flex-col items-center overflow-x-hidden overflow-y-auto animate-in fade-in duration-200">
       <div className="pointer-events-none absolute top-0 right-0 left-0 z-10 mx-auto flex w-full flex-col justify-center">
@@ -53,8 +63,9 @@ export function Conversation({
           }}
         >
           {messages?.map((message, index) => {
+            // Don't mark as "last" when loader is showing (scroll anchor goes to loader)
             const isLast =
-              index === messages.length - 1 && status !== "submitted"
+              index === messages.length - 1 && !isWaitingForTextResponse
             const hasScrollAnchor =
               isLast && messages.length > initialMessageCount.current
 
@@ -81,18 +92,16 @@ export function Conversation({
               </Message>
             )
           })}
-          {status === "submitted" &&
-            messages.length > 0 &&
-            messages[messages.length - 1].role === "user" && (
-              <div className="group min-h-scroll-anchor flex w-full max-w-3xl flex-col items-start gap-2 px-6 pb-2">
-                <Loader />
-                <ResponseTimeEstimate
-                  isActive={status === "submitted"}
-                  enableSearch={enableSearch}
-                  startTime={responseStartTime ?? null}
-                />
-              </div>
-            )}
+          {isWaitingForTextResponse && (
+            <div className="group min-h-scroll-anchor flex w-full max-w-3xl flex-col items-start gap-2 px-6 pb-2">
+              <Loader />
+              <ResponseTimeEstimate
+                isActive={isWaitingForTextResponse}
+                enableSearch={enableSearch}
+                startTime={responseStartTime ?? null}
+              />
+            </div>
+          )}
           <div className="absolute bottom-0 flex w-full max-w-3xl flex-1 items-end justify-end gap-4 px-6 pb-2">
             <ScrollButton className="absolute top-[-50px] right-[30px]" />
           </div>
