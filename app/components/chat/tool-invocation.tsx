@@ -45,6 +45,8 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   sec_edgar_filings: "SEC Filings",
   fec_contributions: "Political Contributions",
   us_gov_data: "US Government Data",
+  wikidata_search: "Wikidata Search",
+  wikidata_entity: "Wikidata Profile",
 }
 
 /**
@@ -906,6 +908,589 @@ function SingleToolCard({
           {govResult.results?.length === 0 && !govResult.rawContent && (
             <div className="text-muted-foreground">
               No results found for &quot;{govResult.query}&quot;
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle FEC contributions results
+    if (
+      toolName === "fec_contributions" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "contributorName" in parsedResult
+    ) {
+      const fecResult = parsedResult as {
+        contributorName: string
+        totalContributions: number
+        totalAmount: number
+        contributions: Array<{
+          amount: number
+          date: string
+          recipientCommittee: string
+          recipientCandidate: string | null
+          contributorEmployer: string
+          contributorOccupation: string
+          contributorLocation: string
+          receiptType: string
+          sourceUrl: string | null
+        }>
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (fecResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {fecResult.error}
+          </div>
+        )
+      }
+
+      const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+
+      const formatDate = (dateStr: string) => {
+        try {
+          const date = new Date(dateStr)
+          return date.toLocaleDateString("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })
+        } catch {
+          return dateStr
+        }
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium text-foreground">
+                {fecResult.contributorName}
+              </div>
+              <div className="text-muted-foreground text-sm">
+                {fecResult.totalContributions} contribution{fecResult.totalContributions !== 1 ? "s" : ""} totaling {formatCurrency(fecResult.totalAmount)}
+              </div>
+            </div>
+          </div>
+
+          {/* Contributions list */}
+          {fecResult.contributions.length > 0 && (
+            <div className="space-y-3">
+              {fecResult.contributions.slice(0, 10).map((contribution, index) => (
+                <div
+                  key={index}
+                  className="border-border border-b pb-3 last:border-0 last:pb-0"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-medium text-foreground">
+                        {formatCurrency(contribution.amount)}
+                      </span>
+                      <span className="text-muted-foreground text-sm"> • {formatDate(contribution.date)}</span>
+                    </div>
+                    {contribution.sourceUrl && (
+                      <a
+                        href={contribution.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary shrink-0 text-xs hover:underline"
+                      >
+                        View PDF
+                      </a>
+                    )}
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    <div>
+                      <span className="font-medium">To:</span>{" "}
+                      {contribution.recipientCandidate
+                        ? `${contribution.recipientCandidate} (${contribution.recipientCommittee})`
+                        : contribution.receiptType || contribution.recipientCommittee}
+                    </div>
+                    {contribution.contributorEmployer && contribution.contributorEmployer !== "Not Reported" && (
+                      <div>
+                        <span className="font-medium">Employer:</span> {contribution.contributorEmployer}
+                      </div>
+                    )}
+                    {contribution.contributorOccupation && contribution.contributorOccupation !== "Not Reported" && (
+                      <div>
+                        <span className="font-medium">Occupation:</span> {contribution.contributorOccupation}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {fecResult.contributions.length > 10 && (
+                <div className="text-muted-foreground text-sm">
+                  ...and {fecResult.contributions.length - 10} more contributions
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Sources */}
+          {fecResult.sources && fecResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {fecResult.sources.slice(0, 3).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {fecResult.contributions.length === 0 && (
+            <div className="text-muted-foreground">
+              No political contribution records found for &quot;{fecResult.contributorName}&quot;
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Yahoo Finance quote results
+    if (
+      toolName === "yahoo_finance_quote" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "symbol" in parsedResult &&
+      "rawContent" in parsedResult
+    ) {
+      const quoteResult = parsedResult as {
+        symbol: string
+        shortName?: string
+        longName?: string
+        regularMarketPrice?: number
+        regularMarketChange?: number
+        regularMarketChangePercent?: number
+        marketCap?: number
+        currency?: string
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (quoteResult.error) {
+        return <div className="text-muted-foreground">{quoteResult.error}</div>
+      }
+
+      const formatCurrency = (amount?: number, currency = "USD") => {
+        if (amount === undefined) return "—"
+        if (amount >= 1e12) return `${currency} ${(amount / 1e12).toFixed(2)}T`
+        if (amount >= 1e9) return `${currency} ${(amount / 1e9).toFixed(2)}B`
+        if (amount >= 1e6) return `${currency} ${(amount / 1e6).toFixed(2)}M`
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency,
+          minimumFractionDigits: 2,
+        }).format(amount)
+      }
+
+      return (
+        <div className="space-y-4">
+          <div>
+            <div className="font-medium text-foreground text-lg">
+              {quoteResult.longName || quoteResult.shortName || quoteResult.symbol}
+            </div>
+            <div className="text-muted-foreground text-sm font-mono">
+              {quoteResult.symbol}
+            </div>
+          </div>
+
+          {quoteResult.regularMarketPrice !== undefined && (
+            <div className="flex items-baseline gap-3">
+              <span className="font-medium text-foreground text-2xl">
+                {formatCurrency(quoteResult.regularMarketPrice, quoteResult.currency)}
+              </span>
+              {quoteResult.regularMarketChange !== undefined && (
+                <span className={cn(
+                  "text-sm font-medium",
+                  quoteResult.regularMarketChange >= 0 ? "text-green-600" : "text-red-600"
+                )}>
+                  {quoteResult.regularMarketChange >= 0 ? "+" : ""}
+                  {quoteResult.regularMarketChange.toFixed(2)} ({quoteResult.regularMarketChangePercent?.toFixed(2)}%)
+                </span>
+              )}
+            </div>
+          )}
+
+          {quoteResult.marketCap !== undefined && (
+            <div className="text-muted-foreground text-sm">
+              Market Cap: {formatCurrency(quoteResult.marketCap, quoteResult.currency)}
+            </div>
+          )}
+
+          {quoteResult.sources && quoteResult.sources.length > 0 && (
+            <div className="pt-2">
+              {quoteResult.sources.map((source, index) => (
+                <a
+                  key={index}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                >
+                  {source.name}
+                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Yahoo Finance search results
+    if (
+      toolName === "yahoo_finance_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "results" in parsedResult &&
+      "query" in parsedResult
+    ) {
+      const searchResult = parsedResult as {
+        results: Array<{
+          symbol: string
+          shortname?: string
+          longname?: string
+          exchDisp?: string
+          typeDisp?: string
+        }>
+        query: string
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (searchResult.error) {
+        return <div className="text-muted-foreground">{searchResult.error}</div>
+      }
+
+      if (searchResult.results.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No stocks found matching &quot;{searchResult.query}&quot;
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="text-muted-foreground text-xs">
+            Found {searchResult.results.length} result{searchResult.results.length !== 1 ? "s" : ""} for &quot;{searchResult.query}&quot;
+          </div>
+          {searchResult.results.map((result, index) => (
+            <div key={index} className="border-border border-b pb-2 last:border-0 last:pb-0">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="font-medium text-foreground">
+                    {result.longname || result.shortname || result.symbol}
+                  </span>
+                  <span className="text-muted-foreground ml-2 font-mono text-sm">
+                    {result.symbol}
+                  </span>
+                </div>
+              </div>
+              {(result.exchDisp || result.typeDisp) && (
+                <div className="text-muted-foreground text-xs mt-1">
+                  {[result.exchDisp, result.typeDisp].filter(Boolean).join(" • ")}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    // Handle Yahoo Finance profile results
+    if (
+      toolName === "yahoo_finance_profile" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "symbol" in parsedResult &&
+      "rawContent" in parsedResult
+    ) {
+      const profileResult = parsedResult as {
+        symbol: string
+        industry?: string
+        sector?: string
+        website?: string
+        employees?: number
+        executives?: Array<{
+          name: string
+          title: string
+          totalPay?: number
+        }>
+        marketCap?: number
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (profileResult.error) {
+        return <div className="text-muted-foreground">{profileResult.error}</div>
+      }
+
+      const formatCurrency = (amount?: number) => {
+        if (amount === undefined) return "—"
+        if (amount >= 1e12) return `$${(amount / 1e12).toFixed(2)}T`
+        if (amount >= 1e9) return `$${(amount / 1e9).toFixed(2)}B`
+        if (amount >= 1e6) return `$${(amount / 1e6).toFixed(2)}M`
+        if (amount >= 1e3) return `$${(amount / 1e3).toFixed(0)}K`
+        return `$${amount.toLocaleString()}`
+      }
+
+      return (
+        <div className="space-y-4">
+          <div>
+            <div className="font-medium text-foreground text-lg">{profileResult.symbol}</div>
+            {(profileResult.industry || profileResult.sector) && (
+              <div className="text-muted-foreground text-sm">
+                {[profileResult.sector, profileResult.industry].filter(Boolean).join(" • ")}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            {profileResult.marketCap && (
+              <div>
+                <span className="text-muted-foreground">Market Cap:</span>{" "}
+                <span className="font-mono">{formatCurrency(profileResult.marketCap)}</span>
+              </div>
+            )}
+            {profileResult.employees && (
+              <div>
+                <span className="text-muted-foreground">Employees:</span>{" "}
+                <span className="font-mono">{profileResult.employees.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+
+          {profileResult.executives && profileResult.executives.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Key Executives
+              </div>
+              <div className="space-y-2">
+                {profileResult.executives.slice(0, 5).map((exec, index) => (
+                  <div key={index} className="text-sm">
+                    <span className="font-medium">{exec.name}</span>
+                    <span className="text-muted-foreground"> — {exec.title}</span>
+                    {exec.totalPay && (
+                      <span className="text-muted-foreground ml-2 font-mono text-xs">
+                        {formatCurrency(exec.totalPay)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {profileResult.sources && profileResult.sources.length > 0 && (
+            <div className="pt-2">
+              {profileResult.sources.map((source, index) => (
+                <a
+                  key={index}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                >
+                  {source.name}
+                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Wikidata search results
+    if (
+      toolName === "wikidata_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "results" in parsedResult &&
+      "query" in parsedResult
+    ) {
+      const wikiResult = parsedResult as {
+        query: string
+        results: Array<{
+          id: string
+          label: string
+          description?: string
+          url: string
+        }>
+        totalResults: number
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (wikiResult.error) {
+        return <div className="text-muted-foreground">{wikiResult.error}</div>
+      }
+
+      if (wikiResult.results.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No Wikidata entities found matching &quot;{wikiResult.query}&quot;
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="text-muted-foreground text-xs">
+            Found {wikiResult.totalResults} result{wikiResult.totalResults !== 1 ? "s" : ""} for &quot;{wikiResult.query}&quot;
+          </div>
+          {wikiResult.results.map((result) => (
+            <div key={result.id} className="border-border border-b pb-2 last:border-0 last:pb-0">
+              <a
+                href={result.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary group flex items-center gap-1 font-medium hover:underline"
+              >
+                {result.label}
+                <span className="text-muted-foreground font-mono text-xs">({result.id})</span>
+                <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+              </a>
+              {result.description && (
+                <div className="text-muted-foreground text-sm mt-1">
+                  {result.description}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    // Handle Wikidata entity results
+    if (
+      toolName === "wikidata_entity" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "entityId" in parsedResult &&
+      "rawContent" in parsedResult
+    ) {
+      const entityResult = parsedResult as {
+        entityId: string
+        data: {
+          label: string
+          description?: string
+          occupations: string[]
+          education: string[]
+          employers: string[]
+          positions: string[]
+          netWorth?: string
+          awards: string[]
+        } | null
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (entityResult.error) {
+        return <div className="text-muted-foreground">{entityResult.error}</div>
+      }
+
+      if (!entityResult.data) {
+        return (
+          <div className="text-muted-foreground">
+            No data found for entity {entityResult.entityId}
+          </div>
+        )
+      }
+
+      const { data } = entityResult
+
+      return (
+        <div className="space-y-4">
+          <div>
+            <div className="font-medium text-foreground text-lg">{data.label}</div>
+            {data.description && (
+              <div className="text-muted-foreground text-sm">{data.description}</div>
+            )}
+          </div>
+
+          {data.occupations.length > 0 && (
+            <div>
+              <div className="text-muted-foreground text-xs font-medium uppercase">Occupation</div>
+              <div className="text-sm">{data.occupations.join(", ")}</div>
+            </div>
+          )}
+
+          {data.education.length > 0 && (
+            <div>
+              <div className="text-muted-foreground text-xs font-medium uppercase">Education</div>
+              <div className="text-sm">{data.education.join(", ")}</div>
+            </div>
+          )}
+
+          {(data.employers.length > 0 || data.positions.length > 0) && (
+            <div>
+              <div className="text-muted-foreground text-xs font-medium uppercase">Career</div>
+              <div className="text-sm">
+                {[...data.employers, ...data.positions].join(", ")}
+              </div>
+            </div>
+          )}
+
+          {data.netWorth && (
+            <div>
+              <div className="text-muted-foreground text-xs font-medium uppercase">Net Worth</div>
+              <div className="text-sm font-medium">{data.netWorth}</div>
+            </div>
+          )}
+
+          {data.awards.length > 0 && (
+            <div>
+              <div className="text-muted-foreground text-xs font-medium uppercase">Awards</div>
+              <div className="text-sm">{data.awards.slice(0, 5).join(", ")}</div>
+            </div>
+          )}
+
+          {entityResult.sources && entityResult.sources.length > 0 && (
+            <div className="pt-2">
+              {entityResult.sources.map((source, index) => (
+                <a
+                  key={index}
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                >
+                  {source.name}
+                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                </a>
+              ))}
             </div>
           )}
         </div>
