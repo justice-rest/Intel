@@ -60,6 +60,7 @@ export function useChatCore({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasDialogAuth, setHasDialogAuth] = useState(false)
   const [enableSearch, setEnableSearch] = useState(true)
+  const [responseStartTime, setResponseStartTime] = useState<number | null>(null)
 
   // Refs and derived state
   const hasSentFirstMessageRef = useRef(false)
@@ -133,6 +134,7 @@ export function useChatCore({
     initialInput: draftValue,
     onFinish: async (m) => {
       cacheAndAddMessage(m)
+      setResponseStartTime(null) // Clear time estimate when response finishes
       try {
         const effectiveChatId =
           chatId ||
@@ -271,6 +273,7 @@ export function useChatCore({
       cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
       cacheAndAddMessage(optimisticMessage)
       clearDraft()
+      setResponseStartTime(Date.now()) // Track when response generation starts
 
       if (messages.length > 0) {
         bumpChat(currentChatId)
@@ -579,6 +582,7 @@ export function useChatCore({
     setHasDialogAuth,
     enableSearch,
     setEnableSearch,
+    responseStartTime,
 
     // Actions
     submit,

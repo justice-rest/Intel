@@ -8,6 +8,7 @@ import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
 import { Message as MessageType } from "@ai-sdk/react"
 import { useRef } from "react"
 import { Message } from "./message"
+import { ResponseTimeEstimate } from "./response-time-estimate"
 
 type ConversationProps = {
   messages: MessageType[]
@@ -17,6 +18,8 @@ type ConversationProps = {
   onReload: () => void
   onQuote?: (text: string, messageId: string) => void
   isUserAuthenticated?: boolean
+  enableSearch?: boolean
+  responseStartTime?: number | null
 }
 
 export function Conversation({
@@ -27,6 +30,8 @@ export function Conversation({
   onReload,
   onQuote,
   isUserAuthenticated,
+  enableSearch = false,
+  responseStartTime,
 }: ConversationProps) {
   const initialMessageCount = useRef(messages.length)
 
@@ -81,6 +86,11 @@ export function Conversation({
             messages[messages.length - 1].role === "user" && (
               <div className="group min-h-scroll-anchor flex w-full max-w-3xl flex-col items-start gap-2 px-6 pb-2">
                 <Loader />
+                <ResponseTimeEstimate
+                  isActive={status === "submitted"}
+                  enableSearch={enableSearch}
+                  startTime={responseStartTime ?? null}
+                />
               </div>
             )}
           <div className="absolute bottom-0 flex w-full max-w-3xl flex-1 items-end justify-end gap-4 px-6 pb-2">

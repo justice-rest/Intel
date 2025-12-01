@@ -80,6 +80,19 @@ export function ToolInvocation({
   const uniqueToolIds = Object.keys(groupedTools)
   const isSingleTool = uniqueToolIds.length === 1
 
+  // Calculate aggregate status for the header badge
+  const anyRunning = uniqueToolIds.some((toolId) => {
+    const tools = groupedTools[toolId]
+    return tools?.some((t) => t.toolInvocation.state === "call")
+  })
+
+  const allCompleted = uniqueToolIds.every((toolId) => {
+    const tools = groupedTools[toolId]
+    return tools?.some((t) => t.toolInvocation.state === "result")
+  })
+
+  const aggregateStatus = anyRunning ? "running" : allCompleted ? "completed" : "pending"
+
   if (isSingleTool) {
     return (
       <SingleToolView
@@ -107,6 +120,35 @@ export function ToolInvocation({
             <div className="bg-secondary text-secondary-foreground rounded-full px-1.5 py-0.5 font-mono text-xs">
               {uniqueToolIds.length}
             </div>
+            <AnimatePresence mode="popLayout" initial={false}>
+              {aggregateStatus === "running" ? (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, filter: "blur(2px)" }}
+                  animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, scale: 0.9, filter: "blur(2px)" }}
+                  transition={{ duration: 0.15 }}
+                  key="running"
+                >
+                  <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
+                    <Spinner className="mr-1 h-3 w-3 animate-spin" />
+                    Working
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, filter: "blur(2px)" }}
+                  animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, scale: 0.9, filter: "blur(2px)" }}
+                  transition={{ duration: 0.15 }}
+                  key="completed"
+                >
+                  <div className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-1.5 py-0.5 text-xs text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                    Completed
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
           <CaretDown
             className={cn(

@@ -177,6 +177,7 @@ export function Chat({
     isSubmitting,
     enableSearch,
     setEnableSearch,
+    responseStartTime,
     submit,
     handleSuggestion,
     handleReload,
@@ -237,6 +238,8 @@ export function Chat({
       onReload: handleReload,
       onQuote: handleQuotedSelected,
       isUserAuthenticated: isAuthenticated,
+      enableSearch,
+      responseStartTime,
     }),
     [
       messages,
@@ -246,6 +249,8 @@ export function Chat({
       handleReload,
       handleQuotedSelected,
       isAuthenticated,
+      enableSearch,
+      responseStartTime,
     ]
   )
 
