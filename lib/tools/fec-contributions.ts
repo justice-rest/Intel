@@ -196,16 +196,22 @@ function formatContributionsForAI(
 
     yearContributions.forEach((c) => {
       lines.push(`### ${formatCurrency(c.contribution_receipt_amount)} - ${formatDate(c.contribution_receipt_date)}`)
-      lines.push(`- **To:** ${c.committee_name}${c.candidate_name ? ` (${c.candidate_name})` : ""}`)
-      lines.push(`- **From:** ${c.contributor_name}`)
-      lines.push(`- **Location:** ${c.contributor_city}, ${c.contributor_state} ${c.contributor_zip}`)
+      const recipient = c.committee_name || c.receipt_type_full || "Unknown Recipient"
+      lines.push(`- **To:** ${recipient}${c.candidate_name ? ` (${c.candidate_name})` : ""}`)
+      lines.push(`- **From:** ${c.contributor_name || "Unknown Contributor"}`)
+      const location = [c.contributor_city, c.contributor_state, c.contributor_zip].filter(Boolean).join(", ")
+      if (location) {
+        lines.push(`- **Location:** ${location}`)
+      }
       if (c.contributor_employer) {
         lines.push(`- **Employer:** ${c.contributor_employer}`)
       }
       if (c.contributor_occupation) {
         lines.push(`- **Occupation:** ${c.contributor_occupation}`)
       }
-      lines.push(`- **Type:** ${c.receipt_type_full}`)
+      if (c.receipt_type_full) {
+        lines.push(`- **Type:** ${c.receipt_type_full}`)
+      }
       if (c.memo_text) {
         lines.push(`- **Memo:** ${c.memo_text}`)
       }
@@ -347,12 +353,12 @@ export const fecContributionsTool = tool({
       const formattedContributions = contributions.map((c) => ({
         amount: c.contribution_receipt_amount,
         date: c.contribution_receipt_date,
-        recipientCommittee: c.committee_name,
-        recipientCandidate: c.candidate_name,
-        contributorEmployer: c.contributor_employer,
-        contributorOccupation: c.contributor_occupation,
-        contributorLocation: `${c.contributor_city}, ${c.contributor_state} ${c.contributor_zip}`,
-        receiptType: c.receipt_type_full,
+        recipientCommittee: c.committee_name || "Unknown Committee",
+        recipientCandidate: c.candidate_name || null,
+        contributorEmployer: c.contributor_employer || "Not Reported",
+        contributorOccupation: c.contributor_occupation || "Not Reported",
+        contributorLocation: `${c.contributor_city || ""}, ${c.contributor_state || ""} ${c.contributor_zip || ""}`.trim(),
+        receiptType: c.receipt_type_full || "Contribution",
         sourceUrl: c.pdf_url,
       }))
 
