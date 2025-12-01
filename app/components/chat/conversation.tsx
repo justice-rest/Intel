@@ -2,7 +2,6 @@ import {
   ChatContainerContent,
   ChatContainerRoot,
 } from "@/components/prompt-kit/chat-container"
-import { Loader } from "@/components/prompt-kit/loader"
 import { ScrollButton } from "@/components/prompt-kit/scroll-button"
 import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
 import { Message as MessageType } from "@ai-sdk/react"
@@ -94,7 +93,6 @@ export function Conversation({
           })}
           {isWaitingForTextResponse && (
             <div className="group min-h-scroll-anchor flex w-full max-w-3xl flex-col items-start gap-2 px-6 pb-2">
-              <Loader />
               <ResponseTimeEstimate
                 isActive={isWaitingForTextResponse}
                 enableSearch={enableSearch}
