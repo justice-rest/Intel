@@ -401,6 +401,9 @@ Run MULTIPLE searchWeb queries to uncover business interests:
       // Allow multiple tool call steps for RAG and memory search
       maxSteps: 25,
       maxTokens: AI_MAX_OUTPUT_TOKENS,
+      // Increase retries to handle rate limits (default is 3, which often fails)
+      // Uses exponential backoff: ~1s, ~2s, ~4s, ~8s, ~16s, ~32s, ~64s, ~128s
+      maxRetries: 8,
       experimental_telemetry: { isEnabled: false },
       // Only use smoothStream when no tools are available (smoothStream breaks tool calls)
       experimental_transform: hasTools ? undefined : smoothStream(),

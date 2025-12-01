@@ -191,9 +191,9 @@ export function handleStreamError(err: unknown): ApiError {
         code: "AUTHENTICATION_ERROR",
       })
     } else if (aiError.statusCode === 429) {
-      // Rate limit
+      // Rate limit - use friendly message
       const message =
-        detailedMessage || "Rate limit exceeded. Please try again later."
+        detailedMessage || "We're experiencing high demand right now! Our systems are a bit overloaded. Please wait a moment and try again. Sorry for the inconvenience!"
       return Object.assign(new Error(message), {
         statusCode: 429,
         code: "RATE_LIMIT_EXCEEDED",
@@ -260,7 +260,7 @@ export function extractErrorMessage(error: unknown): string {
       error.message.includes("429") ||
       error.message.includes("rate limit")
     ) {
-      return "Rate limit exceeded. Please try again later."
+      return "We're experiencing high demand right now! Our systems are a bit overloaded. Please wait a moment and try again. Sorry for the inconvenience!"
     }
 
     return error.message
@@ -275,7 +275,7 @@ export function extractErrorMessage(error: unknown): string {
     } else if (aiError.statusCode === 402) {
       return "Insufficient credits or payment required."
     } else if (aiError.statusCode === 429) {
-      return "Rate limit exceeded. Please try again later."
+      return "We're experiencing high demand right now! Our systems are a bit overloaded. Please wait a moment and try again. Sorry for the inconvenience!"
     } else if (aiError.responseBody) {
       try {
         const parsed = JSON.parse(aiError.responseBody)
