@@ -225,23 +225,47 @@ export async function POST(req: Request) {
 - Use wikidata_entity with a QID to get biographical data (education, employers, positions held, net worth, awards, etc.)`
         }
 
-        finalSystemPrompt += `\n\n### Tool Usage Best Practices
+        finalSystemPrompt += `\n\n### CRITICAL: MAXIMIZE TOOL USAGE
+**Use ALL available tools aggressively.** Each tool costs fractions of a cent. Thoroughness is expected.
+
+For ANY prospect research request, execute 10-15+ tool calls minimum:
+1. **searchWeb** (4-6 calls): property values, business ownership, philanthropy, news
+2. **fec_contributions**: political giving history
+3. **propublica_nonprofit_search/details**: foundation 990 data (search by ORG name, not person)
+4. **yahoo_finance_profile**: if they're a public company executive
+5. **sec_edgar_filings**: if they have SEC filings
+6. **wikidata_search + wikidata_entity**: biographical data (education, employers, net worth)
+7. **tavilySearch**: recent news and current events
+
+**DO NOT** stop after 2-3 tool calls. Run tools in parallel when possible. The user expects comprehensive research.
+
+### Tool Usage Best Practices
 - Always cite sources when using search or data tool results
-- Choose the most appropriate tool based on the query type
-- For prospect research, combine multiple tools: SEC EDGAR for public company financials, FEC for political giving patterns, Yahoo Finance for stock holdings, ProPublica for nonprofit connections
+- For prospect research, use MULTIPLE tools together - not just web search
+- Cross-reference findings across tools for validation
 
 ### Person-to-Nonprofit Research Workflow
-When researching an individual's nonprofit affiliations, use this multi-step approach:
-1. **First, search for the person** using searchWeb, exaSearch, or tavilySearch to discover their nonprofit connections (board memberships, donations, foundations they run or advise)
-2. **Extract organization names and EINs** from the search results - look for foundation names, charity names, or EIN numbers (format: XX-XXXXXXX)
-3. **Then query ProPublica** using propublica_nonprofit_search with the discovered organization names, or propublica_nonprofit_details if you found an EIN
-4. **Cross-reference** the 990 data (revenue, assets, officer compensation) with other findings for a complete picture
+When researching an individual's nonprofit affiliations:
+1. **searchWeb** for "[name] foundation board nonprofit" to discover affiliations
+2. **Extract organization names and EINs** from results
+3. **propublica_nonprofit_search** with the ORGANIZATION name (not person name)
+4. **propublica_nonprofit_details** with the EIN for full 990 financials
+5. **Cross-reference** with other tools for complete picture
 
-Example: If user asks about "John Smith's philanthropic activities":
-- First: searchWeb("John Smith foundation board member nonprofit") to find affiliations
-- If results mention "Smith Family Foundation" or EIN 12-3456789
-- Then: propublica_nonprofit_search(query="Smith Family Foundation") or propublica_nonprofit_details(ein="12-3456789")
-- This gives you detailed 990 financials that searching "John Smith" directly in ProPublica would not find`
+### Home Valuation Research
+Run MULTIPLE searchWeb queries to triangulate property values:
+- "[address] home value Zillow Redfin"
+- "[address] property records tax assessment"
+- "[address] sold price history"
+- "[county] assessor [address]"
+- "[owner name] real estate [city state]" - finds additional properties
+
+### Business Ownership Research
+Run MULTIPLE searchWeb queries to uncover business interests:
+- "[name] owner founder business [city]"
+- "[name] CEO president LLC [state]"
+- "[state] secretary of state [name]"
+- If you find a company: "[company name] revenue employees"`
       }
     }
 

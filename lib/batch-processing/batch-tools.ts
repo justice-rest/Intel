@@ -90,7 +90,7 @@ export function getToolDescriptions(): string {
 
   // Search tools
   if (shouldEnableLinkupTool()) {
-    searchTools.push("searchWeb (prospect research: SEC, FEC, 990s, real estate, corporate filings)")
+    searchTools.push("searchWeb (YOUR PRIMARY TOOL - property values, business ownership, SEC, FEC, 990s, corporate filings)")
   }
   if (shouldEnableExaTool()) {
     searchTools.push("exaSearch (semantic search, broad web, finding similar content)")
@@ -128,16 +128,30 @@ export function getToolDescriptions(): string {
     description += `## Available Research Tools\n\n`
 
     if (searchTools.length > 0) {
-      description += `### Web Search Tools\n${searchTools.map((t) => `- ${t}`).join("\n")}\n\n`
-      description += `**Usage Guidance:**
-- Use searchWeb for prospect research (SEC filings, FEC contributions, foundation 990s, property records, corporate data)
-- Use exaSearch for semantic queries, finding similar content, companies, or when keyword search fails
-- Use tavilySearch for news, current events, and real-time factual questions
-- Use firecrawlSearch for general web queries, technical docs, articles, blog posts\n\n`
+      description += `### Web Search Tools (USE AGGRESSIVELY)\n${searchTools.map((t) => `- ${t}`).join("\n")}\n\n`
+      description += `**searchWeb is your PRIMARY research tool. Use it REPEATEDLY with different query variations.**
+Each search costs ~$0.005 - essentially free. Run 8-12 searchWeb queries minimum per prospect.
+
+**HOME VALUATION SEARCHES (run 3-4):**
+- "[address] home value Zillow Redfin"
+- "[address] property records tax assessment"
+- "[address] sold price history"
+- "[county] assessor [address]"
+
+**BUSINESS OWNERSHIP SEARCHES (run 3-4):**
+- "[name] owner founder business [city]"
+- "[name] CEO president LLC [state]"
+- "[state] secretary of state [name]"
+- If you find a company: "[company name] revenue employees"
+
+**PHILANTHROPIC SEARCHES (run 2-3):**
+- "[name] foundation board nonprofit"
+- "[name] donor charitable giving"
+- "[name] FEC political contributions"\n\n`
     }
 
     if (dataTools.length > 0) {
-      description += `### Data API Tools\n${dataTools.map((t) => `- ${t}`).join("\n")}\n\n`
+      description += `### Data API Tools (Use AFTER web search to get detailed data)\n${dataTools.map((t) => `- ${t}`).join("\n")}\n\n`
       description += `**Usage Guidance:**
 - Use sec_edgar_filings for public company financial data (10-K, 10-Q, balance sheets, income statements, executive compensation)
 - Use fec_contributions to search FEC records for political contribution history
@@ -148,13 +162,13 @@ export function getToolDescriptions(): string {
     }
 
     description += `### Research Strategy
-1. **Start broad**: Use web search tools to discover affiliations, company names, foundations
-2. **Go deep**: Once you identify specific entities, use data API tools for detailed information
-3. **Cross-reference**: Combine data from multiple sources for comprehensive profiles
+1. **Start with 8-12 searchWeb queries** covering property, business, and philanthropy
+2. **Don't stop if results are limited** - reformulate and search again with different terms
+3. **Go deep**: Use data API tools for detailed information on entities you discover
 4. **Person-to-Nonprofit Workflow**:
-   - Search for the person's name to find foundation/nonprofit affiliations
+   - First searchWeb for the person's name + "foundation board nonprofit"
    - Extract organization names and EINs from results
-   - Query ProPublica with discovered organizations for 990 financial data\n`
+   - Then query ProPublica with discovered organizations for 990 financial data\n`
   }
 
   return description

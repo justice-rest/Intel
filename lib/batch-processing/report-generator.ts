@@ -77,24 +77,50 @@ Score Tiers:
  */
 const COMPREHENSIVE_MODE_SYSTEM_PROMPT = `You are Rōmy, an expert prospect research assistant for nonprofit fundraising. Generate a COMPREHENSIVE prospect research report using all available research tools.
 
-## YOUR RESEARCH APPROACH
+## YOUR RESEARCH APPROACH - USE SEARCHWEB AGGRESSIVELY
 
-You have access to powerful research tools. Use them strategically:
+You have access to powerful research tools. **searchWeb (Linkup) is your primary research tool.** Each search costs ~$0.005 - essentially free. Use it REPEATEDLY with different query variations.
 
-1. **Start with web search** to discover the person's professional background, business affiliations, and nonprofit connections
-2. **Use specialized data tools** to gather hard data:
-   - ProPublica for nonprofit/foundation 990 data (search by organization name, NOT person name)
-   - SEC EDGAR for public company financials if they're an executive
-   - FEC for political contribution history
-   - Wikidata for biographical data (education, employers, net worth)
-   - Yahoo Finance for stock holdings and company profiles
-3. **Cross-reference findings** to build a complete picture
+### MANDATORY SEARCH STRATEGY (Run 8-12 searchWeb queries minimum):
+
+**HOME VALUATION (run 3-4 searches):**
+1. searchWeb("[full address] home value Zillow Redfin")
+2. searchWeb("[full address] property records tax assessment")
+3. searchWeb("[full address] sold price transaction history")
+4. searchWeb("[county] assessor [address]")
+5. searchWeb("[owner name] real estate properties [city state]") - finds additional properties
+
+**BUSINESS OWNERSHIP (run 3-4 searches):**
+1. searchWeb("[name] owner founder business company [city]")
+2. searchWeb("[name] CEO president executive [city]")
+3. searchWeb("[name] LLC [state]")
+4. searchWeb("[state] secretary of state [name]")
+5. If you find a company name: searchWeb("[company name] revenue employees")
+
+**PHILANTHROPIC CONNECTIONS (run 2-3 searches):**
+1. searchWeb("[name] foundation board nonprofit philanthropy")
+2. searchWeb("[name] donor charitable giving")
+3. searchWeb("[name] FEC political contributions")
+
+### THEN USE SPECIALIZED DATA TOOLS:
+- ProPublica for nonprofit/foundation 990 data (search by ORGANIZATION name found in web search)
+- SEC EDGAR for public company financials if they're an executive
+- FEC for political contribution history
+- Wikidata for biographical data (education, employers, net worth)
+- Yahoo Finance for stock holdings and company profiles
 
 ## PERSON-TO-NONPROFIT WORKFLOW
 IMPORTANT: ProPublica searches by organization name, NOT person name.
-- First, use web search to find foundations/nonprofits the person is affiliated with
+- First, use searchWeb to find foundations/nonprofits the person is affiliated with
 - Then use propublica_nonprofit_search with the ORGANIZATION name
-- Example: For "John Smith", search web for "John Smith foundation board", find "Smith Family Foundation", then search ProPublica for "Smith Family Foundation"
+- Example: For "John Smith", searchWeb("John Smith foundation board"), find "Smith Family Foundation", then propublica_nonprofit_search("Smith Family Foundation")
+
+## CRITICAL: DO NOT STOP AT ONE SEARCH
+If initial results are limited, REFORMULATE and search again with:
+- Different name variations (with/without middle name)
+- Spouse name if available
+- Different address formats
+- Specific county name + "assessor"
 
 ## OUTPUT FORMAT
 
@@ -237,24 +263,37 @@ async function performWebSearch(query: string): Promise<WebSearchResult | null> 
 
 /**
  * Generate search queries for Standard mode (quick prioritization)
- * Only 2 focused searches: business ownership + property
+ * Run 5-6 targeted searches to build a complete picture
+ * Each search costs ~$0.005 - thoroughness is expected
  */
 function generateStandardSearchQueries(prospect: ProspectInputData): string[] {
   const name = prospect.name
   const location = [prospect.city, prospect.state].filter(Boolean).join(", ")
   const fullAddress = buildProspectQueryString(prospect)
+  const state = prospect.state || ""
 
   const queries: string[] = []
 
-  // Business ownership search
-  queries.push(`"${name}" ${location} business owner company founder CEO executive president`)
+  // Business ownership searches (multiple angles)
+  queries.push(`"${name}" ${location} business owner company founder CEO`)
+  queries.push(`"${name}" ${location} president executive LLC`)
+  if (state) {
+    queries.push(`"${name}" ${state} secretary of state corporation registered agent`)
+  }
 
-  // Property/real estate search
+  // Property/real estate searches (multiple sources for triangulation)
   if (prospect.address || prospect.full_address) {
-    queries.push(`"${fullAddress}" property records real estate home value owner`)
+    queries.push(`"${fullAddress}" home value Zillow Redfin estimate`)
+    queries.push(`"${fullAddress}" property records tax assessment sold price`)
+    // County assessor search if we can infer county
+    queries.push(`"${fullAddress}" county assessor property tax`)
   } else {
     queries.push(`"${name}" ${location} property home owner real estate`)
+    queries.push(`"${name}" ${location} property records tax assessment`)
   }
+
+  // Additional wealth indicators
+  queries.push(`"${name}" ${location} philanthropy foundation board nonprofit donor`)
 
   return queries
 }
@@ -585,7 +624,7 @@ After researching, produce the comprehensive report with all sections filled in 
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
       tools: hasTools ? tools : undefined,
-      maxSteps: hasTools ? 15 : 1, // Allow multiple tool calls for agentic research
+      maxSteps: hasTools ? 25 : 1, // Allow 25 steps for thorough agentic research (8-12 searchWeb + data tools)
       maxTokens: 16000,
       temperature: 0.3,
     })

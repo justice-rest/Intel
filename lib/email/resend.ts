@@ -5,8 +5,18 @@
 
 import { Resend } from "resend"
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy-load Resend client to avoid build errors when API key is not set
+let resend: Resend | null = null
+
+function getResendClient(): Resend | null {
+  if (!process.env.RESEND_API_KEY) {
+    return null
+  }
+  if (!resend) {
+    resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resend
+}
 
 // Default sender - update this to your verified domain
 const DEFAULT_FROM = "Rōmy <romy@updates.getromy.app>"
@@ -24,13 +34,14 @@ export interface SendEmailOptions {
 export async function sendEmail(options: SendEmailOptions) {
   const { to, subject, html, from = DEFAULT_FROM } = options
 
-  if (!process.env.RESEND_API_KEY) {
+  const client = getResendClient()
+  if (!client) {
     console.warn("[Email] RESEND_API_KEY not configured, skipping email")
     return { success: false, error: "Email not configured" }
   }
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await client.emails.send({
       from,
       to: Array.isArray(to) ? to : [to],
       subject,
