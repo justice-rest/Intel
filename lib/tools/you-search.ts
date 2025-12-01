@@ -63,14 +63,12 @@ export interface YouNewsResult {
 
 /**
  * Response from You.com search tool
- * Formatted to match the sources pattern used by other tools
+ * Formatted to match Linkup's sourcedAnswer format for consistency
  */
 export interface YouSearchResponse {
-  rawContent: string
+  answer: string
   sources: Array<{ name: string; url: string; snippet?: string }>
   query: string
-  webResultCount: number
-  newsResultCount: number
 }
 
 // 30 second timeout for search operations
@@ -123,11 +121,9 @@ export const youSearchTool = tool({
     if (!isYouEnabled()) {
       console.error("[You.com Tool] YOU_API_KEY not configured")
       return {
-        rawContent: "You.com search is not configured. Please add YOU_API_KEY to your environment.",
+        answer: "You.com search is not configured. Please add YOU_API_KEY to your environment.",
         sources: [],
         query,
-        webResultCount: 0,
-        newsResultCount: 0,
       }
     }
 
@@ -191,42 +187,39 @@ export const youSearchTool = tool({
         })
       }
 
-      // Build rawContent for AI analysis
+      // Build answer content for AI analysis (matching Linkup's format)
       const contentParts: string[] = []
 
       if (webResults.length > 0) {
-        contentParts.push("## Web Results\n")
+        contentParts.push("**Web Results:**\n")
         for (const result of webResults) {
-          contentParts.push(`### ${result.title}`)
-          contentParts.push(`URL: ${result.url}`)
-          if (result.page_age) {
-            contentParts.push(`Age: ${result.page_age}`)
+          contentParts.push(`• **${result.title}**`)
+          if (result.description) {
+            contentParts.push(`  ${result.description}`)
           }
-          contentParts.push(result.description || "")
           if (result.snippets && result.snippets.length > 0) {
-            contentParts.push("\nSnippets:")
             for (const snippet of result.snippets) {
-              contentParts.push(`- ${snippet}`)
+              contentParts.push(`  ${snippet}`)
             }
           }
+          contentParts.push(`  Source: ${result.url}`)
           contentParts.push("")
         }
       }
 
       if (newsResults.length > 0) {
-        contentParts.push("\n## News Results\n")
+        contentParts.push("\n**News Results:**\n")
         for (const result of newsResults) {
-          contentParts.push(`### ${result.title}`)
-          contentParts.push(`URL: ${result.url}`)
-          if (result.page_age) {
-            contentParts.push(`Age: ${result.page_age}`)
+          contentParts.push(`• **${result.title}**`)
+          if (result.description) {
+            contentParts.push(`  ${result.description}`)
           }
-          contentParts.push(result.description || "")
+          contentParts.push(`  Source: ${result.url}`)
           contentParts.push("")
         }
       }
 
-      const rawContent = contentParts.join("\n")
+      const answer = contentParts.join("\n")
 
       const duration = Date.now() - startTime
       console.log("[You.com Tool] Search completed successfully:", {
@@ -238,11 +231,9 @@ export const youSearchTool = tool({
       })
 
       return {
-        rawContent,
+        answer,
         sources,
         query,
-        webResultCount: webResults.length,
-        newsResultCount: newsResults.length,
       }
     } catch (error) {
       const duration = Date.now() - startTime
@@ -259,13 +250,11 @@ export const youSearchTool = tool({
 
       // Return graceful fallback - allows AI to continue
       return {
-        rawContent: isTimeout
+        answer: isTimeout
           ? "You.com search timed out. Try using searchWeb (Linkup) or tavilySearch instead."
           : `You.com search error: ${errorMessage}. Try using searchWeb (Linkup) or tavilySearch instead.`,
         sources: [],
         query,
-        webResultCount: 0,
-        newsResultCount: 0,
       }
     }
   },

@@ -29,6 +29,18 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
+        // Handle You.com search tool results (matches Linkup format)
+        if (
+          part.toolInvocation.toolName === "youSearch" &&
+          result?.sources
+        ) {
+          return result.sources.map((source: { name?: string; url: string; snippet?: string }) => ({
+            title: source.name || "Untitled",
+            url: source.url,
+            text: source.snippet || "",
+          }))
+        }
+
         // Handle Exa search tool results
         if (
           part.toolInvocation.toolName === "exaSearch" &&
