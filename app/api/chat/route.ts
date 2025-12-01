@@ -5,11 +5,28 @@ import { createListDocumentsTool } from "@/lib/tools/list-documents"
 import { createRagSearchTool } from "@/lib/tools/rag-search"
 import { createMemorySearchTool } from "@/lib/tools/memory-tool"
 import { linkupSearchTool, shouldEnableLinkupTool } from "@/lib/tools/linkup-search"
+import {
+  yahooFinanceQuoteTool,
+  yahooFinanceSearchTool,
+  yahooFinanceProfileTool,
+  shouldEnableYahooFinanceTools,
+} from "@/lib/tools/yahoo-finance"
+import {
+  openCorporatesCompanySearchTool,
+  openCorporatesOfficerSearchTool,
+  openCorporatesCompanyDetailsTool,
+  shouldEnableOpenCorporatesTools,
+} from "@/lib/tools/opencorporates"
+import {
+  propublicaNonprofitSearchTool,
+  propublicaNonprofitDetailsTool,
+  shouldEnableProPublicaTools,
+} from "@/lib/tools/propublica-nonprofits"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, ToolSet } from "ai"
+import { Message as MessageAISDK, streamText, smoothStream, ToolSet } from "ai"
 import {
   incrementMessageCount,
   logUserMessage,
@@ -209,7 +226,7 @@ You have access to the searchWeb tool. The user has enabled web search for this 
       ]).catch((err: unknown) => console.error("Background operations failed:", err))
     }
 
-    // Build tools object - RAG tools, Memory search, and Web search
+    // Build tools object - RAG tools, Memory search, Web search, and Financial/Corporate data
     const tools: ToolSet = {
       ...(isAuthenticated
         ? {
@@ -222,7 +239,36 @@ You have access to the searchWeb tool. The user has enabled web search for this 
       ...(enableSearch && shouldEnableLinkupTool()
         ? { searchWeb: linkupSearchTool }
         : {}),
+      // Add Yahoo Finance tools for stock data, executive profiles, and insider transactions
+      // Available to all users (no API key required)
+      ...(enableSearch && shouldEnableYahooFinanceTools()
+        ? {
+            yahoo_finance_quote: yahooFinanceQuoteTool,
+            yahoo_finance_search: yahooFinanceSearchTool,
+            yahoo_finance_profile: yahooFinanceProfileTool,
+          }
+        : {}),
+      // Add OpenCorporates tools for business ownership and officer lookup
+      // Only available when OPENCORPORATES_API_KEY is configured
+      ...(enableSearch && shouldEnableOpenCorporatesTools()
+        ? {
+            opencorporates_company_search: openCorporatesCompanySearchTool,
+            opencorporates_officer_search: openCorporatesOfficerSearchTool,
+            opencorporates_company_details: openCorporatesCompanyDetailsTool,
+          }
+        : {}),
+      // Add ProPublica Nonprofit Explorer tools for foundation/nonprofit research
+      // Free API - no key required. Provides 990 financial data, EIN lookup
+      ...(enableSearch && shouldEnableProPublicaTools()
+        ? {
+            propublica_nonprofit_search: propublicaNonprofitSearchTool,
+            propublica_nonprofit_details: propublicaNonprofitDetailsTool,
+          }
+        : {}),
     } as ToolSet
+
+    // Check if any tools are available - smoothStream causes issues with tool calls
+    const hasTools = Object.keys(tools).length > 0
 
     // Optimize message payload to prevent FUNCTION_PAYLOAD_TOO_LARGE errors
     // This limits message history, removes blob URLs, and truncates large tool results
@@ -237,6 +283,8 @@ You have access to the searchWeb tool. The user has enabled web search for this 
       maxSteps: 25,
       maxTokens: AI_MAX_OUTPUT_TOKENS,
       experimental_telemetry: { isEnabled: false },
+      // Only use smoothStream when no tools are available (smoothStream breaks tool calls)
+      experimental_transform: hasTools ? undefined : smoothStream(),
       onError: (err: unknown) => {
         console.error("[Chat API] Streaming error:", err)
       },

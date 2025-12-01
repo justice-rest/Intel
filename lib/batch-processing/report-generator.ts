@@ -6,7 +6,7 @@
 import { streamText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { LinkupClient } from "linkup-sdk"
-import { isLinkupEnabled, getLinkupApiKey } from "@/lib/linkup/config"
+import { isLinkupEnabled, getLinkupApiKey, PROSPECT_RESEARCH_DOMAINS } from "@/lib/linkup/config"
 import { SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
 import { ProspectInputData, BatchProspectItem } from "./types"
 import { buildProspectQueryString } from "./parser"
@@ -68,22 +68,27 @@ async function performWebSearch(query: string): Promise<WebSearchResult | null> 
   try {
     const client = getLinkupClient()
 
-    // Use "deep" mode for thorough research (agentic workflow)
-    // 30s timeout for deep mode
+    // Use "standard" mode with curated domains for fast, targeted research
+    // includeDomains focuses search on authoritative prospect research sources
+    // 60s timeout to allow thorough results
     const result = await Promise.race([
       client.search({
         query,
-        depth: "deep",
+        depth: "standard",
         outputType: "sourcedAnswer",
+        includeDomains: [...PROSPECT_RESEARCH_DOMAINS],
       }),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Search timeout")), 30000)
+        setTimeout(() => reject(new Error("Search timeout")), 60000)
       ),
     ])
 
+    // Type assertion: we know result is SourcedAnswer because outputType is "sourcedAnswer"
+    const sourcedResult = result as { answer?: string; sources?: Array<{ name?: string; url: string; snippet?: string }> }
+
     return {
-      answer: result.answer || "",
-      sources: (result.sources || []).map((s: { name?: string; url: string; snippet?: string }) => ({
+      answer: sourcedResult.answer || "",
+      sources: (sourcedResult.sources || []).map((s) => ({
         name: s.name || "Source",
         url: s.url,
         snippet: s.snippet,
