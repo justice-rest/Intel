@@ -8,6 +8,7 @@ import { ToolSet } from "ai"
 
 // Import all the tools from lib/tools
 import { linkupSearchTool, shouldEnableLinkupTool } from "@/lib/tools/linkup-search"
+import { youSearchTool, shouldEnableYouTool } from "@/lib/tools/you-search"
 import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
 import { tavilySearchTool, shouldEnableTavilyTool } from "@/lib/tools/tavily-search"
 import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/firecrawl-search"
@@ -39,6 +40,7 @@ export function buildBatchTools(): ToolSet {
   const tools: ToolSet = {
     // Web Search Tools
     ...(shouldEnableLinkupTool() ? { searchWeb: linkupSearchTool } : {}),
+    ...(shouldEnableYouTool() ? { youSearch: youSearchTool } : {}),
     ...(shouldEnableExaTool() ? { exaSearch: exaSearchTool } : {}),
     ...(shouldEnableTavilyTool() ? { tavilySearch: tavilySearchTool } : {}),
     ...(shouldEnableFirecrawlTool() ? { firecrawlSearch: firecrawlSearchTool } : {}),
@@ -91,6 +93,9 @@ export function getToolDescriptions(): string {
   // Search tools
   if (shouldEnableLinkupTool()) {
     searchTools.push("searchWeb (YOUR PRIMARY TOOL - property values, business ownership, SEC, FEC, 990s, corporate filings)")
+  }
+  if (shouldEnableYouTool()) {
+    searchTools.push("youSearch (backup for searchWeb - agentic web+news search, breaking news, recent coverage)")
   }
   if (shouldEnableExaTool()) {
     searchTools.push("exaSearch (semantic search, broad web, finding similar content)")

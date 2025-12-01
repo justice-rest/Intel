@@ -19,6 +19,7 @@ import {
 import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
 import { tavilySearchTool, shouldEnableTavilyTool } from "@/lib/tools/tavily-search"
 import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/firecrawl-search"
+import { youSearchTool, shouldEnableYouTool } from "@/lib/tools/you-search"
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
@@ -190,6 +191,7 @@ export async function POST(req: Request) {
     if (enableSearch) {
       const searchTools: string[] = []
       if (shouldEnableLinkupTool()) searchTools.push("searchWeb (prospect research: SEC, FEC, 990s, real estate, corporate filings)")
+      if (shouldEnableYouTool()) searchTools.push("youSearch (agentic web+news search, backup for searchWeb, breaking news)")
       if (shouldEnableExaTool()) searchTools.push("exaSearch (semantic search, broad web, finding similar content)")
       if (shouldEnableTavilyTool()) searchTools.push("tavilySearch (news, current events, real-time facts)")
       if (shouldEnableFirecrawlTool()) searchTools.push("firecrawlSearch (general web search, documentation, articles)")
@@ -209,6 +211,7 @@ export async function POST(req: Request) {
         if (searchTools.length > 0) {
           finalSystemPrompt += `\nYou have access to these search tools: ${searchTools.join(", ")}
 - Use searchWeb for prospect research (SEC filings, FEC contributions, foundation 990s, property records, corporate data)
+- Use youSearch as backup/complement to searchWeb - great for breaking news, recent coverage, and web+news combined results
 - Use exaSearch for semantic queries, finding similar content, companies, or when keyword search fails
 - Use tavilySearch for news, current events, and real-time factual questions (use topic='news' for news, topic='finance' for financial data)
 - Use firecrawlSearch for general web queries, technical docs, articles, blog posts, and company info`
@@ -230,12 +233,13 @@ export async function POST(req: Request) {
 
 For ANY prospect research request, execute 10-15+ tool calls minimum:
 1. **searchWeb** (4-6 calls): property values, business ownership, philanthropy, news
-2. **fec_contributions**: political giving history
-3. **propublica_nonprofit_search/details**: foundation 990 data (search by ORG name, not person)
-4. **yahoo_finance_profile**: if they're a public company executive
-5. **sec_edgar_filings**: if they have SEC filings
-6. **wikidata_search + wikidata_entity**: biographical data (education, employers, net worth)
-7. **tavilySearch**: recent news and current events
+2. **youSearch**: backup/complement to searchWeb - use for breaking news, recent media coverage, web+news combined
+3. **fec_contributions**: political giving history
+4. **propublica_nonprofit_search/details**: foundation 990 data (search by ORG name, not person)
+5. **yahoo_finance_profile**: if they're a public company executive
+6. **sec_edgar_filings**: if they have SEC filings
+7. **wikidata_search + wikidata_entity**: biographical data (education, employers, net worth)
+8. **tavilySearch**: recent news and current events
 
 **DO NOT** stop after 2-3 tool calls. Run tools in parallel when possible. The user expects comprehensive research.
 
@@ -317,6 +321,10 @@ Run MULTIPLE searchWeb queries to uncover business interests:
       // Add Linkup web search tool - prospect research with curated domains
       ...(enableSearch && shouldEnableLinkupTool()
         ? { searchWeb: linkupSearchTool }
+        : {}),
+      // Add You.com agentic search tool - backup for Linkup, web+news combined
+      ...(enableSearch && shouldEnableYouTool()
+        ? { youSearch: youSearchTool }
         : {}),
       // Add Exa semantic search tool - neural embeddings, broad web coverage
       ...(enableSearch && shouldEnableExaTool()
