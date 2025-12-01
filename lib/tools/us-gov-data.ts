@@ -214,11 +214,11 @@ async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResu
 
   try {
     // Build award type codes filter
-    // IMPORTANT: USAspending API requires award_type_codes from only ONE group at a time
+    // IMPORTANT: USAspending API REQUIRES award_type_codes - it's not optional
     // Groups: contracts (A,B,C,D), grants (02,03,04,05), loans (07,08),
     // direct_payments (06,10), other (09,11,-1)
-    // When "all" is selected, we don't pass award_type_codes to get all types
-    let awardTypeCodes: string[] | null = null
+    // When "all" is selected, include all award type codes
+    let awardTypeCodes: string[]
 
     switch (awardType) {
       case "contracts":
@@ -238,8 +238,8 @@ async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResu
         break
       case "all":
       default:
-        // Don't filter by award type - return all types
-        awardTypeCodes = null
+        // Include all award type codes
+        awardTypeCodes = ["A", "B", "C", "D", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "-1"]
         break
     }
 
@@ -247,7 +247,7 @@ async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResu
     const requestBody: Record<string, unknown> = {
       filters: {
         recipient_search_text: [query],
-        ...(awardTypeCodes && { award_type_codes: awardTypeCodes }),
+        award_type_codes: awardTypeCodes,
         ...(agency && { agencies: [{ type: "awarding", tier: "toptier", name: agency }] }),
         ...(startDate && endDate && {
           time_period: [{ start_date: startDate, end_date: endDate }],
