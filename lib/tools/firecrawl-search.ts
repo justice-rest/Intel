@@ -113,13 +113,36 @@ export const firecrawlSearchTool = tool({
 
       // Map results to standard format
       // Firecrawl returns { web: [], news: [], images: [] }
+      // Results can be SearchResultWeb (title, url, description) or Document (metadata.title, markdown)
       const webResults = response?.web || []
-      const results: FirecrawlSearchResult[] = webResults.map((r) => ({
-        title: r.title || "Untitled",
-        url: r.url,
-        snippet: r.description || "",
-        markdown: "markdown" in r ? (r as { markdown?: string }).markdown : undefined,
-      }))
+      const results: FirecrawlSearchResult[] = webResults.map((r) => {
+        // Check if it's a Document type (has metadata) vs SearchResultWeb
+        const isDocument = "metadata" in r || "markdown" in r
+
+        if (isDocument) {
+          // Document type from scraping - title is in metadata
+          const doc = r as {
+            metadata?: { title?: string; description?: string; url?: string }
+            markdown?: string
+            url?: string
+          }
+          return {
+            title: doc.metadata?.title || "Untitled",
+            url: doc.metadata?.url || doc.url || "",
+            snippet: doc.metadata?.description || "",
+            markdown: doc.markdown,
+          }
+        } else {
+          // SearchResultWeb type - direct properties
+          const web = r as { title?: string; url: string; description?: string }
+          return {
+            title: web.title || "Untitled",
+            url: web.url,
+            snippet: web.description || "",
+            markdown: undefined,
+          }
+        }
+      })
 
       const duration = Date.now() - startTime
       console.log("[Firecrawl Tool] Search completed successfully:", {
