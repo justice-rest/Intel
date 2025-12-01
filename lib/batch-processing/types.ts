@@ -23,6 +23,17 @@ export type BatchItemStatus =
   | "skipped"
 
 // ============================================================================
+// SEARCH MODE TYPES
+// ============================================================================
+
+/**
+ * Batch search mode options
+ * - standard: Quick 5-line summary for prioritization (business + property only)
+ * - comprehensive: Full research report with philanthropy, SEC, FEC, and more
+ */
+export type BatchSearchMode = "standard" | "comprehensive"
+
+// ============================================================================
 // PROSPECT INPUT DATA
 // ============================================================================
 
@@ -78,6 +89,7 @@ export interface BatchJobSettings {
   enable_web_search: boolean
   max_retries: number
   generate_romy_score: boolean
+  search_mode: BatchSearchMode
 }
 
 export const DEFAULT_BATCH_SETTINGS: BatchJobSettings = {
@@ -85,6 +97,7 @@ export const DEFAULT_BATCH_SETTINGS: BatchJobSettings = {
   enable_web_search: true,
   max_retries: 2,
   generate_romy_score: true,
+  search_mode: "standard", // Default to Standard for quick prioritization
 }
 
 export interface BatchProspectJob {

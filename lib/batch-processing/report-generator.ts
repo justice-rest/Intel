@@ -8,9 +8,61 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { LinkupClient } from "linkup-sdk"
 import { isLinkupEnabled, getLinkupApiKey, PROSPECT_RESEARCH_DOMAINS } from "@/lib/linkup/config"
 import { SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
-import { ProspectInputData, BatchProspectItem } from "./types"
+import { ProspectInputData, BatchProspectItem, BatchSearchMode } from "./types"
 import { buildProspectQueryString } from "./parser"
 import { PROSPECT_PROCESSING_TIMEOUT_MS } from "./config"
+
+// ============================================================================
+// STANDARD MODE PROMPT
+// ============================================================================
+
+/**
+ * System prompt for Standard mode - produces brief 5-line prioritization summaries
+ * Focused on business ownership and property valuation for quick prospect ranking
+ */
+const STANDARD_MODE_SYSTEM_PROMPT = `You are Rōmy, a prospect research assistant. Generate a BRIEF prioritization summary for major gift prospect screening.
+
+## OUTPUT FORMAT (exactly these 5 sections):
+
+**Business Ownership:** [List company name(s) and role(s) found, or "No business ownership found"]
+
+**Property:** [Address] - Est. Value: $[amount] | [Owner/Renter status if known]
+
+**Capacity Rating:** [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL] - Est. Gift Capacity: $[amount] | Est. Net Worth: $[amount]
+
+**RōmyScore™:** [X]/41 — [Tier Name]
+
+**Quick Take:** [One sentence recommendation for cultivation priority]
+
+## SCORING GUIDE (RōmyScore simplified):
+
+Property Value Points:
+- >$2M: 12 pts | $1M-$2M: 10 pts | $750K-$1M: 8 pts | $500K-$750K: 6 pts | $250K-$500K: 4 pts | <$250K: 2 pts
+
+Business Ownership Points:
+- Founder/Owner: 12 pts | CEO/President: 10 pts | C-Suite/VP: 8 pts | Director/Manager: 5 pts | None found: 0 pts
+
+Additional Indicators (if found in search):
+- Multiple properties: +3 pts | Multiple businesses: +3 pts | Executive at public company: +5 pts
+
+Score Tiers:
+- 31-41: Transformational Prospect (MAJOR capacity)
+- 21-30: High-Capacity Major Donor Target (PRINCIPAL capacity)
+- 11-20: Mid-Capacity Growth Potential (LEADERSHIP capacity)
+- 0-10: Emerging/Annual Fund (ANNUAL capacity)
+
+## CAPACITY RATINGS:
+- **MAJOR:** Property >$750K AND business owner/executive role = Est. Gift Capacity $25K+
+- **PRINCIPAL:** Property >$500K OR significant business role = Est. Gift Capacity $10K-$25K
+- **LEADERSHIP:** Property >$300K OR professional role = Est. Gift Capacity $5K-$10K
+- **ANNUAL:** Lower indicators = Est. Gift Capacity <$5K
+
+## IMPORTANT:
+- Output ONLY the 5 sections above, no additional headers or explanations
+- Always include dollar amounts for Capacity Rating section (Est. Gift Capacity and Est. Net Worth)
+- Base estimates on property values and business ownership found
+- If property value unknown, estimate based on location and comparable properties
+- Gift capacity is typically 1-5% of estimated net worth`
 
 // ============================================================================
 // TYPES
@@ -20,6 +72,7 @@ interface GenerateReportOptions {
   prospect: ProspectInputData
   enableWebSearch: boolean
   generateRomyScore: boolean
+  searchMode?: BatchSearchMode
   apiKey?: string
   organizationContext?: string
 }
@@ -105,7 +158,35 @@ async function performWebSearch(query: string): Promise<WebSearchResult | null> 
 // SEARCH QUERIES FOR PROSPECT RESEARCH
 // ============================================================================
 
-function generateSearchQueries(prospect: ProspectInputData): string[] {
+/**
+ * Generate search queries for Standard mode (quick prioritization)
+ * Only 2 focused searches: business ownership + property
+ */
+function generateStandardSearchQueries(prospect: ProspectInputData): string[] {
+  const name = prospect.name
+  const location = [prospect.city, prospect.state].filter(Boolean).join(", ")
+  const fullAddress = buildProspectQueryString(prospect)
+
+  const queries: string[] = []
+
+  // Business ownership search
+  queries.push(`"${name}" ${location} business owner company founder CEO executive president`)
+
+  // Property/real estate search
+  if (prospect.address || prospect.full_address) {
+    queries.push(`"${fullAddress}" property records real estate home value owner`)
+  } else {
+    queries.push(`"${name}" ${location} property home owner real estate`)
+  }
+
+  return queries
+}
+
+/**
+ * Generate search queries for Comprehensive mode (full research)
+ * 5 searches covering all aspects of prospect research
+ */
+function generateComprehensiveSearchQueries(prospect: ProspectInputData): string[] {
   const name = prospect.name
   const location = [prospect.city, prospect.state].filter(Boolean).join(", ")
   const fullAddress = buildProspectQueryString(prospect)
@@ -131,6 +212,14 @@ function generateSearchQueries(prospect: ProspectInputData): string[] {
 
   // Limit to 5 searches to stay within rate limits
   return queries.slice(0, 5)
+}
+
+/**
+ * Generate search queries based on search mode
+ * @deprecated Use generateStandardSearchQueries or generateComprehensiveSearchQueries directly
+ */
+function generateSearchQueries(prospect: ProspectInputData): string[] {
+  return generateComprehensiveSearchQueries(prospect)
 }
 
 // ============================================================================
@@ -403,8 +492,9 @@ function extractMetricsFromReport(content: string): {
 export async function generateProspectReport(
   options: GenerateReportOptions
 ): Promise<GenerateReportResult> {
-  const { prospect, enableWebSearch, apiKey } = options
+  const { prospect, enableWebSearch, apiKey, searchMode = "standard" } = options
   const startTime = Date.now()
+  const isStandardMode = searchMode === "standard"
 
   try {
     // Build search queries
@@ -414,12 +504,15 @@ export async function generateProspectReport(
 
     // Perform web searches if enabled
     if (enableWebSearch) {
-      const queries = generateSearchQueries(prospect)
+      // Use appropriate query generator based on search mode
+      const queries = isStandardMode
+        ? generateStandardSearchQueries(prospect)
+        : generateComprehensiveSearchQueries(prospect)
       searchQueriesUsed.push(...queries)
 
-      console.log(`[BatchProcessor] Running ${queries.length} web searches in parallel for: ${prospect.name}`)
+      console.log(`[BatchProcessor] Running ${queries.length} web searches (${searchMode} mode) for: ${prospect.name}`)
 
-      // Run all searches in parallel - LinkUp supports 10 QPS, we only have 5 queries
+      // Run all searches in parallel - LinkUp supports 10 QPS
       const searchResults = await Promise.all(
         queries.map(query => performWebSearch(query))
       )
@@ -437,7 +530,17 @@ export async function generateProspectReport(
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n")
 
-    const userMessage = `Generate a comprehensive prospect research report for:
+    // Different user message based on mode
+    const userMessage = isStandardMode
+      ? `Generate a brief prioritization summary for:
+
+**Prospect:** ${prospectInfo}
+${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
+
+${searchContext ? `## WEB SEARCH RESULTS\n\n${searchContext}` : "**Note:** No web search results available. Estimate based on location and typical property values for the area."}
+
+Generate the 5-section prioritization summary now.`
+      : `Generate a comprehensive prospect research report for:
 
 **Prospect:** ${prospectInfo}
 ${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
@@ -452,11 +555,15 @@ Generate the full report now.`
     })
     const model = openrouter.chat("x-ai/grok-4.1-fast")
 
+    // Use appropriate system prompt and token limit based on mode
+    const systemPrompt = isStandardMode ? STANDARD_MODE_SYSTEM_PROMPT : SYSTEM_PROMPT_DEFAULT
+    const maxTokens = isStandardMode ? 2000 : 16000
+
     const result = await streamText({
       model,
-      system: SYSTEM_PROMPT_DEFAULT,
+      system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-      maxTokens: 16000,
+      maxTokens,
       temperature: 0.3, // Lower temperature for more consistent reports
     })
 
@@ -508,13 +615,14 @@ Generate the full report now.`
 
 export async function processBatchItem(
   item: BatchProspectItem,
-  settings: { enableWebSearch: boolean; generateRomyScore: boolean },
+  settings: { enableWebSearch: boolean; generateRomyScore: boolean; searchMode?: BatchSearchMode },
   apiKey?: string
 ): Promise<GenerateReportResult> {
   const result = await generateProspectReport({
     prospect: item.input_data,
     enableWebSearch: settings.enableWebSearch,
     generateRomyScore: settings.generateRomyScore,
+    searchMode: settings.searchMode || "standard",
     apiKey,
   })
 

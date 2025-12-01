@@ -18,6 +18,7 @@ import type {
   ColumnMapping,
   CreateBatchJobResponse,
   BatchJobDetailResponse,
+  BatchSearchMode,
 } from "@/lib/batch-processing"
 
 type View = "list" | "upload" | "detail"
@@ -70,7 +71,8 @@ export function BatchSection() {
     prospects: ProspectInputData[],
     fileName: string,
     fileSize: number,
-    columnMapping: ColumnMapping
+    columnMapping: ColumnMapping,
+    searchMode: BatchSearchMode
   ) => {
     setIsCreatingJob(true)
 
@@ -84,6 +86,9 @@ export function BatchSection() {
           column_mapping: columnMapping,
           source_file_name: fileName,
           source_file_size: fileSize,
+          settings: {
+            search_mode: searchMode,
+          },
         }),
       })
 

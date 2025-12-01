@@ -103,12 +103,24 @@ export const MAX_REPORT_OUTPUT_TOKENS = 16000
 // ============================================================================
 
 /**
- * Estimated seconds per prospect (for progress UI)
- * With optimizations:
- * - Parallel web searches (15s max instead of 5 * 30s sequential)
- * - Standard mode LinkUp (faster than deep)
- * - AI generation (~20-30s)
- * Total: ~30-45s per prospect (using 35s estimate)
+ * Estimated seconds per prospect for Standard mode
+ * - 2 focused web searches (business + property)
+ * - Brief 5-line AI generation
+ * Total: ~15-20s per prospect
+ */
+export const ESTIMATED_SECONDS_PER_PROSPECT_STANDARD = 20
+
+/**
+ * Estimated seconds per prospect for Comprehensive mode
+ * - 5 parallel web searches
+ * - Full AI report generation
+ * Total: ~90-120s per prospect (using 105s midpoint)
+ */
+export const ESTIMATED_SECONDS_PER_PROSPECT_COMPREHENSIVE = 105
+
+/**
+ * Legacy constant for backwards compatibility
+ * @deprecated Use ESTIMATED_SECONDS_PER_PROSPECT_STANDARD or ESTIMATED_SECONDS_PER_PROSPECT_COMPREHENSIVE
  */
 export const ESTIMATED_SECONDS_PER_PROSPECT = 35
 
