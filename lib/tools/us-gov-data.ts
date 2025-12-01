@@ -108,10 +108,19 @@ const usGovDataSchema = z.object({
 
   // USAspending-specific parameters
   awardType: z
-    .enum(["contracts", "grants", "loans", "direct_payments", "other", "all"])
+    .enum(["contracts", "idvs", "grants", "loans", "other_financial_assistance", "direct_payments", "all"])
     .optional()
     .default("all")
-    .describe("Type of federal award to search (USAspending only)"),
+    .describe(
+      "Type of federal award to search (USAspending only). " +
+      "contracts: Purchase orders, delivery orders, definitive contracts. " +
+      "idvs: Indefinite Delivery Vehicles (GWACs, IDCs, BPAs, etc). " +
+      "grants: Block, formula, project grants and cooperative agreements. " +
+      "loans: Direct and guaranteed/insured loans. " +
+      "other_financial_assistance: Direct payments for specified/unrestricted use. " +
+      "direct_payments: Insurance and other financial assistance. " +
+      "all: Search all types (makes parallel API calls)."
+    ),
 
   agency: z
     .string()
@@ -207,43 +216,54 @@ function formatDate(dateStr: string | null | undefined): string {
 // USASPENDING API
 // ============================================================================
 
-async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResult> {
-  const { query, awardType, agency, limit, startDate, endDate } = params
-  console.log("[USAspending] Searching for:", query, "type:", awardType)
-  const startTime = Date.now()
+/**
+ * Award type code groups - USAspending API requires codes from only ONE group per request
+ * Based on API error response which defines these exact groups
+ */
+const AWARD_TYPE_GROUPS: Record<string, { codes: string[]; label: string }> = {
+  contracts: {
+    codes: ["A", "B", "C", "D"],
+    label: "Contracts",
+  },
+  idvs: {
+    codes: ["IDV_A", "IDV_B", "IDV_B_A", "IDV_B_B", "IDV_B_C", "IDV_C", "IDV_D", "IDV_E"],
+    label: "Indefinite Delivery Vehicles",
+  },
+  grants: {
+    codes: ["02", "03", "04", "05"],
+    label: "Grants",
+  },
+  loans: {
+    codes: ["07", "08"],
+    label: "Loans",
+  },
+  other_financial_assistance: {
+    codes: ["06", "10"],
+    label: "Other Financial Assistance",
+  },
+  direct_payments: {
+    codes: ["09", "11", "-1"],
+    label: "Direct Payments",
+  },
+}
+
+/**
+ * Make a single USAspending API request for a specific award type group
+ */
+async function fetchUsaspendingByGroup(
+  query: string,
+  awardTypeCodes: string[],
+  groupLabel: string,
+  options: {
+    agency?: string
+    startDate?: string
+    endDate?: string
+    limit: number
+  }
+): Promise<{ awards: UsaspendingAward[]; total: number; error?: string }> {
+  const { agency, startDate, endDate, limit } = options
 
   try {
-    // Build award type codes filter
-    // IMPORTANT: USAspending API REQUIRES award_type_codes - it's not optional
-    // Groups: contracts (A,B,C,D), grants (02,03,04,05), loans (07,08),
-    // direct_payments (06,10), other (09,11,-1)
-    // When "all" is selected, include all award type codes
-    let awardTypeCodes: string[]
-
-    switch (awardType) {
-      case "contracts":
-        awardTypeCodes = ["A", "B", "C", "D"]
-        break
-      case "grants":
-        awardTypeCodes = ["02", "03", "04", "05"]
-        break
-      case "loans":
-        awardTypeCodes = ["07", "08"]
-        break
-      case "direct_payments":
-        awardTypeCodes = ["06", "10"]
-        break
-      case "other":
-        awardTypeCodes = ["09", "11", "-1"]
-        break
-      case "all":
-      default:
-        // Include all award type codes
-        awardTypeCodes = ["A", "B", "C", "D", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "-1"]
-        break
-    }
-
-    // Build request body
     const requestBody: Record<string, unknown> = {
       filters: {
         recipient_search_text: [query],
@@ -266,7 +286,7 @@ async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResu
         "End Date",
       ],
       page: 1,
-      limit: Math.min(limit || US_GOV_DEFAULTS.limit, 50),
+      limit,
       sort: "Award Amount",
       order: "desc",
     }
@@ -281,27 +301,108 @@ async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResu
         body: JSON.stringify(requestBody),
       }),
       US_GOV_DEFAULTS.timeoutMs,
-      `USAspending request timed out after ${US_GOV_DEFAULTS.timeoutMs / 1000} seconds`
+      `USAspending ${groupLabel} request timed out`
     )
 
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`USAspending API error: ${response.status} - ${errorText}`)
+      console.error(`[USAspending] ${groupLabel} API error:`, response.status, errorText)
+      return { awards: [], total: 0, error: `${groupLabel}: ${response.status}` }
     }
 
     const data = await response.json()
-    const duration = Date.now() - startTime
-    console.log("[USAspending] Retrieved", data.results?.length || 0, "awards in", duration, "ms")
-
     const awards: UsaspendingAward[] = data.results || []
-    const totalCount = data.page_metadata?.total || awards.length
+    const total = data.page_metadata?.total || awards.length
+
+    console.log(`[USAspending] ${groupLabel}: ${awards.length} awards (${total} total)`)
+    return { awards, total }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error"
+    console.error(`[USAspending] ${groupLabel} fetch failed:`, errorMessage)
+    return { awards: [], total: 0, error: `${groupLabel}: ${errorMessage}` }
+  }
+}
+
+async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResult> {
+  const { query, awardType, agency, limit, startDate, endDate } = params
+  console.log("[USAspending] Searching for:", query, "type:", awardType)
+  const startTime = Date.now()
+
+  try {
+    const requestLimit = Math.min(limit || US_GOV_DEFAULTS.limit, 50)
+    const options = { agency, startDate, endDate, limit: requestLimit }
+
+    let allAwards: UsaspendingAward[] = []
+    let totalCount = 0
+    const errors: string[] = []
+
+    if (awardType === "all") {
+      // Make parallel API calls to all groups
+      console.log("[USAspending] Fetching all award types in parallel...")
+
+      const groupPromises = Object.entries(AWARD_TYPE_GROUPS).map(([key, group]) =>
+        fetchUsaspendingByGroup(query, group.codes, group.label, options)
+      )
+
+      const results = await Promise.all(groupPromises)
+
+      // Merge results
+      for (const result of results) {
+        if (result.error) {
+          errors.push(result.error)
+        }
+        allAwards.push(...result.awards)
+        totalCount += result.total
+      }
+
+      // Sort merged results by Award Amount (descending) and take top N
+      allAwards.sort((a, b) => (b.Award_Amount || 0) - (a.Award_Amount || 0))
+      allAwards = allAwards.slice(0, requestLimit)
+    } else {
+      // Single group request
+      const group = AWARD_TYPE_GROUPS[awardType]
+      if (!group) {
+        return {
+          dataSource: "usaspending",
+          query,
+          results: [],
+          totalCount: 0,
+          rawContent: `Unknown award type: ${awardType}. Valid types: ${Object.keys(AWARD_TYPE_GROUPS).join(", ")}, all`,
+          sources: [],
+          error: `Unknown award type: ${awardType}`,
+        }
+      }
+
+      const result = await fetchUsaspendingByGroup(query, group.codes, group.label, options)
+      allAwards = result.awards
+      totalCount = result.total
+      if (result.error) {
+        errors.push(result.error)
+      }
+    }
+
+    const duration = Date.now() - startTime
+    console.log("[USAspending] Total:", allAwards.length, "awards retrieved in", duration, "ms")
+
+    // If all requests failed, return error
+    if (allAwards.length === 0 && errors.length > 0) {
+      return {
+        dataSource: "usaspending",
+        query,
+        results: [],
+        totalCount: 0,
+        rawContent: `Failed to search USAspending for "${query}": ${errors.join("; ")}`,
+        sources: [],
+        error: errors.join("; "),
+      }
+    }
 
     // Calculate totals
-    const totalAmount = awards.reduce((sum, a) => sum + (a.Award_Amount || 0), 0)
+    const totalAmount = allAwards.reduce((sum, a) => sum + (a.Award_Amount || 0), 0)
 
-    // Group by award type
+    // Group by award type for display
     const byType: Record<string, UsaspendingAward[]> = {}
-    awards.forEach((a) => {
+    allAwards.forEach((a) => {
       const type = a.Award_Type || "Unknown"
       if (!byType[type]) byType[type] = []
       byType[type].push(a)
@@ -313,11 +414,20 @@ async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResu
       "",
       `**Total Awards Found:** ${totalCount.toLocaleString()}`,
       `**Total Award Amount:** ${formatCurrency(totalAmount)}`,
-      `**Showing:** ${awards.length} results`,
-      "",
-      "---",
-      "",
+      `**Showing:** ${allAwards.length} results`,
     ]
+
+    if (awardType === "all") {
+      lines.push(`**Search Type:** All award types (parallel search across ${Object.keys(AWARD_TYPE_GROUPS).length} categories)`)
+    }
+
+    if (errors.length > 0) {
+      lines.push(`**Partial Results:** Some categories had errors: ${errors.join("; ")}`)
+    }
+
+    lines.push("")
+    lines.push("---")
+    lines.push("")
 
     // Group by award type
     Object.entries(byType).forEach(([type, typeAwards]) => {
@@ -365,7 +475,7 @@ async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResu
     return {
       dataSource: "usaspending",
       query,
-      results: awards,
+      results: allAwards,
       totalCount,
       rawContent: lines.join("\n"),
       sources,
