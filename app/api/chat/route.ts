@@ -22,6 +22,11 @@ import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/fire
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
+import {
+  wikidataSearchTool,
+  wikidataEntityTool,
+  shouldEnableWikidataTools,
+} from "@/lib/tools/wikidata"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -196,6 +201,7 @@ export async function POST(req: Request) {
       if (shouldEnableYahooFinanceTools()) dataTools.push("yahoo_finance_* (stock quotes, company profiles, insider holdings)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("us_gov_data (federal contracts/grants via USAspending, treasury data, regulations)")
+      if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
 
       if (searchTools.length > 0 || dataTools.length > 0) {
         finalSystemPrompt += `\n\n## Web Search & Data Tools`
@@ -216,12 +222,28 @@ export async function POST(req: Request) {
 - Use propublica_nonprofit_search/details for foundation 990 data, nonprofit financials, and EIN lookups
 - Use us_gov_data with dataSource='usaspending' for federal contracts, grants, loans by recipient name
 - Use us_gov_data with dataSource='treasury' for national debt and government financial data
-- Use us_gov_data with dataSource='federal_register' for regulations, proposed rules, and agency notices`
+- Use us_gov_data with dataSource='federal_register' for regulations, proposed rules, and agency notices
+- Use wikidata_search to find people/organizations by name and get their Wikidata QID
+- Use wikidata_entity with a QID to get biographical data (education, employers, positions held, net worth, awards, etc.)`
         }
 
-        finalSystemPrompt += `\n\n- Always cite sources when using search or data tool results
+        finalSystemPrompt += `\n\n### Tool Usage Best Practices
+- Always cite sources when using search or data tool results
 - Choose the most appropriate tool based on the query type
-- For prospect research, combine multiple tools: SEC EDGAR for public company financials, FEC for political giving patterns, Yahoo Finance for stock holdings, ProPublica for nonprofit connections`
+- For prospect research, combine multiple tools: SEC EDGAR for public company financials, FEC for political giving patterns, Yahoo Finance for stock holdings, ProPublica for nonprofit connections
+
+### Person-to-Nonprofit Research Workflow
+When researching an individual's nonprofit affiliations, use this multi-step approach:
+1. **First, search for the person** using searchWeb, exaSearch, or tavilySearch to discover their nonprofit connections (board memberships, donations, foundations they run or advise)
+2. **Extract organization names and EINs** from the search results - look for foundation names, charity names, or EIN numbers (format: XX-XXXXXXX)
+3. **Then query ProPublica** using propublica_nonprofit_search with the discovered organization names, or propublica_nonprofit_details if you found an EIN
+4. **Cross-reference** the 990 data (revenue, assets, officer compensation) with other findings for a complete picture
+
+Example: If user asks about "John Smith's philanthropic activities":
+- First: searchWeb("John Smith foundation board member nonprofit") to find affiliations
+- If results mention "Smith Family Foundation" or EIN 12-3456789
+- Then: propublica_nonprofit_search(query="Smith Family Foundation") or propublica_nonprofit_details(ein="12-3456789")
+- This gives you detailed 990 financials that searching "John Smith" directly in ProPublica would not find`
       }
     }
 
@@ -322,6 +344,14 @@ export async function POST(req: Request) {
       ...(enableSearch && shouldEnableUsGovDataTools()
         ? {
             us_gov_data: usGovDataTool,
+          }
+        : {}),
+      // Add Wikidata tools for biographical research (education, employers, net worth, etc.)
+      // Free API - no key required
+      ...(enableSearch && shouldEnableWikidataTools()
+        ? {
+            wikidata_search: wikidataSearchTool,
+            wikidata_entity: wikidataEntityTool,
           }
         : {}),
     } as ToolSet

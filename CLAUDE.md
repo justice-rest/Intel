@@ -341,6 +341,25 @@ User toggles search button
   → Displayed in SourcesList component
 ```
 
+**Person-to-Nonprofit Research Workflow**:
+When researching an individual's nonprofit affiliations, the AI follows this multi-step approach:
+```
+1. Search for person's name using web search tools
+   → searchWeb("John Smith foundation board nonprofit")
+   → Discovers: "Smith Family Foundation", board at "XYZ Charity"
+
+2. Extract organization names and EINs from results
+   → Found: "Smith Family Foundation" (EIN: 12-3456789)
+   → Found: "XYZ Charity" (no EIN in results)
+
+3. Query ProPublica with discovered organizations
+   → propublica_nonprofit_details(ein="12-3456789")
+   → propublica_nonprofit_search(query="XYZ Charity")
+
+4. Return detailed 990 data (revenue, assets, officer compensation)
+```
+This workflow solves the limitation that searching "John Smith" directly in ProPublica returns nothing (it only searches organization names, not people).
+
 **Source Display** (`/app/components/chat/sources-list.tsx`):
 - Automatic source extraction from all search tool results
 - Shows title, URL, domain, and favicon
@@ -400,6 +419,46 @@ us_gov_data({ dataSource: "federal_register", query: "climate", documentType: "r
 **Key Files**:
 - `/lib/tools/us-gov-data.ts` - Main tool implementation
 - `/lib/data-gov/config.ts` - Configuration and API URLs
+- `/app/api/chat/route.ts` - Tool registration
+
+### Wikidata Tool
+**Biographical research from Wikidata knowledge graph** - FREE, no API key required:
+
+| Tool | Purpose | Best For |
+|------|---------|----------|
+| `wikidata_search` | Search for people/orgs by name | Finding Wikidata QIDs for entities |
+| `wikidata_entity` | Get detailed entity data by QID | Biographical data, education, employers, net worth |
+
+**Wikidata Search Tool** (`/lib/tools/wikidata.ts`)
+- Uses MediaWiki `wbsearchentities` API
+- Filters by type: "person", "organization", or "any"
+- Returns QIDs, labels, descriptions
+
+**Wikidata Entity Tool** (`/lib/tools/wikidata.ts`)
+- Uses MediaWiki `wbgetentities` API
+- Resolves entity IDs to labels automatically
+- Extracts key properties for prospect research:
+  - P106: occupation
+  - P108: employer
+  - P39: position held
+  - P69: educated at
+  - P2218: net worth
+  - P166: awards received
+  - P463: member of
+
+**Usage Examples**:
+```typescript
+// Search for a person
+wikidata_search({ query: "Elon Musk", type: "person" })
+// Returns: [{ id: "Q317521", label: "Elon Musk", description: "..." }]
+
+// Get full biographical data
+wikidata_entity({ entityId: "Q317521" })
+// Returns: education, employers, positions, net worth, awards, etc.
+```
+
+**Key Files**:
+- `/lib/tools/wikidata.ts` - Both search and entity tools
 - `/app/api/chat/route.ts` - Tool registration
 
 ## Environment Variables
