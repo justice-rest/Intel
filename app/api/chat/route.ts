@@ -21,6 +21,7 @@ import { tavilySearchTool, shouldEnableTavilyTool } from "@/lib/tools/tavily-sea
 import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/firecrawl-search"
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
+import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -194,6 +195,7 @@ export async function POST(req: Request) {
       if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
       if (shouldEnableYahooFinanceTools()) dataTools.push("yahoo_finance_* (stock quotes, company profiles, insider holdings)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
+      if (shouldEnableUsGovDataTools()) dataTools.push("us_gov_data (federal contracts/grants via USAspending, treasury data, regulations)")
 
       if (searchTools.length > 0 || dataTools.length > 0) {
         finalSystemPrompt += `\n\n## Web Search & Data Tools`
@@ -211,7 +213,10 @@ export async function POST(req: Request) {
 - Use sec_edgar_filings for public company financial data (10-K annual reports, 10-Q quarterly reports, balance sheets, income statements, cash flow, executive compensation)
 - Use fec_contributions to search FEC records for an individual's political contribution history (amounts, dates, recipients, employer, occupation)
 - Use yahoo_finance_quote/search/profile for stock prices, market cap, company profiles, executives, and insider holdings
-- Use propublica_nonprofit_search/details for foundation 990 data, nonprofit financials, and EIN lookups`
+- Use propublica_nonprofit_search/details for foundation 990 data, nonprofit financials, and EIN lookups
+- Use us_gov_data with dataSource='usaspending' for federal contracts, grants, loans by recipient name
+- Use us_gov_data with dataSource='treasury' for national debt and government financial data
+- Use us_gov_data with dataSource='federal_register' for regulations, proposed rules, and agency notices`
         }
 
         finalSystemPrompt += `\n\n- Always cite sources when using search or data tool results
@@ -310,6 +315,13 @@ export async function POST(req: Request) {
       ...(enableSearch && shouldEnableFecTools()
         ? {
             fec_contributions: fecContributionsTool,
+          }
+        : {}),
+      // Add US Government Data tool for federal contracts, treasury data, and regulations
+      // Free APIs - no key required
+      ...(enableSearch && shouldEnableUsGovDataTools()
+        ? {
+            us_gov_data: usGovDataTool,
           }
         : {}),
     } as ToolSet

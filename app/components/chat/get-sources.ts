@@ -100,6 +100,18 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
+        // Handle US Government Data tool results
+        if (
+          part.toolInvocation.toolName === "us_gov_data" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Government Data",
+            url: s.url,
+            text: `US Government data from ${result.dataSource || "federal API"}`,
+          }))
+        }
+
         // Handle summarizeSources tool results
         if (
           part.toolInvocation.toolName === "summarizeSources" &&

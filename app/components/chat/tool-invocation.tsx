@@ -42,6 +42,9 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   rag_search: "Document Search",
   list_documents: "List Documents",
   search_memory: "Memory Search",
+  sec_edgar_filings: "SEC Filings",
+  fec_contributions: "Political Contributions",
+  us_gov_data: "US Government Data",
 }
 
 /**
@@ -776,6 +779,91 @@ function SingleToolCard({
           {detailsResult.filings.length === 0 && (
             <div className="text-muted-foreground text-sm">
               No Form 990 filings available for this organization.
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle US Government Data tool results
+    if (
+      toolName === "us_gov_data" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "dataSource" in parsedResult
+    ) {
+      const govResult = parsedResult as {
+        dataSource: string
+        query: string
+        results: unknown[]
+        totalCount: number
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (govResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {govResult.error}
+          </div>
+        )
+      }
+
+      // Get friendly data source name
+      const dataSourceNames: Record<string, string> = {
+        usaspending: "USAspending (Federal Awards)",
+        treasury: "Treasury Fiscal Data",
+        federal_register: "Federal Register",
+      }
+      const dataSourceName = dataSourceNames[govResult.dataSource] || govResult.dataSource
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="text-muted-foreground text-xs">
+              <span className="font-medium">{dataSourceName}</span>
+              {govResult.totalCount > 0 && (
+                <span> • {govResult.totalCount.toLocaleString()} result{govResult.totalCount !== 1 ? "s" : ""}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Raw content (formatted markdown) */}
+          {govResult.rawContent && (
+            <div className="text-foreground whitespace-pre-wrap text-sm leading-relaxed">
+              {govResult.rawContent.slice(0, 3000)}
+              {govResult.rawContent.length > 3000 && "..."}
+            </div>
+          )}
+
+          {/* Sources */}
+          {govResult.sources && govResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources ({govResult.sources.length})
+              </div>
+              <div className="space-y-2">
+                {govResult.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {govResult.results?.length === 0 && !govResult.rawContent && (
+            <div className="text-muted-foreground">
+              No results found for &quot;{govResult.query}&quot;
             </div>
           )}
         </div>

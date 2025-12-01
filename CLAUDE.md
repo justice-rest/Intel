@@ -363,6 +363,45 @@ User toggles search button
 - `/app/components/chat/get-sources.ts` - Source extraction
 - `/app/components/chat/sources-list.tsx` - UI display
 
+### US Government Data Tool
+**Unified tool for accessing multiple US Government APIs** - all FREE, no API key required:
+
+| Data Source | API | Best For |
+|-------------|-----|----------|
+| `usaspending` | USAspending.gov | Federal contracts, grants, loans - who receives government funding |
+| `treasury` | Treasury Fiscal Data | National debt, government revenue/spending, interest rates |
+| `federal_register` | FederalRegister.gov | Regulations, proposed rules, agency notices |
+
+**US Gov Data Tool** (`/lib/tools/us-gov-data.ts`)
+- Single unified tool with `dataSource` parameter to route queries
+- USAspending: Search by recipient name, filter by award type (contracts/grants/loans)
+- Treasury: Get debt_to_penny, treasury_statement, or interest_rates data
+- Federal Register: Search regulations with document type filtering
+- 30-second timeout, graceful error handling
+- Returns formatted `rawContent` for AI analysis + `sources` for UI display
+
+**Usage Examples**:
+```typescript
+// Search federal awards for a company
+us_gov_data({ dataSource: "usaspending", query: "Lockheed Martin", awardType: "contracts" })
+
+// Get current national debt
+us_gov_data({ dataSource: "treasury", query: "current", treasuryDataset: "debt_to_penny" })
+
+// Search regulations
+us_gov_data({ dataSource: "federal_register", query: "climate", documentType: "rule" })
+```
+
+**Configuration** (`/lib/data-gov/config.ts`):
+- `US_GOV_API_URLS` - Base URLs for each API
+- `US_GOV_DEFAULTS` - Default limit (10), timeout (30s)
+- Optional `DATA_GOV_API_KEY` for higher rate limits
+
+**Key Files**:
+- `/lib/tools/us-gov-data.ts` - Main tool implementation
+- `/lib/data-gov/config.ts` - Configuration and API URLs
+- `/app/api/chat/route.ts` - Tool registration
+
 ## Environment Variables
 
 Required for full functionality:
@@ -394,6 +433,11 @@ TAVILY_API_KEY=                 # Optional - enables Tavily news search
 # Firecrawl Search (optional - web scraping and full page content)
 # Get your API key at https://firecrawl.dev - 500 free pages
 FIRECRAWL_API_KEY=              # Optional - enables Firecrawl web scraping
+
+# US Government Data APIs (no API key required - all FREE)
+# USAspending, Treasury Fiscal Data, Federal Register APIs work without a key
+# Optional: Get api.data.gov key for higher rate limits at https://api.data.gov/signup/
+DATA_GOV_API_KEY=               # Optional - higher rate limits for gov APIs
 
 # PostHog Analytics (optional - for product analytics)
 # Get your API key at https://posthog.com
