@@ -336,6 +336,229 @@ function SingleToolCard({
       )
     }
 
+    // Handle ProPublica nonprofit search results
+    if (
+      toolName === "propublica_nonprofit_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "organizations" in parsedResult
+    ) {
+      const nonprofitResult = parsedResult as {
+        totalResults: number
+        page: number
+        totalPages: number
+        organizations: Array<{
+          ein: string
+          name: string
+          city?: string
+          state?: string
+          nteeCode?: string
+          taxCode?: string
+          hasFilings: boolean
+        }>
+        query: string
+        error?: string
+      }
+
+      if (nonprofitResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {nonprofitResult.error}
+          </div>
+        )
+      }
+
+      if (nonprofitResult.organizations.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No nonprofits found matching &quot;{nonprofitResult.query}&quot;
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Summary */}
+          <div className="text-muted-foreground text-xs">
+            Found {nonprofitResult.totalResults.toLocaleString()} nonprofit{nonprofitResult.totalResults !== 1 ? "s" : ""} matching &quot;{nonprofitResult.query}&quot;
+            {nonprofitResult.totalPages > 1 && ` (page ${nonprofitResult.page + 1} of ${nonprofitResult.totalPages})`}
+          </div>
+
+          {/* Organizations list */}
+          <div className="space-y-3">
+            {nonprofitResult.organizations.map((org, index) => (
+              <div
+                key={org.ein || index}
+                className="border-border border-b pb-3 last:border-0 last:pb-0"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-medium text-foreground">
+                    {org.name}
+                  </div>
+                  {org.hasFilings && (
+                    <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      Has 990s
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                  <span className="font-mono text-xs">EIN: {org.ein}</span>
+                  {(org.city || org.state) && (
+                    <span>
+                      {[org.city, org.state].filter(Boolean).join(", ")}
+                    </span>
+                  )}
+                </div>
+                {(org.taxCode || org.nteeCode) && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {org.taxCode && <span>{org.taxCode}</span>}
+                    {org.taxCode && org.nteeCode && <span> • </span>}
+                    {org.nteeCode && <span>NTEE: {org.nteeCode}</span>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle ProPublica nonprofit details results
+    if (
+      toolName === "propublica_nonprofit_details" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "filings" in parsedResult
+    ) {
+      const detailsResult = parsedResult as {
+        ein: string
+        name: string
+        address?: string
+        city?: string
+        state?: string
+        zipcode?: string
+        nteeCode?: string
+        taxCode?: string
+        guidestarUrl?: string
+        filings: Array<{
+          year: number
+          formType: string
+          revenue?: number
+          expenses?: number
+          assets?: number
+          liabilities?: number
+          officerCompensationPercent?: number
+          pdfUrl?: string
+        }>
+        error?: string
+      }
+
+      if (detailsResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {detailsResult.error}
+          </div>
+        )
+      }
+
+      const formatCurrency = (amount?: number) => {
+        if (amount === undefined || amount === null) return "—"
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Organization header */}
+          <div>
+            <div className="font-medium text-foreground text-lg">
+              {detailsResult.name}
+            </div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              <span className="font-mono">EIN: {detailsResult.ein}</span>
+              {detailsResult.taxCode && <span className="ml-3">{detailsResult.taxCode}</span>}
+            </div>
+            {(detailsResult.address || detailsResult.city || detailsResult.state) && (
+              <div className="mt-1 text-sm text-muted-foreground">
+                {[detailsResult.address, detailsResult.city, detailsResult.state, detailsResult.zipcode]
+                  .filter(Boolean)
+                  .join(", ")}
+              </div>
+            )}
+            {detailsResult.guidestarUrl && (
+              <a
+                href={detailsResult.guidestarUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary mt-1 inline-flex items-center gap-1 text-sm hover:underline"
+              >
+                View on GuideStar
+                <Link className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+
+          {/* Filings */}
+          {detailsResult.filings.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Form 990 Filings ({detailsResult.filings.length})
+              </div>
+              <div className="space-y-3">
+                {detailsResult.filings.map((filing, index) => (
+                  <div
+                    key={index}
+                    className="border-border rounded border p-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{filing.year} - {filing.formType}</span>
+                      {filing.pdfUrl && (
+                        <a
+                          href={filing.pdfUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary text-xs hover:underline"
+                        >
+                          View PDF
+                        </a>
+                      )}
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Revenue:</span>{" "}
+                        <span className="font-mono">{formatCurrency(filing.revenue)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Expenses:</span>{" "}
+                        <span className="font-mono">{formatCurrency(filing.expenses)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Assets:</span>{" "}
+                        <span className="font-mono">{formatCurrency(filing.assets)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Liabilities:</span>{" "}
+                        <span className="font-mono">{formatCurrency(filing.liabilities)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {detailsResult.filings.length === 0 && (
+            <div className="text-muted-foreground text-sm">
+              No Form 990 filings available for this organization.
+            </div>
+          )}
+        </div>
+      )
+    }
+
     // Handle Exa search results specifically
     if (
       typeof parsedResult === "object" &&
