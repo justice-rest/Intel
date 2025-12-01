@@ -295,47 +295,70 @@ User sends message
 - `/app/api/memories/` - REST API endpoints for memory CRUD
 - `/migrations/006_add_memory_system.sql` - Database schema
 
-### Linkup Search Integration
-**Standalone Tool Strategy** for reliable web search with pre-synthesized answers:
+### Multi-Provider Search Integration
+**Four Separate Search Tools** for comprehensive web coverage:
+
+| Tool | Purpose | Cost | Best For |
+|------|---------|------|----------|
+| `searchWeb` (Linkup) | Prospect research with curated domains | ~$0.005/search | SEC, FEC, 990s, real estate |
+| `exaSearch` (Exa) | Semantic/neural web search | ~$0.01/search | Similar content, broad web |
+| `tavilySearch` (Tavily) | News and real-time search | ~$0.008/search | Current events, news |
+| `firecrawlSearch` (Firecrawl) | Web scraping, full page content | 2 credits/10 results | Full markdown content |
 
 **Linkup Search Tool** (`/lib/tools/linkup-search.ts`)
 - Uses `linkup-sdk` package with `sourcedAnswer` output mode
-- Returns pre-synthesized answers with source citations (reduces AI processing burden)
-- Features:
-  - **sourcedAnswer mode**: Linkup synthesizes the answer, AI just relays it
-  - **Two depth modes**: "standard" (fast) or "deep" (complex queries)
-  - **Built-in citations**: Sources come with name, url, snippet
-  - **#1 factuality**: Top score on OpenAI's SimpleQA benchmark
-- Only active when:
-  - `enableSearch` is true in chat request
-  - `LINKUP_API_KEY` is configured in environment
-- Tool automatically called by AI model when search needed
+- Returns pre-synthesized answers with source citations
+- Searches curated domains (SEC, FEC, foundation 990s, property records, etc.)
+- 60-second timeout, standard depth by default
+
+**Exa Search Tool** (`/lib/tools/exa-search.ts`)
+- Uses `exa-js` package for semantic/neural search
+- Searches full web without domain restrictions
+- Best for finding similar content, semantic queries
+- 15-second timeout for low latency
+
+**Tavily Search Tool** (`/lib/tools/tavily-search.ts`)
+- Uses `@tavily/core` package
+- Returns synthesized answer + sources (like Linkup)
+- Supports topic filtering: "general", "news", "finance"
+- Basic search depth (1 credit) for cost efficiency
+- 15-second timeout for low latency
+
+**Firecrawl Search Tool** (`/lib/tools/firecrawl-search.ts`)
+- Uses `@mendable/firecrawl-js` package
+- Search only by default (2 credits per 10 results)
+- Optional full content scraping with `scrapeContent=true`
+- Returns clean markdown when scraping enabled
+- 15-second timeout for low latency
 
 **Search Flow**:
 ```
 User toggles search button
   → enableSearch=true sent to API
-  → AI calls searchWeb tool when needed
-  → Linkup returns pre-synthesized answer + sources
+  → AI chooses appropriate tool based on query type
+  → Tool returns results with sources
   → Sources extracted from tool result
   → Displayed in SourcesList component
 ```
 
 **Source Display** (`/app/components/chat/sources-list.tsx`):
-- Automatic source extraction from tool results
+- Automatic source extraction from all search tool results
 - Shows title, URL, domain, and favicon
 - Collapsible list with expand/collapse animation
 - UTM tracking for analytics
 
-**Configuration** (`/lib/linkup/config.ts`):
-- `isLinkupEnabled()`: Check if API key configured
-- `LINKUP_DEFAULTS`: standard depth, sourcedAnswer output
-- Graceful fallback if LINKUP_API_KEY missing
+**Configuration Files**:
+- `/lib/linkup/config.ts` - Linkup API key, defaults, curated domains
+- `/lib/exa/config.ts` - Exa API key, defaults
+- `/lib/tavily/config.ts` - Tavily API key, defaults
+- `/lib/firecrawl/config.ts` - Firecrawl API key, defaults
 
 **Key Files**:
-- `/lib/tools/linkup-search.ts` - Main tool implementation
+- `/lib/tools/linkup-search.ts` - Linkup tool (prospect research)
+- `/lib/tools/exa-search.ts` - Exa tool (semantic search)
+- `/lib/tools/tavily-search.ts` - Tavily tool (news/real-time)
+- `/lib/tools/firecrawl-search.ts` - Firecrawl tool (web scraping)
 - `/lib/tools/types.ts` - Type definitions and schemas
-- `/lib/linkup/config.ts` - Configuration utilities
 - `/app/api/chat/route.ts` - Tool integration
 - `/app/components/chat/get-sources.ts` - Source extraction
 - `/app/components/chat/sources-list.tsx` - UI display
@@ -356,10 +379,21 @@ ENCRYPTION_KEY=                 # 32-byte base64 (for BYOK)
 # AI Model API Key (required)
 OPENROUTER_API_KEY=             # Required for Grok 4.1 Fast model
 
-# Linkup Search (optional - for enhanced web search)
+# Linkup Search (optional - prospect research with curated domains)
 # Get your free API key at https://app.linkup.so (no credit card required)
-# Provides pre-synthesized answers with source citations
-LINKUP_API_KEY=                 # Optional - enables Linkup web search tool
+LINKUP_API_KEY=                 # Optional - enables Linkup prospect research
+
+# Exa Search (optional - semantic/neural web search)
+# Get your API key at https://dashboard.exa.ai - $10 free credits
+EXA_API_KEY=                    # Optional - enables Exa semantic search
+
+# Tavily Search (optional - news and real-time search)
+# Get your API key at https://tavily.com - 1000 free credits/month
+TAVILY_API_KEY=                 # Optional - enables Tavily news search
+
+# Firecrawl Search (optional - web scraping and full page content)
+# Get your API key at https://firecrawl.dev - 500 free pages
+FIRECRAWL_API_KEY=              # Optional - enables Firecrawl web scraping
 
 # PostHog Analytics (optional - for product analytics)
 # Get your API key at https://posthog.com

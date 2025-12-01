@@ -336,6 +336,204 @@ function SingleToolCard({
       )
     }
 
+    // Handle Tavily tavilySearch results (similar to Linkup with answer + results)
+    if (
+      toolName === "tavilySearch" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "results" in parsedResult
+    ) {
+      const tavilyResult = parsedResult as {
+        answer?: string
+        results: Array<{ title: string; url: string; snippet: string }>
+        query?: string
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Answer section (if available) */}
+          {tavilyResult.answer && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Answer
+              </div>
+              <div className="text-foreground leading-relaxed whitespace-pre-wrap">
+                {tavilyResult.answer}
+              </div>
+            </div>
+          )}
+
+          {/* Results section */}
+          {tavilyResult.results && tavilyResult.results.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources ({tavilyResult.results.length})
+              </div>
+              <div className="space-y-3">
+                {tavilyResult.results.map((result, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <a
+                      href={result.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                    >
+                      {result.title || "Untitled"}
+                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                    </a>
+                    <div className="text-muted-foreground mt-1 truncate font-mono text-xs">
+                      {result.url}
+                    </div>
+                    {result.snippet && (
+                      <div className="text-muted-foreground mt-1 line-clamp-2 text-sm">
+                        {result.snippet}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tavilyResult.results?.length === 0 && !tavilyResult.answer && (
+            <div className="text-muted-foreground">
+              No results found for this search.
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Exa exaSearch results
+    if (
+      toolName === "exaSearch" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "results" in parsedResult
+    ) {
+      const exaResult = parsedResult as {
+        results: Array<{ title: string; url: string; snippet: string; publishedDate?: string }>
+        query?: string
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Results section */}
+          {exaResult.results && exaResult.results.length > 0 ? (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Results ({exaResult.results.length})
+              </div>
+              <div className="space-y-3">
+                {exaResult.results.map((result, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <a
+                      href={result.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                    >
+                      {result.title || "Untitled"}
+                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                    </a>
+                    <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
+                      <span className="truncate font-mono">{result.url}</span>
+                      {result.publishedDate && (
+                        <span className="shrink-0">
+                          • {new Date(result.publishedDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    {result.snippet && (
+                      <div className="text-muted-foreground mt-1 line-clamp-3 text-sm">
+                        {result.snippet}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground">
+              No results found for this semantic search.
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Firecrawl firecrawlSearch results
+    if (
+      toolName === "firecrawlSearch" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "results" in parsedResult
+    ) {
+      const firecrawlResult = parsedResult as {
+        results: Array<{ title: string; url: string; snippet: string; markdown?: string }>
+        query?: string
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Results section */}
+          {firecrawlResult.results && firecrawlResult.results.length > 0 ? (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Results ({firecrawlResult.results.length})
+              </div>
+              <div className="space-y-3">
+                {firecrawlResult.results.map((result, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <a
+                      href={result.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                    >
+                      {result.title || "Untitled"}
+                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                    </a>
+                    <div className="text-muted-foreground mt-1 truncate font-mono text-xs">
+                      {result.url}
+                    </div>
+                    {result.snippet && (
+                      <div className="text-muted-foreground mt-1 line-clamp-2 text-sm">
+                        {result.snippet}
+                      </div>
+                    )}
+                    {result.markdown && (
+                      <details className="mt-2">
+                        <summary className="text-muted-foreground cursor-pointer text-xs hover:text-foreground">
+                          View scraped content
+                        </summary>
+                        <div className="bg-muted/50 mt-2 max-h-40 overflow-auto rounded p-2 text-xs">
+                          <pre className="whitespace-pre-wrap">{result.markdown.slice(0, 2000)}{result.markdown.length > 2000 ? "..." : ""}</pre>
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-muted-foreground">
+              No results found for this search.
+            </div>
+          )}
+        </div>
+      )
+    }
+
     // Handle ProPublica nonprofit search results
     if (
       toolName === "propublica_nonprofit_search" &&

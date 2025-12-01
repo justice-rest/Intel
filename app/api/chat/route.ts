@@ -12,16 +12,13 @@ import {
   shouldEnableYahooFinanceTools,
 } from "@/lib/tools/yahoo-finance"
 import {
-  openCorporatesCompanySearchTool,
-  openCorporatesOfficerSearchTool,
-  openCorporatesCompanyDetailsTool,
-  shouldEnableOpenCorporatesTools,
-} from "@/lib/tools/opencorporates"
-import {
   propublicaNonprofitSearchTool,
   propublicaNonprofitDetailsTool,
   shouldEnableProPublicaTools,
 } from "@/lib/tools/propublica-nonprofits"
+import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
+import { tavilySearchTool, shouldEnableTavilyTool } from "@/lib/tools/tavily-search"
+import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/firecrawl-search"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -181,13 +178,24 @@ export async function POST(req: Request) {
       ? `${effectiveSystemPrompt}\n\n${memoryResult}`
       : effectiveSystemPrompt
 
-    // Add search guidance when search is enabled and Linkup tool is available
-    if (enableSearch && shouldEnableLinkupTool()) {
-      finalSystemPrompt += `\n\n## Web Search
-You have access to the searchWeb tool. The user has enabled web search for this conversation.
-- Use searchWeb proactively when the user asks about current events, recent information, or anything that requires up-to-date data
-- The tool returns a synthesized answer with sources - incorporate this information naturally into your response
-- Always cite sources when using search results`
+    // Add search guidance when search is enabled
+    if (enableSearch) {
+      const searchTools: string[] = []
+      if (shouldEnableLinkupTool()) searchTools.push("searchWeb (prospect research: SEC, FEC, 990s, real estate, corporate filings)")
+      if (shouldEnableExaTool()) searchTools.push("exaSearch (semantic search, broad web, finding similar content)")
+      if (shouldEnableTavilyTool()) searchTools.push("tavilySearch (news, current events, real-time facts)")
+      if (shouldEnableFirecrawlTool()) searchTools.push("firecrawlSearch (web scraping, full page content)")
+
+      if (searchTools.length > 0) {
+        finalSystemPrompt += `\n\n## Web Search
+You have access to these search tools: ${searchTools.join(", ")}
+- Use searchWeb for prospect research (SEC filings, FEC contributions, foundation 990s, property records, corporate data)
+- Use exaSearch for semantic queries, finding similar content, companies, or when keyword search fails
+- Use tavilySearch for news, current events, and real-time factual questions (use topic='news' for news, topic='finance' for financial data)
+- Use firecrawlSearch when you need full page content as markdown (set scrapeContent=true for full content)
+- Always cite sources when using search results
+- Choose the most appropriate tool based on the query type`
+      }
     }
 
     /**
@@ -235,9 +243,21 @@ You have access to the searchWeb tool. The user has enabled web search for this 
             search_memory: createMemorySearchTool(userId),
           }
         : {}),
-      // Add Linkup web search tool when search is enabled and API key is configured
+      // Add Linkup web search tool - prospect research with curated domains
       ...(enableSearch && shouldEnableLinkupTool()
         ? { searchWeb: linkupSearchTool }
+        : {}),
+      // Add Exa semantic search tool - neural embeddings, broad web coverage
+      ...(enableSearch && shouldEnableExaTool()
+        ? { exaSearch: exaSearchTool }
+        : {}),
+      // Add Tavily search tool - news, current events, real-time facts
+      ...(enableSearch && shouldEnableTavilyTool()
+        ? { tavilySearch: tavilySearchTool }
+        : {}),
+      // Add Firecrawl search tool - web scraping, full page content
+      ...(enableSearch && shouldEnableFirecrawlTool()
+        ? { firecrawlSearch: firecrawlSearchTool }
         : {}),
       // Add Yahoo Finance tools for stock data, executive profiles, and insider transactions
       // Available to all users (no API key required)
@@ -246,15 +266,6 @@ You have access to the searchWeb tool. The user has enabled web search for this 
             yahoo_finance_quote: yahooFinanceQuoteTool,
             yahoo_finance_search: yahooFinanceSearchTool,
             yahoo_finance_profile: yahooFinanceProfileTool,
-          }
-        : {}),
-      // Add OpenCorporates tools for business ownership and officer lookup
-      // Only available when OPENCORPORATES_API_KEY is configured
-      ...(enableSearch && shouldEnableOpenCorporatesTools()
-        ? {
-            opencorporates_company_search: openCorporatesCompanySearchTool,
-            opencorporates_officer_search: openCorporatesOfficerSearchTool,
-            opencorporates_company_details: openCorporatesCompanyDetailsTool,
           }
         : {}),
       // Add ProPublica Nonprofit Explorer tools for foundation/nonprofit research
