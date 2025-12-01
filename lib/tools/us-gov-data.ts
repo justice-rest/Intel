@@ -214,28 +214,40 @@ async function searchUsaspending(params: UsGovDataParams): Promise<UsGovDataResu
 
   try {
     // Build award type codes filter
-    const awardTypeCodes: string[] = []
-    if (awardType === "contracts" || awardType === "all") {
-      awardTypeCodes.push("A", "B", "C", "D") // Contract types
-    }
-    if (awardType === "grants" || awardType === "all") {
-      awardTypeCodes.push("02", "03", "04", "05") // Grant types
-    }
-    if (awardType === "loans" || awardType === "all") {
-      awardTypeCodes.push("07", "08") // Loan types
-    }
-    if (awardType === "direct_payments" || awardType === "all") {
-      awardTypeCodes.push("06", "10") // Direct payment types
-    }
-    if (awardType === "other" || awardType === "all") {
-      awardTypeCodes.push("09", "11") // Other types
+    // IMPORTANT: USAspending API requires award_type_codes from only ONE group at a time
+    // Groups: contracts (A,B,C,D), grants (02,03,04,05), loans (07,08),
+    // direct_payments (06,10), other (09,11,-1)
+    // When "all" is selected, we don't pass award_type_codes to get all types
+    let awardTypeCodes: string[] | null = null
+
+    switch (awardType) {
+      case "contracts":
+        awardTypeCodes = ["A", "B", "C", "D"]
+        break
+      case "grants":
+        awardTypeCodes = ["02", "03", "04", "05"]
+        break
+      case "loans":
+        awardTypeCodes = ["07", "08"]
+        break
+      case "direct_payments":
+        awardTypeCodes = ["06", "10"]
+        break
+      case "other":
+        awardTypeCodes = ["09", "11", "-1"]
+        break
+      case "all":
+      default:
+        // Don't filter by award type - return all types
+        awardTypeCodes = null
+        break
     }
 
     // Build request body
     const requestBody: Record<string, unknown> = {
       filters: {
         recipient_search_text: [query],
-        ...(awardTypeCodes.length > 0 && { award_type_codes: awardTypeCodes }),
+        ...(awardTypeCodes && { award_type_codes: awardTypeCodes }),
         ...(agency && { agencies: [{ type: "awarding", tier: "toptier", name: agency }] }),
         ...(startDate && endDate && {
           time_period: [{ start_date: startDate, end_date: endDate }],
