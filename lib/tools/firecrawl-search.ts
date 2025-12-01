@@ -67,10 +67,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
  */
 export const firecrawlSearchTool = tool({
   description:
-    "Web search and scraping tool. Best for: when you need full page content, " +
-    "scraping specific websites, or getting clean markdown from web pages. " +
-    "By default returns search results only (fast, cheap). " +
-    "Set scrapeContent=true to get full page content as markdown (slower, costs more).",
+    "General web search with optional deep content extraction. " +
+    "Best for: technical documentation, blog posts, articles, research papers, company websites, " +
+    "product pages, and any query where you need comprehensive web results. " +
+    "Use scrapeContent=true when you need the full page text/markdown.",
   parameters: firecrawlSearchParametersSchema,
   execute: async ({
     query,

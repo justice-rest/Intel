@@ -184,7 +184,7 @@ export async function POST(req: Request) {
       if (shouldEnableLinkupTool()) searchTools.push("searchWeb (prospect research: SEC, FEC, 990s, real estate, corporate filings)")
       if (shouldEnableExaTool()) searchTools.push("exaSearch (semantic search, broad web, finding similar content)")
       if (shouldEnableTavilyTool()) searchTools.push("tavilySearch (news, current events, real-time facts)")
-      if (shouldEnableFirecrawlTool()) searchTools.push("firecrawlSearch (web scraping, full page content)")
+      if (shouldEnableFirecrawlTool()) searchTools.push("firecrawlSearch (general web search, documentation, articles)")
 
       if (searchTools.length > 0) {
         finalSystemPrompt += `\n\n## Web Search
@@ -192,7 +192,7 @@ You have access to these search tools: ${searchTools.join(", ")}
 - Use searchWeb for prospect research (SEC filings, FEC contributions, foundation 990s, property records, corporate data)
 - Use exaSearch for semantic queries, finding similar content, companies, or when keyword search fails
 - Use tavilySearch for news, current events, and real-time factual questions (use topic='news' for news, topic='finance' for financial data)
-- Use firecrawlSearch when you need full page content as markdown (set scrapeContent=true for full content)
+- Use firecrawlSearch for general web queries, technical docs, articles, blog posts, and company info
 - Always cite sources when using search results
 - Choose the most appropriate tool based on the query type`
       }
