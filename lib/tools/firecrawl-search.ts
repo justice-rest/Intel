@@ -91,20 +91,18 @@ export const firecrawlSearchTool = tool({
       const app = new FirecrawlApp({ apiKey: getFirecrawlApiKey() })
       console.log("[Firecrawl Tool] Client initialized, executing search...")
 
-      // Build search options
-      const searchOptions: {
-        limit: number
-        scrapeOptions?: { formats: string[] }
-      } = {
-        limit: Math.min(limit, 10), // Cap at 10 for cost
-      }
-
-      // Only add scrape options if scraping is enabled
-      if (scrapeContent) {
-        searchOptions.scrapeOptions = {
-          formats: ["markdown"],
-        }
-      }
+      // Build search options - only include limit for basic search
+      // Firecrawl's search method has strict typing for scrapeOptions
+      const searchOptions = scrapeContent
+        ? {
+            limit: Math.min(limit, 10),
+            scrapeOptions: {
+              formats: ["markdown" as const],
+            },
+          }
+        : {
+            limit: Math.min(limit, 10),
+          }
 
       // Perform search with timeout
       const response = await withTimeout(
@@ -114,18 +112,13 @@ export const firecrawlSearchTool = tool({
       )
 
       // Map results to standard format
-      // Handle both search-only and scrape results
-      const webResults = response?.data || []
-      const results: FirecrawlSearchResult[] = webResults.map((r: {
-        title?: string
-        url: string
-        description?: string
-        markdown?: string
-      }) => ({
+      // Firecrawl returns { web: [], news: [], images: [] }
+      const webResults = response?.web || []
+      const results: FirecrawlSearchResult[] = webResults.map((r) => ({
         title: r.title || "Untitled",
         url: r.url,
         snippet: r.description || "",
-        markdown: r.markdown || undefined,
+        markdown: "markdown" in r ? (r as { markdown?: string }).markdown : undefined,
       }))
 
       const duration = Date.now() - startTime
