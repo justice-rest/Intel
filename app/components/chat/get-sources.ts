@@ -65,6 +65,41 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
+        // Handle SEC EDGAR filings tool results
+        if (
+          part.toolInvocation.toolName === "sec_edgar_filings" &&
+          result?.filings
+        ) {
+          const sources = result.filings
+            .filter((f: { url?: string | null }) => f.url)
+            .map((f: { formType?: string; fiscalYear?: number; fiscalPeriod?: string; url: string }) => ({
+              title: `SEC ${f.formType || "Filing"} - ${f.fiscalPeriod || ""} ${f.fiscalYear || ""}`.trim(),
+              url: f.url,
+              text: `${f.formType || "SEC Filing"} for fiscal ${f.fiscalPeriod || ""} ${f.fiscalYear || ""}`,
+            }))
+          // Add link to SEC EDGAR search
+          if (result.symbol) {
+            sources.push({
+              title: `SEC EDGAR - ${result.symbol}`,
+              url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${result.cik || result.symbol}&type=10&dateb=&owner=include&count=40`,
+              text: `SEC EDGAR filings for ${result.symbol}`,
+            })
+          }
+          return sources
+        }
+
+        // Handle FEC contributions tool results
+        if (
+          part.toolInvocation.toolName === "fec_contributions" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "FEC Record",
+            url: s.url,
+            text: `FEC contribution record`,
+          }))
+        }
+
         // Handle summarizeSources tool results
         if (
           part.toolInvocation.toolName === "summarizeSources" &&

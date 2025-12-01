@@ -19,6 +19,8 @@ import {
 import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
 import { tavilySearchTool, shouldEnableTavilyTool } from "@/lib/tools/tavily-search"
 import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/firecrawl-search"
+import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
+import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -186,15 +188,35 @@ export async function POST(req: Request) {
       if (shouldEnableTavilyTool()) searchTools.push("tavilySearch (news, current events, real-time facts)")
       if (shouldEnableFirecrawlTool()) searchTools.push("firecrawlSearch (general web search, documentation, articles)")
 
-      if (searchTools.length > 0) {
-        finalSystemPrompt += `\n\n## Web Search
-You have access to these search tools: ${searchTools.join(", ")}
+      // Data API tools (direct access to authoritative sources)
+      const dataTools: string[] = []
+      if (shouldEnableSecEdgarTools()) dataTools.push("sec_edgar_filings (SEC 10-K/10-Q filings, financial statements, executive compensation)")
+      if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
+      if (shouldEnableYahooFinanceTools()) dataTools.push("yahoo_finance_* (stock quotes, company profiles, insider holdings)")
+      if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
+
+      if (searchTools.length > 0 || dataTools.length > 0) {
+        finalSystemPrompt += `\n\n## Web Search & Data Tools`
+
+        if (searchTools.length > 0) {
+          finalSystemPrompt += `\nYou have access to these search tools: ${searchTools.join(", ")}
 - Use searchWeb for prospect research (SEC filings, FEC contributions, foundation 990s, property records, corporate data)
 - Use exaSearch for semantic queries, finding similar content, companies, or when keyword search fails
 - Use tavilySearch for news, current events, and real-time factual questions (use topic='news' for news, topic='finance' for financial data)
-- Use firecrawlSearch for general web queries, technical docs, articles, blog posts, and company info
-- Always cite sources when using search results
-- Choose the most appropriate tool based on the query type`
+- Use firecrawlSearch for general web queries, technical docs, articles, blog posts, and company info`
+        }
+
+        if (dataTools.length > 0) {
+          finalSystemPrompt += `\n\nYou also have access to these data API tools: ${dataTools.join(", ")}
+- Use sec_edgar_filings for public company financial data (10-K annual reports, 10-Q quarterly reports, balance sheets, income statements, cash flow, executive compensation)
+- Use fec_contributions to search FEC records for an individual's political contribution history (amounts, dates, recipients, employer, occupation)
+- Use yahoo_finance_quote/search/profile for stock prices, market cap, company profiles, executives, and insider holdings
+- Use propublica_nonprofit_search/details for foundation 990 data, nonprofit financials, and EIN lookups`
+        }
+
+        finalSystemPrompt += `\n\n- Always cite sources when using search or data tool results
+- Choose the most appropriate tool based on the query type
+- For prospect research, combine multiple tools: SEC EDGAR for public company financials, FEC for political giving patterns, Yahoo Finance for stock holdings, ProPublica for nonprofit connections`
       }
     }
 
@@ -274,6 +296,20 @@ You have access to these search tools: ${searchTools.join(", ")}
         ? {
             propublica_nonprofit_search: propublicaNonprofitSearchTool,
             propublica_nonprofit_details: propublicaNonprofitDetailsTool,
+          }
+        : {}),
+      // Add SEC EDGAR tool for public company filings and financial data
+      // Free API - no key required. Provides 10-K, 10-Q filings and parsed financial statements
+      ...(enableSearch && shouldEnableSecEdgarTools()
+        ? {
+            sec_edgar_filings: secEdgarFilingsTool,
+          }
+        : {}),
+      // Add FEC contributions tool for political giving research
+      // Requires FEC_API_KEY from api.data.gov (free)
+      ...(enableSearch && shouldEnableFecTools()
+        ? {
+            fec_contributions: fecContributionsTool,
           }
         : {}),
     } as ToolSet

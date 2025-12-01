@@ -67,6 +67,7 @@
     "react-dom": "^19.0.0",
     "recharts": "^3.5.0",
     "resend": "^6.5.2",
+    "sec-edgar-api": "^1.0.6",
     "shiki": "^3.4.0",
     "slugify": "^1.6.6",
     "sonner": "^2.0.1",

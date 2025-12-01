@@ -10,9 +10,11 @@ import { tool } from "ai"
 import { z } from "zod"
 import YahooFinance from "yahoo-finance2"
 
-// Get Yahoo Finance instance
+// Create singleton Yahoo Finance instance (v3.x requires instantiation)
+const yahooFinanceInstance = new YahooFinance()
+
 function getYahooFinance() {
-  return YahooFinance
+  return yahooFinanceInstance
 }
 
 // Type definitions for yahoo-finance2 responses
