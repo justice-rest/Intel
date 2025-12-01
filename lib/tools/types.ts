@@ -8,8 +8,8 @@ export const linkupSearchParametersSchema = z.object({
   depth: z
     .enum(["standard", "deep"])
     .optional()
-    .default("standard")
-    .describe("Search depth: 'standard' is the default and recommended for all searches. Only use 'deep' if explicitly requested by the user."),
+    .default("deep")
+    .describe("Search depth: 'deep' (default) for comprehensive results, 'standard' for faster basic search."),
 })
 
 export type LinkupSearchParameters = z.infer<typeof linkupSearchParametersSchema>
