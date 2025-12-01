@@ -192,7 +192,7 @@ text-decoration: none
 </td>
 <td align="center" width="33%" style="padding:10px;vertical-align:top;">
 <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
-<tr><td align="center" style="font-size:32px;font-weight:700;color:${failedCount > 0 ? '#ef4444' : '#45ffbc'};font-family:Inter,sans-serif;line-height:1.2;">${failedCount}</td></tr>
+<tr><td align="center" style="font-size:32px;font-weight:700;color:#111111;font-family:Inter,sans-serif;line-height:1.2;">${failedCount}</td></tr>
 <tr><td align="center" style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;padding-top:8px;">Failed</td></tr>
 </table>
 </td>
