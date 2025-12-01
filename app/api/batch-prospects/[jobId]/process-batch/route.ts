@@ -56,8 +56,9 @@ async function getConcurrentLimit(userId: string): Promise<number> {
     const customerData = await getCustomerData(userId)
 
     if (customerData?.products && customerData.products.length > 0) {
+      // Check for active or trialing products
       const activeProduct = customerData.products.find(
-        (p: { status: string }) => p.status === "active"
+        (p: { status: string }) => p.status === "active" || p.status === "trialing"
       )
 
       if (activeProduct) {

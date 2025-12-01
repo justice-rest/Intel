@@ -36,9 +36,9 @@ export async function GET() {
       const customerData = await getCustomerData(user.id)
 
       if (customerData?.products && customerData.products.length > 0) {
-        // Get the first active product
+        // Get the first active or trialing product
         const activeProduct = customerData.products.find(
-          (p: { status: string }) => p.status === "active"
+          (p: { status: string }) => p.status === "active" || p.status === "trialing"
         )
 
         if (activeProduct) {

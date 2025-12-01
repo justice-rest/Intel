@@ -301,6 +301,16 @@ export async function trackBatchUsage(userId: string, rowCount: number): Promise
 }
 
 /**
+ * Check if a plan has unlimited messages
+ * Pro and Scale plans have unlimited messages
+ */
+export function isUnlimitedPlan(planId: string | null): boolean {
+  if (!planId) return false
+  const normalized = normalizePlanId(planId)
+  return normalized === "pro" || normalized === "scale"
+}
+
+/**
  * Check if user has enough credits for batch processing
  *
  * @param userId - The user's ID
@@ -319,6 +329,21 @@ export async function checkBatchCredits(
   }
 
   try {
+    // First check if user is on an unlimited plan (Pro or Scale)
+    const customerData = await getCustomerData(userId)
+    if (customerData?.products && customerData.products.length > 0) {
+      // Find active or trialing product
+      const activeProduct = customerData.products.find(
+        (p: { status: string }) => p.status === "active" || p.status === "trialing"
+      )
+
+      if (activeProduct && isUnlimitedPlan(activeProduct.id)) {
+        console.log(`[Autumn] User ${userId} is on unlimited plan (${activeProduct.id}), allowing batch access`)
+        return { allowed: true, balance: undefined }
+      }
+    }
+
+    // For limited plans (Growth), check the balance
     const { data, error } = await autumn.check({
       customer_id: userId,
       feature_id: "messages",
