@@ -1,16 +1,19 @@
 /**
  * Batch Prospect Report Generator
  * Generates comprehensive prospect research reports using AI + web search
+ *
+ * Two modes:
+ * - Standard: Fast 2-search approach for quick prioritization
+ * - Comprehensive: Full agentic research using all available tools (search, ProPublica, SEC, FEC, Wikidata, etc.)
  */
 
 import { streamText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { LinkupClient } from "linkup-sdk"
 import { isLinkupEnabled, getLinkupApiKey, PROSPECT_RESEARCH_DOMAINS } from "@/lib/linkup/config"
-import { SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
 import { ProspectInputData, BatchProspectItem, BatchSearchMode } from "./types"
 import { buildProspectQueryString } from "./parser"
-import { PROSPECT_PROCESSING_TIMEOUT_MS } from "./config"
+import { buildBatchTools, getToolDescriptions, extractSourcesFromToolResults } from "./batch-tools"
 
 // ============================================================================
 // STANDARD MODE PROMPT
@@ -63,6 +66,80 @@ Score Tiers:
 - Base estimates on property values and business ownership found
 - If property value unknown, estimate based on location and comparable properties
 - Gift capacity is typically 1-5% of estimated net worth`
+
+// ============================================================================
+// COMPREHENSIVE MODE PROMPT (with tools)
+// ============================================================================
+
+/**
+ * System prompt for Comprehensive mode - uses all available research tools
+ * to produce data-rich, grounded prospect research reports
+ */
+const COMPREHENSIVE_MODE_SYSTEM_PROMPT = `You are Rōmy, an expert prospect research assistant for nonprofit fundraising. Generate a COMPREHENSIVE prospect research report using all available research tools.
+
+## YOUR RESEARCH APPROACH
+
+You have access to powerful research tools. Use them strategically:
+
+1. **Start with web search** to discover the person's professional background, business affiliations, and nonprofit connections
+2. **Use specialized data tools** to gather hard data:
+   - ProPublica for nonprofit/foundation 990 data (search by organization name, NOT person name)
+   - SEC EDGAR for public company financials if they're an executive
+   - FEC for political contribution history
+   - Wikidata for biographical data (education, employers, net worth)
+   - Yahoo Finance for stock holdings and company profiles
+3. **Cross-reference findings** to build a complete picture
+
+## PERSON-TO-NONPROFIT WORKFLOW
+IMPORTANT: ProPublica searches by organization name, NOT person name.
+- First, use web search to find foundations/nonprofits the person is affiliated with
+- Then use propublica_nonprofit_search with the ORGANIZATION name
+- Example: For "John Smith", search web for "John Smith foundation board", find "Smith Family Foundation", then search ProPublica for "Smith Family Foundation"
+
+## OUTPUT FORMAT
+
+After researching, produce a report with these sections:
+
+### Executive Summary
+Brief 2-3 sentence overview of the prospect's wealth indicators and giving potential.
+
+### Wealth Indicators
+- **Real Estate:** Property values, addresses, ownership details
+- **Business Interests:** Company ownership, executive positions, equity stakes
+- **Stock Holdings:** Public company shares, insider transactions
+- **Other Assets:** Disclosed net worth, inheritance, other indicators
+
+### Philanthropic Profile
+- **Foundation Affiliations:** Foundations they run or serve on (with 990 data if available)
+- **Nonprofit Board Service:** Current and past board memberships
+- **Political Giving:** FEC contribution history and patterns
+- **Known Donations:** Major gifts to organizations
+
+### Capacity Assessment
+| Metric | Value |
+|--------|-------|
+| **Estimated Net Worth** | $[amount] |
+| **Estimated Gift Capacity** | $[amount] |
+| **Capacity Rating** | [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL] |
+| **RōmyScore™** | [X]/41 |
+
+### Cultivation Strategy
+1-2 specific recommendations for engagement approach.
+
+### Sources
+List the key sources used in this research.
+
+## SCORING GUIDE (RōmyScore):
+- 31-41: Transformational Prospect (MAJOR capacity, $25K+)
+- 21-30: High-Capacity Major Donor Target (PRINCIPAL capacity, $10K-$25K)
+- 11-20: Mid-Capacity Growth Potential (LEADERSHIP capacity, $5K-$10K)
+- 0-10: Emerging/Annual Fund (ANNUAL capacity, <$5K)
+
+## IMPORTANT:
+- USE YOUR TOOLS - don't just summarize, actively research
+- Include specific dollar amounts with sources
+- If data is unavailable, note it and estimate based on available indicators
+- Always cite your sources`
 
 // ============================================================================
 // TYPES
@@ -180,46 +257,6 @@ function generateStandardSearchQueries(prospect: ProspectInputData): string[] {
   }
 
   return queries
-}
-
-/**
- * Generate search queries for Comprehensive mode (full research)
- * 5 searches covering all aspects of prospect research
- */
-function generateComprehensiveSearchQueries(prospect: ProspectInputData): string[] {
-  const name = prospect.name
-  const location = [prospect.city, prospect.state].filter(Boolean).join(", ")
-  const fullAddress = buildProspectQueryString(prospect)
-
-  const queries: string[] = []
-
-  // Core identity searches
-  queries.push(`"${name}" ${location} professional background career`)
-
-  // Real estate (using address for more accuracy)
-  if (prospect.address || prospect.full_address) {
-    queries.push(`"${fullAddress}" property records real estate`)
-  }
-
-  // Business ownership
-  queries.push(`"${name}" ${location} business owner company founder CEO`)
-
-  // Philanthropy and giving
-  queries.push(`"${name}" ${location} philanthropic giving donation foundation charity`)
-
-  // Political contributions (FEC)
-  queries.push(`"${name}" ${location} political contributions FEC donations`)
-
-  // Limit to 5 searches to stay within rate limits
-  return queries.slice(0, 5)
-}
-
-/**
- * Generate search queries based on search mode
- * @deprecated Use generateStandardSearchQueries or generateComprehensiveSearchQueries directly
- */
-function generateSearchQueries(prospect: ProspectInputData): string[] {
-  return generateComprehensiveSearchQueries(prospect)
 }
 
 // ============================================================================
@@ -489,12 +526,145 @@ function extractMetricsFromReport(content: string): {
 // MAIN REPORT GENERATION
 // ============================================================================
 
-export async function generateProspectReport(
+/**
+ * Generate a comprehensive prospect report using agentic AI with all available tools.
+ * This mode gives the AI access to search, ProPublica, SEC, FEC, Wikidata, etc.
+ * and lets it autonomously research the prospect using maxSteps.
+ */
+async function generateComprehensiveReportWithTools(
   options: GenerateReportOptions
 ): Promise<GenerateReportResult> {
-  const { prospect, enableWebSearch, apiKey, searchMode = "standard" } = options
+  const { prospect, apiKey } = options
   const startTime = Date.now()
-  const isStandardMode = searchMode === "standard"
+
+  try {
+    // Build the tools object - same tools as chat API
+    const tools = buildBatchTools()
+    const hasTools = Object.keys(tools).length > 0
+
+    // Build prospect info for the prompt
+    const prospectInfo = buildProspectQueryString(prospect)
+    const additionalInfo = Object.entries(prospect)
+      .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
+      .filter(([, value]) => value)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join("\n")
+
+    // Build system prompt with tool descriptions
+    let systemPrompt = COMPREHENSIVE_MODE_SYSTEM_PROMPT
+    if (hasTools) {
+      systemPrompt += "\n\n" + getToolDescriptions()
+    }
+
+    // User message for comprehensive research
+    const userMessage = `Research this prospect and generate a comprehensive prospect research report:
+
+**Prospect:** ${prospectInfo}
+${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
+
+Use your research tools to gather data about this person:
+1. Start with web search to find their professional background and affiliations
+2. If you discover they're affiliated with foundations/nonprofits, search ProPublica for 990 data
+3. If they're a public company executive, check SEC EDGAR for financial data
+4. Check FEC for political contribution history
+5. Use Wikidata for biographical details
+
+After researching, produce the comprehensive report with all sections filled in based on your findings.`
+
+    console.log(`[BatchProcessor] Starting comprehensive agentic research for: ${prospect.name}`)
+    console.log(`[BatchProcessor] Available tools: ${Object.keys(tools).join(", ")}`)
+
+    // Generate report using AI with tools
+    const openrouter = createOpenRouter({
+      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+    })
+    const model = openrouter.chat("x-ai/grok-4.1-fast")
+
+    const result = await streamText({
+      model,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+      tools: hasTools ? tools : undefined,
+      maxSteps: hasTools ? 15 : 1, // Allow multiple tool calls for agentic research
+      maxTokens: 16000,
+      temperature: 0.3,
+    })
+
+    // Collect the full response and track tool results
+    let reportContent = ""
+    const toolResults: Array<{ toolName: string; result: unknown }> = []
+
+    for await (const chunk of result.textStream) {
+      reportContent += chunk
+    }
+
+    // Get the full response to extract tool results for sources
+    // Tool results are in steps from the AI SDK
+    const steps = await result.steps
+    for (const step of steps) {
+      // Type-safe access to tool results - use type assertion since ToolSet is generic
+      const stepToolResults = step.toolResults as Array<{
+        toolName: string
+        result: unknown
+      }> | undefined
+      if (stepToolResults && Array.isArray(stepToolResults)) {
+        for (const toolResult of stepToolResults) {
+          toolResults.push({
+            toolName: toolResult.toolName,
+            result: toolResult.result,
+          })
+        }
+      }
+    }
+
+    // Extract sources from tool results
+    const allSources = extractSourcesFromToolResults(toolResults)
+
+    // Get usage stats
+    const usage = await result.usage
+    const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
+
+    // Extract metrics from the generated report
+    const metrics = extractMetricsFromReport(reportContent)
+
+    const processingTime = Date.now() - startTime
+    console.log(
+      `[BatchProcessor] Comprehensive report generated for ${prospect.name} in ${processingTime}ms, ` +
+        `tokens: ${tokensUsed}, tool calls: ${toolResults.length}, RōmyScore: ${metrics.romy_score || "N/A"}`
+    )
+
+    return {
+      success: true,
+      report_content: reportContent,
+      romy_score: metrics.romy_score,
+      romy_score_tier: metrics.romy_score_tier,
+      capacity_rating: metrics.capacity_rating,
+      estimated_net_worth: metrics.estimated_net_worth,
+      estimated_gift_capacity: metrics.estimated_gift_capacity,
+      recommended_ask: metrics.recommended_ask,
+      search_queries_used: toolResults.map((t) => `Tool: ${t.toolName}`),
+      sources_found: allSources,
+      tokens_used: tokensUsed,
+    }
+  } catch (error) {
+    console.error("[BatchProcessor] Comprehensive report generation failed:", error)
+
+    return {
+      success: false,
+      error_message: error instanceof Error ? error.message : "Report generation failed",
+    }
+  }
+}
+
+/**
+ * Generate a standard report using the fast 2-search approach.
+ * This is the original implementation - fast and cost-effective.
+ */
+async function generateStandardReport(
+  options: GenerateReportOptions
+): Promise<GenerateReportResult> {
+  const { prospect, enableWebSearch, apiKey } = options
+  const startTime = Date.now()
 
   try {
     // Build search queries
@@ -504,18 +674,13 @@ export async function generateProspectReport(
 
     // Perform web searches if enabled
     if (enableWebSearch) {
-      // Use appropriate query generator based on search mode
-      const queries = isStandardMode
-        ? generateStandardSearchQueries(prospect)
-        : generateComprehensiveSearchQueries(prospect)
+      const queries = generateStandardSearchQueries(prospect)
       searchQueriesUsed.push(...queries)
 
-      console.log(`[BatchProcessor] Running ${queries.length} web searches (${searchMode} mode) for: ${prospect.name}`)
+      console.log(`[BatchProcessor] Running ${queries.length} web searches (standard mode) for: ${prospect.name}`)
 
       // Run all searches in parallel - LinkUp supports 10 QPS
-      const searchResults = await Promise.all(
-        queries.map(query => performWebSearch(query))
-      )
+      const searchResults = await Promise.all(queries.map((query) => performWebSearch(query)))
 
       const compiled = compileSearchContext(searchResults)
       searchContext = compiled.context
@@ -530,9 +695,7 @@ export async function generateProspectReport(
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n")
 
-    // Different user message based on mode
-    const userMessage = isStandardMode
-      ? `Generate a brief prioritization summary for:
+    const userMessage = `Generate a brief prioritization summary for:
 
 **Prospect:** ${prospectInfo}
 ${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
@@ -540,14 +703,6 @@ ${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
 ${searchContext ? `## WEB SEARCH RESULTS\n\n${searchContext}` : "**Note:** No web search results available. Estimate based on location and typical property values for the area."}
 
 Generate the 5-section prioritization summary now.`
-      : `Generate a comprehensive prospect research report for:
-
-**Prospect:** ${prospectInfo}
-${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
-
-${searchContext ? `## WEB SEARCH RESULTS\n\n${searchContext}` : "**Note:** No web search results available. Generate report based on the information provided and note where additional research is recommended."}
-
-Generate the full report now.`
 
     // Generate report using AI via OpenRouter
     const openrouter = createOpenRouter({
@@ -555,16 +710,12 @@ Generate the full report now.`
     })
     const model = openrouter.chat("x-ai/grok-4.1-fast")
 
-    // Use appropriate system prompt and token limit based on mode
-    const systemPrompt = isStandardMode ? STANDARD_MODE_SYSTEM_PROMPT : SYSTEM_PROMPT_DEFAULT
-    const maxTokens = isStandardMode ? 2000 : 16000
-
     const result = await streamText({
       model,
-      system: systemPrompt,
+      system: STANDARD_MODE_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
-      maxTokens,
-      temperature: 0.3, // Lower temperature for more consistent reports
+      maxTokens: 2000,
+      temperature: 0.3,
     })
 
     // Collect the full response
@@ -582,8 +733,8 @@ Generate the full report now.`
 
     const processingTime = Date.now() - startTime
     console.log(
-      `[BatchProcessor] Report generated for ${prospect.name} in ${processingTime}ms, ` +
-      `tokens: ${tokensUsed}, RōmyScore: ${metrics.romy_score || "N/A"}`
+      `[BatchProcessor] Standard report generated for ${prospect.name} in ${processingTime}ms, ` +
+        `tokens: ${tokensUsed}, RōmyScore: ${metrics.romy_score || "N/A"}`
     )
 
     return {
@@ -600,12 +751,31 @@ Generate the full report now.`
       tokens_used: tokensUsed,
     }
   } catch (error) {
-    console.error("[BatchProcessor] Report generation failed:", error)
+    console.error("[BatchProcessor] Standard report generation failed:", error)
 
     return {
       success: false,
       error_message: error instanceof Error ? error.message : "Report generation failed",
     }
+  }
+}
+
+/**
+ * Main entry point for prospect report generation.
+ * Routes to either standard (fast 2-search) or comprehensive (agentic with tools) mode.
+ */
+export async function generateProspectReport(
+  options: GenerateReportOptions
+): Promise<GenerateReportResult> {
+  const { searchMode = "standard" } = options
+
+  // Route to appropriate generation mode
+  if (searchMode === "comprehensive") {
+    // Comprehensive mode: Full agentic research with all tools
+    return generateComprehensiveReportWithTools(options)
+  } else {
+    // Standard mode: Fast 2-search approach (original implementation)
+    return generateStandardReport(options)
   }
 }
 
