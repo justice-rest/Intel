@@ -26,6 +26,31 @@ const TRANSITION = {
   bounce: 0,
 }
 
+/**
+ * Maps internal tool names to user-friendly display names
+ */
+const TOOL_DISPLAY_NAMES: Record<string, string> = {
+  searchWeb: "Web Search",
+  exaSearch: "Web Search: Additional",
+  tavilySearch: "News Search",
+  firecrawlSearch: "Web Search: Advanced",
+  propublica_nonprofit_search: "Nonprofit Search",
+  propublica_nonprofit_details: "Nonprofit Details",
+  yahoo_finance_quote: "Stock Quote",
+  yahoo_finance_search: "Stock Search",
+  yahoo_finance_profile: "Company Profile",
+  rag_search: "Document Search",
+  list_documents: "List Documents",
+  search_memory: "Memory Search",
+}
+
+/**
+ * Get user-friendly display name for a tool
+ */
+function getToolDisplayName(toolName: string): string {
+  return TOOL_DISPLAY_NAMES[toolName] || toolName
+}
+
 export function ToolInvocation({
   toolInvocations,
   defaultOpen = false,
@@ -915,7 +940,7 @@ function SingleToolCard({
       >
         <div className="flex flex-1 flex-row items-center gap-2 text-left text-base">
           <Wrench className="text-muted-foreground size-4" />
-          <span className="font-mono text-sm">{toolName}</span>
+          <span className="text-sm">{getToolDisplayName(toolName)}</span>
           <AnimatePresence mode="popLayout" initial={false}>
             {isLoading ? (
               <motion.div
