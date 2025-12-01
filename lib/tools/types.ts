@@ -57,3 +57,11 @@ export {
   type TavilySearchResult,
   type TavilySearchResponse,
 } from "./tavily-search"
+
+// Re-export Jina types
+export {
+  jinaSearchParametersSchema,
+  type JinaSearchParameters,
+  type JinaSource,
+  type JinaSearchResponse,
+} from "./jina-search"

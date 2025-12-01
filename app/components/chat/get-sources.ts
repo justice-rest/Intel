@@ -77,6 +77,30 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
+        // Handle Jina DeepSearch tool results
+        if (
+          part.toolInvocation.toolName === "jinaDeepSearch" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { title?: string; url: string; snippet?: string }) => ({
+            title: s.title || "Untitled",
+            url: s.url,
+            text: s.snippet || "",
+          }))
+        }
+
+        // Handle Brave Search (searchWebGeneral) tool results
+        if (
+          part.toolInvocation.toolName === "searchWebGeneral" &&
+          result?.results
+        ) {
+          return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
+            title: r.title || "Untitled",
+            url: r.url,
+            text: r.snippet || "",
+          }))
+        }
+
         // Handle SEC EDGAR filings tool results
         if (
           part.toolInvocation.toolName === "sec_edgar_filings" &&

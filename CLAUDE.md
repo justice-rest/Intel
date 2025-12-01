@@ -296,7 +296,7 @@ User sends message
 - `/migrations/006_add_memory_system.sql` - Database schema
 
 ### Multi-Provider Search Integration
-**Four Separate Search Tools** for comprehensive web coverage:
+**Five Separate Search Tools** for comprehensive web coverage:
 
 | Tool | Purpose | Cost | Best For |
 |------|---------|------|----------|
@@ -304,6 +304,7 @@ User sends message
 | `exaSearch` (Exa) | Semantic/neural web search | ~$0.01/search | Similar content, broad web |
 | `tavilySearch` (Tavily) | News and real-time search | ~$0.008/search | Current events, news |
 | `firecrawlSearch` (Firecrawl) | Web scraping, full page content | 2 credits/10 results | Full markdown content |
+| `jinaDeepSearch` (Jina) | Complex research with multi-step reasoning | ~70k tokens/query | Complex questions, fact-checking |
 
 **Linkup Search Tool** (`/lib/tools/linkup-search.ts`)
 - Uses `linkup-sdk` package with `sourcedAnswer` output mode
@@ -330,6 +331,15 @@ User sends message
 - Optional full content scraping with `scrapeContent=true`
 - Returns clean markdown when scraping enabled
 - 15-second timeout for low latency
+
+**Jina DeepSearch Tool** (`/lib/tools/jina-search.ts`)
+- Uses Jina's OpenAI-compatible chat completions API
+- Autonomous research agent that iteratively searches, reads, and reasons
+- Supports three reasoning depths: "low" (~20s), "medium" (~57s), "high" (~120s)
+- Returns synthesized answers with URL citations
+- Best for complex research questions requiring multi-step analysis
+- 120-second timeout to accommodate deep research
+- Token-based pricing (~70k tokens average per query)
 
 **Search Flow**:
 ```
@@ -371,12 +381,14 @@ This workflow solves the limitation that searching "John Smith" directly in ProP
 - `/lib/exa/config.ts` - Exa API key, defaults
 - `/lib/tavily/config.ts` - Tavily API key, defaults
 - `/lib/firecrawl/config.ts` - Firecrawl API key, defaults
+- `/lib/jina/config.ts` - Jina API key, defaults, reasoning effort levels
 
 **Key Files**:
 - `/lib/tools/linkup-search.ts` - Linkup tool (prospect research)
 - `/lib/tools/exa-search.ts` - Exa tool (semantic search)
 - `/lib/tools/tavily-search.ts` - Tavily tool (news/real-time)
 - `/lib/tools/firecrawl-search.ts` - Firecrawl tool (web scraping)
+- `/lib/tools/jina-search.ts` - Jina tool (deep research)
 - `/lib/tools/types.ts` - Type definitions and schemas
 - `/app/api/chat/route.ts` - Tool integration
 - `/app/components/chat/get-sources.ts` - Source extraction
@@ -488,6 +500,10 @@ TAVILY_API_KEY=                 # Optional - enables Tavily news search
 # Firecrawl Search (optional - web scraping and full page content)
 # Get your API key at https://firecrawl.dev - 500 free pages
 FIRECRAWL_API_KEY=              # Optional - enables Firecrawl web scraping
+
+# Jina DeepSearch (optional - complex research with multi-step reasoning)
+# Get your API key at https://jina.ai/deepsearch - 10M free tokens
+JINA_API_KEY=                   # Optional - enables Jina deep research
 
 # USAspending API (no API key required - FREE)
 # Federal contracts, grants, loans data - works without a key

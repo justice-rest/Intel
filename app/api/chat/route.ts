@@ -19,6 +19,8 @@ import {
 import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
 import { tavilySearchTool, shouldEnableTavilyTool } from "@/lib/tools/tavily-search"
 import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/firecrawl-search"
+import { jinaSearchTool, shouldEnableJinaTool } from "@/lib/tools/jina-search"
+import { braveSearchTool, shouldEnableBraveTool } from "@/lib/tools/brave-search"
 import { youSearchTool, shouldEnableYouTool } from "@/lib/tools/you-search"
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
@@ -195,6 +197,8 @@ export async function POST(req: Request) {
       if (shouldEnableExaTool()) searchTools.push("exaSearch (semantic search, broad web, finding similar content)")
       if (shouldEnableTavilyTool()) searchTools.push("tavilySearch (news, current events, real-time facts)")
       if (shouldEnableFirecrawlTool()) searchTools.push("firecrawlSearch (general web search, documentation, articles)")
+      if (shouldEnableBraveTool()) searchTools.push("searchWebGeneral (general-purpose web search, backup, broad queries)")
+      if (shouldEnableJinaTool()) searchTools.push("jinaDeepSearch (complex research questions, multi-step reasoning, thorough fact-checking)")
 
       // Data API tools (direct access to authoritative sources)
       const dataTools: string[] = []
@@ -214,7 +218,9 @@ export async function POST(req: Request) {
 - Use youSearch as backup/complement to searchWeb - great for breaking news, recent coverage, and web+news combined results
 - Use exaSearch for semantic queries, finding similar content, companies, or when keyword search fails
 - Use tavilySearch for news, current events, and real-time factual questions (use topic='news' for news, topic='finance' for financial data)
-- Use firecrawlSearch for general web queries, technical docs, articles, blog posts, and company info`
+- Use firecrawlSearch for general web queries, technical docs, articles, blog posts, and company info
+- Use searchWebGeneral for broad web queries, as a backup when other tools don't return enough results, or for general information (use freshness='pd' for past day, 'pw' for past week)
+- Use jinaDeepSearch for complex research questions that require multi-step reasoning and thorough analysis (takes 20-120s, use sparingly for truly complex queries)`
         }
 
         if (dataTools.length > 0) {
@@ -234,12 +240,14 @@ export async function POST(req: Request) {
 For ANY prospect research request, execute 10-15+ tool calls minimum:
 1. **searchWeb** (4-6 calls): property values, business ownership, philanthropy, news
 2. **youSearch**: backup/complement to searchWeb - use for breaking news, recent media coverage, web+news combined
-3. **fec_contributions**: political giving history
-4. **propublica_nonprofit_search/details**: foundation 990 data (search by ORG name, not person)
-5. **yahoo_finance_profile**: if they're a public company executive
-6. **sec_edgar_filings**: if they have SEC filings
-7. **wikidata_search + wikidata_entity**: biographical data (education, employers, net worth)
-8. **tavilySearch**: recent news and current events
+3. **searchWebGeneral**: general web queries, backup when other tools miss results (use freshness='pw' for past week)
+4. **fec_contributions**: political giving history
+5. **propublica_nonprofit_search/details**: foundation 990 data (search by ORG name, not person)
+6. **yahoo_finance_profile**: if they're a public company executive
+7. **sec_edgar_filings**: if they have SEC filings
+8. **wikidata_search + wikidata_entity**: biographical data (education, employers, net worth)
+9. **tavilySearch**: recent news and current events
+10. **jinaDeepSearch**: for complex questions requiring multi-step research and synthesis
 
 **DO NOT** stop after 2-3 tool calls. Run tools in parallel when possible. The user expects comprehensive research.
 
@@ -337,6 +345,14 @@ Run MULTIPLE searchWeb queries to uncover business interests:
       // Add Firecrawl search tool - web scraping, full page content
       ...(enableSearch && shouldEnableFirecrawlTool()
         ? { firecrawlSearch: firecrawlSearchTool }
+        : {}),
+      // Add Jina DeepSearch tool - complex research, multi-step reasoning
+      ...(enableSearch && shouldEnableJinaTool()
+        ? { jinaDeepSearch: jinaSearchTool }
+        : {}),
+      // Add Brave Search tool - general-purpose web search, backup for other tools
+      ...(enableSearch && shouldEnableBraveTool()
+        ? { searchWebGeneral: braveSearchTool }
         : {}),
       // Add Yahoo Finance tools for stock data, executive profiles, and insider transactions
       // Available to all users (no API key required)
