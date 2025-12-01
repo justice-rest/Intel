@@ -12,6 +12,8 @@ import { youSearchTool, shouldEnableYouTool } from "@/lib/tools/you-search"
 import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
 import { tavilySearchTool, shouldEnableTavilyTool } from "@/lib/tools/tavily-search"
 import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/firecrawl-search"
+import { jinaSearchTool, shouldEnableJinaTool } from "@/lib/tools/jina-search"
+import { braveSearchTool, shouldEnableBraveTool } from "@/lib/tools/brave-search"
 import {
   yahooFinanceQuoteTool,
   yahooFinanceSearchTool,
@@ -44,6 +46,8 @@ export function buildBatchTools(): ToolSet {
     ...(shouldEnableExaTool() ? { exaSearch: exaSearchTool } : {}),
     ...(shouldEnableTavilyTool() ? { tavilySearch: tavilySearchTool } : {}),
     ...(shouldEnableFirecrawlTool() ? { firecrawlSearch: firecrawlSearchTool } : {}),
+    ...(shouldEnableJinaTool() ? { jinaDeepSearch: jinaSearchTool } : {}),
+    ...(shouldEnableBraveTool() ? { searchWebGeneral: braveSearchTool } : {}),
 
     // Financial Data Tools
     ...(shouldEnableYahooFinanceTools()
@@ -105,6 +109,12 @@ export function getToolDescriptions(): string {
   }
   if (shouldEnableFirecrawlTool()) {
     searchTools.push("firecrawlSearch (general web search, documentation, articles)")
+  }
+  if (shouldEnableJinaTool()) {
+    searchTools.push("jinaDeepSearch (complex research questions, multi-step reasoning, thorough fact-checking - takes 20-120s)")
+  }
+  if (shouldEnableBraveTool()) {
+    searchTools.push("searchWebGeneral (general-purpose web search, backup when other tools miss results)")
   }
 
   // Data API tools
@@ -192,15 +202,28 @@ export function extractSourcesFromToolResults(
   for (const { result } of toolResults) {
     if (!result || typeof result !== "object") continue
 
-    // Handle tools that return sources array
+    // Handle tools that return sources array (Linkup, You.com, Jina)
     const resultObj = result as Record<string, unknown>
     if (Array.isArray(resultObj.sources)) {
-      for (const source of resultObj.sources as Array<{ name?: string; url?: string }>) {
+      for (const source of resultObj.sources as Array<{ name?: string; title?: string; url?: string }>) {
         if (source.url && !seenUrls.has(source.url)) {
           seenUrls.add(source.url)
           sources.push({
-            name: source.name || new URL(source.url).hostname,
+            name: source.name || source.title || new URL(source.url).hostname,
             url: source.url,
+          })
+        }
+      }
+    }
+
+    // Handle tools that return results array (Exa, Tavily, Firecrawl, Brave)
+    if (Array.isArray(resultObj.results)) {
+      for (const item of resultObj.results as Array<{ title?: string; url?: string }>) {
+        if (item.url && !seenUrls.has(item.url)) {
+          seenUrls.add(item.url)
+          sources.push({
+            name: item.title || new URL(item.url).hostname,
+            url: item.url,
           })
         }
       }
