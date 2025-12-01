@@ -35,8 +35,8 @@ export interface ExaSearchResponse {
   query: string
 }
 
-// Low latency timeout - 15 seconds for fast response
-const EXA_TIMEOUT_MS = 15000
+// 30 second timeout for search operations
+const EXA_TIMEOUT_MS = 30000
 
 /**
  * Helper to add timeout to a promise
