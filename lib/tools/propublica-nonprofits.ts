@@ -144,6 +144,8 @@ export interface NonprofitSearchResult {
     hasFilings: boolean
   }>
   query: string
+  rawContent: string
+  sources: Array<{ name: string; url: string }>
   error?: string
 }
 
@@ -167,6 +169,8 @@ export interface NonprofitDetailsResult {
     officerCompensationPercent?: number
     pdfUrl?: string
   }>
+  rawContent: string
+  sources: Array<{ name: string; url: string }>
   error?: string
 }
 
@@ -200,6 +204,149 @@ function getFormTypeName(formtype: number): string {
 function getTaxCodeDescription(subseccd?: number): string | undefined {
   if (!subseccd) return undefined
   return TAX_CODES[subseccd as keyof typeof TAX_CODES] || `501(c)(${subseccd})`
+}
+
+function formatCurrency(value: number | undefined): string {
+  if (value === undefined || value === null) return "N/A"
+  if (Math.abs(value) >= 1e9) return `$${(value / 1e9).toFixed(2)}B`
+  if (Math.abs(value) >= 1e6) return `$${(value / 1e6).toFixed(2)}M`
+  if (Math.abs(value) >= 1e3) return `$${(value / 1e3).toFixed(0)}K`
+  return `$${value.toLocaleString()}`
+}
+
+function getNteeDescription(nteeCode?: string): string {
+  if (!nteeCode) return "Unknown"
+  const categoryNum = parseInt(nteeCode.charAt(0), 10)
+  if (categoryNum >= 1 && categoryNum <= 10) {
+    return NTEE_CATEGORIES[categoryNum as keyof typeof NTEE_CATEGORIES] || nteeCode
+  }
+  return nteeCode
+}
+
+/**
+ * Format search results for AI consumption
+ */
+function formatSearchResultsForAI(
+  organizations: ProPublicaOrganization[],
+  query: string,
+  totalResults: number
+): string {
+  if (organizations.length === 0) {
+    return `# ProPublica Nonprofit Search: "${query}"\n\n**No results found.**\n\nThis search only matches organization names, not people. If searching for a person's nonprofit affiliations, try:\n1. Search for their foundation name (e.g., "Smith Family Foundation")\n2. Search for organizations they might be affiliated with\n3. Use web search first to discover their nonprofit connections`
+  }
+
+  const lines: string[] = [
+    `# ProPublica Nonprofit Search: "${query}"`,
+    "",
+    `**Total Results:** ${totalResults.toLocaleString()}`,
+    `**Showing:** ${organizations.length} organizations`,
+    "",
+    "---",
+    "",
+  ]
+
+  organizations.forEach((org, index) => {
+    const location = [org.city, org.state].filter(Boolean).join(", ")
+    lines.push(`## ${index + 1}. ${org.name}`)
+    lines.push(`- **EIN:** ${formatEin(org.ein)}`)
+    if (location) lines.push(`- **Location:** ${location}`)
+    if (org.ntee_code) lines.push(`- **Category:** ${getNteeDescription(org.ntee_code)} (${org.ntee_code})`)
+    const taxCode = getTaxCodeDescription(org.subseccd)
+    if (taxCode) lines.push(`- **Tax Status:** ${taxCode}`)
+    lines.push(`- **Has 990 Filings:** ${org.have_filings || org.have_extracts ? "Yes" : "No"}`)
+    lines.push("")
+  })
+
+  lines.push("---")
+  lines.push("")
+  lines.push("**Next Steps:** Use `propublica_nonprofit_details` with an EIN to get full 990 financial data.")
+
+  return lines.join("\n")
+}
+
+/**
+ * Format organization details for AI consumption
+ */
+function formatDetailsForAI(
+  org: ProPublicaOrganization & { guidestar_url?: string },
+  filings: ProPublicaFiling[]
+): string {
+  const lines: string[] = [
+    `# ${org.name}`,
+    "",
+    `**EIN:** ${formatEin(org.ein)}`,
+  ]
+
+  const location = [org.address, org.city, org.state, org.zipcode].filter(Boolean).join(", ")
+  if (location) lines.push(`**Address:** ${location}`)
+
+  if (org.ntee_code) lines.push(`**Category:** ${getNteeDescription(org.ntee_code)} (${org.ntee_code})`)
+  const taxCode = getTaxCodeDescription(org.subseccd)
+  if (taxCode) lines.push(`**Tax Status:** ${taxCode}`)
+
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+
+  if (filings.length === 0) {
+    lines.push("## Financial Data")
+    lines.push("")
+    lines.push("*No Form 990 filings available for this organization.*")
+  } else {
+    lines.push("## Form 990 Financial History")
+    lines.push("")
+
+    // Get most recent filing for summary
+    const mostRecent = filings[0]
+    if (mostRecent.totrevenue !== undefined || mostRecent.totassetsend !== undefined) {
+      lines.push("### Most Recent Filing Summary")
+      lines.push(`- **Year:** ${mostRecent.tax_prd_yr}`)
+      if (mostRecent.totrevenue !== undefined) lines.push(`- **Total Revenue:** ${formatCurrency(mostRecent.totrevenue)}`)
+      if (mostRecent.totfuncexpns !== undefined) lines.push(`- **Total Expenses:** ${formatCurrency(mostRecent.totfuncexpns)}`)
+      if (mostRecent.totassetsend !== undefined) lines.push(`- **Total Assets:** ${formatCurrency(mostRecent.totassetsend)}`)
+      if (mostRecent.totliabend !== undefined) lines.push(`- **Total Liabilities:** ${formatCurrency(mostRecent.totliabend)}`)
+      if (mostRecent.pct_compnsatncurrofcr !== undefined) {
+        lines.push(`- **Officer Compensation (% of expenses):** ${(mostRecent.pct_compnsatncurrofcr * 100).toFixed(1)}%`)
+      }
+      lines.push("")
+    }
+
+    lines.push("### Filing History")
+    lines.push("")
+    lines.push("| Year | Form | Revenue | Expenses | Assets |")
+    lines.push("|------|------|---------|----------|--------|")
+
+    filings.slice(0, 10).forEach((filing) => {
+      const formType = getFormTypeName(filing.formtype)
+      const revenue = formatCurrency(filing.totrevenue)
+      const expenses = formatCurrency(filing.totfuncexpns)
+      const assets = formatCurrency(filing.totassetsend)
+      lines.push(`| ${filing.tax_prd_yr} | ${formType} | ${revenue} | ${expenses} | ${assets} |`)
+    })
+
+    lines.push("")
+  }
+
+  // Add prospect research insights
+  if (filings.length > 0) {
+    const recentFiling = filings[0]
+    lines.push("## Prospect Research Insights")
+    lines.push("")
+
+    if (recentFiling.totassetsend !== undefined) {
+      if (recentFiling.totassetsend >= 100000000) {
+        lines.push("**Foundation Size:** MAJOR - Assets over $100M indicate significant giving capacity")
+      } else if (recentFiling.totassetsend >= 10000000) {
+        lines.push("**Foundation Size:** LARGE - Assets over $10M suggest substantial grant-making ability")
+      } else if (recentFiling.totassetsend >= 1000000) {
+        lines.push("**Foundation Size:** MEDIUM - Assets over $1M indicate active charitable work")
+      } else {
+        lines.push("**Foundation Size:** SMALL - Smaller foundation with limited assets")
+      }
+    }
+  }
+
+  return lines.join("\n")
 }
 
 // ============================================================================
@@ -247,11 +394,30 @@ export const propublicaNonprofitSearchTool = tool({
       const duration = Date.now() - startTime
       console.log("[ProPublica] Search completed in", duration, "ms, found", data.total_results, "results")
 
+      const orgs = data.organizations || []
+      const rawContent = formatSearchResultsForAI(orgs, query, data.total_results || 0)
+
+      // Generate sources for UI display
+      const sources: Array<{ name: string; url: string }> = [
+        {
+          name: `ProPublica Nonprofit Explorer - "${query}"`,
+          url: `https://projects.propublica.org/nonprofits/search?q=${encodeURIComponent(query)}`,
+        },
+      ]
+
+      // Add individual organization links
+      orgs.slice(0, 5).forEach((org) => {
+        sources.push({
+          name: org.name,
+          url: `https://projects.propublica.org/nonprofits/organizations/${org.ein}`,
+        })
+      })
+
       return {
-        totalResults: data.total_results,
-        page: data.cur_page,
-        totalPages: data.num_pages,
-        organizations: data.organizations.slice(0, 20).map((org) => ({
+        totalResults: data.total_results || 0,
+        page: data.cur_page || 0,
+        totalPages: data.num_pages || 0,
+        organizations: orgs.slice(0, 20).map((org) => ({
           ein: formatEin(org.ein),
           name: org.name,
           city: org.city,
@@ -261,6 +427,8 @@ export const propublicaNonprofitSearchTool = tool({
           hasFilings: Boolean(org.have_filings || org.have_extracts),
         })),
         query,
+        rawContent,
+        sources,
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
@@ -271,6 +439,8 @@ export const propublicaNonprofitSearchTool = tool({
         totalPages: 0,
         organizations: [],
         query,
+        rawContent: `# ProPublica Nonprofit Search: "${query}"\n\n**Error:** ${errorMessage}\n\nThis search only matches organization names, not people. If searching for a person's nonprofit affiliations, try:\n1. Search for their foundation name (e.g., "Smith Family Foundation")\n2. Search for organizations they might be affiliated with\n3. Use web search first to discover their nonprofit connections`,
+        sources: [],
         error: `Failed to search nonprofits: ${errorMessage}`,
       }
     }
@@ -310,6 +480,8 @@ export const propublicaNonprofitDetailsTool = tool({
             ein: formatEin(cleanEin),
             name: "Not Found",
             filings: [],
+            rawContent: `# Nonprofit Not Found\n\n**EIN:** ${formatEin(cleanEin)}\n\nNo nonprofit organization found with this EIN in the ProPublica database.\n\nPossible reasons:\n- The EIN may be incorrect\n- The organization may not have filed Form 990\n- The organization may be very new or recently dissolved`,
+            sources: [],
             error: `No nonprofit found with EIN ${formatEin(cleanEin)}`,
           }
         }
@@ -324,6 +496,33 @@ export const propublicaNonprofitDetailsTool = tool({
       const org = data.organization
       const allFilings = [...(data.filings_with_data || []), ...(data.filings_without_data || [])]
         .sort((a, b) => (b.tax_prd_yr || 0) - (a.tax_prd_yr || 0))
+
+      const rawContent = formatDetailsForAI(org, allFilings)
+
+      // Generate sources
+      const sources: Array<{ name: string; url: string }> = [
+        {
+          name: `ProPublica - ${org.name}`,
+          url: `https://projects.propublica.org/nonprofits/organizations/${cleanEin}`,
+        },
+      ]
+
+      if (org.guidestar_url) {
+        sources.push({
+          name: `GuideStar - ${org.name}`,
+          url: org.guidestar_url,
+        })
+      }
+
+      // Add PDF links for recent filings
+      allFilings.slice(0, 3).forEach((filing) => {
+        if (filing.pdf_url) {
+          sources.push({
+            name: `Form 990 (${filing.tax_prd_yr})`,
+            url: filing.pdf_url,
+          })
+        }
+      })
 
       return {
         ein: formatEin(org.ein),
@@ -345,6 +544,8 @@ export const propublicaNonprofitDetailsTool = tool({
           officerCompensationPercent: filing.pct_compnsatncurrofcr,
           pdfUrl: filing.pdf_url,
         })),
+        rawContent,
+        sources,
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
@@ -353,6 +554,8 @@ export const propublicaNonprofitDetailsTool = tool({
         ein: formatEin(cleanEin),
         name: "Error",
         filings: [],
+        rawContent: `# Error Loading Nonprofit\n\n**EIN:** ${formatEin(cleanEin)}\n\n**Error:** ${errorMessage}`,
+        sources: [],
         error: `Failed to get nonprofit details: ${errorMessage}`,
       }
     }

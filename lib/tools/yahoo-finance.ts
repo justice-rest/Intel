@@ -148,6 +148,8 @@ export interface YahooQuoteResult {
   currency?: string
   exchange?: string
   quoteType?: string
+  rawContent: string
+  sources: Array<{ name: string; url: string }>
   error?: string
 }
 
@@ -160,6 +162,8 @@ export interface YahooSearchResult {
     typeDisp?: string
   }>
   query: string
+  rawContent: string
+  sources: Array<{ name: string; url: string }>
   error?: string
 }
 
@@ -196,7 +200,161 @@ export interface YahooProfileResult {
     institutionsCount?: number
   }
   marketCap?: number
+  rawContent: string
+  sources: Array<{ name: string; url: string }>
   error?: string
+}
+
+// ============================================================================
+// FORMATTING HELPERS
+// ============================================================================
+
+function formatCurrency(value: number | undefined, currency?: string): string {
+  if (value === undefined) return "N/A"
+  const curr = currency || "USD"
+  if (value >= 1_000_000_000_000) {
+    return `${curr} ${(value / 1_000_000_000_000).toFixed(2)}T`
+  } else if (value >= 1_000_000_000) {
+    return `${curr} ${(value / 1_000_000_000).toFixed(2)}B`
+  } else if (value >= 1_000_000) {
+    return `${curr} ${(value / 1_000_000).toFixed(2)}M`
+  } else if (value >= 1_000) {
+    return `${curr} ${(value / 1_000).toFixed(2)}K`
+  }
+  return `${curr} ${value.toFixed(2)}`
+}
+
+function formatPercent(value: number | undefined): string {
+  if (value === undefined) return "N/A"
+  return `${(value * 100).toFixed(2)}%`
+}
+
+function formatQuoteForAI(quote: YahooQuote, symbol: string): string {
+  const lines: string[] = []
+  lines.push(`# Yahoo Finance Quote: ${quote.longName || quote.shortName || symbol}`)
+  lines.push("")
+  lines.push(`**Symbol:** ${quote.symbol || symbol}`)
+  if (quote.exchange) lines.push(`**Exchange:** ${quote.exchange}`)
+  if (quote.quoteType) lines.push(`**Type:** ${quote.quoteType}`)
+  lines.push("")
+  lines.push("## Market Data")
+  if (quote.regularMarketPrice !== undefined) {
+    lines.push(`- **Current Price:** ${formatCurrency(quote.regularMarketPrice, quote.currency)}`)
+  }
+  if (quote.regularMarketChange !== undefined) {
+    const changeSign = quote.regularMarketChange >= 0 ? "+" : ""
+    lines.push(`- **Change:** ${changeSign}${quote.regularMarketChange.toFixed(2)} (${changeSign}${quote.regularMarketChangePercent?.toFixed(2) || "N/A"}%)`)
+  }
+  if (quote.marketCap !== undefined) {
+    lines.push(`- **Market Cap:** ${formatCurrency(quote.marketCap, quote.currency)}`)
+  }
+  lines.push("")
+  lines.push("## Source")
+  lines.push(`- [Yahoo Finance - ${symbol}](https://finance.yahoo.com/quote/${symbol})`)
+  return lines.join("\n")
+}
+
+function formatSearchForAI(results: YahooSearchQuote[], query: string): string {
+  const lines: string[] = []
+  lines.push(`# Yahoo Finance Search Results for "${query}"`)
+  lines.push("")
+  if (results.length === 0) {
+    lines.push("No results found.")
+    return lines.join("\n")
+  }
+  lines.push(`Found ${results.length} result${results.length === 1 ? "" : "s"}:`)
+  lines.push("")
+  results.forEach((r, i) => {
+    lines.push(`## ${i + 1}. ${r.longname || r.shortname || r.symbol}`)
+    lines.push(`- **Symbol:** ${r.symbol}`)
+    if (r.exchDisp) lines.push(`- **Exchange:** ${r.exchDisp}`)
+    if (r.typeDisp) lines.push(`- **Type:** ${r.typeDisp}`)
+    lines.push("")
+  })
+  lines.push("## Source")
+  lines.push(`- [Yahoo Finance Search](https://finance.yahoo.com/lookup?s=${encodeURIComponent(query)})`)
+  return lines.join("\n")
+}
+
+function formatProfileForAI(
+  symbol: string,
+  profile: YahooAssetProfile | undefined,
+  summaryDetail: YahooSummaryDetail | undefined,
+  insiderHolders: YahooInsiderHolders | undefined,
+  majorHolders: YahooMajorHoldersBreakdown | undefined
+): string {
+  const lines: string[] = []
+  lines.push(`# Yahoo Finance Profile: ${symbol}`)
+  lines.push("")
+
+  // Company Info
+  if (profile) {
+    lines.push("## Company Information")
+    if (profile.industry) lines.push(`- **Industry:** ${profile.industry}`)
+    if (profile.sector) lines.push(`- **Sector:** ${profile.sector}`)
+    if (profile.website) lines.push(`- **Website:** ${profile.website}`)
+    if (profile.fullTimeEmployees) lines.push(`- **Employees:** ${profile.fullTimeEmployees.toLocaleString()}`)
+    if (profile.address1 || profile.city || profile.state || profile.country) {
+      const location = [profile.address1, profile.city, profile.state, profile.country].filter(Boolean).join(", ")
+      lines.push(`- **Location:** ${location}`)
+    }
+    lines.push("")
+  }
+
+  // Market Cap
+  if (summaryDetail?.marketCap) {
+    lines.push("## Market Data")
+    lines.push(`- **Market Cap:** ${formatCurrency(summaryDetail.marketCap)}`)
+    lines.push("")
+  }
+
+  // Executives
+  if (profile?.companyOfficers && profile.companyOfficers.length > 0) {
+    lines.push("## Key Executives")
+    profile.companyOfficers.slice(0, 10).forEach((officer) => {
+      lines.push(`### ${officer.name || "Unknown"}`)
+      lines.push(`- **Title:** ${officer.title || "Unknown"}`)
+      if (officer.totalPay) lines.push(`- **Total Pay:** ${formatCurrency(officer.totalPay)}`)
+      if (officer.exercisedValue) lines.push(`- **Exercised Options:** ${formatCurrency(officer.exercisedValue)}`)
+      if (officer.unexercisedValue) lines.push(`- **Unexercised Options:** ${formatCurrency(officer.unexercisedValue)}`)
+      lines.push("")
+    })
+  }
+
+  // Insider Holders
+  if (insiderHolders?.holders && insiderHolders.holders.length > 0) {
+    lines.push("## Insider Holders")
+    insiderHolders.holders.slice(0, 10).forEach((holder) => {
+      lines.push(`### ${holder.name || "Unknown"}`)
+      if (holder.relation) lines.push(`- **Relation:** ${holder.relation}`)
+      if (holder.positionDirect) lines.push(`- **Shares Held:** ${holder.positionDirect.toLocaleString()}`)
+      if (holder.transactionDescription) lines.push(`- **Latest Transaction:** ${holder.transactionDescription}`)
+      if (holder.latestTransDate) lines.push(`- **Transaction Date:** ${holder.latestTransDate.toISOString().split("T")[0]}`)
+      lines.push("")
+    })
+  }
+
+  // Major Holders Breakdown
+  if (majorHolders) {
+    lines.push("## Ownership Breakdown")
+    if (majorHolders.insidersPercentHeld !== undefined) {
+      lines.push(`- **Insider Ownership:** ${formatPercent(majorHolders.insidersPercentHeld)}`)
+    }
+    if (majorHolders.institutionsPercentHeld !== undefined) {
+      lines.push(`- **Institutional Ownership:** ${formatPercent(majorHolders.institutionsPercentHeld)}`)
+    }
+    if (majorHolders.institutionsFloatPercentHeld !== undefined) {
+      lines.push(`- **Institutional Float:** ${formatPercent(majorHolders.institutionsFloatPercentHeld)}`)
+    }
+    if (majorHolders.institutionsCount !== undefined) {
+      lines.push(`- **Number of Institutions:** ${majorHolders.institutionsCount.toLocaleString()}`)
+    }
+    lines.push("")
+  }
+
+  lines.push("## Source")
+  lines.push(`- [Yahoo Finance - ${symbol}](https://finance.yahoo.com/quote/${symbol})`)
+  return lines.join("\n")
 }
 
 // ============================================================================
@@ -242,6 +400,9 @@ export const yahooFinanceQuoteTool = tool({
       const duration = Date.now() - startTime
       console.log("[Yahoo Finance] Quote retrieved in", duration, "ms")
 
+      const rawContent = formatQuoteForAI(quote, symbol)
+      const sources = [{ name: `Yahoo Finance - ${symbol}`, url: `https://finance.yahoo.com/quote/${symbol}` }]
+
       return {
         symbol: quote.symbol || symbol,
         shortName: quote.shortName,
@@ -253,12 +414,16 @@ export const yahooFinanceQuoteTool = tool({
         currency: quote.currency,
         exchange: quote.exchange,
         quoteType: quote.quoteType,
+        rawContent,
+        sources,
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
       console.error("[Yahoo Finance] Quote failed:", errorMessage)
       return {
         symbol,
+        rawContent: `# Yahoo Finance Quote Error\n\nFailed to get quote for ${symbol}: ${errorMessage}`,
+        sources: [],
         error: `Failed to get quote: ${errorMessage}`,
       }
     }
@@ -289,8 +454,12 @@ export const yahooFinanceSearchTool = tool({
       const duration = Date.now() - startTime
       console.log("[Yahoo Finance] Search completed in", duration, "ms, found", searchResult.quotes?.length || 0, "results")
 
+      const quotes = (searchResult.quotes || []).slice(0, 10)
+      const rawContent = formatSearchForAI(quotes, query)
+      const sources = [{ name: "Yahoo Finance Search", url: `https://finance.yahoo.com/lookup?s=${encodeURIComponent(query)}` }]
+
       return {
-        results: (searchResult.quotes || []).slice(0, 10).map((q) => ({
+        results: quotes.map((q) => ({
           symbol: q.symbol,
           shortname: q.shortname,
           longname: q.longname,
@@ -298,6 +467,8 @@ export const yahooFinanceSearchTool = tool({
           typeDisp: q.typeDisp,
         })),
         query,
+        rawContent,
+        sources,
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
@@ -305,6 +476,8 @@ export const yahooFinanceSearchTool = tool({
       return {
         results: [],
         query,
+        rawContent: `# Yahoo Finance Search Error\n\nFailed to search for "${query}": ${errorMessage}`,
+        sources: [],
         error: `Failed to search: ${errorMessage}`,
       }
     }
@@ -340,6 +513,9 @@ export const yahooFinanceProfileTool = tool({
       const insiderHolders = summary.insiderHolders
       const majorHolders = summary.majorHoldersBreakdown
 
+      const rawContent = formatProfileForAI(symbol, profile, summaryDetail, insiderHolders, majorHolders)
+      const sources = [{ name: `Yahoo Finance - ${symbol}`, url: `https://finance.yahoo.com/quote/${symbol}` }]
+
       return {
         symbol,
         companyName: profile?.longBusinessSummary ? undefined : profile?.companyOfficers?.[0]?.name,
@@ -373,12 +549,16 @@ export const yahooFinanceProfileTool = tool({
           institutionsCount: majorHolders.institutionsCount,
         } : undefined,
         marketCap: summaryDetail?.marketCap,
+        rawContent,
+        sources,
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
       console.error("[Yahoo Finance] Profile failed:", errorMessage)
       return {
         symbol,
+        rawContent: `# Yahoo Finance Profile Error\n\nFailed to get profile for ${symbol}: ${errorMessage}`,
+        sources: [],
         error: `Failed to get profile: ${errorMessage}`,
       }
     }

@@ -148,6 +148,8 @@ export interface WikidataSearchResponse {
   query: string
   results: WikidataSearchResult[]
   totalResults: number
+  rawContent: string
+  sources: Array<{ name: string; url: string }>
   error?: string
 }
 
@@ -305,6 +307,38 @@ function formatNetWorth(amount?: string, unit?: string): string | undefined {
   }
 
   return formatted
+}
+
+/**
+ * Format search results as readable text for AI
+ */
+function formatSearchForAI(results: WikidataSearchResult[], query: string): string {
+  const lines: string[] = [
+    `# Wikidata Search Results for "${query}"`,
+    "",
+  ]
+
+  if (results.length === 0) {
+    lines.push("No results found.")
+    return lines.join("\n")
+  }
+
+  lines.push(`Found ${results.length} result${results.length === 1 ? "" : "s"}:`)
+  lines.push("")
+
+  results.forEach((r, i) => {
+    lines.push(`## ${i + 1}. ${r.label} (${r.id})`)
+    if (r.description) {
+      lines.push(`- **Description:** ${r.description}`)
+    }
+    lines.push(`- **Link:** ${r.url}`)
+    lines.push("")
+  })
+
+  lines.push("---")
+  lines.push("Use the wikidataEntity tool with the entity ID (e.g., Q76) to get detailed biographical data.")
+
+  return lines.join("\n")
 }
 
 /**
@@ -547,10 +581,15 @@ export const wikidataSearchTool = tool({
       const duration = Date.now() - startTime
       console.log("[Wikidata] Search completed in", duration, "ms, found", results.length, "results")
 
+      const rawContent = formatSearchForAI(results, query)
+      const sources = results.map((r) => ({ name: r.label, url: r.url }))
+
       return {
         query,
         results,
         totalResults: results.length,
+        rawContent,
+        sources,
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
@@ -559,6 +598,8 @@ export const wikidataSearchTool = tool({
         query,
         results: [],
         totalResults: 0,
+        rawContent: `# Wikidata Search Error\n\nFailed to search for "${query}": ${errorMessage}`,
+        sources: [],
         error: `Failed to search Wikidata: ${errorMessage}`,
       }
     }
