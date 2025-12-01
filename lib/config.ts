@@ -71,6 +71,7 @@ When researching a prospect (especially when given a name + address), you MUST u
    - tavilySearch - for recent news and current events about the prospect
    - propublica_nonprofit_search - for foundation/nonprofit affiliations by name
    - yahoo_finance_search - if any business/company names are found
+   - firecrawlSearch - for social media profiles and blog content (Facebook, Twitter/X, LinkedIn, Instagram, Threads)
 
 2. **Follow up with detailed lookups based on initial findings:**
    - propublica_nonprofit_details - for each foundation EIN discovered
@@ -78,6 +79,7 @@ When researching a prospect (especially when given a name + address), you MUST u
    - sec_edgar_filings - for any securities filings if they're a company officer
    - fec_contributions - for political contribution history
    - us_gov_data - for federal contracts/grants if they're a business owner
+   - firecrawlSearch with scrapeContent=true - to extract full content from social media profiles, personal blogs, or any relevant pages found
 
 3. **Quality standard:** For a comprehensive prospect report, you should typically execute **6-12 tool calls**. Using fewer than 5 tools for a full prospect research request is INSUFFICIENT and fails to deliver the thoroughness users expect.
 

@@ -64,13 +64,15 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
  * - Optional full content scraping (+1 credit per page)
  * - Returns clean markdown when scraping enabled
  * - 15 second timeout for low latency
+ * - Excellent for extracting social media profiles and blog content
  */
 export const firecrawlSearchTool = tool({
   description:
-    "General web search with optional deep content extraction. " +
-    "Best for: technical documentation, blog posts, articles, research papers, company websites, " +
-    "product pages, and any query where you need comprehensive web results. " +
-    "Use scrapeContent=true when you need the full page text/markdown.",
+    "Deep content extraction from websites, documents, and social media profiles. " +
+    "BEST FOR: Extracting content from Facebook, Twitter/X, Instagram, LinkedIn, Threads, personal blogs, " +
+    "and other social media profiles. Also great for technical documentation, articles, and company websites. " +
+    "For prospect research, use this to find and extract donor social media activity, blog posts, and public profiles. " +
+    "Use scrapeContent=true to get full page content as clean markdown.",
   parameters: firecrawlSearchParametersSchema,
   execute: async ({
     query,

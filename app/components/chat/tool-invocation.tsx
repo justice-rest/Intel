@@ -33,7 +33,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   searchWeb: "Web Search",
   exaSearch: "Web Search: Additional",
   tavilySearch: "News Search",
-  firecrawlSearch: "Web Search: Advanced",
+  firecrawlSearch: "Documents & Socials",
   propublica_nonprofit_search: "Nonprofit Search",
   propublica_nonprofit_details: "Nonprofit Details",
   yahoo_finance_quote: "Stock Quote",
