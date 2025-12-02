@@ -5,19 +5,21 @@ export function BookLoader() {
     <div className="book-loader-wrapper">
       <style>{`
         .book-loader-wrapper {
-          width: 64px;
-          height: 64px;
+          width: 80px;
+          height: 80px;
           display: flex;
           align-items: center;
           justify-content: center;
+          overflow: visible;
+          position: relative;
         }
         .book {
-          --color: hsl(var(--primary));
+          --color: hsl(var(--foreground));
           --duration: 6.8s;
           width: 32px;
           height: 12px;
           position: relative;
-          margin: 32px 0 0 0;
+          margin: 0;
           zoom: 1.5;
         }
         .book .inner {
