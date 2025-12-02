@@ -17,8 +17,8 @@ interface QuizProgress {
   answered_at: string
 }
 
-// Penalty for wrong answers (negative bonus)
-const WRONG_ANSWER_PENALTY = 3
+// No penalty for wrong answers (was previously -3)
+const WRONG_ANSWER_PENALTY = 0
 
 // Maximum bonus credits a user can have (rollover allowed, but capped)
 const MAX_BONUS_CREDITS = 100

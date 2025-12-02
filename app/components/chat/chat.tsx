@@ -206,11 +206,25 @@ export function Chat({
 
   // Quiz popup timer: Show popup when AI takes more than 15 seconds to respond
   // Only show once per session, and only for authenticated Growth plan users
+  // Also checks if user has already answered today's quiz before showing
   useEffect(() => {
     // Start timer when streaming begins - ONLY for Growth plan users
     if (status === "streaming" && isAuthenticated && isGrowthPlan && !hasShownQuizThisSession.current) {
-      quizTimerRef.current = setTimeout(() => {
-        setShowQuizPopup(true)
+      quizTimerRef.current = setTimeout(async () => {
+        // Check if user has already answered today's quiz before showing popup
+        try {
+          const response = await fetch("/api/quiz")
+          if (response.ok) {
+            const data = await response.json()
+            // Only show popup if user hasn't answered today's question
+            if (!data.questionOfTheDay?.answered) {
+              setShowQuizPopup(true)
+            }
+          }
+        } catch (error) {
+          // On error, don't show popup
+          console.error("Error checking quiz status:", error)
+        }
         hasShownQuizThisSession.current = true
       }, QUIZ_POPUP_DELAY)
     }

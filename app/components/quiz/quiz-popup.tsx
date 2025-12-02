@@ -6,7 +6,6 @@ import {
   DialogContent,
 } from "@/components/ui/dialog"
 import {
-  XCircle,
   GraduationCap,
   Spinner,
   Trophy,
@@ -288,15 +287,10 @@ export function QuizPopup({ open, onClose }: QuizPopupProps) {
                 Skip
               </button>
 
-              <div className="flex items-center justify-center gap-4 mt-3 pt-3 border-t border-gray-200 dark:border-[#333]">
+              <div className="flex items-center justify-center mt-3 pt-3 border-t border-gray-200 dark:border-[#333]">
                 <div className="text-center text-xs text-gray-500 dark:text-gray-400">
                   <Gift size={18} className="mx-auto mb-1" />
-                  +{question.bonusMessages} correct
-                </div>
-                <div className="w-px h-8 bg-gray-200 dark:bg-[#333]" />
-                <div className="text-center text-xs text-gray-500 dark:text-gray-400">
-                  <XCircle size={18} className="mx-auto mb-1" />
-                  -{question.penalty} wrong
+                  +{question.bonusMessages} bonus for correct answer
                 </div>
               </div>
             </>
