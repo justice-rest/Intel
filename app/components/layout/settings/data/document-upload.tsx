@@ -266,7 +266,7 @@ export function DocumentUpload({
               animate={{ width: "100%" }}
               transition={{
                 duration: 30, // Estimated processing time
-                ease: "linear",
+                ease: "linear" as const,
               }}
             />
           </div>

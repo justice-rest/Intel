@@ -163,7 +163,7 @@ export default function EmailAuthPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
+              transition={{ duration: 0.15, ease: "easeOut" as const }}
             >
               <div className="text-center mb-8">
                 <h1 className="text-foreground text-2xl font-medium tracking-tight sm:text-3xl">

@@ -141,7 +141,7 @@ function ReportSourcesList({ sources }: { sources: { url: string; name?: string 
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ type: "spring", duration: 0.2, bounce: 0 }}
+              transition={{ type: "spring" as const, duration: 0.2, bounce: 0 }}
               className="overflow-hidden"
             >
               <ul className="space-y-2 px-3 pt-3 pb-3">

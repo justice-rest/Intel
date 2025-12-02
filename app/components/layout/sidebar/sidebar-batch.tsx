@@ -352,7 +352,7 @@ function BatchUploadDialog({
                   className="bg-primary h-full"
                   initial={{ width: "0%" }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 10, ease: "linear" }}
+                  transition={{ duration: 10, ease: "linear" as const }}
                 />
               </div>
               <p className="text-muted-foreground text-center text-xs">

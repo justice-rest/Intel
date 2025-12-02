@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { Clock } from "@phosphor-icons/react"
+import { ClockIcon } from "@/components/ui/clock"
 import {
   formatTimeEstimate,
   calculateInitialEstimate,
@@ -79,7 +79,7 @@ export function LoaderOverlay({
           className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-10"
         >
           <div className="flex items-center gap-2 px-3 py-2 bg-background/95 backdrop-blur-sm border border-border/50 rounded-full shadow-lg">
-            <Clock className="h-3.5 w-3.5 text-muted-foreground" weight="bold" />
+            <ClockIcon size={14} className="text-muted-foreground" animate />
             <span className="text-sm text-muted-foreground whitespace-nowrap">
               {isOverEstimate
                 ? "Almost done..."

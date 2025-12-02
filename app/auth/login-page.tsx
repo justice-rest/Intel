@@ -72,7 +72,7 @@ export default function LoginPage() {
               className="mt-4"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
+              transition={{ duration: 0.5, ease: "easeOut" as const }}
             >
               <motion.p
                 className="text-muted-foreground italic text-base leading-relaxed"
@@ -101,7 +101,7 @@ export default function LoginPage() {
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.2, ease: "easeOut" }}
+              transition={{ delay: 0.2, duration: 0.2, ease: "easeOut" as const }}
             >
               <Button
                 variant="secondary"
@@ -126,7 +126,7 @@ export default function LoginPage() {
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25, duration: 0.2, ease: "easeOut" }}
+              transition={{ delay: 0.25, duration: 0.2, ease: "easeOut" as const }}
             >
               <Button
                 variant="secondary"

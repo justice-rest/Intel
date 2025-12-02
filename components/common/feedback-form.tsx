@@ -9,7 +9,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { useState } from "react"
 
 const TRANSITION_CONTENT = {
-  ease: "easeOut",
+  ease: "easeOut" as const,
   duration: 0.2,
 }
 

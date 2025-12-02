@@ -13,7 +13,7 @@ import { motion } from "motion/react"
 import { useState } from "react"
 
 const TRANSITION_POPOVER = {
-  type: "spring",
+  type: "spring" as const,
   bounce: 0.1,
   duration: 0.3,
 }

@@ -106,7 +106,7 @@ function ResetPasswordContent() {
           className="w-full max-w-lg space-y-8"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.15, ease: "easeOut" }}
+          transition={{ duration: 0.15, ease: "easeOut" as const }}
         >
           <div className="text-center">
             <h1 className="text-foreground text-2xl font-medium tracking-tight sm:text-3xl">
