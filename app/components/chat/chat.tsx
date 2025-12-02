@@ -252,14 +252,25 @@ export function Chat({
   )
 
   // Determine if we should show the loader overlay
-  // Show when: submitted OR streaming but no text content yet (tools still running)
+  // Show when: submitted OR streaming but waiting for actual text response
   const lastMessage = messages[messages.length - 1]
+  const hasTextContent = lastMessage?.role === "assistant" &&
+    lastMessage.content?.trim() &&
+    lastMessage.content.trim().length > 0
+
+  // Check if tools are still being invoked (parts contain tool-invocation without result)
+  const hasActiveToolCalls = lastMessage?.role === "assistant" &&
+    Array.isArray(lastMessage.parts) &&
+    lastMessage.parts.some((part: { type: string; toolInvocation?: { state?: string } }) =>
+      part.type === "tool-invocation" &&
+      part.toolInvocation?.state !== "result"
+    )
+
   const isWaitingForResponse =
     status === "submitted" ||
     (status === "streaming" &&
       messages.length > 0 &&
-      (lastMessage?.role === "user" ||
-        (lastMessage?.role === "assistant" && !lastMessage.content?.trim())))
+      (lastMessage?.role === "user" || !hasTextContent || hasActiveToolCalls))
 
   // Memoize the chat input props
   const chatInputProps = useMemo(
