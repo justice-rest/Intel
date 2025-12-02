@@ -68,8 +68,8 @@ export function TextShimmer({
   return (
     <div
       className={cn(
-        "animate-text-shimmer bg-[linear-gradient(110deg,hsl(var(--muted-foreground)),45%,hsl(var(--foreground)),55%,hsl(var(--muted-foreground)))]",
-        "bg-[length:250%_100%] bg-clip-text font-medium text-transparent",
+        "animate-text-shimmer bg-[linear-gradient(110deg,_var(--muted-foreground)_0%,_var(--foreground)_50%,_var(--muted-foreground)_100%)]",
+        "bg-[length:250%_100%] bg-clip-text font-medium text-transparent [-webkit-background-clip:text]",
         textSizes[size],
         className
       )}
