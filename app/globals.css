@@ -62,6 +62,10 @@
   --animate-text-shimmer: text-shimmer 2.5s ease-in-out infinite;
 }
 
+.animate-text-shimmer {
+  animation: var(--animate-text-shimmer);
+}
+
 /* Research Play Button Wave Animation */
 .animate-wave {
   animation: wave 1.2s cubic-bezier(0.37, 0, 0.63, 1) infinite;
