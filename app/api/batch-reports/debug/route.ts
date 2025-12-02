@@ -19,9 +19,9 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get test query from URL params - default to a prospect name for better testing
+    // Get test query from URL params
     const url = new URL(request.url)
-    const testQuery = url.searchParams.get("query") || "Arlyn Andrews"
+    const testQuery = url.searchParams.get("query") || "prospect research"
 
     // Check completed items with embeddings
     const { data: withEmbeddings, error: e1 } = await (supabase as any)
