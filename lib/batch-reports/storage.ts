@@ -60,15 +60,15 @@ export async function generateBatchReportEmbedding(
     // Generate embedding using the RAG embeddings module
     const embeddingResult = await generateEmbedding(textToEmbed, apiKey, EMBEDDING_MODEL)
 
-    // Convert embedding array to Postgres vector format
-    const embeddingVector = `[${embeddingResult.embedding.join(",")}]`
+    // Convert embedding array to JSON string for storage (same format as memory system)
+    const embeddingString = JSON.stringify(embeddingResult.embedding)
 
     // Update the batch item with the embedding
     // Use type assertion since batch_prospect_items is not in generated types
     const { error: updateError } = await (supabase as any)
       .from("batch_prospect_items")
       .update({
-        embedding: embeddingVector,
+        embedding: embeddingString,
         embedding_generated_at: new Date().toISOString(),
         embedding_model: EMBEDDING_MODEL,
       })
