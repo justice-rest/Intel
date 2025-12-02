@@ -1,5 +1,6 @@
 "use client"
 
+import { cn } from "@/lib/utils"
 import { motion } from "framer-motion"
 
 // Style constants
@@ -46,5 +47,34 @@ function Dot({ delay }: { delay: number }) {
         delay,
       }}
     />
+  )
+}
+
+export function TextShimmer({
+  text = "Thinking",
+  className,
+  size = "md",
+}: {
+  text?: string
+  className?: string
+  size?: "sm" | "md" | "lg"
+}) {
+  const textSizes = {
+    sm: "text-xs",
+    md: "text-sm",
+    lg: "text-base",
+  }
+
+  return (
+    <div
+      className={cn(
+        "animate-text-shimmer bg-[linear-gradient(110deg,hsl(var(--muted-foreground)),45%,hsl(var(--foreground)),55%,hsl(var(--muted-foreground)))]",
+        "bg-[length:250%_100%] bg-clip-text font-medium text-transparent",
+        textSizes[size],
+        className
+      )}
+    >
+      {text}
+    </div>
   )
 }

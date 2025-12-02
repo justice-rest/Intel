@@ -49,6 +49,17 @@
       transform: scaleY(1);
     }
   }
+
+  @keyframes text-shimmer {
+    0% {
+      background-position: 150% center;
+    }
+    100% {
+      background-position: -150% center;
+    }
+  }
+
+  --animate-text-shimmer: text-shimmer 2.5s ease-in-out infinite;
 }
 
 /* Research Play Button Wave Animation */
