@@ -80,17 +80,11 @@ export function LoaderOverlay({
         >
           <div className="flex items-center gap-3 px-4 py-2.5 bg-background/95 backdrop-blur-sm border border-border/50 rounded-full shadow-lg">
             <BookLoader />
-            <motion.span
-              key={isOverEstimate ? "almost" : remainingSeconds}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.15 }}
-              className="text-sm text-muted-foreground whitespace-nowrap"
-            >
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
               {isOverEstimate
                 ? "Almost done..."
                 : `Est. ${formatTimeEstimate(remainingSeconds)} remaining`}
-            </motion.span>
+            </span>
           </div>
         </motion.div>
       )}
