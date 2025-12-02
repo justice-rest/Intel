@@ -30,7 +30,7 @@ export function ClockIcon({ size = 28, className, animate = false }: ClockIconPr
           y2="6"
           style={{
             transformOrigin: '12px 12px',
-            animation: animate ? 'clock-hour-hand 2s linear infinite' : 'none',
+            animation: animate ? 'clock-hour-hand 4s linear infinite' : 'none',
           }}
         />
         <line
@@ -40,7 +40,7 @@ export function ClockIcon({ size = 28, className, animate = false }: ClockIconPr
           y2="12"
           style={{
             transformOrigin: '12px 12px',
-            animation: animate ? 'clock-minute-hand 0.5s linear infinite' : 'none',
+            animation: animate ? 'clock-minute-hand 1s linear infinite' : 'none',
           }}
         />
       </svg>
