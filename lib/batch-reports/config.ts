@@ -27,8 +27,9 @@ export const AUTO_INJECT_COUNT = 3
 
 /**
  * Default similarity threshold for batch report search (0-1)
+ * Lower threshold to be more permissive with matches
  */
-export const DEFAULT_SIMILARITY_THRESHOLD = 0.5
+export const DEFAULT_SIMILARITY_THRESHOLD = 0.3
 
 /**
  * Maximum number of reports to return from search

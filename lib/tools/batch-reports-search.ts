@@ -9,6 +9,7 @@
 import { tool } from "ai"
 import { z } from "zod"
 import { searchBatchReports } from "@/lib/batch-reports/retrieval"
+import { DEFAULT_SIMILARITY_THRESHOLD } from "@/lib/batch-reports/config"
 
 /**
  * Create a batch reports search tool bound to a specific user
@@ -48,7 +49,7 @@ export const createBatchReportsSearchTool = (userId: string) =>
             query,
             userId,
             limit: Math.min(limit, 20), // Cap at 20
-            similarityThreshold: 0.5,
+            similarityThreshold: DEFAULT_SIMILARITY_THRESHOLD,
           },
           openrouterKey
         )

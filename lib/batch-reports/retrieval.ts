@@ -85,10 +85,43 @@ export async function searchBatchReports(
 
     if (error) {
       console.error("[BatchReports] Search error:", error)
+      // Fall through to fallback
+    } else if (data && data.length > 0) {
+      return data
+    }
+
+    // Fallback: If no semantic matches, return most recent completed reports
+    // This handles queries like "most recent" or "last research"
+    console.log("[BatchReports] No semantic matches, falling back to recent reports")
+    const { data: recentData, error: recentError } = await (supabase as any)
+      .from("batch_prospect_items")
+      .select(`
+        id,
+        prospect_name,
+        report_content,
+        romy_score,
+        capacity_rating,
+        estimated_net_worth,
+        estimated_gift_capacity,
+        sources_found,
+        created_at
+      `)
+      .eq("user_id", params.userId)
+      .eq("status", "completed")
+      .not("report_content", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(params.limit || 5) as { data: any[] | null; error: any }
+
+    if (recentError || !recentData) {
+      console.error("[BatchReports] Fallback error:", recentError)
       return []
     }
 
-    return data || []
+    // Add similarity of 0 to indicate these are fallback results
+    return recentData.map(item => ({
+      ...item,
+      similarity: 0,
+    })) as BatchReportSearchResult[]
   } catch (error) {
     console.error("[BatchReports] Failed to search reports:", error)
     return []
