@@ -5,8 +5,8 @@ export function BookLoader() {
     <div className="book-loader-wrapper">
       <style>{`
         .book-loader-wrapper {
-          width: 24px;
-          height: 20px;
+          width: 14px;
+          height: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -14,13 +14,13 @@ export function BookLoader() {
           position: relative;
         }
         .book {
-          --color: var(--foreground);
+          --color: var(--muted-foreground);
           --duration: 6.8s;
           width: 32px;
           height: 12px;
           position: relative;
           margin: 0;
-          transform: scale(0.35);
+          transform: scale(0.22);
           transform-origin: center center;
         }
         .book .inner {
