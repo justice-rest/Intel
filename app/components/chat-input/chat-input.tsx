@@ -66,6 +66,9 @@ export function ChatInput({
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(false)
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false)
 
+  // Unified processing state: blocks input during submission AND streaming
+  const isProcessing = isSubmitting || status === "submitted" || status === "streaming"
+
   // Auto-open welcome popover when showWelcome prop changes to true
   useEffect(() => {
     if (showWelcome) {
@@ -74,12 +77,11 @@ export function ChatInput({
   }, [showWelcome])
 
   const handleSend = useCallback(() => {
-    if (isSubmitting) {
-      return
-    }
-
-    if (status === "streaming") {
-      stop()
+    // If currently processing (submitted or streaming), stop the generation
+    if (isProcessing) {
+      if (status === "submitted" || status === "streaming") {
+        stop()
+      }
       return
     }
 
@@ -90,16 +92,12 @@ export function ChatInput({
     }
 
     onSend()
-  }, [isSubmitting, onSend, status, stop, isUserAuthenticated, hasActiveSubscription])
+  }, [isProcessing, onSend, status, stop, isUserAuthenticated, hasActiveSubscription])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (isSubmitting) {
-        e.preventDefault()
-        return
-      }
-
-      if (e.key === "Enter" && status === "streaming") {
+      // Block all Enter key actions while processing
+      if (isProcessing && e.key === "Enter") {
         e.preventDefault()
         return
       }
@@ -120,7 +118,7 @@ export function ChatInput({
         onSend()
       }
     },
-    [isSubmitting, onSend, status, value, isUserAuthenticated, hasActiveSubscription]
+    [isProcessing, onSend, value, isUserAuthenticated, hasActiveSubscription]
   )
 
   const handlePaste = useCallback(
@@ -224,17 +222,17 @@ export function ChatInput({
                   />
                 </div>
                 <PromptInputAction
-                  tooltip={status === "streaming" ? "Stop" : "Send"}
+                  tooltip={isProcessing ? "Stop" : "Send"}
                 >
                   <Button
                     size="sm"
                     className="size-9 rounded-full transition-all duration-300 ease-out"
-                    disabled={!value || isSubmitting || isOnlyWhitespace(value)}
+                    disabled={!isProcessing && (!value || isOnlyWhitespace(value))}
                     type="button"
                     onClick={handleSend}
-                    aria-label={status === "streaming" ? "Stop" : "Send message"}
+                    aria-label={isProcessing ? "Stop" : "Send message"}
                   >
-                    {status === "streaming" ? (
+                    {isProcessing ? (
                       <StopIcon className="size-4" />
                     ) : (
                       <ArrowUpIcon className="size-4" />

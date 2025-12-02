@@ -40,27 +40,25 @@ export function MultiChatInput({
 }: MultiChatInputProps) {
   const isOnlyWhitespace = (text: string) => !/[^\s]/.test(text)
 
-  const handleSend = useCallback(() => {
-    if (isSubmitting || anyLoading) {
-      return
-    }
+  // Unified processing state: blocks input during submission AND streaming
+  const isProcessing = isSubmitting || anyLoading || status === "submitted" || status === "streaming"
 
-    if (status === "streaming") {
-      stop()
+  const handleSend = useCallback(() => {
+    // If currently processing, stop the generation
+    if (isProcessing) {
+      if (status === "submitted" || status === "streaming") {
+        stop()
+      }
       return
     }
 
     onSend()
-  }, [isSubmitting, anyLoading, onSend, status, stop])
+  }, [isProcessing, onSend, status, stop])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (isSubmitting || anyLoading) {
-        e.preventDefault()
-        return
-      }
-
-      if (e.key === "Enter" && status === "streaming") {
+      // Block all Enter key actions while processing
+      if (isProcessing && e.key === "Enter") {
         e.preventDefault()
         return
       }
@@ -74,7 +72,7 @@ export function MultiChatInput({
         onSend()
       }
     },
-    [isSubmitting, anyLoading, onSend, status, value]
+    [isProcessing, onSend, value]
   )
 
   return (
@@ -99,23 +97,23 @@ export function MultiChatInput({
               />
             </div>
             <PromptInputAction
-              tooltip={status === "streaming" ? "Stop" : "Send"}
+              tooltip={isProcessing ? "Stop" : "Send"}
             >
               <Button
                 size="sm"
                 className="size-9 rounded-full transition-all duration-300 ease-out"
                 disabled={
-                  !value ||
-                  isSubmitting ||
-                  anyLoading ||
-                  isOnlyWhitespace(value) ||
-                  selectedModelIds.length === 0
+                  !isProcessing && (
+                    !value ||
+                    isOnlyWhitespace(value) ||
+                    selectedModelIds.length === 0
+                  )
                 }
                 type="button"
                 onClick={handleSend}
-                aria-label={status === "streaming" ? "Stop" : "Send message"}
+                aria-label={isProcessing ? "Stop" : "Send message"}
               >
-                {status === "streaming" || anyLoading ? (
+                {isProcessing ? (
                   <Stop className="size-4" />
                 ) : (
                   <ArrowUp className="size-4" />
