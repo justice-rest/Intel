@@ -2,6 +2,7 @@
 
 import { ChatInput } from "@/app/components/chat-input/chat-input"
 import { Conversation } from "@/app/components/chat/conversation"
+import { LoaderOverlay } from "@/app/components/chat/loader-overlay"
 import { DropZone } from "@/app/components/split-view"
 import { useModel } from "@/app/components/chat/use-model"
 import { useChatDraft } from "@/app/hooks/use-chat-draft"
@@ -238,8 +239,6 @@ export function Chat({
       onReload: handleReload,
       onQuote: handleQuotedSelected,
       isUserAuthenticated: isAuthenticated,
-      enableSearch,
-      responseStartTime,
     }),
     [
       messages,
@@ -249,10 +248,18 @@ export function Chat({
       handleReload,
       handleQuotedSelected,
       isAuthenticated,
-      enableSearch,
-      responseStartTime,
     ]
   )
+
+  // Determine if we should show the loader overlay
+  // Show when: submitted OR streaming but no text content yet (tools still running)
+  const lastMessage = messages[messages.length - 1]
+  const isWaitingForResponse =
+    status === "submitted" ||
+    (status === "streaming" &&
+      messages.length > 0 &&
+      (lastMessage?.role === "user" ||
+        (lastMessage?.role === "assistant" && !lastMessage.content?.trim())))
 
   // Memoize the chat input props
   const chatInputProps = useMemo(
@@ -394,6 +401,11 @@ export function Chat({
           },
         }}
       >
+        <LoaderOverlay
+          isActive={isWaitingForResponse}
+          enableSearch={enableSearch}
+          startTime={responseStartTime ?? null}
+        />
         <ChatInput {...chatInputProps} />
       </motion.div>
 

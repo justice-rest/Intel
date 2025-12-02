@@ -4,7 +4,7 @@ import {
   ChatContainerContent,
   ChatContainerRoot,
 } from "@/components/prompt-kit/chat-container"
-import { Loader } from "@/components/prompt-kit/loader"
+import { BookLoader } from "@/components/prompt-kit/book-loader"
 import { ScrollButton } from "@/components/prompt-kit/scroll-button"
 import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
 import { getModelInfo, normalizeModelId } from "@/lib/models"
@@ -84,7 +84,7 @@ function ResponseCard({ response, group }: ResponseCardProps) {
             <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               assistant
             </div>
-            <Loader />
+            <BookLoader />
           </div>
         ) : (
           <div className="text-muted-foreground text-sm italic">

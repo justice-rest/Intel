@@ -4,6 +4,7 @@ import { getProviderForModel } from "@/lib/openproviders/provider-map"
 import { createListDocumentsTool } from "@/lib/tools/list-documents"
 import { createRagSearchTool } from "@/lib/tools/rag-search"
 import { createMemorySearchTool } from "@/lib/tools/memory-tool"
+import { createBatchReportsSearchTool } from "@/lib/tools/batch-reports-search"
 import { linkupSearchTool, shouldEnableLinkupTool } from "@/lib/tools/linkup-search"
 import {
   yahooFinanceQuoteTool,
@@ -100,7 +101,8 @@ export async function POST(req: Request) {
       allModels,
       effectiveSystemPrompt,
       apiKey,
-      memoryResult
+      memoryResult,
+      batchReportsResult
     ] = await Promise.all([
       // 1. Validate user and check rate limits (critical - blocks streaming)
       validateAndTrackUsage({
@@ -159,6 +161,40 @@ export async function POST(req: Request) {
           console.error("Failed to retrieve memories:", error)
           return null
         }
+      })(),
+      // 6. BATCH REPORTS RETRIEVAL - Retrieve relevant prospect research
+      (async (): Promise<string | null> => {
+        if (!shouldInjectMemory) return null
+
+        try {
+          const { getBatchReportsForAutoInject, formatBatchReportsForPrompt, isBatchReportsRAGEnabled } = await import("@/lib/batch-reports")
+          const { buildConversationContext } = await import("@/lib/memory")
+
+          if (!isBatchReportsRAGEnabled()) return null
+
+          const conversationContext = buildConversationContext(
+            messages.slice(-3).map((m) => ({ role: m.role, content: String(m.content) }))
+          )
+
+          if (!conversationContext) return null
+
+          const relevantReports = await getBatchReportsForAutoInject(
+            {
+              conversationContext,
+              userId,
+              count: 3,
+            },
+            process.env.OPENROUTER_API_KEY || ""
+          )
+
+          if (relevantReports.length > 0) {
+            return formatBatchReportsForPrompt(relevantReports)
+          }
+          return null
+        } catch (error) {
+          console.error("Failed to retrieve batch reports:", error)
+          return null
+        }
       })()
     ])
 
@@ -184,10 +220,14 @@ export async function POST(req: Request) {
 
     const userMessage = messages[messages.length - 1]
 
-    // Combine system prompt with memory context (if retrieved)
-    let finalSystemPrompt = memoryResult
-      ? `${effectiveSystemPrompt}\n\n${memoryResult}`
-      : effectiveSystemPrompt
+    // Combine system prompt with memory and batch reports context (if retrieved)
+    let finalSystemPrompt = effectiveSystemPrompt
+    if (memoryResult) {
+      finalSystemPrompt = `${finalSystemPrompt}\n\n${memoryResult}`
+    }
+    if (batchReportsResult) {
+      finalSystemPrompt = `${finalSystemPrompt}\n\n${batchReportsResult}`
+    }
 
     // Add search guidance when search is enabled
     if (enableSearch) {
@@ -324,6 +364,7 @@ Run MULTIPLE searchWeb queries to uncover business interests:
             list_documents: createListDocumentsTool(userId),
             rag_search: createRagSearchTool(userId),
             search_memory: createMemorySearchTool(userId),
+            search_prospects: createBatchReportsSearchTool(userId),
           }
         : {}),
       // Add Linkup web search tool - prospect research with curated domains

@@ -2,12 +2,12 @@ import {
   ChatContainerContent,
   ChatContainerRoot,
 } from "@/components/prompt-kit/chat-container"
+import { BookLoader } from "@/components/prompt-kit/book-loader"
 import { ScrollButton } from "@/components/prompt-kit/scroll-button"
 import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
 import { Message as MessageType } from "@ai-sdk/react"
 import { useRef } from "react"
 import { Message } from "./message"
-import { ResponseTimeEstimate } from "./response-time-estimate"
 
 type ConversationProps = {
   messages: MessageType[]
@@ -17,8 +17,6 @@ type ConversationProps = {
   onReload: () => void
   onQuote?: (text: string, messageId: string) => void
   isUserAuthenticated?: boolean
-  enableSearch?: boolean
-  responseStartTime?: number | null
 }
 
 export function Conversation({
@@ -29,23 +27,11 @@ export function Conversation({
   onReload,
   onQuote,
   isUserAuthenticated,
-  enableSearch = false,
-  responseStartTime,
 }: ConversationProps) {
   const initialMessageCount = useRef(messages.length)
 
   if (!messages || messages.length === 0)
     return <div className="h-full w-full"></div>
-
-  // Determine if we should show the loader and time estimate
-  // Show when: submitted OR streaming but no text content yet (tools still running)
-  const lastMessage = messages[messages.length - 1]
-  const isWaitingForTextResponse =
-    status === "submitted" ||
-    (status === "streaming" &&
-      messages.length > 0 &&
-      (lastMessage?.role === "user" ||
-        (lastMessage?.role === "assistant" && !lastMessage.content?.trim())))
 
   return (
     <div className="relative flex h-full w-full flex-col items-center overflow-x-hidden overflow-y-auto animate-in fade-in duration-200">
@@ -62,9 +48,8 @@ export function Conversation({
           }}
         >
           {messages?.map((message, index) => {
-            // Don't mark as "last" when loader is showing (scroll anchor goes to loader)
             const isLast =
-              index === messages.length - 1 && !isWaitingForTextResponse
+              index === messages.length - 1 && status !== "submitted"
             const hasScrollAnchor =
               isLast && messages.length > initialMessageCount.current
 
@@ -91,15 +76,13 @@ export function Conversation({
               </Message>
             )
           })}
-          {isWaitingForTextResponse && (
-            <div className="group min-h-scroll-anchor flex w-full max-w-3xl flex-col items-start gap-2 px-6 pb-2">
-              <ResponseTimeEstimate
-                isActive={isWaitingForTextResponse}
-                enableSearch={enableSearch}
-                startTime={responseStartTime ?? null}
-              />
-            </div>
-          )}
+          {status === "submitted" &&
+            messages.length > 0 &&
+            messages[messages.length - 1].role === "user" && (
+              <div className="group min-h-scroll-anchor flex w-full max-w-3xl flex-col items-start gap-2 px-6 pb-2">
+                <BookLoader />
+              </div>
+            )}
           <div className="absolute bottom-0 flex w-full max-w-3xl flex-1 items-end justify-end gap-4 px-6 pb-2">
             <ScrollButton className="absolute top-[-50px] right-[30px]" />
           </div>

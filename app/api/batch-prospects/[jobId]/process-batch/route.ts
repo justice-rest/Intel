@@ -333,6 +333,25 @@ export async function POST(
             })
             .eq("id", item.id)
 
+          // Generate embedding for RAG in background (fire-and-forget)
+          Promise.resolve().then(async () => {
+            try {
+              const { generateBatchReportEmbedding, isBatchReportsRAGEnabled } = await import("@/lib/batch-reports")
+              if (!isBatchReportsRAGEnabled()) return
+
+              await generateBatchReportEmbedding(
+                {
+                  itemId: item.id,
+                  reportContent: reportResult.report_content!,
+                  prospectName: item.prospect_name || item.input_data.name,
+                },
+                apiKey || process.env.OPENROUTER_API_KEY || ""
+              )
+            } catch (err) {
+              console.error("[BatchProcessor] Failed to generate report embedding:", err)
+            }
+          }).catch(console.error)
+
           return { success: true, itemId: item.id, name: item.prospect_name }
         } else {
           await (supabase as any)
