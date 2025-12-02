@@ -14,7 +14,7 @@ export function BookLoader() {
           position: relative;
         }
         .book {
-          --color: hsl(var(--foreground));
+          --color: var(--foreground);
           --duration: 6.8s;
           width: 32px;
           height: 12px;
