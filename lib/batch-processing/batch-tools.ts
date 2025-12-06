@@ -8,9 +8,6 @@ import { ToolSet } from "ai"
 
 // Import all the tools from lib/tools
 import { linkupSearchTool, shouldEnableLinkupTool } from "@/lib/tools/linkup-search"
-import { youSearchTool, shouldEnableYouTool } from "@/lib/tools/you-search"
-import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
-import { braveSearchTool, shouldEnableBraveTool } from "@/lib/tools/brave-search"
 import {
   yahooFinanceQuoteTool,
   yahooFinanceSearchTool,
@@ -37,11 +34,8 @@ import {
  */
 export function buildBatchTools(): ToolSet {
   const tools: ToolSet = {
-    // Web Search Tools
+    // Web Search Tool - Linkup for prospect research with curated domains
     ...(shouldEnableLinkupTool() ? { searchWeb: linkupSearchTool } : {}),
-    ...(shouldEnableYouTool() ? { youSearch: youSearchTool } : {}),
-    ...(shouldEnableExaTool() ? { exaSearch: exaSearchTool } : {}),
-    ...(shouldEnableBraveTool() ? { searchWebGeneral: braveSearchTool } : {}),
 
     // Financial Data Tools
     ...(shouldEnableYahooFinanceTools()
@@ -85,22 +79,7 @@ export function buildBatchTools(): ToolSet {
  * Get a description of available tools for the system prompt
  */
 export function getToolDescriptions(): string {
-  const searchTools: string[] = []
   const dataTools: string[] = []
-
-  // Search tools
-  if (shouldEnableLinkupTool()) {
-    searchTools.push("searchWeb (YOUR PRIMARY TOOL - property values, business ownership, SEC, FEC, 990s, corporate filings)")
-  }
-  if (shouldEnableYouTool()) {
-    searchTools.push("youSearch (backup for searchWeb - agentic web+news search, breaking news, recent coverage)")
-  }
-  if (shouldEnableExaTool()) {
-    searchTools.push("exaSearch (semantic search, broad web, finding similar content)")
-  }
-  if (shouldEnableBraveTool()) {
-    searchTools.push("searchWebGeneral (general-purpose web search, backup when other tools miss results)")
-  }
 
   // Data API tools
   if (shouldEnableSecEdgarTools()) {
@@ -122,53 +101,37 @@ export function getToolDescriptions(): string {
     dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
   }
 
+  const hasLinkup = shouldEnableLinkupTool()
   let description = ""
 
-  if (searchTools.length > 0 || dataTools.length > 0) {
+  if (hasLinkup || dataTools.length > 0) {
     description += `## Available Research Tools\n\n`
 
-    if (searchTools.length > 0) {
-      description += `### Web Search Tools (USE AGGRESSIVELY)\n${searchTools.map((t) => `- ${t}`).join("\n")}\n\n`
-      description += `**searchWeb is your PRIMARY research tool. Use it REPEATEDLY with different query variations.**
-Each search costs ~$0.005 - essentially free. Run 8-12 searchWeb queries minimum per prospect.
-
-**HOME VALUATION SEARCHES (run 3-4):**
-- "[address] home value Zillow Redfin"
-- "[address] property records tax assessment"
-- "[address] sold price history"
-- "[county] assessor [address]"
-
-**BUSINESS OWNERSHIP SEARCHES (run 3-4):**
-- "[name] owner founder business [city]"
-- "[name] CEO president LLC [state]"
-- "[state] secretary of state [name]"
-- If you find a company: "[company name] revenue employees"
-
-**PHILANTHROPIC SEARCHES (run 2-3):**
-- "[name] foundation board nonprofit"
-- "[name] donor charitable giving"
-- "[name] FEC political contributions"\n\n`
+    if (hasLinkup) {
+      description += `### searchWeb - Your Primary Research Tool
+Use searchWeb for prospect research with curated domains (SEC filings, FEC contributions, foundation 990s, property records, corporate data).
+Run 6-10 searchWeb queries per prospect with different angles:
+- Property: "[address] home value Zillow Redfin", "[address] property records"
+- Business: "[name] founder CEO business [city]", "[name] LLC [state]"
+- Philanthropy: "[name] foundation board nonprofit", "[name] donor charitable giving"\n\n`
     }
 
     if (dataTools.length > 0) {
-      description += `### Data API Tools (Use AFTER web search to get detailed data)\n${dataTools.map((t) => `- ${t}`).join("\n")}\n\n`
-      description += `**Usage Guidance:**
-- Use sec_edgar_filings for public company financial data (10-K, 10-Q, balance sheets, income statements, executive compensation)
-- Use fec_contributions to search FEC records for political contribution history
-- Use yahoo_finance_quote/search/profile for stock prices, market cap, company profiles, executives
-- Use propublica_nonprofit_search/details for foundation 990 data, nonprofit financials, EIN lookups
-- Use us_gov_data for federal contracts, grants, treasury data, and regulations
-- Use wikidata_search/entity for biographical data (education, employers, positions, net worth)\n\n`
+      description += `### Data API Tools\n${dataTools.map((t) => `- ${t}`).join("\n")}\n\n`
+      description += `**Usage:**
+- sec_edgar_filings: Public company financials, 10-K/10-Q, executive compensation
+- fec_contributions: Political contribution history by individual name
+- yahoo_finance_*: Stock data, company profiles, insider holdings
+- propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
+- us_gov_data: Federal contracts/grants by company/org name
+- wikidata_search/entity: Biographical data (education, employers, net worth)\n\n`
     }
 
     description += `### Research Strategy
-1. **Start with 8-12 searchWeb queries** covering property, business, and philanthropy
-2. **Don't stop if results are limited** - reformulate and search again with different terms
-3. **Go deep**: Use data API tools for detailed information on entities you discover
-4. **Person-to-Nonprofit Workflow**:
-   - First searchWeb for the person's name + "foundation board nonprofit"
-   - Extract organization names and EINs from results
-   - Then query ProPublica with discovered organizations for 990 financial data\n`
+1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
+2. Use **data API tools** to get detailed info on discovered entities
+3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
+4. Run tools in parallel when possible. Be thorough.\n`
   }
 
   return description
@@ -187,7 +150,7 @@ export function extractSourcesFromToolResults(
   for (const { result } of toolResults) {
     if (!result || typeof result !== "object") continue
 
-    // Handle tools that return sources array (Linkup, You.com, Jina)
+    // Handle tools that return sources array (Linkup)
     const resultObj = result as Record<string, unknown>
     if (Array.isArray(resultObj.sources)) {
       for (const source of resultObj.sources as Array<{ name?: string; title?: string; url?: string }>) {
@@ -201,7 +164,7 @@ export function extractSourcesFromToolResults(
       }
     }
 
-    // Handle tools that return results array (Exa, Tavily, Firecrawl, Brave)
+    // Handle tools that return results array
     if (Array.isArray(resultObj.results)) {
       for (const item of resultObj.results as Array<{ title?: string; url?: string }>) {
         if (item.url && !seenUrls.has(item.url)) {

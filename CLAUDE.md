@@ -295,72 +295,62 @@ User sends message
 - `/app/api/memories/` - REST API endpoints for memory CRUD
 - `/migrations/006_add_memory_system.sql` - Database schema
 
-### Multi-Provider Search Integration
-**Two Primary Search Tools** for comprehensive web coverage:
+### Web Search Integration
+**Dual-Mode Search Architecture** with clean separation:
 
-| Tool | Purpose | Cost | Best For |
-|------|---------|------|----------|
-| `searchWeb` (Linkup) | Prospect research with curated domains | ~$0.005/search | SEC, FEC, 990s, real estate |
-| `exaSearch` (Exa) | Semantic/neural web search | ~$0.01/search | Similar content, broad web |
+| Mode | When | Search Method | Use Case |
+|------|------|---------------|----------|
+| Tool-based | `enableSearch=true` | Linkup tool (`searchWeb`) | Prospect research with curated domains |
+| Native | `enableSearch=false` | OpenRouter `:online` suffix (Exa) | General web grounding for any query |
+
+**How It Works:**
+- When tools are enabled, the model uses `searchWeb` (Linkup) for targeted prospect research
+- When tools are disabled, the model uses native Exa via OpenRouter's `:online` suffix for general grounding
+- This prevents conflicts between tool-based and native search
 
 **Linkup Search Tool** (`/lib/tools/linkup-search.ts`)
 - Uses `linkup-sdk` package with `sourcedAnswer` output mode
 - Returns pre-synthesized answers with source citations
 - Searches curated domains (SEC, FEC, foundation 990s, property records, etc.)
-- 60-second timeout, standard depth by default
+- 60-second timeout, deep search by default
 
-**Exa Search Tool** (`/lib/tools/exa-search.ts`)
-- Uses `exa-js` package for semantic/neural search
-- Searches full web without domain restrictions
-- Best for finding similar content, semantic queries
-- 15-second timeout for low latency
+**Native Exa via OpenRouter** (`/lib/models/data/openrouter.ts`)
+- Automatically enabled when `enableSearch=false`
+- Uses `:online` suffix on model ID (e.g., `x-ai/grok-4.1-fast:online`)
+- Provides broad web grounding for general queries
+- No additional API key required (uses OpenRouter's Exa integration)
 
 **Search Flow**:
 ```
-User toggles search button
-  → enableSearch=true sent to API
-  → AI chooses appropriate tool based on query type
-  → Tool returns results with sources
-  → Sources extracted from tool result
-  → Displayed in SourcesList component
+enableSearch=true (Prospect Research):
+  → Regular model + Linkup tool
+  → AI calls searchWeb for curated domain search
+  → Sources displayed in SourcesList
+
+enableSearch=false (General Queries):
+  → Model with :online suffix
+  → Native Exa provides web grounding
+  → No tool calls needed
 ```
 
 **Person-to-Nonprofit Research Workflow**:
-When researching an individual's nonprofit affiliations, the AI follows this multi-step approach:
 ```
-1. Search for person's name using web search tools
-   → searchWeb("John Smith foundation board nonprofit")
+1. searchWeb("John Smith foundation board nonprofit")
    → Discovers: "Smith Family Foundation", board at "XYZ Charity"
 
 2. Extract organization names and EINs from results
-   → Found: "Smith Family Foundation" (EIN: 12-3456789)
-   → Found: "XYZ Charity" (no EIN in results)
 
-3. Query ProPublica with discovered organizations
+3. propublica_nonprofit_search(query="XYZ Charity")
    → propublica_nonprofit_details(ein="12-3456789")
-   → propublica_nonprofit_search(query="XYZ Charity")
 
 4. Return detailed 990 data (revenue, assets, officer compensation)
 ```
-This workflow solves the limitation that searching "John Smith" directly in ProPublica returns nothing (it only searches organization names, not people).
-
-**Source Display** (`/app/components/chat/sources-list.tsx`):
-- Automatic source extraction from all search tool results
-- Shows title, URL, domain, and favicon
-- Collapsible list with expand/collapse animation
-- UTM tracking for analytics
-
-**Configuration Files**:
-- `/lib/linkup/config.ts` - Linkup API key, defaults, curated domains
-- `/lib/exa/config.ts` - Exa API key, defaults
 
 **Key Files**:
 - `/lib/tools/linkup-search.ts` - Linkup tool (prospect research)
-- `/lib/tools/exa-search.ts` - Exa tool (semantic search)
-- `/lib/tools/types.ts` - Type definitions and schemas
+- `/lib/models/data/openrouter.ts` - Model config with `:online` suffix logic
+- `/lib/linkup/config.ts` - Linkup API key and defaults
 - `/app/api/chat/route.ts` - Tool integration
-- `/app/components/chat/get-sources.ts` - Source extraction
-- `/app/components/chat/sources-list.tsx` - UI display
 
 ### USAspending Awards Tool
 **Search federal contracts, grants, and loans by company/organization name** - FREE, no API key required:
@@ -456,10 +446,7 @@ OPENROUTER_API_KEY=             # Required for Grok 4.1 Fast model
 # Linkup Search (optional - prospect research with curated domains)
 # Get your free API key at https://app.linkup.so (no credit card required)
 LINKUP_API_KEY=                 # Optional - enables Linkup prospect research
-
-# Exa Search (optional - semantic/neural web search)
-# Get your API key at https://dashboard.exa.ai - $10 free credits
-EXA_API_KEY=                    # Optional - enables Exa semantic search
+# Note: Native Exa web search is included via OpenRouter (no separate key needed)
 
 # USAspending API (no API key required - FREE)
 # Federal contracts, grants, loans data - works without a key

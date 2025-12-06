@@ -17,9 +17,6 @@ import {
   propublicaNonprofitDetailsTool,
   shouldEnableProPublicaTools,
 } from "@/lib/tools/propublica-nonprofits"
-import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
-import { braveSearchTool, shouldEnableBraveTool } from "@/lib/tools/brave-search"
-import { youSearchTool, shouldEnableYouTool } from "@/lib/tools/you-search"
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
@@ -232,12 +229,6 @@ export async function POST(req: Request) {
 
     // Add search guidance when search is enabled
     if (enableSearch) {
-      const searchTools: string[] = []
-      if (shouldEnableLinkupTool()) searchTools.push("searchWeb (prospect research: SEC, FEC, 990s, real estate, corporate filings)")
-      if (shouldEnableYouTool()) searchTools.push("youSearch (agentic web+news search, backup for searchWeb, breaking news)")
-      if (shouldEnableExaTool()) searchTools.push("exaSearch (semantic search, broad web, finding similar content)")
-      if (shouldEnableBraveTool()) searchTools.push("searchWebGeneral (general-purpose web search, backup, broad queries)")
-
       // Data API tools (direct access to authoritative sources)
       const dataTools: string[] = []
       if (shouldEnableSecEdgarTools()) dataTools.push("sec_edgar_filings (SEC 10-K/10-Q filings, financial statements, executive compensation)")
@@ -248,81 +239,38 @@ export async function POST(req: Request) {
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
       if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
 
-      if (searchTools.length > 0 || dataTools.length > 0) {
-        finalSystemPrompt += `\n\n## Web Search & Data Tools`
+      const hasLinkup = shouldEnableLinkupTool()
+      if (hasLinkup || dataTools.length > 0) {
+        finalSystemPrompt += `\n\n## Prospect Research Tools`
 
-        if (searchTools.length > 0) {
-          finalSystemPrompt += `\nYou have access to these search tools: ${searchTools.join(", ")}
-- Use searchWeb for prospect research (SEC filings, FEC contributions, foundation 990s, property records, corporate data)
-- Use youSearch as backup/complement to searchWeb - great for breaking news, recent coverage, and web+news combined results
-- Use exaSearch for semantic queries, finding similar content, companies, or when keyword search fails
-- Use searchWebGeneral for broad web queries, as a backup when other tools don't return enough results, or for general information (use freshness='pd' for past day, 'pw' for past week)`
+        if (hasLinkup) {
+          finalSystemPrompt += `\n### searchWeb - Your Primary Research Tool
+Use searchWeb for prospect research with curated domains (SEC filings, FEC contributions, foundation 990s, property records, corporate data).
+Run 6-10 searchWeb queries per prospect with different angles:
+- Property: "[address] home value Zillow Redfin", "[address] property records"
+- Business: "[name] founder CEO business [city]", "[name] LLC [state]"
+- Philanthropy: "[name] foundation board nonprofit", "[name] donor charitable giving"`
         }
 
         if (dataTools.length > 0) {
-          finalSystemPrompt += `\n\nYou also have access to these data API tools: ${dataTools.join(", ")}
-- Use sec_edgar_filings for public company financial data (10-K annual reports, 10-Q quarterly reports, balance sheets, income statements, cash flow, executive compensation)
-- Use fec_contributions to search FEC records for an individual's political contribution history (amounts, dates, recipients, employer, occupation)
-- Use yahoo_finance_quote/search/profile for stock prices, market cap, company profiles, executives, and insider holdings
-- Use propublica_nonprofit_search/details for foundation 990 data, nonprofit financials, and EIN lookups
-- Use usaspending_awards to find federal contracts, grants, and loans received by a COMPANY or ORGANIZATION (search by org name like 'Gates Foundation' or 'Lockheed Martin'). NOT for individual donor research.
-- Use wikidata_search to find people/organizations by name and get their Wikidata QID
-- Use wikidata_entity with a QID to get biographical data (education, employers, positions held, net worth, awards, etc.)
-- Use property_valuation AFTER gathering property data via searchWeb - pass sqft, beds, baths, Zillow/Redfin estimates, and comparable sales for AVM calculation`
+          finalSystemPrompt += `\n\n### Data API Tools\n${dataTools.join("\n")}
+
+**Usage:**
+- sec_edgar_filings: Public company financials, 10-K/10-Q, executive compensation
+- fec_contributions: Political contribution history by individual name
+- yahoo_finance_*: Stock data, company profiles, insider holdings
+- propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
+- usaspending_awards: Federal contracts/grants by company/org name
+- wikidata_search/entity: Biographical data (education, employers, net worth)
+- property_valuation: AVM calculation after gathering property data via searchWeb`
         }
 
-        finalSystemPrompt += `\n\n### CRITICAL: MAXIMIZE TOOL USAGE
-**Use ALL available tools aggressively.** Each tool costs fractions of a cent. Thoroughness is expected.
-
-For ANY prospect research request, execute 10-15+ tool calls minimum:
-1. **searchWeb** (4-6 calls): property values, business ownership, philanthropy, news
-2. **youSearch**: backup/complement to searchWeb - use for breaking news, recent media coverage, web+news combined
-3. **searchWebGeneral**: general web queries, backup when other tools miss results (use freshness='pw' for past week)
-4. **exaSearch**: semantic search for finding similar content or when keyword search fails
-5. **fec_contributions**: political giving history
-6. **propublica_nonprofit_search/details**: foundation 990 data (search by ORG name, not person)
-7. **yahoo_finance_profile**: if they're a public company executive
-8. **sec_edgar_filings**: if they have SEC filings
-9. **wikidata_search + wikidata_entity**: biographical data (education, employers, net worth)
-
-**DO NOT** stop after 2-3 tool calls. Run tools in parallel when possible. The user expects comprehensive research.
-
-### Tool Usage Best Practices
-- Always cite sources when using search or data tool results
-- For prospect research, use MULTIPLE tools together - not just web search
-- Cross-reference findings across tools for validation
-
-### Person-to-Nonprofit Research Workflow
-When researching an individual's nonprofit affiliations:
-1. **searchWeb** for "[name] foundation board nonprofit" to discover affiliations
-2. **Extract organization names and EINs** from results
-3. **propublica_nonprofit_search** with the ORGANIZATION name (not person name)
-4. **propublica_nonprofit_details** with the EIN for full 990 financials
-5. **Cross-reference** with other tools for complete picture
-
-### Home Valuation Research (AVM Workflow)
-To estimate property value, follow this 2-step workflow:
-
-**Step 1: Gather data** via searchWeb queries:
-- "[address] home value Zillow Redfin" → extract Zestimate & Redfin Estimate
-- "[address] property records tax assessment" → extract sqft, beds, baths, year built
-- "homes sold near [address] 2024" → extract comparable sales (address, price, date, sqft)
-- "[owner name] real estate [city state]" → finds additional properties
-
-**Step 2: Call property_valuation** with the extracted data:
-- Pass: address, squareFeet, bedrooms, bathrooms, yearBuilt
-- Pass: onlineEstimates array (source: "zillow"/"redfin", value: number)
-- Pass: comparableSales array (address, salePrice, saleDate, squareFeet, etc.)
-- Tool returns: estimated value, confidence score, value range, model breakdown
-
-IMPORTANT: The property_valuation tool does the math - you must gather and pass the data to it.
-
-### Business Ownership Research
-Run MULTIPLE searchWeb queries to uncover business interests:
-- "[name] owner founder business [city]"
-- "[name] CEO president LLC [state]"
-- "[state] secretary of state [name]"
-- If you find a company: "[company name] revenue employees"`
+        finalSystemPrompt += `\n\n### Research Strategy
+1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
+2. Use **data API tools** to get detailed info on discovered entities
+3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
+4. **property_valuation**: Gather sqft/beds/baths/estimates via searchWeb first, then call tool
+5. Run tools in parallel when possible. Be thorough.`
       }
     }
 
@@ -373,20 +321,9 @@ Run MULTIPLE searchWeb queries to uncover business interests:
           }
         : {}),
       // Add Linkup web search tool - prospect research with curated domains
+      // Note: Native Exa integration via OpenRouter :online suffix handles general web grounding when tools are disabled
       ...(enableSearch && shouldEnableLinkupTool()
         ? { searchWeb: linkupSearchTool }
-        : {}),
-      // Add You.com agentic search tool - backup for Linkup, web+news combined
-      ...(enableSearch && shouldEnableYouTool()
-        ? { youSearch: youSearchTool }
-        : {}),
-      // Add Exa semantic search tool - neural embeddings, broad web coverage
-      ...(enableSearch && shouldEnableExaTool()
-        ? { exaSearch: exaSearchTool }
-        : {}),
-      // Add Brave Search tool - general-purpose web search, backup for other tools
-      ...(enableSearch && shouldEnableBraveTool()
-        ? { searchWebGeneral: braveSearchTool }
         : {}),
       // Add Yahoo Finance tools for stock data, executive profiles, and insider transactions
       // Available to all users (no API key required)

@@ -41,11 +41,3 @@ export interface ToolDefinition<TParameters = unknown, TResult = unknown> {
   parameters: z.ZodType<TParameters>
   execute: (params: TParameters) => Promise<TResult>
 }
-
-// Re-export Exa types
-export {
-  exaSearchParametersSchema,
-  type ExaSearchParameters,
-  type ExaSearchResult,
-  type ExaSearchResponse,
-} from "./exa-search"
