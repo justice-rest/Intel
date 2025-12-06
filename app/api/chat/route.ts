@@ -279,7 +279,13 @@ Run 6-10 searchWeb queries per prospect with different angles:
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
 4. **property_valuation**: Just pass the address - tool auto-searches Zillow, Redfin, county records, and comps
-5. Run tools in parallel when possible. Be thorough.`
+5. Run tools in parallel when possible. Be thorough.
+
+### Board & Officer Validation (PUBLIC COMPANIES)
+When asked to verify if someone is on a board, is a director, officer, or executive:
+1. **sec_insider_search("[person name]")** - Searches Form 3/4/5 insider filings. If results found, they ARE an insider.
+2. **sec_proxy_search("[company name]")** - Gets DEF 14A proxy statement listing ALL directors and officers.
+Use BOTH tools: insider search confirms the person files as insider, proxy shows full board composition.`
       }
     }
 

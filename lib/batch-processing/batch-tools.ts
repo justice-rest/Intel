@@ -150,7 +150,12 @@ Run 6-10 searchWeb queries per prospect with different angles:
 1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
-4. Run tools in parallel when possible. Be thorough.\n`
+4. Run tools in parallel when possible. Be thorough.
+
+### Board & Officer Validation (PUBLIC COMPANIES)
+When verifying board membership or officer status:
+1. **sec_insider_search("[person name]")** - If results found, they ARE an insider (officer/director/10%+ owner)
+2. **sec_proxy_search("[company name]")** - Lists ALL directors and officers from DEF 14A proxy statement\n`
   }
 
   return description
