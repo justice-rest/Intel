@@ -310,13 +310,22 @@ When researching an individual's nonprofit affiliations:
 4. **propublica_nonprofit_details** with the EIN for full 990 financials
 5. **Cross-reference** with other tools for complete picture
 
-### Home Valuation Research
-Run MULTIPLE searchWeb queries to triangulate property values:
-- "[address] home value Zillow Redfin"
-- "[address] property records tax assessment"
-- "[address] sold price history"
-- "[county] assessor [address]"
-- "[owner name] real estate [city state]" - finds additional properties
+### Home Valuation Research (AVM Workflow)
+To estimate property value, follow this 2-step workflow:
+
+**Step 1: Gather data** via searchWeb queries:
+- "[address] home value Zillow Redfin" → extract Zestimate & Redfin Estimate
+- "[address] property records tax assessment" → extract sqft, beds, baths, year built
+- "homes sold near [address] 2024" → extract comparable sales (address, price, date, sqft)
+- "[owner name] real estate [city state]" → finds additional properties
+
+**Step 2: Call property_valuation** with the extracted data:
+- Pass: address, squareFeet, bedrooms, bathrooms, yearBuilt
+- Pass: onlineEstimates array (source: "zillow"/"redfin", value: number)
+- Pass: comparableSales array (address, salePrice, saleDate, squareFeet, etc.)
+- Tool returns: estimated value, confidence score, value range, model breakdown
+
+IMPORTANT: The property_valuation tool does the math - you must gather and pass the data to it.
 
 ### Business Ownership Research
 Run MULTIPLE searchWeb queries to uncover business interests:
