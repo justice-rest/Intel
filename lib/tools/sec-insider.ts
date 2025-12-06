@@ -23,11 +23,17 @@ import { z } from "zod"
 // CONSTANTS
 // ============================================================================
 
-// SEC EDGAR Full Text Search API (unofficial but stable)
-const SEC_EFTS_API = "https://efts.sec.gov/LATEST/search-index"
-// SEC EDGAR Submissions API (official)
+// SEC EDGAR Submissions API (official, free, no auth required)
 const SEC_SUBMISSIONS_API = "https://data.sec.gov/submissions"
-const SEC_TIMEOUT_MS = 20000
+// SEC EDGAR Company Search (for name-to-CIK lookup)
+const SEC_COMPANY_SEARCH = "https://www.sec.gov/cgi-bin/browse-edgar"
+// SEC Full Text Search (for person name searches)
+const SEC_FULL_TEXT_SEARCH = "https://efts.sec.gov/LATEST/search-index"
+const SEC_TIMEOUT_MS = 25000
+
+// User-Agent required by SEC (format: Company Name contact@email.com)
+// See: https://www.sec.gov/os/accessing-edgar-data
+const SEC_USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 // ============================================================================
 // TYPES
@@ -343,12 +349,12 @@ export const secInsiderSearchTool = tool({
       }
 
       const response = await withTimeout(
-        fetch(SEC_EFTS_API, {
+        fetch(SEC_FULL_TEXT_SEARCH, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
-            "User-Agent": "Romy-Prospect-Research/1.0 (contact@example.com)",
+            "User-Agent": SEC_USER_AGENT,
           },
           body: JSON.stringify(requestBody),
         }),
@@ -438,6 +444,46 @@ export const secInsiderSearchTool = tool({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
       console.error("[SEC Insider] Search failed:", errorMessage)
+
+      // Build manual search URL as fallback
+      const manualSearchUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(personName)}&type=4&dateb=&owner=only&count=40`
+
+      // Format a helpful error message with actionable guidance
+      const rawContent = `# SEC Insider Filing Search: "${personName}"
+
+---
+
+**Status:** Search temporarily unavailable
+
+The SEC EDGAR full-text search API returned an error. This can happen due to:
+- High traffic on SEC servers
+- Rate limiting from SEC
+- Temporary service disruption
+
+## Manual Search Option
+
+You can search manually at SEC EDGAR:
+**[Search SEC EDGAR for "${personName}"](${manualSearchUrl})**
+
+## Alternative Research Approaches
+
+1. **Search by Company First**
+   - If you know the company name, use \`sec_proxy_search\` to find proxy statements
+   - DEF 14A filings list all directors and officers
+
+2. **Use Web Search**
+   - Search for "${personName} SEC Form 4" to find news about their filings
+   - Search for "${personName} board of directors [company]" for board membership
+
+3. **Check Other Data Sources**
+   - LinkedIn for executive positions
+   - Company website "Leadership" or "About" pages
+   - Press releases announcing board appointments
+
+---
+
+*Note: Form 3/4/5 filings are only required for officers, directors, and 10%+ owners of PUBLIC companies.*`
+
       return {
         personName,
         totalFilings: 0,
@@ -445,8 +491,13 @@ export const secInsiderSearchTool = tool({
         companiesAsInsider: [],
         isOfficerAtAny: false,
         isDirectorAtAny: false,
-        rawContent: `# Insider Filing Search: "${personName}"\n\n**Error:** ${errorMessage}`,
-        sources: [],
+        rawContent,
+        sources: [
+          {
+            name: `SEC EDGAR - Manual Search for "${personName}"`,
+            url: manualSearchUrl,
+          },
+        ],
         error: errorMessage,
       }
     }
@@ -479,12 +530,12 @@ export const secProxySearchTool = tool({
       }
 
       const response = await withTimeout(
-        fetch(SEC_EFTS_API, {
+        fetch(SEC_FULL_TEXT_SEARCH, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Accept: "application/json",
-            "User-Agent": "Romy-Prospect-Research/1.0 (contact@example.com)",
+            "User-Agent": SEC_USER_AGENT,
           },
           body: JSON.stringify(requestBody),
         }),
@@ -549,12 +600,50 @@ export const secProxySearchTool = tool({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
       console.error("[SEC Proxy] Search failed:", errorMessage)
+
+      // Build manual search URL as fallback
+      const manualSearchUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(companyName)}&type=DEF+14A&dateb=&owner=include&count=40`
+
+      // Format a helpful error message
+      const rawContent = `# SEC Proxy Statement Search: "${companyName}"
+
+---
+
+**Status:** Search temporarily unavailable
+
+The SEC EDGAR search API returned an error. This can happen due to:
+- High traffic on SEC servers
+- Rate limiting from SEC
+- Temporary service disruption
+
+## Manual Search Option
+
+You can search manually at SEC EDGAR:
+**[Search SEC EDGAR for "${companyName}" Proxy Statements](${manualSearchUrl})**
+
+## What DEF 14A Proxy Statements Contain
+
+- **Board of Directors** - Complete list of all directors and nominees
+- **Executive Officers** - Named executive officers and their titles
+- **Compensation** - Executive and director pay packages
+- **Stock Ownership** - Who owns how much stock
+- **Related Party Transactions** - Conflicts of interest disclosures
+
+---
+
+*Note: Only PUBLIC companies file DEF 14A proxy statements with the SEC.*`
+
       return {
         companyName,
         companyCik: "",
         filings: [],
-        rawContent: `# Proxy Statement Search: "${companyName}"\n\n**Error:** ${errorMessage}`,
-        sources: [],
+        rawContent,
+        sources: [
+          {
+            name: `SEC EDGAR - Manual Search for "${companyName}"`,
+            url: manualSearchUrl,
+          },
+        ],
         error: errorMessage,
       }
     }
