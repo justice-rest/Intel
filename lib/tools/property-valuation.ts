@@ -1,35 +1,24 @@
 /**
- * Property Valuation Tool
+ * Property Valuation Tool (Enhanced with Native Search)
  *
- * AI-callable tool for estimating residential property values using
- * an Automated Valuation Model (AVM). Combines hedonic pricing,
- * comparable sales analysis, and online estimates.
+ * Self-contained AVM tool that automatically fetches property data via Linkup,
+ * parses results, and calculates home valuation. No AI intervention required
+ * for data gathering - the tool handles the complete workflow.
  *
- * Usage Workflow:
- * 1. AI runs searchWeb queries to gather property data
- * 2. AI extracts property characteristics and estimates from results
- * 3. AI calls this tool with gathered data
- * 4. Tool returns valuation with confidence score
+ * Workflow:
+ * 1. User/AI calls with just an address
+ * 2. Tool runs 4 parallel Linkup searches (Zillow/Redfin, tax records, comps, property details)
+ * 3. Tool extracts property characteristics, online estimates, comparable sales
+ * 4. Tool runs AVM ensemble calculation (hedonic + comps + online estimates)
+ * 5. Returns complete valuation with confidence score
  *
- * Example:
- * property_valuation({
- *   address: "123 Main St, Austin, TX 78701",
- *   squareFeet: 2000,
- *   bedrooms: 4,
- *   bathrooms: 2.5,
- *   yearBuilt: 2005,
- *   onlineEstimates: [
- *     { source: "zillow", value: 485000 },
- *     { source: "redfin", value: 492000 }
- *   ],
- *   comparableSales: [
- *     { address: "125 Main St", salePrice: 475000, saleDate: "2024-06-15", ... }
- *   ]
- * })
+ * Fallback: If search fails or returns insufficient data, AI can still pass
+ * pre-gathered data via optional parameters.
  */
 
 import { tool } from "ai"
 import { z } from "zod"
+import { LinkupClient } from "linkup-sdk"
 import { calculateEnsembleValue } from "@/lib/avm/ensemble"
 import type {
   AVMResult,
@@ -39,66 +28,60 @@ import type {
   EstimateSource,
 } from "@/lib/avm/types"
 import { AVM_TIMEOUT_MS } from "@/lib/avm/config"
+import {
+  getLinkupApiKeyOptional,
+  isLinkupEnabled,
+  PROSPECT_RESEARCH_DOMAINS,
+} from "@/lib/linkup/config"
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const SEARCH_TIMEOUT_MS = 45000 // 45 seconds per search
+const TOTAL_TIMEOUT_MS = 90000 // 90 seconds total for all operations
 
 // ============================================================================
 // Schemas
 // ============================================================================
 
 /**
- * Schema for online estimate input
+ * Schema for online estimate input (manual override)
  */
 const onlineEstimateSchema = z.object({
   source: z
     .enum(["zillow", "redfin", "realtor", "county", "other"])
-    .describe("Source of the estimate (zillow, redfin, realtor, county, other)"),
+    .describe("Source of the estimate"),
   value: z
     .number()
     .positive()
-    .describe("Estimated value in dollars (e.g., 485000)"),
+    .describe("Estimated value in dollars"),
   sourceUrl: z
     .string()
     .optional()
     .default("")
-    .describe("URL to the source of this estimate"),
+    .describe("URL to the source"),
 })
 
 /**
- * Schema for comparable sale input
+ * Schema for comparable sale input (manual override)
  */
 const comparableSaleSchema = z.object({
   address: z.string().describe("Address of the comparable property"),
   salePrice: z
     .number()
     .positive()
-    .describe("Sale price in dollars (e.g., 475000)"),
+    .describe("Sale price in dollars"),
   saleDate: z
     .string()
-    .describe("Sale date in YYYY-MM-DD format (e.g., 2024-06-15)"),
-  squareFeet: z
-    .number()
-    .positive()
-    .optional()
-    .describe("Living area square footage"),
-  bedrooms: z.number().optional().describe("Number of bedrooms"),
-  bathrooms: z
-    .number()
-    .optional()
-    .describe("Number of bathrooms (use 0.5 for half baths, e.g., 2.5)"),
-  yearBuilt: z.number().optional().describe("Year the property was built"),
-  distanceMiles: z
-    .number()
-    .optional()
-    .describe("Distance from subject property in miles"),
-  source: z
-    .string()
-    .optional()
-    .default("web search")
-    .describe("Data source (e.g., 'Zillow', 'MLS', 'county records')"),
-  sourceUrl: z
-    .string()
-    .optional()
-    .default("")
-    .describe("URL to the source of this comparable"),
+    .describe("Sale date in YYYY-MM-DD format"),
+  squareFeet: z.number().positive().optional(),
+  bedrooms: z.number().optional(),
+  bathrooms: z.number().optional(),
+  yearBuilt: z.number().optional(),
+  distanceMiles: z.number().optional(),
+  source: z.string().optional().default("web search"),
+  sourceUrl: z.string().optional().default(""),
 })
 
 /**
@@ -108,134 +91,477 @@ const propertyValuationSchema = z.object({
   address: z
     .string()
     .describe(
-      "Full property address including city, state, and ZIP code (e.g., '123 Main St, Austin, TX 78701')"
+      "Full property address including city, state, and ZIP (e.g., '123 Main St, Austin, TX 78701'). " +
+      "The tool will automatically search for property data, Zillow/Redfin estimates, and comparable sales."
     ),
 
-  // Property characteristics (optional - can be gathered from search)
-  city: z.string().optional().describe("City name"),
-  state: z
-    .string()
+  // Optional: Skip auto-search if set to true
+  skipAutoSearch: z
+    .boolean()
     .optional()
-    .describe("Two-letter state code (e.g., 'TX', 'CA')"),
-  zipCode: z.string().optional().describe("5-digit ZIP code"),
+    .default(false)
+    .describe("Set to true to skip automatic web search and use only provided data"),
 
-  squareFeet: z
-    .number()
-    .positive()
-    .optional()
-    .describe("Living area in square feet (e.g., 2000)"),
-  lotSizeSqFt: z
-    .number()
-    .positive()
-    .optional()
-    .describe("Lot size in square feet (e.g., 8500)"),
+  // Optional property characteristics (manual override or supplement)
+  squareFeet: z.number().positive().optional().describe("Living area in square feet"),
+  lotSizeSqFt: z.number().positive().optional().describe("Lot size in square feet"),
   bedrooms: z.number().optional().describe("Number of bedrooms"),
-  bathrooms: z
-    .number()
-    .optional()
-    .describe("Number of bathrooms (use 0.5 for half baths, e.g., 2.5)"),
-  yearBuilt: z.number().optional().describe("Year the property was built"),
-  garageSpaces: z.number().optional().describe("Number of garage spaces"),
-  hasPool: z.boolean().optional().describe("Whether the property has a pool"),
-  hasBasement: z
-    .boolean()
-    .optional()
-    .describe("Whether the property has a basement"),
-  hasFireplace: z
-    .boolean()
-    .optional()
-    .describe("Whether the property has a fireplace"),
+  bathrooms: z.number().optional().describe("Number of bathrooms"),
+  yearBuilt: z.number().optional().describe("Year built"),
+  garageSpaces: z.number().optional(),
+  hasPool: z.boolean().optional(),
+  hasBasement: z.boolean().optional(),
+  hasFireplace: z.boolean().optional(),
 
-  // Online estimates (from search results)
+  // Optional manual data (supplements or overrides auto-search)
   onlineEstimates: z
     .array(onlineEstimateSchema)
     .optional()
     .default([])
-    .describe(
-      "Online value estimates from Zillow, Redfin, county assessor, etc."
-    ),
-
-  // Comparable sales (from search results)
+    .describe("Manual online estimates (supplements auto-search results)"),
   comparableSales: z
     .array(comparableSaleSchema)
     .optional()
     .default([])
-    .describe("Recent comparable sales in the area (ideally 3-10 comps)"),
+    .describe("Manual comparable sales (supplements auto-search results)"),
 })
 
 export type PropertyValuationParams = z.infer<typeof propertyValuationSchema>
 
 // ============================================================================
-// Helpers
+// Search Result Types
+// ============================================================================
+
+interface LinkupSource {
+  name?: string
+  url: string
+  snippet?: string
+}
+
+interface SearchResult {
+  answer: string
+  sources: LinkupSource[]
+  query: string
+}
+
+interface ExtractedData {
+  property: Partial<PropertyCharacteristics>
+  onlineEstimates: OnlineEstimate[]
+  comparables: ComparableSale[]
+  sources: Array<{ name: string; url: string }>
+  searchesRun: number
+  searchesFailed: number
+}
+
+// ============================================================================
+// Linkup Search Helper
+// ============================================================================
+
+async function runLinkupSearch(
+  client: LinkupClient,
+  query: string,
+  timeoutMs: number = SEARCH_TIMEOUT_MS
+): Promise<SearchResult | null> {
+  try {
+    const result = await Promise.race([
+      client.search({
+        query,
+        depth: "deep",
+        outputType: "sourcedAnswer",
+        includeDomains: [...PROSPECT_RESEARCH_DOMAINS],
+      }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+    ])
+
+    if (!result) {
+      console.log(`[Property Valuation] Search timed out: ${query}`)
+      return null
+    }
+
+    return {
+      answer: result.answer || "",
+      sources: (result.sources || []).map((s: LinkupSource) => ({
+        name: s.name || "Untitled",
+        url: s.url,
+        snippet: s.snippet || "",
+      })),
+      query,
+    }
+  } catch (error) {
+    console.error(`[Property Valuation] Search failed for "${query}":`, error)
+    return null
+  }
+}
+
+// ============================================================================
+// Data Extraction from Search Results
 // ============================================================================
 
 /**
- * Timeout wrapper for async operations
+ * Extract dollar amounts from text
  */
-function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  errorMessage: string
-): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
-    ),
-  ])
+function extractDollarAmounts(text: string): number[] {
+  const amounts: number[] = []
+
+  // Match patterns like $485,000 or $485000 or 485,000 or 485000
+  const patterns = [
+    /\$\s*([\d,]+(?:\.\d{2})?)\s*(?:million|M)/gi,
+    /\$\s*([\d,]+(?:\.\d{2})?)\s*(?:thousand|K)/gi,
+    /\$\s*([\d,]+(?:\.\d{2})?)/g,
+    /(?:valued at|worth|estimate[ds]? (?:at|to be)?|priced at|asking|listed (?:at|for))\s*\$?\s*([\d,]+(?:\.\d{2})?)/gi,
+  ]
+
+  for (const pattern of patterns) {
+    let match
+    while ((match = pattern.exec(text)) !== null) {
+      let value = parseFloat(match[1].replace(/,/g, ""))
+
+      // Handle million/thousand suffixes
+      if (/million|M/i.test(match[0])) {
+        value *= 1_000_000
+      } else if (/thousand|K/i.test(match[0])) {
+        value *= 1_000
+      }
+
+      // Filter to reasonable home values ($50k - $50M)
+      if (value >= 50_000 && value <= 50_000_000) {
+        amounts.push(value)
+      }
+    }
+  }
+
+  return [...new Set(amounts)] // Deduplicate
 }
 
 /**
- * Convert tool input to internal types
+ * Extract property characteristics from text
  */
-function convertInputToInternal(params: PropertyValuationParams): {
-  property: Partial<PropertyCharacteristics>
-  comparables: ComparableSale[]
-  onlineEstimates: OnlineEstimate[]
-} {
-  // Build property characteristics
-  const property: Partial<PropertyCharacteristics> = {
-    address: params.address,
-    city: params.city,
-    state: params.state,
-    zipCode: params.zipCode,
-    squareFeet: params.squareFeet,
-    lotSizeSqFt: params.lotSizeSqFt,
-    bedrooms: params.bedrooms,
-    bathrooms: params.bathrooms,
-    yearBuilt: params.yearBuilt,
-    garageSpaces: params.garageSpaces,
-    hasPool: params.hasPool,
-    hasBasement: params.hasBasement,
-    hasFireplace: params.hasFireplace,
+function extractPropertyDetails(text: string): Partial<PropertyCharacteristics> {
+  const details: Partial<PropertyCharacteristics> = {}
+
+  // Square footage patterns
+  const sqftPatterns = [
+    /(\d{1,2},?\d{3})\s*(?:sq\.?\s*ft\.?|square feet|sqft)/i,
+    /(?:living (?:area|space)|home size)[:\s]+(\d{1,2},?\d{3})/i,
+  ]
+  for (const pattern of sqftPatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      details.squareFeet = parseInt(match[1].replace(/,/g, ""), 10)
+      break
+    }
   }
 
-  // Convert online estimates
-  const onlineEstimates: OnlineEstimate[] = (params.onlineEstimates || []).map(
-    (e) => ({
-      source: e.source as EstimateSource,
-      value: e.value,
-      sourceUrl: e.sourceUrl || "",
-    })
-  )
+  // Bedrooms
+  const bedsMatch = text.match(/(\d+)\s*(?:bed(?:room)?s?|BR|bd)/i)
+  if (bedsMatch) {
+    details.bedrooms = parseInt(bedsMatch[1], 10)
+  }
 
-  // Convert comparable sales
-  const comparables: ComparableSale[] = (params.comparableSales || []).map(
-    (c) => ({
-      address: c.address,
-      salePrice: c.salePrice,
-      saleDate: c.saleDate,
-      squareFeet: c.squareFeet,
-      bedrooms: c.bedrooms,
-      bathrooms: c.bathrooms,
-      yearBuilt: c.yearBuilt,
-      distanceMiles: c.distanceMiles,
-      source: c.source || "web search",
-      sourceUrl: c.sourceUrl || "",
-    })
-  )
+  // Bathrooms (including half baths)
+  const bathsMatch = text.match(/(\d+(?:\.\d)?)\s*(?:bath(?:room)?s?|BA|ba)/i)
+  if (bathsMatch) {
+    details.bathrooms = parseFloat(bathsMatch[1])
+  }
 
-  return { property, comparables, onlineEstimates }
+  // Year built
+  const yearMatch = text.match(/(?:built (?:in )?|year built[:\s]+|constructed (?:in )?)(19\d{2}|20[012]\d)/i)
+  if (yearMatch) {
+    details.yearBuilt = parseInt(yearMatch[1], 10)
+  }
+
+  // Lot size
+  const lotMatch = text.match(/(?:lot size|lot)[:\s]+(\d{1,2},?\d{3})\s*(?:sq\.?\s*ft\.?|sqft)/i)
+  if (lotMatch) {
+    details.lotSizeSqFt = parseInt(lotMatch[1].replace(/,/g, ""), 10)
+  }
+
+  // Features
+  if (/\bpool\b/i.test(text) && !/no pool/i.test(text)) {
+    details.hasPool = true
+  }
+  if (/\bbasement\b/i.test(text) && !/no basement/i.test(text)) {
+    details.hasBasement = true
+  }
+  if (/\bfireplace\b/i.test(text) && !/no fireplace/i.test(text)) {
+    details.hasFireplace = true
+  }
+  if (/(\d+)\s*(?:car )?garage/i.test(text)) {
+    const garageMatch = text.match(/(\d+)\s*(?:car )?garage/i)
+    if (garageMatch) {
+      details.garageSpaces = parseInt(garageMatch[1], 10)
+    }
+  }
+
+  return details
+}
+
+/**
+ * Extract online estimates from search results
+ */
+function extractOnlineEstimates(results: SearchResult[]): OnlineEstimate[] {
+  const estimates: OnlineEstimate[] = []
+  const seenSources = new Set<string>()
+
+  for (const result of results) {
+    const text = result.answer.toLowerCase()
+    const amounts = extractDollarAmounts(result.answer)
+
+    // Check for Zillow mentions
+    if (text.includes("zillow") || text.includes("zestimate")) {
+      const zillowAmounts = amounts.filter((a) => a >= 100_000)
+      if (zillowAmounts.length > 0 && !seenSources.has("zillow")) {
+        const source = result.sources.find((s) => s.url.includes("zillow.com"))
+        estimates.push({
+          source: "zillow",
+          value: zillowAmounts[0],
+          sourceUrl: source?.url || "",
+        })
+        seenSources.add("zillow")
+      }
+    }
+
+    // Check for Redfin mentions
+    if (text.includes("redfin")) {
+      const redfinAmounts = amounts.filter((a) => a >= 100_000)
+      if (redfinAmounts.length > 0 && !seenSources.has("redfin")) {
+        const source = result.sources.find((s) => s.url.includes("redfin.com"))
+        estimates.push({
+          source: "redfin",
+          value: redfinAmounts[0],
+          sourceUrl: source?.url || "",
+        })
+        seenSources.add("redfin")
+      }
+    }
+
+    // Check for Realtor.com mentions
+    if (text.includes("realtor.com") || text.includes("realtor estimate")) {
+      const realtorAmounts = amounts.filter((a) => a >= 100_000)
+      if (realtorAmounts.length > 0 && !seenSources.has("realtor")) {
+        const source = result.sources.find((s) => s.url.includes("realtor.com"))
+        estimates.push({
+          source: "realtor",
+          value: realtorAmounts[0],
+          sourceUrl: source?.url || "",
+        })
+        seenSources.add("realtor")
+      }
+    }
+
+    // Check for county/tax assessment
+    if (
+      text.includes("assessed") ||
+      text.includes("tax value") ||
+      text.includes("county") ||
+      text.includes("appraisal district")
+    ) {
+      const countyAmounts = amounts.filter((a) => a >= 50_000)
+      if (countyAmounts.length > 0 && !seenSources.has("county")) {
+        estimates.push({
+          source: "county",
+          value: countyAmounts[0],
+          sourceUrl: "",
+        })
+        seenSources.add("county")
+      }
+    }
+  }
+
+  return estimates
+}
+
+/**
+ * Extract comparable sales from search results
+ */
+function extractComparableSales(
+  results: SearchResult[],
+  subjectAddress: string
+): ComparableSale[] {
+  const comps: ComparableSale[] = []
+  const seenAddresses = new Set<string>()
+
+  // Normalize subject address for comparison
+  const normalizedSubject = subjectAddress.toLowerCase().replace(/[^a-z0-9]/g, "")
+
+  for (const result of results) {
+    // Look for sale patterns in the text
+    const salePatterns = [
+      /(\d+\s+[\w\s]+(?:st|street|ave|avenue|rd|road|dr|drive|ln|lane|ct|court|blvd|way|pl|place)[^,]*,\s*[\w\s]+,\s*[A-Z]{2}(?:\s+\d{5})?)\s*(?:sold|closed|purchased|bought)\s*(?:for|at)?\s*\$?([\d,]+)/gi,
+      /(?:sold|closed|purchased)\s*(?:for|at)?\s*\$?([\d,]+)[^.]*?(\d+\s+[\w\s]+(?:st|street|ave|avenue|rd|road|dr|drive|ln|lane|ct|court|blvd|way|pl|place)[^,]*)/gi,
+    ]
+
+    for (const pattern of salePatterns) {
+      let match
+      while ((match = pattern.exec(result.answer)) !== null) {
+        let address: string
+        let price: number
+
+        if (match[1].match(/^\d+\s/)) {
+          // First pattern: address first
+          address = match[1].trim()
+          price = parseInt(match[2].replace(/,/g, ""), 10)
+        } else {
+          // Second pattern: price first
+          price = parseInt(match[1].replace(/,/g, ""), 10)
+          address = match[2].trim()
+        }
+
+        // Skip if this is the subject property
+        const normalizedComp = address.toLowerCase().replace(/[^a-z0-9]/g, "")
+        if (normalizedComp === normalizedSubject) continue
+
+        // Skip if we've already seen this address
+        if (seenAddresses.has(normalizedComp)) continue
+
+        // Validate price range
+        if (price < 50_000 || price > 50_000_000) continue
+
+        seenAddresses.add(normalizedComp)
+
+        // Extract property details from nearby text
+        const details = extractPropertyDetails(result.answer)
+
+        // Try to extract sale date
+        const dateMatch = result.answer.match(
+          /(?:sold|closed|purchased)\s*(?:on|in)?\s*(\w+\s+\d{1,2},?\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{2}-\d{2})/i
+        )
+        let saleDate = new Date().toISOString().split("T")[0] // Default to today
+        if (dateMatch) {
+          try {
+            const parsed = new Date(dateMatch[1])
+            if (!isNaN(parsed.getTime())) {
+              saleDate = parsed.toISOString().split("T")[0]
+            }
+          } catch {
+            // Keep default
+          }
+        }
+
+        comps.push({
+          address,
+          salePrice: price,
+          saleDate,
+          squareFeet: details.squareFeet,
+          bedrooms: details.bedrooms,
+          bathrooms: details.bathrooms,
+          yearBuilt: details.yearBuilt,
+          source: "web search",
+          sourceUrl: result.sources[0]?.url || "",
+        })
+
+        // Limit to 10 comps
+        if (comps.length >= 10) break
+      }
+      if (comps.length >= 10) break
+    }
+    if (comps.length >= 10) break
+  }
+
+  return comps
+}
+
+/**
+ * Collect all unique sources from search results
+ */
+function collectSources(results: SearchResult[]): Array<{ name: string; url: string }> {
+  const sources: Array<{ name: string; url: string }> = []
+  const seenUrls = new Set<string>()
+
+  for (const result of results) {
+    for (const source of result.sources) {
+      if (!seenUrls.has(source.url)) {
+        seenUrls.add(source.url)
+        sources.push({
+          name: source.name || new URL(source.url).hostname,
+          url: source.url,
+        })
+      }
+    }
+  }
+
+  return sources.slice(0, 20) // Limit to 20 sources
+}
+
+// ============================================================================
+// Main Search and Extract Function
+// ============================================================================
+
+async function searchAndExtractPropertyData(
+  address: string
+): Promise<ExtractedData> {
+  const apiKey = getLinkupApiKeyOptional()
+
+  if (!apiKey || !isLinkupEnabled()) {
+    console.log("[Property Valuation] Linkup not configured, skipping auto-search")
+    return {
+      property: { address },
+      onlineEstimates: [],
+      comparables: [],
+      sources: [],
+      searchesRun: 0,
+      searchesFailed: 0,
+    }
+  }
+
+  const client = new LinkupClient({ apiKey })
+
+  // Define search queries
+  const queries = [
+    `${address} home value Zillow Zestimate Redfin estimate`,
+    `${address} property tax assessment county records square feet bedrooms`,
+    `homes sold near ${address} 2024 2023 recent sales`,
+    `${address} property details bedrooms bathrooms year built lot size`,
+  ]
+
+  console.log(`[Property Valuation] Running ${queries.length} searches for: ${address}`)
+  const startTime = Date.now()
+
+  // Run searches in parallel with overall timeout
+  const searchPromises = queries.map((query) => runLinkupSearch(client, query))
+
+  const results = await Promise.race([
+    Promise.all(searchPromises),
+    new Promise<(SearchResult | null)[]>((resolve) =>
+      setTimeout(() => resolve(queries.map(() => null)), TOTAL_TIMEOUT_MS)
+    ),
+  ])
+
+  const validResults: SearchResult[] = results.filter(
+    (r): r is SearchResult => r !== null
+  )
+  const duration = Date.now() - startTime
+
+  console.log(`[Property Valuation] Searches completed in ${duration}ms:`, {
+    total: queries.length,
+    successful: validResults.length,
+    failed: queries.length - validResults.length,
+  })
+
+  // Extract data from all results
+  const combinedText = validResults.map((r) => r.answer).join("\n\n")
+  const property = extractPropertyDetails(combinedText)
+  property.address = address
+
+  const onlineEstimates = extractOnlineEstimates(validResults)
+  const comparables = extractComparableSales(validResults, address)
+  const sources = collectSources(validResults)
+
+  console.log("[Property Valuation] Extracted data:", {
+    hasSquareFeet: !!property.squareFeet,
+    onlineEstimatesCount: onlineEstimates.length,
+    comparablesCount: comparables.length,
+    sourcesCount: sources.length,
+  })
+
+  return {
+    property,
+    onlineEstimates,
+    comparables,
+    sources,
+    searchesRun: queries.length,
+    searchesFailed: queries.length - validResults.length,
+  }
 }
 
 // ============================================================================
@@ -245,19 +571,16 @@ function convertInputToInternal(params: PropertyValuationParams): {
 /**
  * Property Valuation Tool
  *
- * Calculate property value using Automated Valuation Model (AVM).
- * Combines hedonic pricing, comparable sales adjustments, and online estimates.
+ * Self-contained tool that automatically fetches property data and calculates
+ * home value using AVM (Automated Valuation Model).
  */
 export const propertyValuationTool = tool({
   description:
-    "Calculate property value using Automated Valuation Model (AVM). " +
-    "Combines hedonic pricing model, comparable sales adjustments, and online estimates (Zillow, Redfin) " +
-    "to produce a value estimate with confidence score. " +
-    "IMPORTANT: Gather data first using searchWeb queries for the property address, " +
-    "then pass the extracted data to this tool. " +
-    "Minimum required: square footage OR online estimates OR comparable sales. " +
-    "For best results, provide multiple data sources. " +
-    "Returns estimated value, confidence level (high/medium/low), value range, and model breakdown.",
+    "Estimate property value using Automated Valuation Model (AVM). " +
+    "AUTOMATICALLY searches Zillow, Redfin, county records, and recent sales - just provide the address. " +
+    "Combines hedonic pricing, comparable sales, and online estimates to produce value with confidence score. " +
+    "Returns: estimated value, value range, confidence level (high/medium/low), and model breakdown. " +
+    "Optional: Pass additional data (sqft, beds, baths, manual estimates) to supplement auto-search results.",
 
   parameters: propertyValuationSchema,
 
@@ -266,17 +589,72 @@ export const propertyValuationTool = tool({
     const startTime = Date.now()
 
     try {
-      // Convert input to internal types
-      const { property, comparables, onlineEstimates } =
-        convertInputToInternal(params)
+      // Step 1: Auto-search for property data (unless skipped)
+      let extractedData: ExtractedData = {
+        property: { address: params.address },
+        onlineEstimates: [],
+        comparables: [],
+        sources: [],
+        searchesRun: 0,
+        searchesFailed: 0,
+      }
 
-      // Validate we have enough data
+      if (!params.skipAutoSearch) {
+        extractedData = await searchAndExtractPropertyData(params.address)
+      }
+
+      // Step 2: Merge with manually provided data (manual overrides auto)
+      const property: Partial<PropertyCharacteristics> = {
+        ...extractedData.property,
+        address: params.address,
+        squareFeet: params.squareFeet ?? extractedData.property.squareFeet,
+        lotSizeSqFt: params.lotSizeSqFt ?? extractedData.property.lotSizeSqFt,
+        bedrooms: params.bedrooms ?? extractedData.property.bedrooms,
+        bathrooms: params.bathrooms ?? extractedData.property.bathrooms,
+        yearBuilt: params.yearBuilt ?? extractedData.property.yearBuilt,
+        garageSpaces: params.garageSpaces ?? extractedData.property.garageSpaces,
+        hasPool: params.hasPool ?? extractedData.property.hasPool,
+        hasBasement: params.hasBasement ?? extractedData.property.hasBasement,
+        hasFireplace: params.hasFireplace ?? extractedData.property.hasFireplace,
+      }
+
+      // Merge online estimates (manual + auto, deduplicated by source)
+      const manualEstimates: OnlineEstimate[] = (params.onlineEstimates || []).map((e) => ({
+        source: e.source as EstimateSource,
+        value: e.value,
+        sourceUrl: e.sourceUrl || "",
+      }))
+      const manualSources = new Set(manualEstimates.map((e) => e.source))
+      const onlineEstimates = [
+        ...manualEstimates,
+        ...extractedData.onlineEstimates.filter((e) => !manualSources.has(e.source)),
+      ]
+
+      // Merge comparable sales (manual + auto)
+      const manualComps: ComparableSale[] = (params.comparableSales || []).map((c) => ({
+        address: c.address,
+        salePrice: c.salePrice,
+        saleDate: c.saleDate,
+        squareFeet: c.squareFeet,
+        bedrooms: c.bedrooms,
+        bathrooms: c.bathrooms,
+        yearBuilt: c.yearBuilt,
+        distanceMiles: c.distanceMiles,
+        source: c.source || "manual",
+        sourceUrl: c.sourceUrl || "",
+      }))
+      const comparables = [...manualComps, ...extractedData.comparables].slice(0, 15)
+
+      // Merge sources
+      const allSources = [...extractedData.sources]
+
+      // Step 3: Validate we have enough data
       const hasPropertyData = property.squareFeet && property.squareFeet > 0
       const hasOnlineEstimates = onlineEstimates.length > 0
       const hasComparables = comparables.length > 0
 
       if (!hasPropertyData && !hasOnlineEstimates && !hasComparables) {
-        console.log("[Property Valuation] Insufficient data")
+        console.log("[Property Valuation] Insufficient data after search")
         return {
           address: params.address,
           estimatedValue: 0,
@@ -290,22 +668,31 @@ export const propertyValuationTool = tool({
           onlineWeight: 0,
           comparablesUsed: 0,
           estimateSources: [],
-          rawContent: createInsufficientDataMessage(params.address),
-          sources: [],
-          error:
-            "Insufficient data. Provide property square footage, online estimates, or comparable sales.",
+          rawContent: createInsufficientDataMessage(params.address, extractedData),
+          sources: allSources,
+          error: "Insufficient data found. Try providing square footage, online estimates, or comparable sales manually.",
         }
       }
 
-      // Calculate ensemble value with timeout
-      const result = await withTimeout(
+      // Step 4: Calculate ensemble value
+      const result = await Promise.race([
         calculateEnsembleValue({
           property,
           comparables,
           onlineEstimates,
         }),
-        AVM_TIMEOUT_MS,
-        `Property valuation timed out after ${AVM_TIMEOUT_MS / 1000} seconds`
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`AVM calculation timed out after ${AVM_TIMEOUT_MS / 1000}s`)),
+            AVM_TIMEOUT_MS
+          )
+        ),
+      ])
+
+      // Add sources from search to result
+      const combinedSources = [...(result.sources || []), ...allSources]
+      const uniqueSources = combinedSources.filter(
+        (s, i, arr) => arr.findIndex((x) => x.url === s.url) === i
       )
 
       const duration = Date.now() - startTime
@@ -314,24 +701,23 @@ export const propertyValuationTool = tool({
         value: result.estimatedValue,
         confidence: result.confidenceScore,
         level: result.confidenceLevel,
-        hedonicValue: result.hedonicValue,
-        compValue: result.compAdjustedValue,
-        onlineAvg: result.onlineEstimateAvg,
-        compsUsed: result.comparablesUsed,
+        searchesRun: extractedData.searchesRun,
+        onlineEstimates: onlineEstimates.length,
+        comparables: comparables.length,
       })
 
-      return result
+      return {
+        ...result,
+        sources: uniqueSources,
+      }
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error"
+      const errorMessage = error instanceof Error ? error.message : "Unknown error"
       const duration = Date.now() - startTime
-      const isTimeout = errorMessage.includes("timed out")
 
       console.error("[Property Valuation] Failed:", {
         address: params.address,
         error: errorMessage,
         durationMs: duration,
-        isTimeout,
       })
 
       return {
@@ -347,7 +733,7 @@ export const propertyValuationTool = tool({
         onlineWeight: 0,
         comparablesUsed: 0,
         estimateSources: [],
-        rawContent: `# Property Valuation Error\n\n**Address:** ${params.address}\n\n**Error:** ${errorMessage}\n\nPlease try again with different data or verify the property information.`,
+        rawContent: `# Property Valuation Error\n\n**Address:** ${params.address}\n\n**Error:** ${errorMessage}\n\nPlease try again or provide property data manually.`,
         sources: [],
         error: errorMessage,
       }
@@ -358,54 +744,40 @@ export const propertyValuationTool = tool({
 /**
  * Create message for insufficient data
  */
-function createInsufficientDataMessage(address: string): string {
+function createInsufficientDataMessage(
+  address: string,
+  extractedData: ExtractedData
+): string {
+  const searchInfo = extractedData.searchesRun > 0
+    ? `\n\n**Search Status:** Ran ${extractedData.searchesRun} searches (${extractedData.searchesFailed} failed), but couldn't extract sufficient property data.`
+    : "\n\n**Search Status:** Auto-search was skipped or Linkup is not configured."
+
   return `# Property Valuation: ${address}
 
-**Error:** Insufficient data for valuation.
+**Error:** Insufficient data for valuation.${searchInfo}
 
-## Required Data (at least one)
-- **Property square footage** - Required for hedonic pricing model
-- **Online estimates** - From Zillow, Redfin, or county assessor
-- **Comparable sales** - Recent sales near the subject property
+## To Fix This
 
-## How to Gather Data
-Run the following searchWeb queries before calling this tool:
+Provide at least one of the following manually:
 
-1. \`"${address} home value Zillow Redfin"\`
-   - Extract: Zillow Zestimate, Redfin Estimate
+1. **Square footage** - e.g., \`squareFeet: 2000\`
+2. **Online estimates** - e.g., \`onlineEstimates: [{ source: "zillow", value: 485000 }]\`
+3. **Comparable sales** - e.g., \`comparableSales: [{ address: "...", salePrice: 475000, saleDate: "2024-06-15" }]\`
 
-2. \`"${address} property tax assessment county"\`
-   - Extract: County assessed value, square footage, year built
+## Example with Manual Data
 
-3. \`"homes sold near ${address} 2024"\`
-   - Extract: Recent comparable sales (address, price, date, sqft)
-
-4. \`"${address} bedrooms bathrooms square feet"\`
-   - Extract: Property characteristics
-
-## Example Usage
-\`\`\`
-property_valuation({
-  address: "${address}",
-  squareFeet: 2000,
-  bedrooms: 4,
-  bathrooms: 2.5,
-  yearBuilt: 2005,
-  onlineEstimates: [
-    { source: "zillow", value: 485000 },
-    { source: "redfin", value: 492000 }
-  ],
-  comparableSales: [
-    {
-      address: "nearby address",
-      salePrice: 475000,
-      saleDate: "2024-06-15",
-      squareFeet: 1900,
-      bedrooms: 4,
-      bathrooms: 2
-    }
+\`\`\`json
+{
+  "address": "${address}",
+  "squareFeet": 2000,
+  "bedrooms": 4,
+  "bathrooms": 2.5,
+  "yearBuilt": 2005,
+  "onlineEstimates": [
+    { "source": "zillow", "value": 485000 },
+    { "source": "redfin", "value": 492000 }
   ]
-})
+}
 \`\`\`
 `
 }
@@ -416,8 +788,8 @@ property_valuation({
 
 /**
  * Check if property valuation tool should be enabled
- * Uses existing search infrastructure, so always enabled
+ * Always enabled - works with or without Linkup (manual data fallback)
  */
 export function shouldEnablePropertyValuationTool(): boolean {
-  return true // Uses existing search tools and mathematical calculations
+  return true
 }

@@ -262,14 +262,14 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
 - usaspending_awards: Federal contracts/grants by company/org name
 - wikidata_search/entity: Biographical data (education, employers, net worth)
-- property_valuation: AVM calculation after gathering property data via searchWeb`
+- property_valuation: Home value estimate - just pass the address, auto-fetches Zillow/Redfin/comps`
         }
 
         finalSystemPrompt += `\n\n### Research Strategy
 1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
-4. **property_valuation**: Gather sqft/beds/baths/estimates via searchWeb first, then call tool
+4. **property_valuation**: Just pass the address - tool auto-searches Zillow, Redfin, county records, and comps
 5. Run tools in parallel when possible. Be thorough.`
       }
     }
