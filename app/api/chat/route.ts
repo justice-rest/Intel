@@ -18,6 +18,11 @@ import {
   shouldEnableProPublicaTools,
 } from "@/lib/tools/propublica-nonprofits"
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
+import {
+  secInsiderSearchTool,
+  secProxySearchTool,
+  shouldEnableSecInsiderTools,
+} from "@/lib/tools/sec-insider"
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
 import {
@@ -232,6 +237,8 @@ export async function POST(req: Request) {
       // Data API tools (direct access to authoritative sources)
       const dataTools: string[] = []
       if (shouldEnableSecEdgarTools()) dataTools.push("sec_edgar_filings (SEC 10-K/10-Q filings, financial statements, executive compensation)")
+      if (shouldEnableSecInsiderTools()) dataTools.push("sec_insider_search (verify if person is officer/director at public company via Form 4)")
+      if (shouldEnableSecInsiderTools()) dataTools.push("sec_proxy_search (DEF 14A proxy statements - lists all directors/officers)")
       if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
       if (shouldEnableYahooFinanceTools()) dataTools.push("yahoo_finance_* (stock quotes, company profiles, insider holdings)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
@@ -257,6 +264,8 @@ Run 6-10 searchWeb queries per prospect with different angles:
 
 **Usage:**
 - sec_edgar_filings: Public company financials, 10-K/10-Q, executive compensation
+- sec_insider_search: Verify board membership - search Form 3/4/5 by person name
+- sec_proxy_search: Get DEF 14A proxy statements listing all directors/officers
 - fec_contributions: Political contribution history by individual name
 - yahoo_finance_*: Stock data, company profiles, insider holdings
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
@@ -347,6 +356,14 @@ Run 6-10 searchWeb queries per prospect with different angles:
       ...(enableSearch && shouldEnableSecEdgarTools()
         ? {
             sec_edgar_filings: secEdgarFilingsTool,
+          }
+        : {}),
+      // Add SEC Insider tools for board/officer validation
+      // Free API - searches Form 3/4/5 and DEF 14A proxy statements
+      ...(enableSearch && shouldEnableSecInsiderTools()
+        ? {
+            sec_insider_search: secInsiderSearchTool,
+            sec_proxy_search: secProxySearchTool,
           }
         : {}),
       // Add FEC contributions tool for political giving research

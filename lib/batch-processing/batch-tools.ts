@@ -20,6 +20,11 @@ import {
   shouldEnableProPublicaTools,
 } from "@/lib/tools/propublica-nonprofits"
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
+import {
+  secInsiderSearchTool,
+  secProxySearchTool,
+  shouldEnableSecInsiderTools,
+} from "@/lib/tools/sec-insider"
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
 import {
@@ -57,6 +62,14 @@ export function buildBatchTools(): ToolSet {
     // SEC EDGAR (public company filings)
     ...(shouldEnableSecEdgarTools() ? { sec_edgar_filings: secEdgarFilingsTool } : {}),
 
+    // SEC Insider (board/officer validation via Form 3/4/5 and DEF 14A)
+    ...(shouldEnableSecInsiderTools()
+      ? {
+          sec_insider_search: secInsiderSearchTool,
+          sec_proxy_search: secProxySearchTool,
+        }
+      : {}),
+
     // FEC Contributions (political giving)
     ...(shouldEnableFecTools() ? { fec_contributions: fecContributionsTool } : {}),
 
@@ -84,6 +97,10 @@ export function getToolDescriptions(): string {
   // Data API tools
   if (shouldEnableSecEdgarTools()) {
     dataTools.push("sec_edgar_filings (SEC 10-K/10-Q filings, financial statements, executive compensation)")
+  }
+  if (shouldEnableSecInsiderTools()) {
+    dataTools.push("sec_insider_search (verify board membership - Form 3/4/5 by person name)")
+    dataTools.push("sec_proxy_search (DEF 14A proxy statements - lists all directors/officers)")
   }
   if (shouldEnableFecTools()) {
     dataTools.push("fec_contributions (FEC political contributions by individual name)")
@@ -120,6 +137,8 @@ Run 6-10 searchWeb queries per prospect with different angles:
       description += `### Data API Tools\n${dataTools.map((t) => `- ${t}`).join("\n")}\n\n`
       description += `**Usage:**
 - sec_edgar_filings: Public company financials, 10-K/10-Q, executive compensation
+- sec_insider_search: Verify board membership - search Form 3/4/5 by person name
+- sec_proxy_search: DEF 14A proxy statements listing all directors/officers
 - fec_contributions: Political contribution history by individual name
 - yahoo_finance_*: Stock data, company profiles, insider holdings
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)

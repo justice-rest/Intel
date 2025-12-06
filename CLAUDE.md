@@ -370,6 +370,41 @@ usaspending_awards({ query: "Microsoft", awardType: "all" })
 - `/lib/data-gov/config.ts` - Configuration
 - `/app/api/chat/route.ts` - Tool registration
 
+### SEC Insider & Board Validation Tools
+**Verify board membership and officer status** - FREE, no API key required:
+
+| Tool | Purpose | Best For |
+|------|---------|----------|
+| `sec_insider_search` | Search Form 3/4/5 filings by person name | Verifying if someone is officer/director at public company |
+| `sec_proxy_search` | Search DEF 14A proxy statements by company | Finding complete list of directors/officers |
+
+**SEC Insider Search Tool** (`/lib/tools/sec-insider.ts`)
+- Uses SEC EDGAR full text search API (efts.sec.gov)
+- Searches Form 3/4/5 insider filings by person name
+- Returns company affiliations and insider status
+- If results found, person IS an insider (officer, director, or 10%+ owner)
+
+**SEC Proxy Search Tool** (`/lib/tools/sec-insider.ts`)
+- Searches DEF 14A definitive proxy statements
+- Proxy statements list ALL directors and officers
+- Contains executive compensation tables
+- Links to full SEC filings
+
+**Board Validation Workflow**:
+```
+1. sec_insider_search("Tim Cook")
+   → Shows all companies where Tim Cook filed Form 4
+   → Confirms insider status at Apple Inc
+
+2. sec_proxy_search("Apple Inc")
+   → Returns DEF 14A proxy statements
+   → Open to see full board composition and officer list
+```
+
+**Key Files**:
+- `/lib/tools/sec-insider.ts` - Both insider and proxy search tools
+- `/app/api/chat/route.ts` - Tool registration
+
 ### Wikidata Tool
 **Biographical research from Wikidata knowledge graph** - FREE, no API key required:
 
