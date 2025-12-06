@@ -354,15 +354,14 @@ function formatDetailsForAI(
 // ============================================================================
 
 /**
- * Search for nonprofit organizations
+ * Search for nonprofit organizations BY ORGANIZATION NAME (not person name)
  */
 export const propublicaNonprofitSearchTool = tool({
   description:
-    "Search for nonprofit organizations in the ProPublica Nonprofit Explorer database. " +
-    "Returns organization names, EINs, locations, and whether they have 990 filings. " +
-    "Use this to find foundation EINs, research charitable organizations, " +
-    "and identify nonprofits a prospect may be affiliated with. " +
-    "Covers 1.8M+ tax-exempt organizations.",
+    "Search for nonprofit organizations BY ORGANIZATION NAME in the ProPublica Nonprofit Explorer database. " +
+    "IMPORTANT: This searches ORG NAMES only, NOT person names. To find a person's nonprofit affiliations: " +
+    "(1) Use web search to find their nonprofit connections, (2) Then search here with the ORG NAME. " +
+    "Returns EINs, locations, and 990 filing availability. Covers 1.8M+ tax-exempt organizations.",
   parameters: nonprofitSearchSchema,
   execute: async ({ query, state, nteeCategory, page }): Promise<NonprofitSearchResult> => {
     console.log("[ProPublica] Searching nonprofits:", { query, state, nteeCategory, page })
