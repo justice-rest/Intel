@@ -49,19 +49,3 @@ export {
   type ExaSearchResult,
   type ExaSearchResponse,
 } from "./exa-search"
-
-// Re-export Tavily types
-export {
-  tavilySearchParametersSchema,
-  type TavilySearchParameters,
-  type TavilySearchResult,
-  type TavilySearchResponse,
-} from "./tavily-search"
-
-// Re-export Jina types
-export {
-  jinaSearchParametersSchema,
-  type JinaSearchParameters,
-  type JinaSource,
-  type JinaSearchResponse,
-} from "./jina-search"

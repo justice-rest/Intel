@@ -296,15 +296,12 @@ User sends message
 - `/migrations/006_add_memory_system.sql` - Database schema
 
 ### Multi-Provider Search Integration
-**Five Separate Search Tools** for comprehensive web coverage:
+**Two Primary Search Tools** for comprehensive web coverage:
 
 | Tool | Purpose | Cost | Best For |
 |------|---------|------|----------|
 | `searchWeb` (Linkup) | Prospect research with curated domains | ~$0.005/search | SEC, FEC, 990s, real estate |
 | `exaSearch` (Exa) | Semantic/neural web search | ~$0.01/search | Similar content, broad web |
-| `tavilySearch` (Tavily) | News and real-time search | ~$0.008/search | Current events, news |
-| `firecrawlSearch` (Firecrawl) | Web scraping, full page content | 2 credits/10 results | Full markdown content |
-| `jinaDeepSearch` (Jina) | Complex research with multi-step reasoning | ~70k tokens/query | Complex questions, fact-checking |
 
 **Linkup Search Tool** (`/lib/tools/linkup-search.ts`)
 - Uses `linkup-sdk` package with `sourcedAnswer` output mode
@@ -317,29 +314,6 @@ User sends message
 - Searches full web without domain restrictions
 - Best for finding similar content, semantic queries
 - 15-second timeout for low latency
-
-**Tavily Search Tool** (`/lib/tools/tavily-search.ts`)
-- Uses `@tavily/core` package
-- Returns synthesized answer + sources (like Linkup)
-- Supports topic filtering: "general", "news", "finance"
-- Basic search depth (1 credit) for cost efficiency
-- 15-second timeout for low latency
-
-**Firecrawl Search Tool** (`/lib/tools/firecrawl-search.ts`)
-- Uses `@mendable/firecrawl-js` package
-- Search only by default (2 credits per 10 results)
-- Optional full content scraping with `scrapeContent=true`
-- Returns clean markdown when scraping enabled
-- 15-second timeout for low latency
-
-**Jina DeepSearch Tool** (`/lib/tools/jina-search.ts`)
-- Uses Jina's OpenAI-compatible chat completions API
-- Autonomous research agent that iteratively searches, reads, and reasons
-- Supports three reasoning depths: "low" (~20s), "medium" (~57s), "high" (~120s)
-- Returns synthesized answers with URL citations
-- Best for complex research questions requiring multi-step analysis
-- 120-second timeout to accommodate deep research
-- Token-based pricing (~70k tokens average per query)
 
 **Search Flow**:
 ```
@@ -379,16 +353,10 @@ This workflow solves the limitation that searching "John Smith" directly in ProP
 **Configuration Files**:
 - `/lib/linkup/config.ts` - Linkup API key, defaults, curated domains
 - `/lib/exa/config.ts` - Exa API key, defaults
-- `/lib/tavily/config.ts` - Tavily API key, defaults
-- `/lib/firecrawl/config.ts` - Firecrawl API key, defaults
-- `/lib/jina/config.ts` - Jina API key, defaults, reasoning effort levels
 
 **Key Files**:
 - `/lib/tools/linkup-search.ts` - Linkup tool (prospect research)
 - `/lib/tools/exa-search.ts` - Exa tool (semantic search)
-- `/lib/tools/tavily-search.ts` - Tavily tool (news/real-time)
-- `/lib/tools/firecrawl-search.ts` - Firecrawl tool (web scraping)
-- `/lib/tools/jina-search.ts` - Jina tool (deep research)
 - `/lib/tools/types.ts` - Type definitions and schemas
 - `/app/api/chat/route.ts` - Tool integration
 - `/app/components/chat/get-sources.ts` - Source extraction
@@ -492,18 +460,6 @@ LINKUP_API_KEY=                 # Optional - enables Linkup prospect research
 # Exa Search (optional - semantic/neural web search)
 # Get your API key at https://dashboard.exa.ai - $10 free credits
 EXA_API_KEY=                    # Optional - enables Exa semantic search
-
-# Tavily Search (optional - news and real-time search)
-# Get your API key at https://tavily.com - 1000 free credits/month
-TAVILY_API_KEY=                 # Optional - enables Tavily news search
-
-# Firecrawl Search (optional - web scraping and full page content)
-# Get your API key at https://firecrawl.dev - 500 free pages
-FIRECRAWL_API_KEY=              # Optional - enables Firecrawl web scraping
-
-# Jina DeepSearch (optional - complex research with multi-step reasoning)
-# Get your API key at https://jina.ai/deepsearch - 10M free tokens
-JINA_API_KEY=                   # Optional - enables Jina deep research
 
 # USAspending API (no API key required - FREE)
 # Federal contracts, grants, loans data - works without a key

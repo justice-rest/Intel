@@ -10,9 +10,6 @@ import { ToolSet } from "ai"
 import { linkupSearchTool, shouldEnableLinkupTool } from "@/lib/tools/linkup-search"
 import { youSearchTool, shouldEnableYouTool } from "@/lib/tools/you-search"
 import { exaSearchTool, shouldEnableExaTool } from "@/lib/tools/exa-search"
-import { tavilySearchTool, shouldEnableTavilyTool } from "@/lib/tools/tavily-search"
-import { firecrawlSearchTool, shouldEnableFirecrawlTool } from "@/lib/tools/firecrawl-search"
-import { jinaSearchTool, shouldEnableJinaTool } from "@/lib/tools/jina-search"
 import { braveSearchTool, shouldEnableBraveTool } from "@/lib/tools/brave-search"
 import {
   yahooFinanceQuoteTool,
@@ -44,9 +41,6 @@ export function buildBatchTools(): ToolSet {
     ...(shouldEnableLinkupTool() ? { searchWeb: linkupSearchTool } : {}),
     ...(shouldEnableYouTool() ? { youSearch: youSearchTool } : {}),
     ...(shouldEnableExaTool() ? { exaSearch: exaSearchTool } : {}),
-    ...(shouldEnableTavilyTool() ? { tavilySearch: tavilySearchTool } : {}),
-    ...(shouldEnableFirecrawlTool() ? { firecrawlSearch: firecrawlSearchTool } : {}),
-    ...(shouldEnableJinaTool() ? { jinaDeepSearch: jinaSearchTool } : {}),
     ...(shouldEnableBraveTool() ? { searchWebGeneral: braveSearchTool } : {}),
 
     // Financial Data Tools
@@ -103,15 +97,6 @@ export function getToolDescriptions(): string {
   }
   if (shouldEnableExaTool()) {
     searchTools.push("exaSearch (semantic search, broad web, finding similar content)")
-  }
-  if (shouldEnableTavilyTool()) {
-    searchTools.push("tavilySearch (news, current events, real-time facts)")
-  }
-  if (shouldEnableFirecrawlTool()) {
-    searchTools.push("firecrawlSearch (general web search, documentation, articles)")
-  }
-  if (shouldEnableJinaTool()) {
-    searchTools.push("jinaDeepSearch (complex research questions, multi-step reasoning, thorough fact-checking - takes 20-120s)")
   }
   if (shouldEnableBraveTool()) {
     searchTools.push("searchWebGeneral (general-purpose web search, backup when other tools miss results)")
