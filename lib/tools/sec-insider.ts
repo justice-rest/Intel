@@ -454,79 +454,60 @@ function formatInsiderResultsForAI(
   usedDirectCik: boolean
 ): string {
   if (matchedFilers.length === 0) {
-    const searchedList = searchedNames.length > 1
-      ? `\n\n**Names searched:** ${searchedNames.join(", ")}`
-      : ""
+    const searchedList =
+      searchedNames.length > 1
+        ? `**Names searched:** ${searchedNames.join(", ")}\n\n`
+        : ""
 
-    return `# SEC Insider Filing Search: "${personName}"
-${searchedList}
----
+    return `# SEC Insider Search: ${personName}
 
-**No matching SEC filers found** for ${searchedNames.length > 1 ? "any of these names" : "this name"}.
+${searchedList}**Status:** No matching SEC filers found.
 
 ## What This Means
 
-- No person with this name (or variations) appears as an SEC insider filer
-- This person may not be an officer, director, or 10%+ owner at any **public** company
-- They may be associated only with **private** companies or **nonprofits** (no SEC filings)
+This person does NOT appear as an insider at any U.S. public company:
+- Not listed as an officer, director, or 10%+ beneficial owner
+- May only be associated with **private** companies or **nonprofits**
+- SEC Form 3/4/5 filings are only required for **public** company insiders
 
-## Recommended Next Steps
+## Next Steps
 
-1. **Try More Name Variations**
-   - Different spellings (Robert/Bob, William/Bill)
-   - With or without middle name/initial
-   - Maiden name vs married name
-   - Legal name vs preferred name
+1. **Try name variations** - Different spellings, middle initials, maiden names
+2. **Search by company** - Use \`sec_proxy_search\` to find board/officer lists from proxy statements
+3. **For nonprofits** - Search for the **organization name** (not person) in ProPublica
 
-2. **Search by Company Instead**
-   - Use \`sec_proxy_search("[company name]")\` to find DEF 14A proxy statements
-   - Proxy statements list ALL directors and officers by name
+## Example Queries
 
-3. **For Nonprofit Board Members**
-   - Use web search to find nonprofit affiliations first
-   - Then search ProPublica with the **organization name** (not person name)
+\`\`\`
+sec_insider_search({ personName: "Robert Smith", aliases: ["Bob Smith", "R. Smith"] })
+sec_proxy_search({ companyName: "Apple Inc" })
+\`\`\`
 
-## Manual Search
-
-[Search SEC EDGAR](${searchUrl})
-
----
-
-*SEC Form 3/4/5 filings are only required for insiders at PUBLIC companies.*`
+[View manual search](${searchUrl})`
   }
 
-  const lines: string[] = [
-    `# SEC Insider Filing Search: "${personName}"`,
-    "",
-  ]
+  const searchInfo = searchedNames.length > 1 ? `**Names searched:** ${searchedNames.join(", ")}\n` : ""
+  const methodInfo = usedDirectCik ? `**Method:** Direct CIK lookup\n` : ""
 
-  if (searchedNames.length > 1) {
-    lines.push(`**Names searched:** ${searchedNames.join(", ")}`)
-    lines.push("")
-  }
+  let content = `# SEC Insider Search: ${personName}
 
-  if (usedDirectCik) {
-    lines.push(`**Method:** Direct CIK lookup`)
-    lines.push("")
-  }
+${searchInfo}${methodInfo}**Status:** Found ${matchedFilers.length} matching SEC filer${matchedFilers.length > 1 ? "s" : ""}.
 
-  lines.push("---")
-  lines.push("")
-  lines.push(`**Found ${matchedFilers.length} matching SEC filer${matchedFilers.length > 1 ? "s" : ""}:**`)
-  lines.push("")
+## Matched Filers
+
+`
 
   for (const filer of matchedFilers) {
     const filerUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${filer.cik}&type=4&owner=only`
-    const foundVia = filer.searchedAs && filer.searchedAs !== filer.name ? ` (found via "${filer.searchedAs}")` : ""
-    lines.push(`- **[${filer.name}](${filerUrl})** (CIK: ${filer.cik})${foundVia}`)
+    const foundVia = filer.searchedAs && filer.searchedAs !== filer.name ? ` *(via "${filer.searchedAs}")* ` : ""
+    content += `- [${filer.name}](${filerUrl}) (CIK: ${filer.cik})${foundVia}\n`
   }
 
-  lines.push("")
-
   if (filings.length === 0) {
-    lines.push("## No Recent Form 4 Filings")
-    lines.push("")
-    lines.push("The matched filer(s) exist in SEC EDGAR but have no recent Form 4 filings.")
+    content += `
+## Filings
+
+No recent Form 4 filings found for the matched filer(s).`
   } else {
     const companiesMap = new Map<string, InsiderFiling[]>()
     for (const f of filings) {
@@ -535,36 +516,35 @@ ${searchedList}
       companiesMap.set(f.companyName, existing)
     }
 
-    lines.push(`## Companies Where Insider (${filings.length} filings)`)
-    lines.push("")
+    content += `
+## Insider At (${filings.length} filings)
+
+`
 
     for (const [company, companyFilings] of companiesMap) {
       const companyUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${companyFilings[0].companyCik}&type=4`
-      lines.push(`### [${company}](${companyUrl})`)
-      lines.push("")
-      lines.push("| Date | Form | Link |")
-      lines.push("|------|------|------|")
+      content += `### [${company}](${companyUrl})\n\n`
+      content += `| Date | Form | Link |\n`
+      content += `|------|------|------|\n`
 
       for (const f of companyFilings.slice(0, 5)) {
-        lines.push(`| ${f.filingDate} | ${f.formType} | [View](${f.filingUrl}) |`)
+        content += `| ${f.filingDate} | ${f.formType} | [View](${f.filingUrl}) |\n`
       }
 
       if (companyFilings.length > 5) {
-        lines.push(`| ... | ${companyFilings.length - 5} more | [View all](${companyUrl}) |`)
+        content += `| ... | ${companyFilings.length - 5} more | [View all](${companyUrl}) |\n`
       }
-      lines.push("")
+      content += "\n"
     }
   }
 
-  lines.push("---")
-  lines.push("")
-  lines.push("## What This Confirms")
-  lines.push("")
-  lines.push("**Finding a match in SEC EDGAR confirms this person IS registered as an insider** (officer, director, or 10%+ beneficial owner) at the companies shown.")
-  lines.push("")
-  lines.push(`[View full search results](${searchUrl})`)
+  content += `## What This Confirms
 
-  return lines.join("\n")
+This person IS registered as an SEC insider (officer, director, or 10%+ beneficial owner) at the companies listed above.
+
+[View full results](${searchUrl})`
+
+  return content
 }
 
 /**
@@ -577,65 +557,54 @@ function formatProxyResultsForAI(
   usedDirectCik: boolean
 ): string {
   if (filings.length === 0) {
-    return `# SEC Proxy Statement Search: "${companyName}"
+    return `# SEC Proxy Search: ${companyName}
 
----
-
-**No DEF 14A proxy statements found** for this company.
+**Status:** No DEF 14A proxy statements found.
 
 ## What This Means
 
 - The company may not be publicly traded
-- The exact company name may differ in SEC filings
-- Try the official company name (e.g., "Apple Inc" not "Apple")
+- The exact company name may differ in SEC filings (try official name like "Apple Inc")
+- DEF 14A proxy statements are only filed by **public** companies
 
-## Manual Search
+## Next Steps
 
-[Search SEC EDGAR](${searchUrl})
+1. **Verify company name** - Try the full legal name from company website
+2. **Search by ticker** - Use the stock ticker symbol if known
+3. **Check SEC EDGAR** - Search manually to find the correct company
 
----
-
-*DEF 14A proxy statements are only filed by PUBLIC companies.*`
+[View manual search](${searchUrl})`
   }
 
-  const lines: string[] = [
-    `# SEC Proxy Statement Search: "${companyName}"`,
-    "",
-  ]
+  const methodInfo = usedDirectCik ? `**Method:** Direct CIK lookup\n` : ""
 
-  if (usedDirectCik) {
-    lines.push(`**Method:** Direct CIK lookup`)
-    lines.push("")
-  }
+  let content = `# SEC Proxy Search: ${companyName}
 
-  lines.push("---")
-  lines.push("")
-  lines.push(`**Found ${filings.length} proxy statement${filings.length > 1 ? "s" : ""}**`)
-  lines.push("")
-  lines.push("## What DEF 14A Contains")
-  lines.push("")
-  lines.push("- **Board of Directors** - All director names and backgrounds")
-  lines.push("- **Executive Officers** - Named executive officers with titles")
-  lines.push("- **Compensation** - Pay packages and equity awards")
-  lines.push("- **Stock Ownership** - Beneficial ownership tables")
-  lines.push("")
-  lines.push("## Available Filings")
-  lines.push("")
-  lines.push("| Date | Type | Link |")
-  lines.push("|------|------|------|")
+${methodInfo}**Status:** Found ${filings.length} proxy statement${filings.length > 1 ? "s" : ""}.
+
+## What DEF 14A Contains
+
+- **Board of Directors** - All director names and backgrounds
+- **Executive Officers** - Named executive officers with titles
+- **Compensation** - Pay packages and equity awards
+- **Stock Ownership** - Beneficial ownership tables
+
+## Available Filings
+
+| Date | Type | Link |
+|------|------|------|
+`
 
   for (const f of filings.slice(0, 10)) {
-    lines.push(`| ${f.filingDate} | ${f.formType} | [View Filing](${f.filingUrl}) |`)
+    content += `| ${f.filingDate} | ${f.formType} | [View](${f.filingUrl}) |\n`
   }
 
-  lines.push("")
-  lines.push("---")
-  lines.push("")
-  lines.push("**Tip:** Open the most recent DEF 14A to see the current board and executive officers.")
-  lines.push("")
-  lines.push(`[View all on SEC EDGAR](${searchUrl})`)
+  content += `
+**Tip:** Open the most recent DEF 14A to see current board and officers.
 
-  return lines.join("\n")
+[View all on SEC EDGAR](${searchUrl})`
+
+  return content
 }
 
 // ============================================================================
@@ -664,7 +633,24 @@ export const secInsiderSearchTool = tool({
         matchedFilers: [],
         isOfficerAtAny: false,
         isDirectorAtAny: false,
-        rawContent: "**Error:** Please provide either a person name, aliases, or CIK number.",
+        rawContent: `# SEC Insider Search
+
+**Error:** Missing search criteria.
+
+## Required Parameters
+
+Provide at least one of the following:
+
+1. \`personName\` - Full name to search (e.g., "Elon Musk")
+2. \`aliases\` - Array of name variations (e.g., ["Bob Smith", "Robert Smith"])
+3. \`cik\` - Direct CIK number (e.g., "0001494730")
+
+## Example
+
+\`\`\`
+sec_insider_search({ personName: "Tim Cook" })
+sec_insider_search({ cik: "0001214128" })
+\`\`\``,
         sources: [],
         error: "No search criteria provided",
       }
@@ -787,7 +773,17 @@ export const secInsiderSearchTool = tool({
         matchedFilers: [],
         isOfficerAtAny: false,
         isDirectorAtAny: false,
-        rawContent: `# SEC Insider Search: "${displayName}"\n\n**Error:** ${errorMessage}\n\n[Try searching manually](${searchUrl})`,
+        rawContent: `# SEC Insider Search: ${displayName}
+
+**Error:** ${errorMessage}
+
+## What to Try
+
+1. Check your network connection
+2. Try searching again in a few moments
+3. Use the manual search link below
+
+[View manual search](${searchUrl})`,
         sources: [{ name: "SEC EDGAR Manual Search", url: searchUrl }],
         error: errorMessage,
       }
@@ -809,7 +805,23 @@ export const secProxySearchTool = tool({
         companyName: "",
         companyCik: "",
         filings: [],
-        rawContent: "**Error:** Please provide either a company name or CIK number.",
+        rawContent: `# SEC Proxy Search
+
+**Error:** Missing search criteria.
+
+## Required Parameters
+
+Provide at least one:
+
+1. \`companyName\` - Company name (e.g., "Apple Inc")
+2. \`cik\` - Direct CIK number (e.g., "0000320193")
+
+## Example
+
+\`\`\`
+sec_proxy_search({ companyName: "Tesla Inc" })
+sec_proxy_search({ cik: "0001318605" })
+\`\`\``,
         sources: [],
         error: "No search criteria provided",
       }
@@ -870,7 +882,17 @@ export const secProxySearchTool = tool({
         companyName: displayName,
         companyCik: "",
         filings: [],
-        rawContent: `# SEC Proxy Search: "${displayName}"\n\n**Error:** ${errorMessage}\n\n[Try searching manually](${searchUrl})`,
+        rawContent: `# SEC Proxy Search: ${displayName}
+
+**Error:** ${errorMessage}
+
+## What to Try
+
+1. Check your network connection
+2. Try searching again in a few moments
+3. Use the manual search link below
+
+[View manual search](${searchUrl})`,
         sources: [{ name: "SEC EDGAR Manual Search", url: searchUrl }],
         error: errorMessage,
       }

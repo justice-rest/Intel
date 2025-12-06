@@ -17,6 +17,10 @@ import {
   propublicaNonprofitDetailsTool,
   shouldEnableProPublicaTools,
 } from "@/lib/tools/propublica-nonprofits"
+import {
+  nonprofitAffiliationSearchTool,
+  shouldEnableNonprofitAffiliationTool,
+} from "@/lib/tools/nonprofit-affiliation-search"
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
 import {
   secInsiderSearchTool,
@@ -355,6 +359,13 @@ Use BOTH tools: insider search confirms the person files as insider, proxy shows
         ? {
             propublica_nonprofit_search: propublicaNonprofitSearchTool,
             propublica_nonprofit_details: propublicaNonprofitDetailsTool,
+          }
+        : {}),
+      // Add Nonprofit Affiliation Search - AUTOMATIC person-to-nonprofit workflow
+      // Searches web for person's nonprofit connections, then queries ProPublica
+      ...(enableSearch && shouldEnableNonprofitAffiliationTool()
+        ? {
+            nonprofit_affiliation_search: nonprofitAffiliationSearchTool,
           }
         : {}),
       // Add SEC EDGAR tool for public company filings and financial data

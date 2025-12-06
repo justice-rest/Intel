@@ -141,8 +141,9 @@ This document provides a comprehensive overview of all data sources integrated i
 **Tools in Rōmy:**
 - `propublica_nonprofit_search` - Search nonprofits by organization name
 - `propublica_nonprofit_details` - Get full 990 financial data by EIN
+- `nonprofit_affiliation_search` - **AUTOMATIC** person-to-nonprofit research (searches web → extracts org names → queries ProPublica)
 
-**Important Note:** ProPublica searches by organization name only, not by individual. To find a person's nonprofit affiliations, first use web search to discover organization names, then query ProPublica with those organization names.
+**Important Note:** Use `nonprofit_affiliation_search` for researching a PERSON's nonprofit connections. It automates the entire workflow. The other tools (`propublica_nonprofit_search`, `propublica_nonprofit_details`) search by organization name only and are useful for direct lookups when you already know the org name.
 
 ---
 
@@ -273,7 +274,17 @@ All data sources used by Rōmy are:
    → Returns DEF 14A with full board list
 ```
 
-### Example 2: Research Foundation Affiliation
+### Example 2: Research Foundation Affiliation (Automatic)
+
+```
+1. nonprofit_affiliation_search("John Smith")
+   → Automatically searches web for nonprofit connections
+   → Extracts organization names from results
+   → Queries ProPublica for each organization
+   → Returns consolidated 990 financials
+```
+
+**Note:** This single tool automates the entire workflow. For manual control, you can still use:
 
 ```
 1. searchWeb("John Smith foundation board nonprofit")
