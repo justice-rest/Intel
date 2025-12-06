@@ -37,7 +37,6 @@ import { AVM_TIMEOUT_MS } from "@/lib/avm/config"
 import {
   getLinkupApiKeyOptional,
   isLinkupEnabled,
-  PROSPECT_RESEARCH_DOMAINS,
 } from "@/lib/linkup/config"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 
@@ -373,19 +372,62 @@ interface ExtractedData {
 // Linkup Search Helper
 // ============================================================================
 
+/**
+ * Property-specific domains for real estate searches
+ * Includes online estimates AND county assessor sites
+ */
+const PROPERTY_VALUATION_DOMAINS = [
+  // Online Estimate Providers
+  "zillow.com",
+  "redfin.com",
+  "realtor.com",
+  "trulia.com",
+  "homes.com",
+  "homelight.com",
+  "eppraisal.com",
+  "chase.com",
+  "bankofamerica.com",
+
+  // Property Records Aggregators
+  "propertyshark.com",
+  "blockshopper.com",
+  "publicrecords.netronline.com",
+] as const
+
+/**
+ * Run Linkup search with optional domain restriction
+ * @param client - Linkup client instance
+ * @param query - Search query
+ * @param usePropertyDomains - If true, restrict to property domains. If false, search entire web.
+ * @param timeoutMs - Timeout in milliseconds
+ */
 async function runLinkupSearch(
   client: LinkupClient,
   query: string,
+  usePropertyDomains: boolean = true,
   timeoutMs: number = SEARCH_TIMEOUT_MS
 ): Promise<SearchResult | null> {
   try {
+    // Build search options
+    const searchOptions: {
+      query: string
+      depth: "deep"
+      outputType: "sourcedAnswer"
+      includeDomains?: string[]
+    } = {
+      query,
+      depth: "deep",
+      outputType: "sourcedAnswer",
+    }
+
+    // Only add domain restriction for property-specific searches
+    // County assessor searches need full web access
+    if (usePropertyDomains) {
+      searchOptions.includeDomains = [...PROPERTY_VALUATION_DOMAINS]
+    }
+
     const result = await Promise.race([
-      client.search({
-        query,
-        depth: "deep",
-        outputType: "sourcedAnswer",
-        includeDomains: [...PROSPECT_RESEARCH_DOMAINS],
-      }),
+      client.search(searchOptions),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
     ])
 
@@ -1028,42 +1070,73 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
   const client = new LinkupClient({ apiKey })
   const addrParts = parseAddressComponents(address)
 
-  // Enhanced search queries targeting multiple data sources:
-  // 1. Online estimates (Zillow, Redfin)
-  // 2. County assessor / tax records (OFFICIAL government data)
-  // 3. Public property records
-  // 4. Recent comparable sales
-  const queries = [
-    // Online estimate aggregators
-    `"${address}" Zillow Zestimate OR Redfin estimate home value 2024`,
+  // Define search queries with domain restriction settings
+  // - usePropertyDomains: true = restricted to Zillow/Redfin/etc
+  // - usePropertyDomains: false = FULL WEB search (for county/gov data)
+  const searchConfigs: Array<{ query: string; usePropertyDomains: boolean; description: string }> = [
+    // === ONLINE ESTIMATES (restricted to known providers) ===
+    {
+      query: `"${address}" Zillow Zestimate home value estimate 2024`,
+      usePropertyDomains: true,
+      description: "Zillow Zestimate",
+    },
+    {
+      query: `"${address}" Redfin estimate home value 2024`,
+      usePropertyDomains: true,
+      description: "Redfin Estimate",
+    },
 
-    // County assessor / tax records (GOVERNMENT DATA - most reliable)
-    `"${addrParts.street}" "${addrParts.city}" county assessor property tax assessed value ${addrParts.state}`,
+    // === COUNTY ASSESSOR / TAX RECORDS (FULL WEB - government sites have varied URLs) ===
+    {
+      query: `"${addrParts.street}" "${addrParts.city}" county assessor property tax assessed value ${addrParts.state} site:.gov OR site:assessor`,
+      usePropertyDomains: false, // FULL WEB - county sites have varied URLs
+      description: "County Assessor (Gov)",
+    },
+    {
+      query: `"${addrParts.street}" ${addrParts.city} ${addrParts.state} property tax assessment market value appraisal district`,
+      usePropertyDomains: false, // FULL WEB - appraisal districts vary
+      description: "Tax Appraisal District",
+    },
 
-    // Property details from public records
-    `"${address}" property records square feet bedrooms bathrooms year built lot size`,
+    // === PUBLIC PROPERTY RECORDS (FULL WEB) ===
+    {
+      query: `"${address}" property records square feet bedrooms bathrooms year built public records`,
+      usePropertyDomains: false, // FULL WEB
+      description: "Public Property Records",
+    },
 
-    // Tax assessment and market value from official sources
-    `"${addrParts.street}" ${addrParts.city} ${addrParts.state} tax assessment market value appraisal district`,
+    // === COMPARABLE SALES (FULL WEB) ===
+    {
+      query: `homes recently sold near "${addrParts.street}" ${addrParts.city} ${addrParts.state} 2024 2023 sale price closed`,
+      usePropertyDomains: false, // FULL WEB - includes MLS, county records
+      description: "Recent Comparable Sales",
+    },
 
-    // Recent sales / comparable sales nearby
-    `homes sold near "${addrParts.street}" ${addrParts.city} ${addrParts.state} 2024 2023 sale price`,
-
-    // County recorder / deed records for sales history
-    `"${address}" county recorder deed sale history transfer`,
+    // === COUNTY RECORDER / DEED RECORDS (FULL WEB) ===
+    {
+      query: `"${address}" county recorder deed transfer sale history ${addrParts.state}`,
+      usePropertyDomains: false, // FULL WEB - county recorder sites
+      description: "County Recorder/Deed",
+    },
   ]
 
   console.log(
-    `[Property Valuation] Running ${queries.length} searches for: ${address}`
+    `[Property Valuation] Running ${searchConfigs.length} searches for: ${address}`
   )
+  searchConfigs.forEach((config, i) => {
+    console.log(`  [${i + 1}] ${config.description} (${config.usePropertyDomains ? "restricted" : "FULL WEB"})`)
+  })
   const startTime = Date.now()
 
-  const searchPromises = queries.map((query) => runLinkupSearch(client, query))
+  // Run searches with appropriate domain settings
+  const searchPromises = searchConfigs.map((config) =>
+    runLinkupSearch(client, config.query, config.usePropertyDomains)
+  )
 
   const results = await Promise.race([
     Promise.all(searchPromises),
     new Promise<(SearchResult | null)[]>((resolve) =>
-      setTimeout(() => resolve(queries.map(() => null)), TOTAL_TIMEOUT_MS)
+      setTimeout(() => resolve(searchConfigs.map(() => null)), TOTAL_TIMEOUT_MS)
     ),
   ])
 
@@ -1073,9 +1146,9 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
   const duration = Date.now() - startTime
 
   console.log(`[Property Valuation] Searches completed in ${duration}ms:`, {
-    total: queries.length,
+    total: searchConfigs.length,
     successful: validResults.length,
-    failed: queries.length - validResults.length,
+    failed: searchConfigs.length - validResults.length,
   })
 
   const combinedText = validResults.map((r) => r.answer).join("\n\n")
@@ -1117,8 +1190,8 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
     onlineEstimates,
     comparables,
     sources,
-    searchesRun: queries.length,
-    searchesFailed: queries.length - validResults.length,
+    searchesRun: searchConfigs.length,
+    searchesFailed: searchConfigs.length - validResults.length,
     extractionConfidence,
   }
 }
