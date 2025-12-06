@@ -644,26 +644,89 @@ function extractPropertyDetails(text: string): Partial<PropertyCharacteristics> 
 /**
  * Extract online estimates from search results using context-aware parsing
  * Collects ALL amounts found per source across all results, then uses median
+ *
+ * Data source hierarchy (by reliability):
+ * 1. County assessor / tax records (OFFICIAL GOVERNMENT DATA)
+ * 2. Recent sale price (if property sold recently)
+ * 3. Zillow Zestimate
+ * 4. Redfin Estimate
+ * 5. Realtor.com estimate
  */
 function extractOnlineEstimates(results: SearchResult[]): OnlineEstimate[] {
   // Collect all amounts per source
   const zillowAmounts: number[] = []
   const redfinAmounts: number[] = []
   const realtorAmounts: number[] = []
-  const countyAmounts: number[] = []
+  const countyAssessedAmounts: number[] = []
+  const countyMarketAmounts: number[] = []
+  const lastSaleAmounts: number[] = []
 
   let zillowUrl = ""
   let redfinUrl = ""
   let realtorUrl = ""
+  let countyUrl = ""
 
   for (const result of results) {
     const text = result.answer
 
+    // === COUNTY ASSESSOR DATA (GOVERNMENT - HIGHEST PRIORITY) ===
+
+    // Tax assessed value - official government record
+    const assessedKeywords = [
+      "assessed value",
+      "tax assessed",
+      "assessed at",
+      "assessment value",
+      "total assessed",
+      "property assessment",
+    ]
+    const assessedAmounts = extractAmountsNearKeyword(text, assessedKeywords, 200)
+    countyAssessedAmounts.push(...assessedAmounts)
+
+    // Market value from county (different from assessed - often higher)
+    const marketKeywords = [
+      "market value",
+      "appraised value",
+      "fair market",
+      "appraisal value",
+      "estimated market",
+      "total value",
+    ]
+    const marketAmounts = extractAmountsNearKeyword(text, marketKeywords, 200)
+    countyMarketAmounts.push(...marketAmounts)
+
+    // Find county assessor URLs
+    if (!countyUrl) {
+      const countySource = result.sources.find(
+        (s) =>
+          s.url.includes("assessor") ||
+          s.url.includes("tax") ||
+          s.url.includes("appraisal") ||
+          s.url.includes(".gov") ||
+          s.url.includes("county")
+      )
+      if (countySource) countyUrl = countySource.url
+    }
+
+    // === RECENT SALE PRICE ===
+    // If property sold recently, that's a strong indicator
+    const saleKeywords = [
+      "sold for",
+      "sale price",
+      "last sold",
+      "sold in 2024",
+      "sold in 2023",
+      "purchased for",
+      "transferred for",
+    ]
+    const saleAmounts = extractAmountsNearKeyword(text, saleKeywords, 150)
+    lastSaleAmounts.push(...saleAmounts)
+
+    // === ONLINE ESTIMATES ===
+
     // Zillow - look for amounts near "zillow" or "zestimate"
-    const zillowContextAmounts = extractAmountsNearKeyword(text, [
-      "zillow",
-      "zestimate",
-    ])
+    const zillowKeywords = ["zillow", "zestimate", "zillow estimate", "zillow value"]
+    const zillowContextAmounts = extractAmountsNearKeyword(text, zillowKeywords)
     zillowAmounts.push(...zillowContextAmounts)
     if (!zillowUrl) {
       const source = result.sources.find((s) => s.url.includes("zillow.com"))
@@ -671,10 +734,8 @@ function extractOnlineEstimates(results: SearchResult[]): OnlineEstimate[] {
     }
 
     // Redfin - look for amounts near "redfin"
-    const redfinContextAmounts = extractAmountsNearKeyword(text, [
-      "redfin",
-      "redfin estimate",
-    ])
+    const redfinKeywords = ["redfin", "redfin estimate", "redfin value"]
+    const redfinContextAmounts = extractAmountsNearKeyword(text, redfinKeywords)
     redfinAmounts.push(...redfinContextAmounts)
     if (!redfinUrl) {
       const source = result.sources.find((s) => s.url.includes("redfin.com"))
@@ -682,33 +743,55 @@ function extractOnlineEstimates(results: SearchResult[]): OnlineEstimate[] {
     }
 
     // Realtor.com
-    const realtorContextAmounts = extractAmountsNearKeyword(text, [
-      "realtor.com",
-      "realtor estimate",
-    ])
+    const realtorKeywords = ["realtor.com", "realtor estimate"]
+    const realtorContextAmounts = extractAmountsNearKeyword(text, realtorKeywords)
     realtorAmounts.push(...realtorContextAmounts)
     if (!realtorUrl) {
       const source = result.sources.find((s) => s.url.includes("realtor.com"))
       if (source) realtorUrl = source.url
     }
-
-    // County assessment
-    const countyContextAmounts = extractAmountsNearKeyword(text, [
-      "assessed",
-      "tax value",
-      "appraised",
-      "appraisal district",
-      "county assessor",
-    ])
-    countyAmounts.push(...countyContextAmounts)
   }
 
   const estimates: OnlineEstimate[] = []
 
-  // Process each source - filter outliers and use median
+  // === PROCESS COUNTY DATA FIRST (MOST RELIABLE) ===
+
+  // County market value (if available, usually more accurate than assessed)
+  if (countyMarketAmounts.length > 0) {
+    const filtered = filterOutliers(countyMarketAmounts)
+    const value = Math.round(
+      calculateMedian(filtered.length > 0 ? filtered : countyMarketAmounts)
+    )
+    if (value >= 50_000) {
+      estimates.push({ source: "county", value, sourceUrl: countyUrl })
+      console.log(
+        `[Property Valuation] County Market Value: ${countyMarketAmounts.length} amounts found, median: $${value.toLocaleString()}`
+      )
+    }
+  }
+  // Fall back to assessed value if no market value
+  else if (countyAssessedAmounts.length > 0) {
+    const filtered = filterOutliers(countyAssessedAmounts)
+    const value = Math.round(
+      calculateMedian(filtered.length > 0 ? filtered : countyAssessedAmounts)
+    )
+    if (value >= 50_000) {
+      // Note: Assessed value is often 80-100% of market value depending on state
+      // We'll use it as-is and let the ensemble model weight it appropriately
+      estimates.push({ source: "county", value, sourceUrl: countyUrl })
+      console.log(
+        `[Property Valuation] County Assessed Value: ${countyAssessedAmounts.length} amounts found, median: $${value.toLocaleString()}`
+      )
+    }
+  }
+
+  // === PROCESS ONLINE ESTIMATES ===
+
   if (zillowAmounts.length > 0) {
     const filtered = filterOutliers(zillowAmounts)
-    const value = Math.round(calculateMedian(filtered.length > 0 ? filtered : zillowAmounts))
+    const value = Math.round(
+      calculateMedian(filtered.length > 0 ? filtered : zillowAmounts)
+    )
     if (value >= 100_000) {
       estimates.push({ source: "zillow", value, sourceUrl: zillowUrl })
       console.log(
@@ -719,7 +802,9 @@ function extractOnlineEstimates(results: SearchResult[]): OnlineEstimate[] {
 
   if (redfinAmounts.length > 0) {
     const filtered = filterOutliers(redfinAmounts)
-    const value = Math.round(calculateMedian(filtered.length > 0 ? filtered : redfinAmounts))
+    const value = Math.round(
+      calculateMedian(filtered.length > 0 ? filtered : redfinAmounts)
+    )
     if (value >= 100_000) {
       estimates.push({ source: "redfin", value, sourceUrl: redfinUrl })
       console.log(
@@ -730,30 +815,53 @@ function extractOnlineEstimates(results: SearchResult[]): OnlineEstimate[] {
 
   if (realtorAmounts.length > 0) {
     const filtered = filterOutliers(realtorAmounts)
-    const value = Math.round(calculateMedian(filtered.length > 0 ? filtered : realtorAmounts))
+    const value = Math.round(
+      calculateMedian(filtered.length > 0 ? filtered : realtorAmounts)
+    )
     if (value >= 100_000) {
       estimates.push({ source: "realtor", value, sourceUrl: realtorUrl })
+      console.log(
+        `[Property Valuation] Realtor: ${realtorAmounts.length} amounts found, median: $${value.toLocaleString()}`
+      )
     }
   }
 
-  if (countyAmounts.length > 0) {
-    const filtered = filterOutliers(countyAmounts)
-    const value = Math.round(calculateMedian(filtered.length > 0 ? filtered : countyAmounts))
-    if (value >= 50_000) {
-      estimates.push({ source: "county", value, sourceUrl: "" })
+  // === CROSS-VALIDATION ===
+
+  // Log summary of all sources found
+  console.log("[Property Valuation] Source summary:", {
+    countyMarket: countyMarketAmounts.length,
+    countyAssessed: countyAssessedAmounts.length,
+    lastSale: lastSaleAmounts.length,
+    zillow: zillowAmounts.length,
+    redfin: redfinAmounts.length,
+    realtor: realtorAmounts.length,
+  })
+
+  // Cross-validate: warn if sources differ significantly
+  if (estimates.length >= 2) {
+    const values = estimates.map((e) => e.value)
+    const cv = calculateCV(values)
+    if (cv > 0.25) {
+      console.warn(
+        `[Property Valuation] Warning: High variance across sources (CV=${(cv * 100).toFixed(1)}%)`
+      )
+      estimates.forEach((e) =>
+        console.warn(`  - ${e.source}: $${e.value.toLocaleString()}`)
+      )
     }
   }
 
-  // Cross-validation: if Zillow and Redfin differ by more than 30%, log warning
+  // Special validation: County vs Online estimates
+  const countyEst = estimates.find((e) => e.source === "county")
   const zillowEst = estimates.find((e) => e.source === "zillow")
-  const redfinEst = estimates.find((e) => e.source === "redfin")
-  if (zillowEst && redfinEst) {
-    const diff = Math.abs(zillowEst.value - redfinEst.value)
-    const avg = (zillowEst.value + redfinEst.value) / 2
+  if (countyEst && zillowEst) {
+    const diff = Math.abs(countyEst.value - zillowEst.value)
+    const avg = (countyEst.value + zillowEst.value) / 2
     const percentDiff = diff / avg
     if (percentDiff > 0.3) {
       console.warn(
-        `[Property Valuation] Warning: Zillow ($${zillowEst.value.toLocaleString()}) and Redfin ($${redfinEst.value.toLocaleString()}) differ by ${(percentDiff * 100).toFixed(1)}%`
+        `[Property Valuation] County ($${countyEst.value.toLocaleString()}) differs from Zillow ($${zillowEst.value.toLocaleString()}) by ${(percentDiff * 100).toFixed(1)}%`
       )
     }
   }
@@ -871,6 +979,36 @@ function collectSources(
 // Main Search and Extract Function
 // ============================================================================
 
+/**
+ * Parse address into components for targeted searches
+ */
+function parseAddressComponents(address: string): {
+  street: string
+  city: string
+  state: string
+  zip: string
+  county: string
+} {
+  // Extract ZIP code
+  const zipMatch = address.match(/\b(\d{5})(?:-\d{4})?\b/)
+  const zip = zipMatch ? zipMatch[1] : ""
+
+  // Extract state (2-letter code)
+  const stateMatch = address.match(/\b([A-Z]{2})\b(?:\s+\d{5})?/i)
+  const state = stateMatch ? stateMatch[1].toUpperCase() : ""
+
+  // Extract city (typically before state)
+  const cityMatch = address.match(/,\s*([^,]+),\s*[A-Z]{2}/i)
+  const city = cityMatch ? cityMatch[1].trim() : ""
+
+  // Street is everything before the first comma
+  const streetMatch = address.match(/^([^,]+)/)
+  const street = streetMatch ? streetMatch[1].trim() : address
+
+  // County will be extracted from search results
+  return { street, city, state, zip, county: "" }
+}
+
 async function searchAndExtractPropertyData(address: string): Promise<ExtractedData> {
   const apiKey = getLinkupApiKeyOptional()
 
@@ -888,13 +1026,31 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
   }
 
   const client = new LinkupClient({ apiKey })
+  const addrParts = parseAddressComponents(address)
 
-  // Define search queries - more specific to get better results
+  // Enhanced search queries targeting multiple data sources:
+  // 1. Online estimates (Zillow, Redfin)
+  // 2. County assessor / tax records (OFFICIAL government data)
+  // 3. Public property records
+  // 4. Recent comparable sales
   const queries = [
-    `"${address}" Zillow Zestimate home value estimate`,
-    `"${address}" Redfin estimate home value`,
-    `"${address}" property tax assessment square feet bedrooms bathrooms`,
-    `homes recently sold near "${address}" 2024 sale price`,
+    // Online estimate aggregators
+    `"${address}" Zillow Zestimate OR Redfin estimate home value 2024`,
+
+    // County assessor / tax records (GOVERNMENT DATA - most reliable)
+    `"${addrParts.street}" "${addrParts.city}" county assessor property tax assessed value ${addrParts.state}`,
+
+    // Property details from public records
+    `"${address}" property records square feet bedrooms bathrooms year built lot size`,
+
+    // Tax assessment and market value from official sources
+    `"${addrParts.street}" ${addrParts.city} ${addrParts.state} tax assessment market value appraisal district`,
+
+    // Recent sales / comparable sales nearby
+    `homes sold near "${addrParts.street}" ${addrParts.city} ${addrParts.state} 2024 2023 sale price`,
+
+    // County recorder / deed records for sales history
+    `"${address}" county recorder deed sale history transfer`,
   ]
 
   console.log(
