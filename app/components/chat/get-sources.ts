@@ -148,6 +148,18 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
+        // Handle Property Valuation (AVM) tool results
+        if (
+          part.toolInvocation.toolName === "property_valuation" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Property Data",
+            url: s.url,
+            text: `Property valuation source`,
+          }))
+        }
+
         // Handle summarizeSources tool results
         if (
           part.toolInvocation.toolName === "summarizeSources" &&

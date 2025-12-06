@@ -31,6 +31,10 @@ import {
   wikidataEntityTool,
   shouldEnableWikidataTools,
 } from "@/lib/tools/wikidata"
+import {
+  propertyValuationTool,
+  shouldEnablePropertyValuationTool,
+} from "@/lib/tools/property-valuation"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -248,6 +252,7 @@ export async function POST(req: Request) {
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
+      if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
 
       if (searchTools.length > 0 || dataTools.length > 0) {
         finalSystemPrompt += `\n\n## Web Search & Data Tools`
@@ -271,7 +276,8 @@ export async function POST(req: Request) {
 - Use propublica_nonprofit_search/details for foundation 990 data, nonprofit financials, and EIN lookups
 - Use usaspending_awards to find federal contracts, grants, and loans received by a COMPANY or ORGANIZATION (search by org name like 'Gates Foundation' or 'Lockheed Martin'). NOT for individual donor research.
 - Use wikidata_search to find people/organizations by name and get their Wikidata QID
-- Use wikidata_entity with a QID to get biographical data (education, employers, positions held, net worth, awards, etc.)`
+- Use wikidata_entity with a QID to get biographical data (education, employers, positions held, net worth, awards, etc.)
+- Use property_valuation AFTER gathering property data via searchWeb - pass sqft, beds, baths, Zillow/Redfin estimates, and comparable sales for AVM calculation`
         }
 
         finalSystemPrompt += `\n\n### CRITICAL: MAXIMIZE TOOL USAGE
@@ -439,6 +445,14 @@ Run MULTIPLE searchWeb queries to uncover business interests:
         ? {
             wikidata_search: wikidataSearchTool,
             wikidata_entity: wikidataEntityTool,
+          }
+        : {}),
+      // Add Property Valuation tool for AVM (Automated Valuation Model) calculations
+      // Uses hedonic pricing, comparable sales, and online estimates
+      // No external API required - uses existing search infrastructure + math
+      ...(enableSearch && shouldEnablePropertyValuationTool()
+        ? {
+            property_valuation: propertyValuationTool,
           }
         : {}),
     } as ToolSet

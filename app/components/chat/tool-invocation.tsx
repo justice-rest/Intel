@@ -47,6 +47,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   us_gov_data: "US Government Data",
   wikidata_search: "Wikidata Search",
   wikidata_entity: "Wikidata Profile",
+  property_valuation: "Property Valuation",
 }
 
 /**
@@ -1491,6 +1492,170 @@ function SingleToolCard({
                   <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
                 </a>
               ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Property Valuation (AVM) results
+    if (
+      toolName === "property_valuation" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "estimatedValue" in parsedResult
+    ) {
+      const avmResult = parsedResult as {
+        address: string
+        estimatedValue: number
+        valueLow: number
+        valueHigh: number
+        pricePerSqFt?: number
+        confidenceScore: number
+        confidenceLevel: "high" | "medium" | "low"
+        fsd: number
+        hedonicValue?: number
+        compAdjustedValue?: number
+        onlineEstimateAvg?: number
+        hedonicWeight: number
+        compWeight: number
+        onlineWeight: number
+        comparablesUsed: number
+        estimateSources: string[]
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (avmResult.error) {
+        return (
+          <div className="space-y-3">
+            <div className="text-red-600 dark:text-red-400">
+              {avmResult.error}
+            </div>
+            {avmResult.rawContent && (
+              <div className="text-muted-foreground whitespace-pre-wrap text-sm">
+                {avmResult.rawContent}
+              </div>
+            )}
+          </div>
+        )
+      }
+
+      const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+
+      const formatPercent = (value: number) => {
+        return `${(value * 100).toFixed(0)}%`
+      }
+
+      // Confidence badge styling
+      const confidenceBadgeClass = {
+        high: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400",
+        medium: "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400",
+        low: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400",
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Primary Value Display */}
+          <div className="text-center">
+            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+              Estimated Value
+            </div>
+            <div className="font-medium text-foreground text-3xl">
+              {formatCurrency(avmResult.estimatedValue)}
+            </div>
+            <div className="text-muted-foreground text-sm mt-1">
+              Range: {formatCurrency(avmResult.valueLow)} – {formatCurrency(avmResult.valueHigh)}
+            </div>
+            {avmResult.pricePerSqFt && (
+              <div className="text-muted-foreground text-xs mt-1">
+                {formatCurrency(avmResult.pricePerSqFt)}/sqft
+              </div>
+            )}
+          </div>
+
+          {/* Confidence Badge */}
+          <div className="flex justify-center">
+            <div className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium",
+              confidenceBadgeClass[avmResult.confidenceLevel]
+            )}>
+              <span className="uppercase">{avmResult.confidenceLevel}</span>
+              <span className="opacity-75">Confidence</span>
+              <span className="font-mono">{avmResult.confidenceScore}/100</span>
+            </div>
+          </div>
+
+          {/* Model Components Breakdown */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Model Components
+            </div>
+            <div className="space-y-2 text-sm">
+              {avmResult.hedonicValue && avmResult.hedonicWeight > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">
+                    Hedonic Model ({formatPercent(avmResult.hedonicWeight)})
+                  </span>
+                  <span className="font-mono">{formatCurrency(avmResult.hedonicValue)}</span>
+                </div>
+              )}
+              {avmResult.compAdjustedValue && avmResult.compWeight > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">
+                    Comparable Sales ({formatPercent(avmResult.compWeight)}, {avmResult.comparablesUsed} comps)
+                  </span>
+                  <span className="font-mono">{formatCurrency(avmResult.compAdjustedValue)}</span>
+                </div>
+              )}
+              {avmResult.onlineEstimateAvg && avmResult.onlineWeight > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">
+                    Online Estimates ({formatPercent(avmResult.onlineWeight)}{avmResult.estimateSources.length > 0 ? `, ${avmResult.estimateSources.join(", ")}` : ""})
+                  </span>
+                  <span className="font-mono">{formatCurrency(avmResult.onlineEstimateAvg)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* FSD Note */}
+          <div className="text-muted-foreground text-xs border-t border-border pt-3">
+            Based on FSD of {formatPercent(avmResult.fsd)}, there is ~68% probability the actual value falls within the range shown.
+          </div>
+
+          {/* Sources */}
+          {avmResult.sources && avmResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources ({avmResult.sources.length})
+              </div>
+              <div className="space-y-1">
+                {avmResult.sources.slice(0, 5).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+                {avmResult.sources.length > 5 && (
+                  <div className="text-muted-foreground text-xs">
+                    ...and {avmResult.sources.length - 5} more sources
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
