@@ -296,17 +296,12 @@ User sends message
 - `/migrations/006_add_memory_system.sql` - Database schema
 
 ### Web Search Integration
-**Dual-Mode Search Architecture** with clean separation:
+**Linkup-Powered Prospect Research** with curated domains:
 
-| Mode | When | Search Method | Use Case |
-|------|------|---------------|----------|
-| Tool-based | `enableSearch=true` | Linkup tool (`searchWeb`) | Prospect research with curated domains |
-| Native | `enableSearch=false` | OpenRouter `:online` suffix (Exa) | General web grounding for any query |
-
-**How It Works:**
-- When tools are enabled, the model uses `searchWeb` (Linkup) for targeted prospect research
-- When tools are disabled, the model uses native Exa via OpenRouter's `:online` suffix for general grounding
-- This prevents conflicts between tool-based and native search
+| Mode | When | Search Method |
+|------|------|---------------|
+| Search enabled | `enableSearch=true` | Linkup tool (`searchWeb`) |
+| Search disabled | `enableSearch=false` | No web search |
 
 **Linkup Search Tool** (`/lib/tools/linkup-search.ts`)
 - Uses `linkup-sdk` package with `sourcedAnswer` output mode
@@ -314,23 +309,12 @@ User sends message
 - Searches curated domains (SEC, FEC, foundation 990s, property records, etc.)
 - 60-second timeout, deep search by default
 
-**Native Exa via OpenRouter** (`/lib/models/data/openrouter.ts`)
-- Automatically enabled when `enableSearch=false`
-- Uses `:online` suffix on model ID (e.g., `x-ai/grok-4.1-fast:online`)
-- Provides broad web grounding for general queries
-- No additional API key required (uses OpenRouter's Exa integration)
-
 **Search Flow**:
 ```
-enableSearch=true (Prospect Research):
-  → Regular model + Linkup tool
+User toggles search button
+  → enableSearch=true sent to API
   → AI calls searchWeb for curated domain search
   → Sources displayed in SourcesList
-
-enableSearch=false (General Queries):
-  → Model with :online suffix
-  → Native Exa provides web grounding
-  → No tool calls needed
 ```
 
 **Person-to-Nonprofit Research Workflow**:
@@ -348,7 +332,6 @@ enableSearch=false (General Queries):
 
 **Key Files**:
 - `/lib/tools/linkup-search.ts` - Linkup tool (prospect research)
-- `/lib/models/data/openrouter.ts` - Model config with `:online` suffix logic
 - `/lib/linkup/config.ts` - Linkup API key and defaults
 - `/app/api/chat/route.ts` - Tool integration
 
@@ -446,7 +429,6 @@ OPENROUTER_API_KEY=             # Required for Grok 4.1 Fast model
 # Linkup Search (optional - prospect research with curated domains)
 # Get your free API key at https://app.linkup.so (no credit card required)
 LINKUP_API_KEY=                 # Optional - enables Linkup prospect research
-# Note: Native Exa web search is included via OpenRouter (no separate key needed)
 
 # USAspending API (no API key required - FREE)
 # Federal contracts, grants, loans data - works without a key

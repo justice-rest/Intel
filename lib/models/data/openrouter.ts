@@ -30,17 +30,10 @@ export const openrouterModels: ModelConfig[] = [
     releasedAt: "2025-11-01",
     icon: "xai",
     isPro: false, // Available for all users
-    // Web search strategy:
-    // - enableSearch=true: Use Linkup tool for prospect research (no native Exa to avoid conflicts)
-    // - enableSearch=false: Use :online suffix for native Exa web grounding (general queries)
-    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) => {
-      const openrouter = createOpenRouter({
+    // Web search is handled by Linkup tool when enableSearch=true (see /lib/tools/linkup-search.ts)
+    apiSdk: (apiKey?: string) =>
+      createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-      })
-      // When search is NOT enabled, use :online suffix for native Exa integration
-      // When search IS enabled, use regular model + Linkup tool (no native Exa to prevent conflicts)
-      const modelId = opts?.enableSearch ? "x-ai/grok-4.1-fast" : "x-ai/grok-4.1-fast:online"
-      return openrouter.chat(modelId)
-    },
+      }).chat("x-ai/grok-4.1-fast"),
   },
 ]
