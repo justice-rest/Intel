@@ -442,13 +442,60 @@ export const opensanctionsScreeningTool = tool({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
       console.error("[OpenSanctions] Screening failed:", errorMessage)
+
+      // Format error nicely for UI display
+      const errorContent = [
+        `# OpenSanctions Screening: "${name}"`,
+        "",
+        "## ⚠️ Screening Unavailable",
+        "",
+        "The OpenSanctions screening could not be completed.",
+        "",
+        `**Error:** ${errorMessage}`,
+        "",
+        "---",
+        "",
+        "### How to Enable OpenSanctions",
+        "",
+        "OpenSanctions provides **FREE** access with an API key:",
+        "",
+        "1. **Get a FREE API key** at [opensanctions.org/api](https://www.opensanctions.org/api/)",
+        "2. Add to your `.env.local` file:",
+        "   ```",
+        "   OPENSANCTIONS_API_KEY=your_api_key_here",
+        "   ```",
+        "3. Restart the application",
+        "",
+        "### What OpenSanctions Screens",
+        "",
+        "- **OFAC SDN List** (US Treasury sanctions)",
+        "- **EU Consolidated Sanctions**",
+        "- **UN Security Council Sanctions**",
+        "- **Interpol Notices**",
+        "- **PEP Databases** (Politically Exposed Persons)",
+        "- **100+ global watchlist sources**",
+        "",
+        "### Manual Search",
+        "",
+        `You can manually search at: [OpenSanctions Search](https://www.opensanctions.org/search/?q=${encodeURIComponent(name)})`,
+      ].join("\n")
+
       return {
         query: name,
         totalMatches: 0,
         riskLevel: RISK_LEVELS.CLEAR,
         matches: [],
-        rawContent: `Failed to screen "${name}" in OpenSanctions: ${errorMessage}`,
-        sources: [],
+        rawContent: errorContent,
+        sources: [
+          {
+            name: "OpenSanctions - Manual Search",
+            url: `https://www.opensanctions.org/search/?q=${encodeURIComponent(name)}`,
+          },
+          {
+            name: "OpenSanctions - Get API Key",
+            url: "https://www.opensanctions.org/api/",
+          },
+        ],
         error: errorMessage,
       }
     }

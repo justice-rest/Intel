@@ -497,12 +497,57 @@ export const opencorporatesCompanySearchTool = tool({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
       console.error("[OpenCorporates] Search failed:", errorMessage)
+
+      // Format error nicely for UI display
+      const errorContent = [
+        `# OpenCorporates Company Search: "${companyName}"`,
+        "",
+        "## ⚠️ Search Unavailable",
+        "",
+        "The OpenCorporates company search could not be completed.",
+        "",
+        `**Error:** ${errorMessage}`,
+        "",
+        "---",
+        "",
+        "### How to Enable OpenCorporates",
+        "",
+        "OpenCorporates offers **FREE** access (200 requests/month) with an API key:",
+        "",
+        "1. **Get a FREE API key** at [opencorporates.com/api_accounts/new](https://opencorporates.com/api_accounts/new)",
+        "2. Add to your `.env.local` file:",
+        "   ```",
+        "   OPENCORPORATES_API_KEY=your_api_key_here",
+        "   ```",
+        "3. Restart the application",
+        "",
+        "### What OpenCorporates Provides",
+        "",
+        "- **Company Registry Data** from 140+ jurisdictions",
+        "- **Officer/Director Searches** to find business affiliations",
+        "- **Corporate Filings** and status information",
+        "- **Cross-reference** business ownership for prospect research",
+        "",
+        "### Manual Search",
+        "",
+        `You can manually search at: [OpenCorporates](https://opencorporates.com/companies?q=${encodeURIComponent(companyName)})`,
+      ].join("\n")
+
       return {
         query: companyName,
         totalFound: 0,
         companies: [],
-        rawContent: `Failed to search OpenCorporates for "${companyName}": ${errorMessage}`,
-        sources: [],
+        rawContent: errorContent,
+        sources: [
+          {
+            name: "OpenCorporates - Manual Search",
+            url: `https://opencorporates.com/companies?q=${encodeURIComponent(companyName)}`,
+          },
+          {
+            name: "OpenCorporates - Get API Key",
+            url: "https://opencorporates.com/api_accounts/new",
+          },
+        ],
         error: errorMessage,
       }
     }
@@ -629,12 +674,57 @@ export const opencorporatesOfficerSearchTool = tool({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
       console.error("[OpenCorporates] Officer search failed:", errorMessage)
+
+      // Format error nicely for UI display
+      const errorContent = [
+        `# OpenCorporates Officer Search: "${officerName}"`,
+        "",
+        "## ⚠️ Search Unavailable",
+        "",
+        "The OpenCorporates officer search could not be completed.",
+        "",
+        `**Error:** ${errorMessage}`,
+        "",
+        "---",
+        "",
+        "### How to Enable OpenCorporates",
+        "",
+        "OpenCorporates offers **FREE** access (200 requests/month) with an API key:",
+        "",
+        "1. **Get a FREE API key** at [opencorporates.com/api_accounts/new](https://opencorporates.com/api_accounts/new)",
+        "2. Add to your `.env.local` file:",
+        "   ```",
+        "   OPENCORPORATES_API_KEY=your_api_key_here",
+        "   ```",
+        "3. Restart the application",
+        "",
+        "### What OpenCorporates Officer Search Provides",
+        "",
+        "- **Business Affiliations** - Find all companies where a person is an officer",
+        "- **Board Positions** - Director, secretary, president roles",
+        "- **Corporate History** - Current and former positions",
+        "- **Wealth Indicator** - Multiple directorships indicate business involvement",
+        "",
+        "### Manual Search",
+        "",
+        `You can manually search at: [OpenCorporates Officers](https://opencorporates.com/officers?q=${encodeURIComponent(officerName)})`,
+      ].join("\n")
+
       return {
         query: officerName,
         totalFound: 0,
         officers: [],
-        rawContent: `Failed to search OpenCorporates officers for "${officerName}": ${errorMessage}`,
-        sources: [],
+        rawContent: errorContent,
+        sources: [
+          {
+            name: "OpenCorporates - Manual Officer Search",
+            url: `https://opencorporates.com/officers?q=${encodeURIComponent(officerName)}`,
+          },
+          {
+            name: "OpenCorporates - Get API Key",
+            url: "https://opencorporates.com/api_accounts/new",
+          },
+        ],
         error: errorMessage,
       }
     }
