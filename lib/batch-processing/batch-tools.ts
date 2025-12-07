@@ -32,6 +32,28 @@ import {
   wikidataEntityTool,
   shouldEnableWikidataTools,
 } from "@/lib/tools/wikidata"
+import {
+  opencorporatesCompanySearchTool,
+  opencorporatesOfficerSearchTool,
+  shouldEnableOpenCorporatesTools,
+} from "@/lib/tools/opencorporates"
+import {
+  opensanctionsScreeningTool,
+  shouldEnableOpenSanctionsTools,
+} from "@/lib/tools/opensanctions"
+import {
+  lobbyingSearchTool,
+  shouldEnableLobbyingTools,
+} from "@/lib/tools/lobbying"
+import {
+  courtSearchTool,
+  judgeSearchTool,
+  shouldEnableCourtListenerTools,
+} from "@/lib/tools/courtlistener"
+import {
+  householdSearchTool,
+  shouldEnableHouseholdSearchTool,
+} from "@/lib/tools/household-search"
 
 /**
  * Build the tools object for batch processing
@@ -83,6 +105,43 @@ export function buildBatchTools(): ToolSet {
           wikidata_entity: wikidataEntityTool,
         }
       : {}),
+
+    // OpenCorporates (company and officer search)
+    ...(shouldEnableOpenCorporatesTools()
+      ? {
+          opencorporates_company_search: opencorporatesCompanySearchTool,
+          opencorporates_officer_search: opencorporatesOfficerSearchTool,
+        }
+      : {}),
+
+    // OpenSanctions (PEP and sanctions screening)
+    ...(shouldEnableOpenSanctionsTools()
+      ? {
+          opensanctions_screening: opensanctionsScreeningTool,
+        }
+      : {}),
+
+    // Lobbying Disclosure (federal LDA filings)
+    ...(shouldEnableLobbyingTools()
+      ? {
+          lobbying_search: lobbyingSearchTool,
+        }
+      : {}),
+
+    // CourtListener (federal court records and judges)
+    ...(shouldEnableCourtListenerTools()
+      ? {
+          court_search: courtSearchTool,
+          judge_search: judgeSearchTool,
+        }
+      : {}),
+
+    // Household/Spouse Search
+    ...(shouldEnableHouseholdSearchTool()
+      ? {
+          household_search: householdSearchTool,
+        }
+      : {}),
   }
 
   return tools
@@ -117,6 +176,21 @@ export function getToolDescriptions(): string {
   if (shouldEnableWikidataTools()) {
     dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
   }
+  if (shouldEnableOpenCorporatesTools()) {
+    dataTools.push("opencorporates_company_search / opencorporates_officer_search (company ownership, officers, directors across 140+ jurisdictions)")
+  }
+  if (shouldEnableOpenSanctionsTools()) {
+    dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
+  }
+  if (shouldEnableLobbyingTools()) {
+    dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
+  }
+  if (shouldEnableCourtListenerTools()) {
+    dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
+  }
+  if (shouldEnableHouseholdSearchTool()) {
+    dataTools.push("household_search (spouse/partner search - household wealth assessment, shared affiliations)")
+  }
 
   const hasLinkup = shouldEnableLinkupTool()
   let description = ""
@@ -143,19 +217,37 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - yahoo_finance_*: Stock data, company profiles, insider holdings
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
 - us_gov_data: Federal contracts/grants by company/org name
-- wikidata_search/entity: Biographical data (education, employers, net worth)\n\n`
+- wikidata_search/entity: Biographical data (education, employers, net worth)
+- opencorporates_company_search: Search companies by name (LLC, Corp, etc.) - returns officers, status, filings
+- opencorporates_officer_search: Find all companies where a person is officer/director
+- opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
+- lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
+- court_search: Federal court opinions and dockets by party name or case
+- judge_search: Judge biographical data, positions, appointers, education
+- household_search: Find spouse/partner - returns household wealth assessment and shared affiliations\n\n`
     }
 
     description += `### Research Strategy
 1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
-4. Run tools in parallel when possible. Be thorough.
+4. **business ownership**: Use opencorporates_officer_search to find ALL companies where person is officer/director
+5. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
+6. Run tools in parallel when possible. Be thorough.
 
 ### Board & Officer Validation (PUBLIC COMPANIES)
 When verifying board membership or officer status:
 1. **sec_insider_search("[person name]")** - If results found, they ARE an insider (officer/director/10%+ owner)
-2. **sec_proxy_search("[company name]")** - Lists ALL directors and officers from DEF 14A proxy statement\n`
+2. **sec_proxy_search("[company name]")** - Lists ALL directors and officers from DEF 14A proxy statement
+
+### Due Diligence Workflow
+For comprehensive prospect due diligence:
+1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
+2. **opencorporates_officer_search** - Find all business affiliations
+3. **court_search** - Check for litigation history
+4. **lobbying_search** - Discover political connections
+5. **fec_contributions** - Political giving patterns
+6. **household_search** - Identify spouse/household wealth\n`
   }
 
   return description
