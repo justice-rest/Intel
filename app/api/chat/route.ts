@@ -38,6 +38,10 @@ import {
   propertyValuationTool,
   shouldEnablePropertyValuationTool,
 } from "@/lib/tools/property-valuation"
+import {
+  rentalInvestmentTool,
+  shouldEnableRentalInvestmentTool,
+} from "@/lib/tools/rental-investment-tool"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -249,6 +253,7 @@ export async function POST(req: Request) {
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
       if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
+      if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
 
       const hasLinkup = shouldEnableLinkupTool()
       if (hasLinkup || dataTools.length > 0) {
@@ -275,7 +280,8 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
 - usaspending_awards: Federal contracts/grants by company/org name
 - wikidata_search/entity: Biographical data (education, employers, net worth)
-- property_valuation: Home value estimate - just pass the address, auto-fetches Zillow/Redfin/comps`
+- property_valuation: Home value estimate - just pass the address, auto-fetches Zillow/Redfin/comps
+- rental_investment: Rental analysis - REQUIRES property value from property_valuation first, returns rent estimate, cap rate, cash-on-cash return, monthly cash flow`
         }
 
         finalSystemPrompt += `\n\n### Research Strategy
@@ -411,6 +417,13 @@ Use BOTH tools: insider search confirms the person files as insider, proxy shows
       ...(enableSearch && shouldEnablePropertyValuationTool()
         ? {
             property_valuation: propertyValuationTool,
+          }
+        : {}),
+      // Add Rental Investment tool for rental valuation and investment analysis
+      // Requires property value from property_valuation - returns rent estimate, cap rate, cash flow
+      ...(enableSearch && shouldEnableRentalInvestmentTool()
+        ? {
+            rental_investment: rentalInvestmentTool,
           }
         : {}),
     } as ToolSet
