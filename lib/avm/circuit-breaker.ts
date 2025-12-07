@@ -89,8 +89,8 @@ export const CIRCUIT_CONFIGS: Record<string, CircuitBreakerConfig> = {
     timeout: 60000,
     halfOpenMaxCalls: 2,
   },
-  greatschools: {
-    name: "greatschools",
+  schooldigger: {
+    name: "schooldigger",
     failureThreshold: 5,
     successThreshold: 2,
     timeout: 30000,

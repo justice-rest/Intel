@@ -16,7 +16,6 @@ import { z } from "zod"
 import {
   estimateRentalValue,
   analyzeInvestment,
-  formatInvestmentAnalysis,
   type InvestmentAnalysis,
   type RentalEstimate,
 } from "@/lib/avm/rental-valuation"

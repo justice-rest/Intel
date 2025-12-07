@@ -228,6 +228,7 @@ import { getLocationAPIStatus, clearLocationCache } from "./location-data"
 
 /**
  * Get AVM system status and capabilities
+ * All location features have FREE fallbacks - no paid API keys required
  */
 export function getAVMStatus(): {
   enabled: boolean
@@ -243,8 +244,13 @@ export function getAVMStatus(): {
   }
   apis: {
     fred: boolean
-    greatSchools: boolean
+    schoolDigger: boolean
     walkScore: boolean
+    freeFallbacks: {
+      ncesStateAverages: boolean
+      osmSchoolDensity: boolean
+      osmWalkability: boolean
+    }
   }
   circuitBreakers: {
     total: number
@@ -262,15 +268,21 @@ export function getAVMStatus(): {
       comparables: true,
       onlineEstimates: true,
       appreciation: isFredHPIEnabled(),
-      location: true,
+      location: true, // Always true - has FREE fallbacks
       rental: true,
       investment: true,
       trends: true,
     },
     apis: {
       fred: isFredHPIEnabled(),
-      greatSchools: locationStatus.greatSchools,
+      schoolDigger: locationStatus.schoolDigger,
       walkScore: locationStatus.walkScore,
+      // FREE fallbacks - always available, no API key required
+      freeFallbacks: {
+        ncesStateAverages: locationStatus.ncesStateFallback,
+        osmSchoolDensity: locationStatus.osmSchoolFallback,
+        osmWalkability: locationStatus.osmWalkabilityFallback,
+      },
     },
     circuitBreakers: {
       total: cbSummary.total,
