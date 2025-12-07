@@ -42,6 +42,28 @@ import {
   rentalInvestmentTool,
   shouldEnableRentalInvestmentTool,
 } from "@/lib/tools/rental-investment-tool"
+import {
+  opencorporatesCompanySearchTool,
+  opencorporatesOfficerSearchTool,
+  shouldEnableOpenCorporatesTools,
+} from "@/lib/tools/opencorporates"
+import {
+  opensanctionsScreeningTool,
+  shouldEnableOpenSanctionsTools,
+} from "@/lib/tools/opensanctions"
+import {
+  lobbyingSearchTool,
+  shouldEnableLobbyingTools,
+} from "@/lib/tools/lobbying"
+import {
+  courtSearchTool,
+  judgeSearchTool,
+  shouldEnableCourtListenerTools,
+} from "@/lib/tools/courtlistener"
+import {
+  householdSearchTool,
+  shouldEnableHouseholdSearchTool,
+} from "@/lib/tools/household-search"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -254,6 +276,11 @@ export async function POST(req: Request) {
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
       if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
+      if (shouldEnableOpenCorporatesTools()) dataTools.push("opencorporates_company_search / opencorporates_officer_search (company ownership, officers, directors across 140+ jurisdictions)")
+      if (shouldEnableOpenSanctionsTools()) dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
+      if (shouldEnableLobbyingTools()) dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
+      if (shouldEnableCourtListenerTools()) dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
+      if (shouldEnableHouseholdSearchTool()) dataTools.push("household_search (spouse/partner search - household wealth assessment, shared affiliations)")
 
       const hasLinkup = shouldEnableLinkupTool()
       if (hasLinkup || dataTools.length > 0) {
@@ -281,7 +308,14 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - usaspending_awards: Federal contracts/grants by company/org name
 - wikidata_search/entity: Biographical data (education, employers, net worth)
 - property_valuation: Home value estimate - just pass the address, auto-fetches Zillow/Redfin/comps
-- rental_investment: Rental analysis - REQUIRES property value from property_valuation first, returns rent estimate, cap rate, cash-on-cash return, monthly cash flow`
+- rental_investment: Rental analysis - REQUIRES property value from property_valuation first
+- opencorporates_company_search: Search companies by name (LLC, Corp, etc.) - returns officers, status, filings
+- opencorporates_officer_search: Find all companies where a person is officer/director
+- opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
+- lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
+- court_search: Federal court opinions and dockets by party name or case
+- judge_search: Judge biographical data, positions, appointers, education
+- household_search: Find spouse/partner - returns household wealth assessment and shared affiliations`
         }
 
         finalSystemPrompt += `\n\n### Research Strategy
@@ -289,13 +323,23 @@ Run 6-10 searchWeb queries per prospect with different angles:
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
 4. **property_valuation**: Just pass the address - tool auto-searches Zillow, Redfin, county records, and comps
-5. Run tools in parallel when possible. Be thorough.
+5. **business ownership**: Use opencorporates_officer_search to find ALL companies where person is officer/director
+6. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
+7. Run tools in parallel when possible. Be thorough.
 
 ### Board & Officer Validation (PUBLIC COMPANIES)
 When asked to verify if someone is on a board, is a director, officer, or executive:
 1. **sec_insider_search("[person name]")** - Searches Form 3/4/5 insider filings. If results found, they ARE an insider.
 2. **sec_proxy_search("[company name]")** - Gets DEF 14A proxy statement listing ALL directors and officers.
-Use BOTH tools: insider search confirms the person files as insider, proxy shows full board composition.`
+Use BOTH tools: insider search confirms the person files as insider, proxy shows full board composition.
+
+### Due Diligence Workflow
+For comprehensive prospect due diligence:
+1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
+2. **opencorporates_officer_search** - Find all business affiliations
+3. **court_search** - Check for litigation history
+4. **lobbying_search** - Discover political connections
+5. **fec_contributions** - Political giving patterns`
       }
     }
 
@@ -424,6 +468,43 @@ Use BOTH tools: insider search confirms the person files as insider, proxy shows
       ...(enableSearch && shouldEnableRentalInvestmentTool()
         ? {
             rental_investment: rentalInvestmentTool,
+          }
+        : {}),
+      // Add OpenCorporates tools for company and officer search
+      // FREE API - no key required (100-200 requests/month)
+      ...(enableSearch && shouldEnableOpenCorporatesTools()
+        ? {
+            opencorporates_company_search: opencorporatesCompanySearchTool,
+            opencorporates_officer_search: opencorporatesOfficerSearchTool,
+          }
+        : {}),
+      // Add OpenSanctions tool for PEP and sanctions screening
+      // COMPLETELY FREE - open source sanctions database
+      ...(enableSearch && shouldEnableOpenSanctionsTools()
+        ? {
+            opensanctions_screening: opensanctionsScreeningTool,
+          }
+        : {}),
+      // Add Lobbying Disclosure tool for federal lobbying data
+      // FREE - Senate LDA API, no key required
+      ...(enableSearch && shouldEnableLobbyingTools()
+        ? {
+            lobbying_search: lobbyingSearchTool,
+          }
+        : {}),
+      // Add CourtListener tools for court records and judge information
+      // FREE API - no key required (5,000 requests/hour)
+      ...(enableSearch && shouldEnableCourtListenerTools()
+        ? {
+            court_search: courtSearchTool,
+            judge_search: judgeSearchTool,
+          }
+        : {}),
+      // Add Household/Spouse search tool for major gift strategy
+      // FREE - uses Wikidata, SEC, and other public records
+      ...(enableSearch && shouldEnableHouseholdSearchTool()
+        ? {
+            household_search: householdSearchTool,
           }
         : {}),
     } as ToolSet
