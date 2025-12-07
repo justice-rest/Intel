@@ -14,6 +14,11 @@ import { isLinkupEnabled, getLinkupApiKey, PROSPECT_RESEARCH_DOMAINS } from "@/l
 import { ProspectInputData, BatchProspectItem, BatchSearchMode } from "./types"
 import { buildProspectQueryString } from "./parser"
 import { buildBatchTools, getToolDescriptions, extractSourcesFromToolResults } from "./batch-tools"
+import {
+  getRomyScore,
+  RomyScoreDataPoints,
+  RomyScoreBreakdown,
+} from "@/lib/romy-score"
 
 // ============================================================================
 // STANDARD MODE PROMPT
@@ -562,6 +567,174 @@ function extractMetricsFromReport(content: string): {
 }
 
 // ============================================================================
+// ROMYSCORE DATA EXTRACTION FROM TOOL RESULTS
+// ============================================================================
+
+/**
+ * Extract RomyScore data points from tool results
+ * This creates structured data for deterministic scoring
+ */
+function extractDataPointsFromToolResults(
+  toolResults: Array<{ toolName: string; result: unknown }>
+): Partial<RomyScoreDataPoints> {
+  const dataPoints: Partial<RomyScoreDataPoints> = {}
+
+  for (const { toolName, result } of toolResults) {
+    if (!result || typeof result !== "object") continue
+    const resultObj = result as Record<string, unknown>
+
+    // Extract from property_valuation tool
+    if (toolName === "property_valuation") {
+      if (typeof resultObj.estimatedValue === "number" && resultObj.estimatedValue > 0) {
+        dataPoints.propertyValue = resultObj.estimatedValue
+      }
+    }
+
+    // Extract from opencorporates_officer_search
+    if (toolName === "opencorporates_officer_search") {
+      const officers = resultObj.officers as Array<{
+        name: string
+        position: string
+        companyName: string
+        current: boolean
+      }> | undefined
+
+      if (officers && officers.length > 0) {
+        dataPoints.businessRoles = officers
+          .filter((o) => o.current)
+          .map((o) => ({
+            role: o.position,
+            companyName: o.companyName,
+            isPublicCompany: false, // OpenCorporates doesn't indicate this
+          }))
+      }
+    }
+
+    // Extract from sec_insider_search (indicates public company affiliation)
+    if (toolName === "sec_insider_search") {
+      const filings = resultObj.filings as Array<{
+        companyName: string
+        position?: string
+      }> | undefined
+
+      if (filings && filings.length > 0) {
+        const existingRoles = dataPoints.businessRoles || []
+        const secRoles = filings.map((f) => ({
+          role: f.position || "Insider",
+          companyName: f.companyName,
+          isPublicCompany: true, // SEC filings = public company
+        }))
+
+        // Merge with existing, mark as public company
+        dataPoints.businessRoles = [...existingRoles, ...secRoles]
+      }
+    }
+
+    // Extract from yahoo_finance_profile
+    if (toolName === "yahoo_finance_profile") {
+      const executives = resultObj.executives as Array<{
+        name: string
+        title: string
+      }> | undefined
+      const companyName = resultObj.companyName as string | undefined
+
+      if (executives && companyName) {
+        const existingRoles = dataPoints.businessRoles || []
+        const yahooRoles = executives.map((e) => ({
+          role: e.title,
+          companyName: companyName,
+          isPublicCompany: true, // Yahoo Finance = public company
+        }))
+        dataPoints.businessRoles = [...existingRoles, ...yahooRoles]
+      }
+    }
+
+    // Extract from fec_contributions
+    if (toolName === "fec_contributions") {
+      const totalAmount = resultObj.totalAmount as number | undefined
+      if (typeof totalAmount === "number" && totalAmount > 0) {
+        dataPoints.totalPoliticalGiving = totalAmount
+      }
+    }
+
+    // Extract from propublica_nonprofit_search or nonprofit_affiliation_search
+    if (toolName === "propublica_nonprofit_search" || toolName === "nonprofit_affiliation_search") {
+      const organizations = resultObj.organizations as Array<{ name: string }> | undefined
+      const affiliations = resultObj.affiliations as Array<{ organizationName: string }> | undefined
+
+      if (organizations && organizations.length > 0) {
+        dataPoints.foundationAffiliations = organizations.map((o) => o.name)
+      } else if (affiliations && affiliations.length > 0) {
+        dataPoints.foundationAffiliations = affiliations.map((a) => a.organizationName)
+      }
+    }
+
+    // Extract from wikidata_entity
+    if (toolName === "wikidata_entity") {
+      const netWorth = resultObj.netWorth as number | undefined
+      if (typeof netWorth === "number" && netWorth > 0) {
+        dataPoints.publicNetWorth = netWorth
+      }
+    }
+
+    // Extract from opensanctions_screening
+    if (toolName === "opensanctions_screening") {
+      const riskLevel = resultObj.riskLevel as "HIGH" | "MEDIUM" | "LOW" | "CLEAR" | undefined
+      if (riskLevel) {
+        dataPoints.sanctionsStatus = riskLevel
+      }
+    }
+  }
+
+  return dataPoints
+}
+
+/**
+ * Calculate consistent RomyScore from tool results and cache it
+ */
+async function calculateConsistentRomyScore(
+  prospect: ProspectInputData,
+  toolResults: Array<{ toolName: string; result: unknown }>,
+  aiExtractedMetrics: {
+    estimated_net_worth?: number
+    estimated_gift_capacity?: number
+  }
+): Promise<RomyScoreBreakdown> {
+  // Extract structured data from tool results
+  const extractedDataPoints = extractDataPointsFromToolResults(toolResults)
+
+  // Also include AI-extracted metrics as fallback data points
+  const dataPoints: Partial<RomyScoreDataPoints> = {
+    ...extractedDataPoints,
+  }
+
+  // If we have AI-extracted net worth but no public net worth from tools
+  if (aiExtractedMetrics.estimated_net_worth && !dataPoints.publicNetWorth) {
+    // Don't use AI estimate for publicNetWorth - that's for verified public data only
+    // But we can estimate property value if missing
+    if (!dataPoints.propertyValue && aiExtractedMetrics.estimated_net_worth > 0) {
+      // Rough estimate: property is often 20-40% of net worth for HNW individuals
+      dataPoints.propertyValue = Math.round(aiExtractedMetrics.estimated_net_worth * 0.3)
+    }
+  }
+
+  // Get cached score, merging with new data
+  const breakdown = await getRomyScore(
+    prospect.name,
+    prospect.city,
+    prospect.state,
+    dataPoints
+  )
+
+  console.log(
+    `[BatchProcessor] Consistent RomyScore for ${prospect.name}: ${breakdown.totalScore}/41 ` +
+    `(${breakdown.tier.name}) - Confidence: ${breakdown.dataQuality.confidenceLevel}`
+  )
+
+  return breakdown
+}
+
+// ============================================================================
 // MAIN REPORT GENERATION
 // ============================================================================
 
@@ -663,24 +836,37 @@ After researching, produce the comprehensive report with all sections filled in 
     const usage = await result.usage
     const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
 
-    // Extract metrics from the generated report
-    const metrics = extractMetricsFromReport(reportContent)
+    // Extract AI-generated metrics from the report (for reference/fallback)
+    const aiMetrics = extractMetricsFromReport(reportContent)
+
+    // Calculate CONSISTENT RomyScore from tool results (deterministic)
+    const romyBreakdown = await calculateConsistentRomyScore(
+      prospect,
+      toolResults,
+      {
+        estimated_net_worth: aiMetrics.estimated_net_worth,
+        estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
+      }
+    )
 
     const processingTime = Date.now() - startTime
     console.log(
       `[BatchProcessor] Comprehensive report generated for ${prospect.name} in ${processingTime}ms, ` +
-        `tokens: ${tokensUsed}, tool calls: ${toolResults.length}, RōmyScore: ${metrics.romy_score || "N/A"}`
+        `tokens: ${tokensUsed}, tool calls: ${toolResults.length}, ` +
+        `Consistent RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
     )
 
     return {
       success: true,
       report_content: reportContent,
-      romy_score: metrics.romy_score,
-      romy_score_tier: metrics.romy_score_tier,
-      capacity_rating: metrics.capacity_rating,
-      estimated_net_worth: metrics.estimated_net_worth,
-      estimated_gift_capacity: metrics.estimated_gift_capacity,
-      recommended_ask: metrics.recommended_ask,
+      // Use CONSISTENT scores from RomyScore system (not AI-extracted)
+      romy_score: romyBreakdown.totalScore,
+      romy_score_tier: romyBreakdown.tier.name,
+      capacity_rating: romyBreakdown.tier.capacity,
+      // Keep AI-extracted financial estimates (these are subjective anyway)
+      estimated_net_worth: aiMetrics.estimated_net_worth,
+      estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
+      recommended_ask: aiMetrics.recommended_ask,
       search_queries_used: toolResults.map((t) => `Tool: ${t.toolName}`),
       sources_found: allSources,
       tokens_used: tokensUsed,
@@ -767,24 +953,37 @@ Generate the 5-section prioritization summary now.`
     const usage = await result.usage
     const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
 
-    // Extract metrics from the generated report
-    const metrics = extractMetricsFromReport(reportContent)
+    // Extract AI-generated metrics from the report (for reference/fallback)
+    const aiMetrics = extractMetricsFromReport(reportContent)
+
+    // Calculate CONSISTENT RomyScore - for standard mode we use AI-extracted values
+    // since we don't have structured tool results, but still cache for consistency
+    const romyBreakdown = await calculateConsistentRomyScore(
+      prospect,
+      [], // No tool results in standard mode
+      {
+        estimated_net_worth: aiMetrics.estimated_net_worth,
+        estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
+      }
+    )
 
     const processingTime = Date.now() - startTime
     console.log(
       `[BatchProcessor] Standard report generated for ${prospect.name} in ${processingTime}ms, ` +
-        `tokens: ${tokensUsed}, RōmyScore: ${metrics.romy_score || "N/A"}`
+        `tokens: ${tokensUsed}, Consistent RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
     )
 
     return {
       success: true,
       report_content: reportContent,
-      romy_score: metrics.romy_score,
-      romy_score_tier: metrics.romy_score_tier,
-      capacity_rating: metrics.capacity_rating,
-      estimated_net_worth: metrics.estimated_net_worth,
-      estimated_gift_capacity: metrics.estimated_gift_capacity,
-      recommended_ask: metrics.recommended_ask,
+      // Use CONSISTENT scores from RomyScore system
+      romy_score: romyBreakdown.totalScore,
+      romy_score_tier: romyBreakdown.tier.name,
+      capacity_rating: romyBreakdown.tier.capacity,
+      // Keep AI-extracted financial estimates
+      estimated_net_worth: aiMetrics.estimated_net_worth,
+      estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
+      recommended_ask: aiMetrics.recommended_ask,
       search_queries_used: searchQueriesUsed,
       sources_found: allSources,
       tokens_used: tokensUsed,
