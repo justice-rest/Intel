@@ -4,12 +4,18 @@
  *
  * API Documentation: https://api.opencorporates.com/documentation/API-Reference
  *
- * FREE TIER (no API key required):
- * - 100 requests/month for non-commercial use
- * - 200 requests/month with attribution ("Powered by OpenCorporates")
- * - Basic company search and lookup
+ * NOTE: OpenCorporates REQUIRES an API key for production use.
+ * Free access is only available for:
+ * - Registered nonprofits
+ * - Academic researchers
+ * - Journalists
+ * - Open data projects (share-alike license)
  *
- * Rate limits without API key: 20 requests per minute
+ * Apply for access at: https://opencorporates.com/api_accounts/new
+ *
+ * For most users, rely on:
+ * - SEC EDGAR (free) for public company officers/directors
+ * - Web search (Linkup) for private company info
  */
 
 /**
@@ -18,24 +24,25 @@
 export const OPENCORPORATES_API_BASE_URL = "https://api.opencorporates.com/v0.4"
 
 /**
- * Check if OpenCorporates API key is configured (optional - works without it)
+ * Check if OpenCorporates API key is configured
  */
 export function isOpenCorporatesKeyConfigured(): boolean {
   return !!process.env.OPENCORPORATES_API_KEY
 }
 
 /**
- * Get OpenCorporates API key from environment (optional)
+ * Get OpenCorporates API key from environment
  */
 export function getOpenCorporatesApiKey(): string | null {
   return process.env.OPENCORPORATES_API_KEY || null
 }
 
 /**
- * OpenCorporates is always enabled (works without API key)
+ * OpenCorporates is ONLY enabled if API key is configured
+ * This prevents errors for users without access
  */
 export function isOpenCorporatesEnabled(): boolean {
-  return true
+  return isOpenCorporatesKeyConfigured()
 }
 
 /**

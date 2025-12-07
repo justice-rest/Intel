@@ -377,7 +377,7 @@ export const opencorporatesCompanySearchTool = tool({
     "Search OpenCorporates database for companies by name. Returns company details including " +
     "incorporation status, registered address, company type, and officer/director information. " +
     "Useful for verifying business ownership, finding affiliated companies, and researching " +
-    "corporate structures. FREE API - no key required.",
+    "corporate structures. REQUIRES API KEY - free for nonprofits/journalists, apply at opencorporates.com.",
   parameters: companySearchSchema,
   execute: async ({
     companyName,
@@ -390,13 +390,54 @@ export const opencorporatesCompanySearchTool = tool({
     const startTime = Date.now()
 
     if (!isOpenCorporatesEnabled()) {
+      const disabledContent = [
+        `# OpenCorporates Company Search: "${companyName}"`,
+        "",
+        "## OpenCorporates Not Configured",
+        "",
+        "OpenCorporates requires an API key which is not currently configured.",
+        "",
+        "---",
+        "",
+        "### Alternative: Use SEC EDGAR (FREE)",
+        "",
+        "For **public company** officer/director searches, use these FREE tools instead:",
+        "",
+        "- **`sec_insider_search`** - Find if someone is an insider at any public company",
+        "- **`sec_proxy_search`** - Get full board/officer lists from proxy statements",
+        "",
+        "### Alternative: Use Web Search",
+        "",
+        "For **private company** info, use `searchWeb` with queries like:",
+        "- `\"[person name]\" owner founder business company`",
+        "- `\"[person name]\" LLC registered agent`",
+        "- `\"[state]\" secretary of state \"[person name]\"`",
+        "",
+        "### How to Enable OpenCorporates",
+        "",
+        "OpenCorporates offers free access for nonprofits and journalists:",
+        "",
+        "1. Apply at [opencorporates.com/api_accounts/new](https://opencorporates.com/api_accounts/new)",
+        "2. Add to `.env.local`: `OPENCORPORATES_API_KEY=your_key`",
+        "3. Restart the application",
+        "",
+        "### Manual Search",
+        "",
+        `Search manually at: [OpenCorporates](https://opencorporates.com/companies?q=${encodeURIComponent(companyName)})`,
+      ].join("\n")
+
       return {
         query: companyName,
         totalFound: 0,
         companies: [],
-        rawContent: "OpenCorporates API is not available.",
-        sources: [],
-        error: "OpenCorporates not enabled",
+        rawContent: disabledContent,
+        sources: [
+          {
+            name: "OpenCorporates - Manual Search",
+            url: `https://opencorporates.com/companies?q=${encodeURIComponent(companyName)}`,
+          },
+        ],
+        error: "OpenCorporates API key not configured",
       }
     }
 
@@ -562,7 +603,7 @@ export const opencorporatesOfficerSearchTool = tool({
     "Search OpenCorporates for officer/director positions held by a person. Returns all companies " +
     "where the person serves as officer, director, secretary, president, or other corporate role. " +
     "Essential for prospect research to discover business affiliations and corporate board seats. " +
-    "FREE API - no key required.",
+    "REQUIRES API KEY - free for nonprofits/journalists, apply at opencorporates.com.",
   parameters: officerSearchSchema,
   execute: async ({
     officerName,
@@ -575,13 +616,59 @@ export const opencorporatesOfficerSearchTool = tool({
     const startTime = Date.now()
 
     if (!isOpenCorporatesEnabled()) {
+      const disabledContent = [
+        `# OpenCorporates Officer Search: "${officerName}"`,
+        "",
+        "## OpenCorporates Not Configured",
+        "",
+        "OpenCorporates requires an API key which is not currently configured.",
+        "",
+        "---",
+        "",
+        "### Alternative: Use SEC EDGAR (FREE)",
+        "",
+        "For **public company** officer/director searches, use these FREE tools instead:",
+        "",
+        "- **`sec_insider_search`** - Find if someone is an insider at any public company",
+        "  - Shows all Form 3/4/5 filings (insider transactions)",
+        "  - Confirms officer/director/10%+ owner status",
+        "",
+        "- **`sec_proxy_search`** - Get complete board/officer lists",
+        "  - Returns DEF 14A proxy statements with full board composition",
+        "  - Includes executive compensation data",
+        "",
+        "### Alternative: Use Web Search",
+        "",
+        "For **private company** info, use `searchWeb` with queries like:",
+        "- `\"${officerName}\" owner founder CEO president`",
+        "- `\"${officerName}\" director board company`",
+        "- `\"${officerName}\" LLC registered agent`",
+        "",
+        "### How to Enable OpenCorporates",
+        "",
+        "OpenCorporates offers free access for nonprofits and journalists:",
+        "",
+        "1. Apply at [opencorporates.com/api_accounts/new](https://opencorporates.com/api_accounts/new)",
+        "2. Add to `.env.local`: `OPENCORPORATES_API_KEY=your_key`",
+        "3. Restart the application",
+        "",
+        "### Manual Search",
+        "",
+        `Search manually at: [OpenCorporates Officers](https://opencorporates.com/officers?q=${encodeURIComponent(officerName)})`,
+      ].join("\n")
+
       return {
         query: officerName,
         totalFound: 0,
         officers: [],
-        rawContent: "OpenCorporates API is not available.",
-        sources: [],
-        error: "OpenCorporates not enabled",
+        rawContent: disabledContent,
+        sources: [
+          {
+            name: "OpenCorporates - Manual Officer Search",
+            url: `https://opencorporates.com/officers?q=${encodeURIComponent(officerName)}`,
+          },
+        ],
+        error: "OpenCorporates API key not configured",
       }
     }
 
