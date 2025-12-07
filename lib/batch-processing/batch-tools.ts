@@ -54,6 +54,10 @@ import {
   householdSearchTool,
   shouldEnableHouseholdSearchTool,
 } from "@/lib/tools/household-search"
+import {
+  businessAffiliationSearchTool,
+  shouldEnableBusinessAffiliationSearchTool,
+} from "@/lib/tools/business-affiliation-search"
 
 /**
  * Build the tools object for batch processing
@@ -142,6 +146,14 @@ export function buildBatchTools(): ToolSet {
           household_search: householdSearchTool,
         }
       : {}),
+
+    // Business Affiliation Search - UNIFIED enterprise-grade tool
+    // Automatically searches SEC EDGAR + Wikidata + Web + OpenCorporates
+    ...(shouldEnableBusinessAffiliationSearchTool()
+      ? {
+          business_affiliation_search: businessAffiliationSearchTool,
+        }
+      : {}),
   }
 
   return tools
@@ -176,6 +188,8 @@ export function getToolDescriptions(): string {
   if (shouldEnableWikidataTools()) {
     dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
   }
+  // Business Affiliation Search is always available (uses free sources)
+  dataTools.push("business_affiliation_search (UNIFIED: finds ALL business roles from SEC EDGAR + Wikidata + Web - use this for officer/director search)")
   if (shouldEnableOpenCorporatesTools()) {
     dataTools.push("opencorporates_company_search / opencorporates_officer_search (company ownership, officers, directors across 140+ jurisdictions)")
   }
@@ -218,8 +232,9 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
 - us_gov_data: Federal contracts/grants by company/org name
 - wikidata_search/entity: Biographical data (education, employers, net worth)
-- opencorporates_company_search: Search companies by name (LLC, Corp, etc.) - returns officers, status, filings
-- opencorporates_officer_search: Find all companies where a person is officer/director
+- business_affiliation_search: **USE THIS** for officer/director search - automatically searches SEC EDGAR + Wikidata + Web + OpenCorporates
+- opencorporates_company_search: Search companies by name (LLC, Corp, etc.) - returns officers, status, filings (requires API key)
+- opencorporates_officer_search: Find all companies where a person is officer/director (requires API key)
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
 - lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
@@ -231,7 +246,7 @@ Run 6-10 searchWeb queries per prospect with different angles:
 1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
-4. **business ownership**: Use opencorporates_officer_search to find ALL companies where person is officer/director
+4. **business ownership**: Use **business_affiliation_search** (unified tool) - automatically searches SEC + Wikidata + Web + OpenCorporates
 5. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
 6. Run tools in parallel when possible. Be thorough.
 
@@ -243,7 +258,7 @@ When verifying board membership or officer status:
 ### Due Diligence Workflow
 For comprehensive prospect due diligence:
 1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **opencorporates_officer_search** - Find all business affiliations
+2. **business_affiliation_search** - Find ALL business affiliations (unified search)
 3. **court_search** - Check for litigation history
 4. **lobbying_search** - Discover political connections
 5. **fec_contributions** - Political giving patterns

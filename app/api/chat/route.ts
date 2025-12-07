@@ -64,6 +64,10 @@ import {
   householdSearchTool,
   shouldEnableHouseholdSearchTool,
 } from "@/lib/tools/household-search"
+import {
+  businessAffiliationSearchTool,
+  shouldEnableBusinessAffiliationSearchTool,
+} from "@/lib/tools/business-affiliation-search"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -276,6 +280,7 @@ export async function POST(req: Request) {
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
       if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
+      dataTools.push("business_affiliation_search (UNIFIED: finds ALL business roles from SEC EDGAR + Wikidata + Web - use this for officer/director search)")
       if (shouldEnableOpenCorporatesTools()) dataTools.push("opencorporates_company_search / opencorporates_officer_search (company ownership, officers, directors across 140+ jurisdictions)")
       if (shouldEnableOpenSanctionsTools()) dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
       if (shouldEnableLobbyingTools()) dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
@@ -309,8 +314,9 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - wikidata_search/entity: Biographical data (education, employers, net worth)
 - property_valuation: Home value estimate - just pass the address, auto-fetches Zillow/Redfin/comps
 - rental_investment: Rental analysis - REQUIRES property value from property_valuation first
-- opencorporates_company_search: Search companies by name (LLC, Corp, etc.) - returns officers, status, filings
-- opencorporates_officer_search: Find all companies where a person is officer/director
+- business_affiliation_search: **USE THIS** for officer/director search - automatically searches SEC EDGAR + Wikidata + Web + OpenCorporates
+- opencorporates_company_search: Search companies by name (LLC, Corp, etc.) - returns officers, status, filings (requires API key)
+- opencorporates_officer_search: Find all companies where a person is officer/director (requires API key)
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
 - lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
@@ -323,7 +329,7 @@ Run 6-10 searchWeb queries per prospect with different angles:
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
 4. **property_valuation**: Just pass the address - tool auto-searches Zillow, Redfin, county records, and comps
-5. **business ownership**: Use opencorporates_officer_search to find ALL companies where person is officer/director
+5. **business ownership**: Use **business_affiliation_search** (unified tool) - automatically searches SEC + Wikidata + Web + OpenCorporates
 6. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
 7. Run tools in parallel when possible. Be thorough.
 
@@ -336,7 +342,7 @@ Use BOTH tools: insider search confirms the person files as insider, proxy shows
 ### Due Diligence Workflow
 For comprehensive prospect due diligence:
 1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **opencorporates_officer_search** - Find all business affiliations
+2. **business_affiliation_search** - Find ALL business affiliations (unified search)
 3. **court_search** - Check for litigation history
 4. **lobbying_search** - Discover political connections
 5. **fec_contributions** - Political giving patterns`
@@ -505,6 +511,14 @@ For comprehensive prospect due diligence:
       ...(enableSearch && shouldEnableHouseholdSearchTool()
         ? {
             household_search: householdSearchTool,
+          }
+        : {}),
+      // Add Business Affiliation Search - UNIFIED enterprise-grade tool
+      // Combines SEC EDGAR + Wikidata + Web Search + OpenCorporates (if available)
+      // ALWAYS FREE - automatically uses available sources
+      ...(enableSearch && shouldEnableBusinessAffiliationSearchTool()
+        ? {
+            business_affiliation_search: businessAffiliationSearchTool,
           }
         : {}),
     } as ToolSet
