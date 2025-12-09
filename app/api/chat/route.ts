@@ -68,6 +68,22 @@ import {
   businessAffiliationSearchTool,
   shouldEnableBusinessAffiliationSearchTool,
 } from "@/lib/tools/business-affiliation-search"
+import {
+  prospectScoringTool,
+  shouldEnableProspectScoringTool,
+} from "@/lib/tools/prospect-scoring"
+import {
+  prospectReportTool,
+  shouldEnableProspectReportTool,
+} from "@/lib/tools/prospect-report"
+import {
+  nonprofitBoardSearchTool,
+  shouldEnableNonprofitBoardSearchTool,
+} from "@/lib/tools/nonprofit-board-search"
+import {
+  givingHistoryTool,
+  shouldEnableGivingHistoryTool,
+} from "@/lib/tools/giving-history"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
@@ -281,6 +297,10 @@ export async function POST(req: Request) {
       if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
       dataTools.push("business_affiliation_search (UNIFIED: finds ALL business roles from SEC EDGAR + Wikidata + Web - use this for officer/director search)")
+      if (shouldEnableProspectScoringTool()) dataTools.push("prospect_score (AI-POWERED: Giving Capacity Score 0-100, Propensity Score, A-D Rating - FREE DonorSearch AI alternative)")
+      if (shouldEnableProspectReportTool()) dataTools.push("prospect_report (COMPREHENSIVE: Full research report with all data sources - FREE alternative to $125-$300/profile reports)")
+      if (shouldEnableNonprofitBoardSearchTool()) dataTools.push("nonprofit_board_search (BOARD FINDER: Find all nonprofit & public company board positions for a person)")
+      if (shouldEnableGivingHistoryTool()) dataTools.push("giving_history (GIVING AGGREGATOR: Combines FEC + 990 grants + major gifts - DonorSearch's core feature, FREE)")
       if (shouldEnableOpenCorporatesTools()) dataTools.push("opencorporates_company_search / opencorporates_officer_search (company ownership, officers, directors across 140+ jurisdictions)")
       if (shouldEnableOpenSanctionsTools()) dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
       if (shouldEnableLobbyingTools()) dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
@@ -321,7 +341,11 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
 - judge_search: Judge biographical data, positions, appointers, education
-- household_search: Find spouse/partner - returns household wealth assessment and shared affiliations`
+- household_search: Find spouse/partner - returns household wealth assessment and shared affiliations
+- prospect_score: AI-powered prospect scoring (Capacity 0-100, Propensity 0-100, A-D Rating)
+- prospect_report: Comprehensive research report consolidating ALL data sources
+- nonprofit_board_search: Find nonprofit and public company board positions
+- giving_history: Aggregate all known giving (FEC political, 990 grants, major gifts)`
         }
 
         finalSystemPrompt += `\n\n### Research Strategy
@@ -519,6 +543,34 @@ For comprehensive prospect due diligence:
       ...(enableSearch && shouldEnableBusinessAffiliationSearchTool()
         ? {
             business_affiliation_search: businessAffiliationSearchTool,
+          }
+        : {}),
+      // Add Prospect Scoring Tool - AI-powered wealth/capacity assessment
+      // FREE alternative to DonorSearch AI ($4,000+/yr), iWave ($4,150+/yr)
+      ...(enableSearch && shouldEnableProspectScoringTool()
+        ? {
+            prospect_score: prospectScoringTool,
+          }
+        : {}),
+      // Add Prospect Report Tool - Comprehensive research reports
+      // FREE alternative to DonorSearch Research on Demand ($125-$300/profile)
+      ...(enableSearch && shouldEnableProspectReportTool()
+        ? {
+            prospect_report: prospectReportTool,
+          }
+        : {}),
+      // Add Nonprofit Board Search - Find board positions held by a person
+      // FREE alternative to premium board mapping services
+      ...(enableSearch && shouldEnableNonprofitBoardSearchTool()
+        ? {
+            nonprofit_board_search: nonprofitBoardSearchTool,
+          }
+        : {}),
+      // Add Giving History Tool - Comprehensive giving history aggregation
+      // FREE alternative to DonorSearch/iWave giving history features
+      ...(enableSearch && shouldEnableGivingHistoryTool()
+        ? {
+            giving_history: givingHistoryTool,
           }
         : {}),
     } as ToolSet

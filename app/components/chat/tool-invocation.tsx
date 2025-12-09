@@ -48,6 +48,11 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   wikidata_search: "Wikidata Search",
   wikidata_entity: "Wikidata Profile",
   property_valuation: "Property Valuation",
+  business_affiliation_search: "Business Affiliations",
+  nonprofit_board_search: "Board Positions",
+  giving_history: "Giving History",
+  prospect_report: "Prospect Report",
+  prospect_scoring: "Prospect Score",
 }
 
 /**
@@ -1655,6 +1660,888 @@ function SingleToolCard({
                     ...and {avmResult.sources.length - 5} more sources
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Business Affiliation Search results
+    if (
+      toolName === "business_affiliation_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "personName" in parsedResult &&
+      "affiliations" in parsedResult
+    ) {
+      const affiliationResult = parsedResult as {
+        personName: string
+        totalAffiliations: number
+        affiliations: Array<{
+          companyName: string
+          role: string
+          roleType: string
+          current: boolean
+          companyType: string
+          source: string
+          sourceUrl?: string
+          confidence: string
+          isPublicCompany: boolean
+        }>
+        summary: {
+          publicCompanyRoles: number
+          privateCompanyRoles: number
+          currentRoles: number
+          formerRoles: number
+          highestRole: string | null
+          wealthIndicator: string
+        }
+        dataSources: string[]
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (affiliationResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {affiliationResult.error}
+          </div>
+        )
+      }
+
+      // Wealth indicator badge styling
+      const getWealthBadgeClass = (indicator: string) => {
+        if (indicator === "HIGH") {
+          return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400"
+        }
+        if (indicator === "MODERATE") {
+          return "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400"
+        }
+        return "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="font-medium text-foreground text-lg">
+                {affiliationResult.personName}
+              </div>
+              <div className="text-muted-foreground text-sm">
+                {affiliationResult.totalAffiliations} business affiliation{affiliationResult.totalAffiliations !== 1 ? "s" : ""} found
+              </div>
+            </div>
+            <div className={cn(
+              "rounded-full border px-2 py-0.5 text-xs font-medium",
+              getWealthBadgeClass(affiliationResult.summary.wealthIndicator)
+            )}>
+              {affiliationResult.summary.wealthIndicator}
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          {affiliationResult.totalAffiliations > 0 && (
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Public Companies:</span>{" "}
+                <span className="font-medium">{affiliationResult.summary.publicCompanyRoles}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Private/Other:</span>{" "}
+                <span className="font-medium">{affiliationResult.summary.privateCompanyRoles}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Current Roles:</span>{" "}
+                <span className="font-medium">{affiliationResult.summary.currentRoles}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Former Roles:</span>{" "}
+                <span className="font-medium">{affiliationResult.summary.formerRoles}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Affiliations List */}
+          {affiliationResult.affiliations.length > 0 && (
+            <div className="space-y-3">
+              {affiliationResult.affiliations.slice(0, 10).map((aff, index) => (
+                <div
+                  key={index}
+                  className="border-border border-b pb-3 last:border-0 last:pb-0"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-medium text-foreground">
+                        {aff.companyName}
+                      </span>
+                      {aff.isPublicCompany && (
+                        <span className="ml-2 rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                          Public
+                        </span>
+                      )}
+                    </div>
+                    <span className={cn(
+                      "shrink-0 rounded px-1.5 py-0.5 text-xs",
+                      aff.current
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    )}>
+                      {aff.current ? "Current" : "Former"}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    <div>{aff.role}</div>
+                    <div className="text-xs mt-0.5">
+                      Source: {aff.source} ({aff.confidence} confidence)
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {affiliationResult.affiliations.length > 10 && (
+                <div className="text-muted-foreground text-sm">
+                  ...and {affiliationResult.affiliations.length - 10} more affiliations
+                </div>
+              )}
+            </div>
+          )}
+
+          {affiliationResult.totalAffiliations === 0 && (
+            <div className="text-muted-foreground">
+              No business affiliations found for &quot;{affiliationResult.personName}&quot;
+            </div>
+          )}
+
+          {/* Sources */}
+          {affiliationResult.sources && affiliationResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {affiliationResult.sources.slice(0, 5).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Nonprofit Board Search results
+    if (
+      toolName === "nonprofit_board_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "personName" in parsedResult &&
+      "nonprofitPositions" in parsedResult
+    ) {
+      const boardResult = parsedResult as {
+        personName: string
+        totalPositions: number
+        nonprofitPositions: Array<{
+          organizationName: string
+          organizationType: string
+          role: string
+          ein?: string
+          assets?: number
+          source: string
+          sourceUrl?: string
+          confidence: string
+        }>
+        publicCompanyPositions: Array<{
+          organizationName: string
+          role: string
+          source: string
+          sourceUrl?: string
+          yearDiscovered?: number
+        }>
+        otherPositions: Array<{
+          organizationName: string
+          role: string
+          source: string
+        }>
+        wealthIndicator: string
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (boardResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {boardResult.error}
+          </div>
+        )
+      }
+
+      const formatCurrency = (amount?: number) => {
+        if (amount === undefined) return "—"
+        if (amount >= 1e9) return `$${(amount / 1e9).toFixed(1)}B`
+        if (amount >= 1e6) return `$${(amount / 1e6).toFixed(1)}M`
+        if (amount >= 1e3) return `$${(amount / 1e3).toFixed(0)}K`
+        return `$${amount.toLocaleString()}`
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div>
+            <div className="font-medium text-foreground text-lg">
+              {boardResult.personName}
+            </div>
+            <div className="text-muted-foreground text-sm">
+              {boardResult.totalPositions} board position{boardResult.totalPositions !== 1 ? "s" : ""} found
+            </div>
+            {boardResult.wealthIndicator && (
+              <div className="text-muted-foreground text-xs mt-1 italic">
+                {boardResult.wealthIndicator}
+              </div>
+            )}
+          </div>
+
+          {/* Nonprofit Positions */}
+          {boardResult.nonprofitPositions.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Nonprofit Board Positions ({boardResult.nonprofitPositions.length})
+              </div>
+              <div className="space-y-3">
+                {boardResult.nonprofitPositions.map((pos, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <div className="font-medium text-foreground">
+                      {pos.organizationName}
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      <div>{pos.role}</div>
+                      {pos.ein && <div className="text-xs font-mono">EIN: {pos.ein}</div>}
+                      {pos.assets && pos.assets > 0 && (
+                        <div className="text-xs">Assets: {formatCurrency(pos.assets)}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Public Company Positions */}
+          {boardResult.publicCompanyPositions.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Public Company Positions ({boardResult.publicCompanyPositions.length})
+              </div>
+              <div className="space-y-3">
+                {boardResult.publicCompanyPositions.map((pos, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">
+                        {pos.organizationName}
+                      </span>
+                      <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                        SEC
+                      </span>
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      {pos.role}
+                      {pos.yearDiscovered && (
+                        <span className="ml-2 text-xs">({pos.yearDiscovered})</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {boardResult.totalPositions === 0 && (
+            <div className="text-muted-foreground">
+              No board positions found for &quot;{boardResult.personName}&quot;
+            </div>
+          )}
+
+          {/* Sources */}
+          {boardResult.sources && boardResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {boardResult.sources.slice(0, 5).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Giving History results
+    if (
+      toolName === "giving_history" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "personName" in parsedResult &&
+      "summary" in parsedResult &&
+      "givingRecords" in parsedResult
+    ) {
+      const givingResult = parsedResult as {
+        personName: string
+        summary: {
+          totalGiving: number
+          totalPolitical: number
+          totalPhilanthropic: number
+          giftCount: number
+          averageGift: number
+          largestGift: number
+          yearsActive: string
+          primaryCauses: string[]
+          givingTrend: string
+        }
+        givingRecords: Array<{
+          type: string
+          amount: number
+          recipient: string
+          recipientType: string
+          date?: string
+          year?: number
+          source: string
+          notes?: string
+        }>
+        givingByYear: Record<string, { total: number; count: number }>
+        wealthIndicator: string
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (givingResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {givingResult.error}
+          </div>
+        )
+      }
+
+      const formatCurrency = (amount: number) => {
+        if (amount >= 1e9) return `$${(amount / 1e9).toFixed(2)}B`
+        if (amount >= 1e6) return `$${(amount / 1e6).toFixed(2)}M`
+        if (amount >= 1e3) return `$${(amount / 1e3).toFixed(0)}K`
+        return `$${amount.toLocaleString()}`
+      }
+
+      // Get wealth indicator badge class
+      const getWealthClass = (indicator: string) => {
+        if (indicator.includes("ULTRA HIGH") || indicator.includes("VERY HIGH")) {
+          return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400"
+        }
+        if (indicator.includes("HIGH") || indicator.includes("AFFLUENT")) {
+          return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400"
+        }
+        return "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div>
+            <div className="font-medium text-foreground text-lg">
+              {givingResult.personName}
+            </div>
+            <div className="text-muted-foreground text-sm">
+              {givingResult.summary.giftCount} giving record{givingResult.summary.giftCount !== 1 ? "s" : ""} found
+            </div>
+          </div>
+
+          {/* Wealth Indicator */}
+          {givingResult.wealthIndicator && (
+            <div className={cn(
+              "rounded border px-3 py-2 text-sm",
+              getWealthClass(givingResult.wealthIndicator)
+            )}>
+              {givingResult.wealthIndicator}
+            </div>
+          )}
+
+          {/* Summary Stats */}
+          {givingResult.summary.totalGiving > 0 && (
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Total Giving:</span>{" "}
+                <span className="font-medium font-mono">{formatCurrency(givingResult.summary.totalGiving)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Largest Gift:</span>{" "}
+                <span className="font-medium font-mono">{formatCurrency(givingResult.summary.largestGift)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Philanthropic:</span>{" "}
+                <span className="font-medium font-mono">{formatCurrency(givingResult.summary.totalPhilanthropic)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Political:</span>{" "}
+                <span className="font-medium font-mono">{formatCurrency(givingResult.summary.totalPolitical)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Years Active:</span>{" "}
+                <span className="font-medium">{givingResult.summary.yearsActive}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Trend:</span>{" "}
+                <span className="font-medium capitalize">{givingResult.summary.givingTrend}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Top Gifts */}
+          {givingResult.givingRecords.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Top Gifts
+              </div>
+              <div className="space-y-3">
+                {givingResult.givingRecords
+                  .sort((a, b) => b.amount - a.amount)
+                  .slice(0, 8)
+                  .map((record, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-medium text-foreground">
+                          {formatCurrency(record.amount)}
+                        </span>
+                        {record.year && (
+                          <span className="text-muted-foreground text-sm ml-2">
+                            ({record.year})
+                          </span>
+                        )}
+                      </div>
+                      <span className={cn(
+                        "shrink-0 rounded px-1.5 py-0.5 text-xs capitalize",
+                        record.type === "political"
+                          ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                          : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      )}>
+                        {record.type}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      <div>{record.recipient}</div>
+                      {record.notes && (
+                        <div className="text-xs italic">{record.notes}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {givingResult.givingRecords.length > 8 && (
+                  <div className="text-muted-foreground text-sm">
+                    ...and {givingResult.givingRecords.length - 8} more records
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {givingResult.summary.giftCount === 0 && (
+            <div className="text-muted-foreground">
+              No giving records found for &quot;{givingResult.personName}&quot;
+            </div>
+          )}
+
+          {/* Sources */}
+          {givingResult.sources && givingResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {givingResult.sources.slice(0, 5).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Prospect Report results
+    if (
+      toolName === "prospect_report" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "personName" in parsedResult &&
+      "executiveSummary" in parsedResult &&
+      "capacityRating" in parsedResult
+    ) {
+      const reportResult = parsedResult as {
+        personName: string
+        generatedAt: string
+        executiveSummary: string
+        sections: Array<{
+          title: string
+          content: string
+          sources: Array<{ name: string; url: string }>
+          confidence: string
+        }>
+        capacityRating: "A" | "B" | "C" | "D"
+        estimatedCapacity: string
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (reportResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {reportResult.error}
+          </div>
+        )
+      }
+
+      // Rating badge styling
+      const getRatingBadgeClass = (rating: string) => {
+        switch (rating) {
+          case "A":
+            return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400"
+          case "B":
+            return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400"
+          case "C":
+            return "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400"
+          default:
+            return "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
+        }
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="font-medium text-foreground text-lg">
+                {reportResult.personName}
+              </div>
+              <div className="text-muted-foreground text-xs">
+                Generated: {reportResult.generatedAt}
+              </div>
+            </div>
+            <div className={cn(
+              "rounded-full border px-3 py-1 text-lg font-bold",
+              getRatingBadgeClass(reportResult.capacityRating)
+            )}>
+              {reportResult.capacityRating}
+            </div>
+          </div>
+
+          {/* Capacity Estimate */}
+          <div className="rounded border border-border bg-muted/30 px-3 py-2 text-center">
+            <div className="text-muted-foreground text-xs uppercase tracking-wide">Estimated Capacity</div>
+            <div className="font-medium text-foreground">{reportResult.estimatedCapacity}</div>
+          </div>
+
+          {/* Executive Summary */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Executive Summary
+            </div>
+            <div className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+              {reportResult.executiveSummary}
+            </div>
+          </div>
+
+          {/* Sections (collapsed by default, showing titles) */}
+          {reportResult.sections.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Report Sections
+              </div>
+              <div className="space-y-1">
+                {reportResult.sections.map((section, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <span>{section.title}</span>
+                    <span className={cn(
+                      "rounded px-1.5 py-0.5 text-xs",
+                      section.confidence === "high"
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                        : section.confidence === "medium"
+                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+                        : section.confidence === "none"
+                        ? "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                    )}>
+                      {section.confidence === "none" ? "No data" : section.confidence}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sources */}
+          {reportResult.sources && reportResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {reportResult.sources.slice(0, 5).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Prospect Scoring results
+    if (
+      toolName === "prospect_scoring" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "personName" in parsedResult &&
+      "score" in parsedResult
+    ) {
+      const scoringResult = parsedResult as {
+        personName: string
+        score: {
+          capacityScore: number
+          propensityScore: number
+          affinityScore: number
+          overallRating: "A" | "B" | "C" | "D"
+          estimatedCapacity: string
+          wealthIndicators: Array<{
+            source: string
+            indicator: string
+            value: number | string
+            score: number
+            confidence: string
+            url?: string
+          }>
+          givingHistory: Array<{
+            type: string
+            recipient: string
+            amount: number
+            date?: string
+          }>
+          recommendations: string[]
+        }
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+        dataQuality: string
+        error?: string
+      }
+
+      if (scoringResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {scoringResult.error}
+          </div>
+        )
+      }
+
+      // Rating badge styling
+      const getRatingBadgeClass = (rating: string) => {
+        switch (rating) {
+          case "A":
+            return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400"
+          case "B":
+            return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400"
+          case "C":
+            return "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400"
+          default:
+            return "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
+        }
+      }
+
+      // Score bar color
+      const getScoreColor = (score: number) => {
+        if (score >= 70) return "bg-green-500"
+        if (score >= 50) return "bg-blue-500"
+        if (score >= 30) return "bg-yellow-500"
+        return "bg-gray-400"
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="font-medium text-foreground text-lg">
+                {scoringResult.personName}
+              </div>
+              <div className="text-muted-foreground text-xs capitalize">
+                Data Quality: {scoringResult.dataQuality}
+              </div>
+            </div>
+            <div className={cn(
+              "rounded-full border px-3 py-1 text-lg font-bold",
+              getRatingBadgeClass(scoringResult.score.overallRating)
+            )}>
+              {scoringResult.score.overallRating}
+            </div>
+          </div>
+
+          {/* Capacity Estimate */}
+          <div className="rounded border border-border bg-muted/30 px-3 py-2 text-center">
+            <div className="text-muted-foreground text-xs uppercase tracking-wide">Estimated Capacity</div>
+            <div className="font-medium text-foreground">{scoringResult.score.estimatedCapacity}</div>
+          </div>
+
+          {/* Score Bars */}
+          <div className="space-y-3">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-muted-foreground">Giving Capacity</span>
+                <span className="font-medium">{scoringResult.score.capacityScore}/100</span>
+              </div>
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full", getScoreColor(scoringResult.score.capacityScore))}
+                  style={{ width: `${scoringResult.score.capacityScore}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-muted-foreground">Propensity to Give</span>
+                <span className="font-medium">{scoringResult.score.propensityScore}/100</span>
+              </div>
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full", getScoreColor(scoringResult.score.propensityScore))}
+                  style={{ width: `${scoringResult.score.propensityScore}%` }}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-muted-foreground">Affinity</span>
+                <span className="font-medium">{scoringResult.score.affinityScore}/100</span>
+              </div>
+              <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className={cn("h-full rounded-full", getScoreColor(scoringResult.score.affinityScore))}
+                  style={{ width: `${scoringResult.score.affinityScore}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Wealth Indicators */}
+          {scoringResult.score.wealthIndicators.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Wealth Indicators
+              </div>
+              <div className="space-y-2">
+                {scoringResult.score.wealthIndicators.map((indicator, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between text-sm border-b border-border pb-2 last:border-0"
+                  >
+                    <div>
+                      <div className="font-medium">{indicator.source}</div>
+                      <div className="text-muted-foreground text-xs">{indicator.indicator}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono text-sm">{indicator.value}</div>
+                      <div className="text-muted-foreground text-xs">+{indicator.score} pts</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recommendations */}
+          {scoringResult.score.recommendations.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Recommendations
+              </div>
+              <ul className="space-y-1 text-sm">
+                {scoringResult.score.recommendations.map((rec, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <span className="text-muted-foreground">•</span>
+                    <span>{rec}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Sources */}
+          {scoringResult.sources && scoringResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {scoringResult.sources.slice(0, 5).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
               </div>
             </div>
           )}
