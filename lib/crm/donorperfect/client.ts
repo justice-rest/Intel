@@ -7,8 +7,12 @@
  * - Authentication via ?apikey=xxx query parameter
  * - 500 row retrieval limit per query
  * - Uses stored procedures (dp_donorsearch, dp_gifts) and dynamic SELECT queries
+ *
+ * Uses fast-xml-parser for robust XML parsing:
+ * https://github.com/NaturalIntelligence/fast-xml-parser
  */
 
+import { XMLParser } from "fast-xml-parser"
 import { CRM_API_CONFIG } from "../config"
 import type {
   DonorPerfectDonor,
@@ -21,111 +25,141 @@ const DONORPERFECT_BASE_URL = "https://www.donorperfect.net/prod/xmlrequest.asp"
 const ROW_LIMIT = 500 // DonorPerfect's maximum rows per query
 
 // ============================================================================
-// XML PARSER
+// XML PARSER CONFIGURATION
 // ============================================================================
 
 /**
- * Parse DonorPerfect XML response into structured data
- * Handles responses like:
+ * Configure fast-xml-parser for DonorPerfect's XML format
+ * DonorPerfect returns XML like:
  * <result>
  *   <record>
  *     <field name="donor_id" id="donor_id" value="147"/>
- *     <field name="first_name" id="first_name" value="John"/>
  *   </record>
  * </result>
+ */
+const xmlParser = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  allowBooleanAttributes: true,
+  parseAttributeValue: true,
+  trimValues: true,
+  // Handle single record as array for consistent processing
+  isArray: (name) => name === "record" || name === "field",
+})
+
+// ============================================================================
+// XML RESPONSE PARSING
+// ============================================================================
+
+/**
+ * Parse DonorPerfect XML response using fast-xml-parser
+ * Handles the standard DonorPerfect response format
  */
 function parseXMLResponse(xmlString: string): DonorPerfectXMLResult {
   const result: DonorPerfectXMLResult = { records: [] }
 
-  // Check for error response
-  const errorMatch = xmlString.match(/<error[^>]*>([\s\S]*?)<\/error>/i)
-  if (errorMatch) {
-    result.error = errorMatch[1].trim()
-    return result
-  }
+  try {
+    const parsed = xmlParser.parse(xmlString)
 
-  // Also check for error in different format
-  const errorMsgMatch = xmlString.match(/error[^:]*:\s*([^<]+)/i)
-  if (errorMsgMatch && !xmlString.includes("<record")) {
-    result.error = errorMsgMatch[1].trim()
-    return result
-  }
-
-  // Parse records
-  const recordMatches = xmlString.matchAll(/<record[^>]*>([\s\S]*?)<\/record>/gi)
-
-  for (const recordMatch of recordMatches) {
-    const recordContent = recordMatch[1]
-    const fields: { name: string; id: string; value: string }[] = []
-
-    // Parse fields within record
-    // Format: <field name="donor_id" id="donor_id" value="147"/>
-    const fieldMatches = recordContent.matchAll(
-      /<field\s+name="([^"]*)"[^>]*id="([^"]*)"[^>]*value="([^"]*)"\s*\/?\s*>/gi
-    )
-
-    for (const fieldMatch of fieldMatches) {
-      fields.push({
-        name: fieldMatch[1],
-        id: fieldMatch[2],
-        value: decodeXMLEntities(fieldMatch[3]),
-      })
+    // Check for error response patterns
+    // DonorPerfect may return errors in various formats
+    if (parsed.error) {
+      result.error = typeof parsed.error === "string" ? parsed.error : JSON.stringify(parsed.error)
+      return result
     }
 
-    // Also try alternative attribute order
-    const altFieldMatches = recordContent.matchAll(
-      /<field[^>]*value="([^"]*)"[^>]*name="([^"]*)"[^>]*id="([^"]*)"[^>]*\/?\s*>/gi
-    )
+    // Check for error in result object
+    if (parsed.result?.error) {
+      result.error = typeof parsed.result.error === "string"
+        ? parsed.result.error
+        : JSON.stringify(parsed.result.error)
+      return result
+    }
 
-    for (const fieldMatch of altFieldMatches) {
-      // Check if we already have this field
-      const name = fieldMatch[2]
-      if (!fields.some((f) => f.name === name)) {
-        fields.push({
-          name: fieldMatch[2],
-          id: fieldMatch[3],
-          value: decodeXMLEntities(fieldMatch[1]),
-        })
+    // Check for HTML error page (invalid API key often returns HTML)
+    if (parsed.html || parsed.HTML || xmlString.toLowerCase().includes("<!doctype html")) {
+      result.error = "Invalid API response - received HTML instead of XML. Please check your API key."
+      return result
+    }
+
+    // Parse successful result
+    const resultObj = parsed.result || parsed.Result || parsed
+
+    if (!resultObj) {
+      return result // Empty result, no records
+    }
+
+    // Get records array (could be under 'record' or 'Record')
+    let records = resultObj.record || resultObj.Record || []
+
+    // Ensure records is an array
+    if (!Array.isArray(records)) {
+      records = records ? [records] : []
+    }
+
+    // Process each record
+    for (const record of records) {
+      // Get fields array from record
+      let fields = record.field || record.Field || []
+
+      // Ensure fields is an array
+      if (!Array.isArray(fields)) {
+        fields = fields ? [fields] : []
+      }
+
+      const parsedFields: { name: string; id: string; value: string }[] = []
+
+      for (const field of fields) {
+        // fast-xml-parser prefixes attributes with @_
+        const name = field["@_name"] || field["@_NAME"] || ""
+        const id = field["@_id"] || field["@_ID"] || name
+        const value = field["@_value"] || field["@_VALUE"] || ""
+
+        if (name) {
+          parsedFields.push({
+            name: String(name),
+            id: String(id),
+            value: String(value),
+          })
+        }
+      }
+
+      if (parsedFields.length > 0) {
+        result.records.push({ fields: parsedFields })
       }
     }
 
-    if (fields.length > 0) {
-      result.records.push({ fields })
+    return result
+  } catch (error) {
+    // If parsing fails, try to extract error message from raw XML
+    const errorMatch = xmlString.match(/<error[^>]*>([\s\S]*?)<\/error>/i)
+    if (errorMatch) {
+      result.error = errorMatch[1].trim()
+    } else if (xmlString.includes("error") || xmlString.includes("Error")) {
+      result.error = `XML parsing failed: ${error instanceof Error ? error.message : "Unknown error"}`
+    } else {
+      result.error = `Failed to parse DonorPerfect response: ${error instanceof Error ? error.message : "Unknown error"}`
     }
+    return result
   }
-
-  return result
 }
 
 /**
- * Decode common XML entities
- */
-function decodeXMLEntities(str: string): string {
-  return str
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
-}
-
-/**
- * Convert XML record to donor object
+ * Convert parsed XML record to donor object
  */
 function recordToDonor(record: { fields: { name: string; value: string }[] }): DonorPerfectDonor {
   const donor: Record<string, string | number | undefined> = {}
+
+  const numericFields = new Set([
+    "donor_id", "gifts", "gift_total", "last_contrib_amt", "max_amt",
+    "avg_amt", "ytd", "ly_ytd", "yrs_donated"
+  ])
 
   for (const field of record.fields) {
     const key = field.name.toLowerCase()
     const value = field.value
 
-    // Handle numeric fields
-    if (
-      ["donor_id", "gifts", "gift_total", "last_contrib_amt", "max_amt", "avg_amt", "ytd", "ly_ytd", "yrs_donated"].includes(
-        key
-      )
-    ) {
+    if (numericFields.has(key)) {
       donor[key] = value ? parseFloat(value) || 0 : undefined
     } else {
       donor[key] = value || undefined
@@ -136,17 +170,20 @@ function recordToDonor(record: { fields: { name: string; value: string }[] }): D
 }
 
 /**
- * Convert XML record to gift object
+ * Convert parsed XML record to gift object
  */
 function recordToGift(record: { fields: { name: string; value: string }[] }): DonorPerfectGift {
   const gift: Record<string, string | number | undefined> = {}
+
+  const numericFields = new Set([
+    "gift_id", "donor_id", "amount", "total", "balance", "fmv", "batch_no", "gift_aid_amt"
+  ])
 
   for (const field of record.fields) {
     const key = field.name.toLowerCase()
     const value = field.value
 
-    // Handle numeric fields
-    if (["gift_id", "donor_id", "amount", "total", "balance", "fmv", "batch_no", "gift_aid_amt"].includes(key)) {
+    if (numericFields.has(key)) {
       gift[key] = value ? parseFloat(value) || 0 : undefined
     } else {
       gift[key] = value || undefined
@@ -182,7 +219,14 @@ async function donorPerfectFetch(apiKey: string, action: string): Promise<string
       throw new Error(`DonorPerfect API error: ${response.status} ${response.statusText}`)
     }
 
-    return response.text()
+    const text = await response.text()
+
+    // Quick validation of response
+    if (!text || text.trim().length === 0) {
+      throw new Error("DonorPerfect API returned empty response")
+    }
+
+    return text
   } catch (error) {
     clearTimeout(timeoutId)
     if (error instanceof Error && error.name === "AbortError") {
@@ -228,23 +272,38 @@ export async function validateDonorPerfectKey(apiKey: string): Promise<{
   error?: string
 }> {
   try {
-    // Use dp_donorsearch with a specific known ID pattern to validate
-    // We'll search for donor_id 1 which should always exist or return empty
+    // Validate API key format first
+    if (!apiKey || apiKey.trim().length < 10) {
+      return {
+        valid: false,
+        error: "API key appears to be too short. DonorPerfect API keys are typically over 100 characters.",
+      }
+    }
+
+    // Use dp_donorsearch with null parameters to validate credentials
+    // This will return records if valid, or an error if invalid
     const result = await executeProcedure(
       apiKey,
       "dp_donorsearch",
-      "@donor_id=1,@last_name=null,@first_name=null,@opt_line=null,@address=null,@city=null,@state=null,@zip=null,@country=null,@filter_id=null,@user_id=null"
+      "@donor_id=null,@last_name='%',@first_name=null,@opt_line=null,@address=null,@city=null,@state=null,@zip=null,@country=null,@filter_id=null,@user_id=null"
     )
 
     // If we get an error response, the API key is invalid
     if (result.error) {
+      // Check for common error patterns
+      if (result.error.includes("HTML")) {
+        return {
+          valid: false,
+          error: "Invalid API key. Please verify your DonorPerfect API key is correct.",
+        }
+      }
       return {
         valid: false,
         error: result.error,
       }
     }
 
-    // If we get here, the API key is valid
+    // If we get here, the API key is valid (even if no records returned)
     return {
       valid: true,
       organizationName: "DonorPerfect Online",
@@ -252,7 +311,7 @@ export async function validateDonorPerfectKey(apiKey: string): Promise<{
   } catch (error) {
     return {
       valid: false,
-      error: error instanceof Error ? error.message : "Invalid API key",
+      error: error instanceof Error ? error.message : "Failed to validate API key",
     }
   }
 }
@@ -260,6 +319,13 @@ export async function validateDonorPerfectKey(apiKey: string): Promise<{
 // ============================================================================
 // DONOR OPERATIONS
 // ============================================================================
+
+/**
+ * Escape single quotes for SQL parameters
+ */
+function escapeSqlString(str: string): string {
+  return str.replace(/'/g, "''")
+}
 
 /**
  * Search for donors using dp_donorsearch procedure
@@ -270,16 +336,16 @@ export async function searchDonorPerfectDonors(
 ): Promise<DonorPerfectDonor[]> {
   const paramStr = [
     `@donor_id=${params.donor_id ?? "null"}`,
-    `@last_name=${params.last_name ? `'${params.last_name.replace(/'/g, "''")}'` : "null"}`,
-    `@first_name=${params.first_name ? `'${params.first_name.replace(/'/g, "''")}'` : "null"}`,
-    `@opt_line=${params.opt_line ? `'${params.opt_line.replace(/'/g, "''")}'` : "null"}`,
-    `@address=${params.address ? `'${params.address.replace(/'/g, "''")}'` : "null"}`,
-    `@city=${params.city ? `'${params.city.replace(/'/g, "''")}'` : "null"}`,
-    `@state=${params.state ? `'${params.state.replace(/'/g, "''")}'` : "null"}`,
-    `@zip=${params.zip ? `'${params.zip.replace(/'/g, "''")}'` : "null"}`,
-    `@country=${params.country ? `'${params.country.replace(/'/g, "''")}'` : "null"}`,
+    `@last_name=${params.last_name ? `'${escapeSqlString(params.last_name)}'` : "null"}`,
+    `@first_name=${params.first_name ? `'${escapeSqlString(params.first_name)}'` : "null"}`,
+    `@opt_line=${params.opt_line ? `'${escapeSqlString(params.opt_line)}'` : "null"}`,
+    `@address=${params.address ? `'${escapeSqlString(params.address)}'` : "null"}`,
+    `@city=${params.city ? `'${escapeSqlString(params.city)}'` : "null"}`,
+    `@state=${params.state ? `'${escapeSqlString(params.state)}'` : "null"}`,
+    `@zip=${params.zip ? `'${escapeSqlString(params.zip)}'` : "null"}`,
+    `@country=${params.country ? `'${escapeSqlString(params.country)}'` : "null"}`,
     `@filter_id=${params.filter_id ?? "null"}`,
-    `@user_id=${params.user_id ? `'${params.user_id.replace(/'/g, "''")}'` : "null"}`,
+    `@user_id=${params.user_id ? `'${escapeSqlString(params.user_id)}'` : "null"}`,
   ].join(",")
 
   const result = await executeProcedure(apiKey, "dp_donorsearch", paramStr)
@@ -324,8 +390,10 @@ export async function* fetchAllDonorPerfectDonors(
 ): AsyncGenerator<DonorPerfectDonor[], void, unknown> {
   let lastDonorId = 0
   let hasMore = true
+  let consecutiveEmptyBatches = 0
+  const maxEmptyBatches = 3 // Safety limit to prevent infinite loops
 
-  while (hasMore) {
+  while (hasMore && consecutiveEmptyBatches < maxEmptyBatches) {
     // Use SELECT with donor_id > lastDonorId for pagination
     // Include key fields needed for constituent mapping
     const query = `SELECT TOP ${Math.min(batchSize, ROW_LIMIT)}
@@ -346,12 +414,21 @@ export async function* fetchAllDonorPerfectDonors(
     const donors = result.records.map(recordToDonor)
 
     if (donors.length === 0) {
+      consecutiveEmptyBatches++
       hasMore = false
       break
     }
 
+    consecutiveEmptyBatches = 0 // Reset on successful batch
+
     // Update pagination state
-    lastDonorId = Math.max(...donors.map((d) => parseInt(d.donor_id, 10) || 0))
+    const maxId = Math.max(...donors.map((d) => parseInt(d.donor_id, 10) || 0))
+    if (maxId <= lastDonorId) {
+      // Safety check: prevent infinite loop if IDs don't increase
+      hasMore = false
+      break
+    }
+    lastDonorId = maxId
     hasMore = donors.length === Math.min(batchSize, ROW_LIMIT)
 
     yield donors
@@ -415,8 +492,10 @@ export async function* fetchAllDonorPerfectGifts(
 ): AsyncGenerator<DonorPerfectGift[], void, unknown> {
   let lastGiftId = 0
   let hasMore = true
+  let consecutiveEmptyBatches = 0
+  const maxEmptyBatches = 3
 
-  while (hasMore) {
+  while (hasMore && consecutiveEmptyBatches < maxEmptyBatches) {
     // Use SELECT with gift_id > lastGiftId for pagination
     // Include key fields needed for donation mapping
     const query = `SELECT TOP ${Math.min(batchSize, ROW_LIMIT)}
@@ -437,12 +516,20 @@ export async function* fetchAllDonorPerfectGifts(
     const gifts = result.records.map(recordToGift)
 
     if (gifts.length === 0) {
+      consecutiveEmptyBatches++
       hasMore = false
       break
     }
 
+    consecutiveEmptyBatches = 0
+
     // Update pagination state
-    lastGiftId = Math.max(...gifts.map((g) => parseInt(g.gift_id, 10) || 0))
+    const maxId = Math.max(...gifts.map((g) => parseInt(g.gift_id, 10) || 0))
+    if (maxId <= lastGiftId) {
+      hasMore = false
+      break
+    }
+    lastGiftId = maxId
     hasMore = gifts.length === Math.min(batchSize, ROW_LIMIT)
 
     yield gifts

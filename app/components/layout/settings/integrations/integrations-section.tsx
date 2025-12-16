@@ -267,6 +267,11 @@ export function IntegrationsSection() {
                 <KeyIcon className="text-secondary-foreground size-3.5" />
               </span>
             )}
+            {provider.beta && (
+              <span className="absolute top-1 left-1 rounded-full bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-medium text-purple-600 dark:text-purple-400">
+                BETA
+              </span>
+            )}
             <provider.icon className="size-6" />
             <span className="text-sm">{provider.name}</span>
           </button>
@@ -315,8 +320,13 @@ export function IntegrationsSection() {
               </>
             )}
 
-            <Label htmlFor={`${selectedProvider}-key`} className="mb-2">
+            <Label htmlFor={`${selectedProvider}-key`} className="mb-2 flex items-center gap-2">
               {selectedProviderConfig.name} API Key
+              {selectedProviderConfig.beta && (
+                <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
+                  BETA
+                </span>
+              )}
             </Label>
             <Input
               id={`${selectedProvider}-key`}

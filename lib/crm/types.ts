@@ -22,6 +22,7 @@ export interface CRMProviderConfig {
   description: string
   secondaryPlaceholder?: string // For CRMs requiring two credentials (e.g., Neon CRM Org ID)
   secondaryLabel?: string // Label for second credential field
+  beta?: boolean // Show beta badge for new/experimental integrations
 }
 
 // ============================================================================
