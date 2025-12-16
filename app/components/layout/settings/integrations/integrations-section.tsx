@@ -19,7 +19,8 @@ import { fetchClient } from "@/lib/fetch"
 import { cn } from "@/lib/utils"
 import { CRM_PROVIDERS } from "@/lib/crm/config"
 import type { CRMProvider, CRMIntegrationStatus } from "@/lib/crm/types"
-import { KeyIcon, PlusIcon } from "@phosphor-icons/react"
+import { KeyIcon, PlusIcon, ArrowSquareOut } from "@phosphor-icons/react"
+import Link from "next/link"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Loader2, Trash2, RefreshCw } from "lucide-react"
 
@@ -248,7 +249,15 @@ export function IntegrationsSection() {
         Connect your CRM to sync constituent and donation data for prospect research.
       </p>
       <p className="text-muted-foreground text-sm">
-        Your API keys are stored securely with end-to-end encryption.
+        Your API keys are stored securely with end-to-end encryption.{" "}
+        <Link
+          href="/docs"
+          className="inline-flex items-center gap-1 text-primary hover:underline"
+          target="_blank"
+        >
+          Setup guide
+          <ArrowSquareOut className="h-3 w-3" />
+        </Link>
       </p>
 
       {/* Provider Grid */}
