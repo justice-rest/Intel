@@ -238,8 +238,11 @@ export function IntegrationsSection() {
 
   return (
     <div>
-      <h3 className="relative mb-2 inline-flex text-lg font-medium">
+      <h3 className="relative mb-2 flex items-center gap-2 text-lg font-medium">
         CRM Integrations
+        <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
+          BETA
+        </span>
       </h3>
       <p className="text-muted-foreground text-sm">
         Connect your CRM to sync constituent and donation data for prospect research.
@@ -320,13 +323,8 @@ export function IntegrationsSection() {
               </>
             )}
 
-            <Label htmlFor={`${selectedProvider}-key`} className="mb-2 flex items-center gap-2">
+            <Label htmlFor={`${selectedProvider}-key`} className="mb-2">
               {selectedProviderConfig.name} API Key
-              {selectedProviderConfig.beta && (
-                <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
-                  BETA
-                </span>
-              )}
             </Label>
             <Input
               id={`${selectedProvider}-key`}
