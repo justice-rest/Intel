@@ -53,6 +53,7 @@ export default function IntegrationDocs() {
           <nav className="rounded-lg border border-border bg-muted/50 p-6 mb-12">
             <h2 className="mt-0 text-lg font-semibold">Quick Navigation</h2>
             <ul className="mb-0">
+              <li><a href="#prerequisites">Prerequisites</a></li>
               <li><a href="#overview">Overview</a></li>
               <li><a href="#bloomerang">Bloomerang Setup</a></li>
               <li><a href="#virtuous">Virtuous Setup</a></li>
@@ -61,8 +62,24 @@ export default function IntegrationDocs() {
               <li><a href="#syncing">Syncing Your Data</a></li>
               <li><a href="#troubleshooting">Troubleshooting</a></li>
               <li><a href="#security">Security & Privacy</a></li>
+              <li><a href="#faq">FAQ</a></li>
             </ul>
           </nav>
+
+          {/* Prerequisites */}
+          <h2 id="prerequisites">Prerequisites</h2>
+          <p>Before connecting your CRM, make sure you have:</p>
+          <ul>
+            <li><strong>A Rōmy account</strong> — You must be signed in (not using guest mode)</li>
+            <li><strong>Admin access to your CRM</strong> — You'll need permission to generate API keys</li>
+            <li><strong>Your CRM API key</strong> — Generated from your CRM's settings</li>
+          </ul>
+
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 my-4">
+            <p className="mb-0 text-sm"><strong>Note:</strong> CRM integrations require a Rōmy account. Guest users cannot connect CRMs. If you're using Rōmy locally without Supabase, this feature will not be available.</p>
+          </div>
+
+          <hr className="my-12" />
 
           {/* Overview */}
           <h2 id="overview">Overview</h2>
@@ -150,6 +167,10 @@ export default function IntegrationDocs() {
             <li><strong>Donations:</strong> Gift amounts, dates, campaigns, funds</li>
             <li><strong>Giving Summary:</strong> Lifetime giving, largest gift, last gift date</li>
           </ul>
+
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 my-4">
+            <p className="mb-0 text-sm"><strong>Note:</strong> Only <strong>"Active" constituents</strong> are synced from Bloomerang. Inactive, deceased, or archived constituents are not imported. This ensures you're working with current, relevant data.</p>
+          </div>
 
           <p><strong>API Documentation:</strong> <a href="https://bloomerang.co/product/integrations-data-management/api/" target="_blank" rel="noopener noreferrer">Bloomerang API Reference</a></p>
 
@@ -370,6 +391,37 @@ export default function IntegrationDocs() {
             <li>Click the <strong>Sync</strong> button (circular arrow icon)</li>
           </ol>
 
+          <h3>Updating Your API Key</h3>
+          <p>If you need to update or replace your API key (e.g., after rotating keys in your CRM):</p>
+          <ol>
+            <li>Go to <strong>Settings → Integrations</strong></li>
+            <li>Click on the connected CRM card</li>
+            <li>Enter your new API key in the input field</li>
+            <li>Click the <strong>Update</strong> button (instead of "Connect")</li>
+          </ol>
+          <p>Your synced data will be preserved — only the API key is replaced.</p>
+
+          <h3>Viewing Synced Data</h3>
+          <p>After syncing, your constituent and donation data is available for AI-powered research:</p>
+          <ul>
+            <li><strong>Record count:</strong> Visible on the CRM card in Settings → Integrations (e.g., "Records: 1,234")</li>
+            <li><strong>Last sync time:</strong> Shows when data was last updated (e.g., "Last sync: 2h ago")</li>
+            <li><strong>Using the data:</strong> Start a new chat and ask Rōmy to research a donor by name. Rōmy will automatically use your synced CRM data along with public records for comprehensive prospect research.</li>
+          </ul>
+
+          <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 my-4">
+            <p className="mb-0 text-sm"><strong>Tip:</strong> Try asking: "Research [donor name] from my CRM" or "Who are my top 10 donors by lifetime giving?" to leverage your synced data.</p>
+          </div>
+
+          <h3>Recommended Sync Frequency</h3>
+          <p>How often you sync depends on how frequently your CRM data changes:</p>
+          <ul>
+            <li><strong>Daily:</strong> For organizations with frequent new gifts or constituent updates</li>
+            <li><strong>Weekly:</strong> For most organizations with moderate activity</li>
+            <li><strong>Monthly:</strong> For organizations with stable donor bases</li>
+          </ul>
+          <p>Rōmy enforces a <strong>minimum 5-minute interval</strong> between syncs to prevent API overuse.</p>
+
           <hr className="my-12" />
 
           {/* Troubleshooting */}
@@ -446,6 +498,42 @@ export default function IntegrationDocs() {
             <li>Confirm the disconnection</li>
           </ol>
           <p>This will delete your API key from Rōmy. Your synced constituent data will remain unless you explicitly delete it.</p>
+
+          <hr className="my-12" />
+
+          {/* FAQ */}
+          <h2 id="faq">Frequently Asked Questions</h2>
+
+          <h3>Can I connect multiple CRMs at once?</h3>
+          <p>Yes! You can connect multiple CRMs simultaneously. Each CRM's data is synced separately and stored with its provider tag, so Rōmy knows which records came from which system.</p>
+
+          <h3>Does Rōmy modify my CRM data?</h3>
+          <p>No. Rōmy only has <strong>read access</strong> to your CRM. We pull a copy of your data for analysis but never write back or modify your original records.</p>
+
+          <h3>What happens if my API key expires?</h3>
+          <p>Your previously synced data will remain available, but new syncs will fail. Simply update your API key in Settings → Integrations to restore syncing. You don't need to disconnect and reconnect.</p>
+
+          <h3>Can I sync only certain records?</h3>
+          <p>Currently, Rōmy syncs all eligible records from your CRM. Some filtering happens automatically:</p>
+          <ul>
+            <li><strong>Bloomerang:</strong> Only "Active" constituents are synced</li>
+            <li><strong>Other CRMs:</strong> All accessible records are synced up to the 50,000 record limit</li>
+          </ul>
+
+          <h3>How do I delete my synced data?</h3>
+          <p>To remove synced data, disconnect the CRM integration. This deletes your API key but preserves synced data. To fully remove all data, contact support.</p>
+
+          <h3>Why is my sync taking so long?</h3>
+          <p>Sync times depend on your database size and the CRM's API limitations:</p>
+          <ul>
+            <li><strong>DonorPerfect:</strong> Limited to 500 records per API call, so large databases require many requests</li>
+            <li><strong>Virtuous:</strong> Rate limited to 10,000 requests/hour</li>
+            <li><strong>Large databases:</strong> 10,000+ records can take 15-60 minutes</li>
+          </ul>
+          <p>Syncs are performed in the background — you can continue using Rōmy while it runs.</p>
+
+          <h3>Is my data secure?</h3>
+          <p>Yes. API keys are encrypted with AES-256 before storage. All data transmission uses TLS 1.3. Your data is only accessible to your account and is never shared or used for training AI models.</p>
 
           <hr className="my-12" />
 
