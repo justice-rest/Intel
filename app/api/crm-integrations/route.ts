@@ -14,6 +14,7 @@ import {
   validateVirtuousKey,
   validateNeonCRMKey,
   combineNeonCRMCredentials,
+  validateDonorPerfectKey,
 } from "@/lib/crm"
 import type { CRMIntegrationStatus, CRMIntegrationsListResponse, SaveCRMKeyResponse } from "@/lib/crm/types"
 
@@ -56,7 +57,7 @@ export async function GET() {
       .from("user_keys")
       .select("provider")
       .eq("user_id", user.id)
-      .in("provider", ["bloomerang", "virtuous", "neoncrm"])
+      .in("provider", ["bloomerang", "virtuous", "neoncrm", "donorperfect"])
 
     if (keysError) {
       console.error("Error fetching CRM keys:", keysError)
@@ -74,7 +75,7 @@ export async function GET() {
       .from("crm_sync_logs")
       .select("provider, status, records_synced, completed_at")
       .eq("user_id", user.id)
-      .in("provider", ["bloomerang", "virtuous", "neoncrm"])
+      .in("provider", ["bloomerang", "virtuous", "neoncrm", "donorperfect"])
       .order("completed_at", { ascending: false })
 
     // Group sync logs by provider (get latest for each)
@@ -121,6 +122,12 @@ export async function GET() {
         connected: connectedProviders.has("neoncrm"),
         lastSync: latestSyncs["neoncrm"]?.completed_at || undefined,
         recordCount: countsByProvider["neoncrm"] || 0,
+      },
+      {
+        provider: "donorperfect",
+        connected: connectedProviders.has("donorperfect"),
+        lastSync: latestSyncs["donorperfect"]?.completed_at || undefined,
+        recordCount: countsByProvider["donorperfect"] || 0,
       },
     ]
 
@@ -207,6 +214,8 @@ export async function POST(request: Request) {
       validationResult = await validateVirtuousKey(trimmedKey)
     } else if (provider === "neoncrm") {
       validationResult = await validateNeonCRMKey(trimmedSecondaryKey!, trimmedKey)
+    } else if (provider === "donorperfect") {
+      validationResult = await validateDonorPerfectKey(trimmedKey)
     } else {
       return NextResponse.json(
         { error: "Unsupported CRM provider" },

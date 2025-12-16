@@ -47,6 +47,7 @@ export function IntegrationsSection() {
     bloomerang: integrations?.find((i) => i.provider === "bloomerang")?.connected || false,
     virtuous: integrations?.find((i) => i.provider === "virtuous")?.connected || false,
     neoncrm: integrations?.find((i) => i.provider === "neoncrm")?.connected || false,
+    donorperfect: integrations?.find((i) => i.provider === "donorperfect")?.connected || false,
   }
 
   const getIntegrationInfo = (provider: CRMProvider) => {

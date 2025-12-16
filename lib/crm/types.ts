@@ -7,7 +7,7 @@
 // PROVIDER TYPES
 // ============================================================================
 
-export type CRMProvider = "bloomerang" | "virtuous" | "neoncrm"
+export type CRMProvider = "bloomerang" | "virtuous" | "neoncrm" | "donorperfect"
 
 export interface CRMProviderConfig {
   id: CRMProvider

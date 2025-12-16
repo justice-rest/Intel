@@ -52,3 +52,17 @@ export {
 } from "./neoncrm/client"
 export { mapNeonCRMAccount, mapNeonCRMAccounts, mapNeonCRMDonation, mapNeonCRMDonations } from "./neoncrm/mappers"
 export type * from "./neoncrm/types"
+
+// DonorPerfect
+export {
+  validateDonorPerfectKey,
+  searchDonorPerfectDonors,
+  getDonorPerfectDonor,
+  fetchAllDonorPerfectDonors,
+  getDonorPerfectGifts,
+  getDonorPerfectGift,
+  fetchAllDonorPerfectGifts,
+  getDonorPerfectDonorSummary,
+} from "./donorperfect/client"
+export { mapDonorPerfectDonor, mapDonorPerfectDonors, mapDonorPerfectGift, mapDonorPerfectGifts } from "./donorperfect/mappers"
+export type * from "./donorperfect/types"

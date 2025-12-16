@@ -6,6 +6,7 @@
 import BloomerangIcon from "@/components/icons/bloomerang"
 import VirtuousIcon from "@/components/icons/virtuous"
 import NeonCRMIcon from "@/components/icons/neoncrm"
+import DonorPerfectIcon from "@/components/icons/donorperfect"
 import type { CRMProviderConfig, CRMProvider } from "./types"
 
 // ============================================================================
@@ -46,6 +47,16 @@ export const CRM_PROVIDERS: CRMProviderConfig[] = [
     description: "Connect Neon CRM to sync constituent and donation data.",
     secondaryPlaceholder: "Enter your Neon CRM Org ID",
     secondaryLabel: "Organization ID",
+  },
+  {
+    id: "donorperfect",
+    name: "DonorPerfect",
+    icon: DonorPerfectIcon,
+    baseUrl: "https://www.donorperfect.net/prod/xmlrequest.asp",
+    placeholder: "Enter your DonorPerfect API key",
+    getKeyUrl: "https://www.donorperfect.com/support",
+    authHeader: "X-API-Key", // Not actually used - auth is via query param
+    description: "Connect DonorPerfect to sync donor and gift data.",
   },
 ]
 
