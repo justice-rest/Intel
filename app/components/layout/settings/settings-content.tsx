@@ -13,6 +13,7 @@ import {
   CreditCardIcon,
   XIcon,
   HardDrives,
+  LinkSimple,
 } from "@phosphor-icons/react"
 import { useState, useEffect } from "react"
 import { SubscriptionSection } from "@/components/subscription/subscription-section"
@@ -27,8 +28,9 @@ import { OnboardingDataSection } from "./general/onboarding-data"
 import { UserProfile } from "./general/user-profile"
 import { DataSection } from "./data/data-section"
 import { MemoryList } from "@/app/components/memory"
+import { IntegrationsSection } from "./integrations"
 
-export type TabType = "general" | "appearance" | "data" | "memory" | "subscription" | "connections"
+export type TabType = "general" | "appearance" | "data" | "memory" | "subscription" | "integrations" | "connections"
 
 type SettingsContentProps = {
   isDrawer?: boolean
@@ -118,6 +120,15 @@ export function SettingsContent({
                     <span>Subscription</span>
                   </TabsTrigger>
                 )}
+                {isSupabaseEnabled && (
+                  <TabsTrigger
+                    value="integrations"
+                    className="flex shrink-0 items-center gap-2"
+                  >
+                    <LinkSimple className="size-4" />
+                    <span>Integrations</span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger
                   value="connections"
                   className="flex shrink-0 items-center gap-2"
@@ -170,6 +181,10 @@ export function SettingsContent({
 
             <TabsContent value="subscription" className="space-y-6 px-6">
               {isSupabaseEnabled && <SubscriptionSection />}
+            </TabsContent>
+
+            <TabsContent value="integrations" className="space-y-6 px-6">
+              {isSupabaseEnabled && <IntegrationsSection />}
             </TabsContent>
 
             <TabsContent value="connections" className="space-y-6 px-6">
@@ -239,6 +254,18 @@ export function SettingsContent({
                   </TabsTrigger>
                 )}
 
+                {isSupabaseEnabled && (
+                  <TabsTrigger
+                    value="integrations"
+                    className="w-full justify-start rounded-md px-3 py-2 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <LinkSimple className="size-4" />
+                      <span>Integrations</span>
+                    </div>
+                  </TabsTrigger>
+                )}
+
                 <TabsTrigger
                   value="connections"
                   className="w-full justify-start rounded-md px-3 py-2 text-left"
@@ -294,6 +321,10 @@ export function SettingsContent({
 
               <TabsContent value="subscription" className="mt-0 space-y-6">
                 {isSupabaseEnabled && <SubscriptionSection />}
+              </TabsContent>
+
+              <TabsContent value="integrations" className="mt-0 space-y-6">
+                {isSupabaseEnabled && <IntegrationsSection />}
               </TabsContent>
 
               <TabsContent value="connections" className="mt-0 space-y-6">

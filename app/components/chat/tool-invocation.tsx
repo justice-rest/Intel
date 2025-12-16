@@ -52,7 +52,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   nonprofit_board_search: "Board Positions",
   giving_history: "Giving History",
   prospect_report: "Prospect Report",
-  prospect_scoring: "Prospect Score",
+  prospect_score: "Prospect Score",
 }
 
 /**
@@ -2348,7 +2348,7 @@ function SingleToolCard({
 
     // Handle Prospect Scoring results
     if (
-      toolName === "prospect_scoring" &&
+      toolName === "prospect_score" &&
       typeof parsedResult === "object" &&
       parsedResult !== null &&
       "personName" in parsedResult &&

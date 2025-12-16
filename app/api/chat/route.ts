@@ -84,11 +84,16 @@ import {
   givingHistoryTool,
   shouldEnableGivingHistoryTool,
 } from "@/lib/tools/giving-history"
+import {
+  searchCRMConstituents,
+  hasCRMConnections,
+} from "@/lib/tools/crm-search"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, smoothStream, ToolSet } from "ai"
+import { Message as MessageAISDK, streamText, smoothStream, ToolSet, tool } from "ai"
+import { z } from "zod"
 import {
   incrementMessageCount,
   logUserMessage,
@@ -155,7 +160,8 @@ export async function POST(req: Request) {
       effectiveSystemPrompt,
       apiKey,
       memoryResult,
-      batchReportsResult
+      batchReportsResult,
+      hasCRM
     ] = await Promise.all([
       // 1. Validate user and check rate limits (critical - blocks streaming)
       validateAndTrackUsage({
@@ -248,6 +254,16 @@ export async function POST(req: Request) {
           console.error("Failed to retrieve batch reports:", error)
           return null
         }
+      })(),
+      // 7. CRM CONNECTIONS CHECK - Check if user has connected CRMs
+      (async (): Promise<boolean> => {
+        if (!isAuthenticated) return false
+        try {
+          return await hasCRMConnections(userId)
+        } catch (error) {
+          console.error("Failed to check CRM connections:", error)
+          return false
+        }
       })()
     ])
 
@@ -280,6 +296,16 @@ export async function POST(req: Request) {
     }
     if (batchReportsResult) {
       finalSystemPrompt = `${finalSystemPrompt}\n\n${batchReportsResult}`
+    }
+
+    // Add CRM guidance when user has connected CRMs
+    if (hasCRM) {
+      finalSystemPrompt += `\n\n## CRM Integration
+You have access to the user's connected CRM systems (Bloomerang/Virtuous).
+- **crm_search**: Search synced CRM data for constituent/donor info (name, email, address, giving history)
+
+**Best Practice**: ALWAYS use crm_search FIRST when researching a donor who might already be in the CRM.
+This provides existing giving history and contact details before running external prospect research.`
     }
 
     // Add search guidance when search is enabled
@@ -571,6 +597,27 @@ For comprehensive prospect due diligence:
       ...(enableSearch && shouldEnableGivingHistoryTool()
         ? {
             giving_history: givingHistoryTool,
+          }
+        : {}),
+      // Add CRM Search Tool - Search synced Bloomerang/Virtuous data
+      // Requires user to have connected CRM integrations
+      ...(isAuthenticated && hasCRM
+        ? {
+            crm_search: tool({
+              description:
+                "Search your connected CRM systems (Bloomerang, Virtuous) for constituent/donor information. " +
+                "Returns name, contact info, address, and giving history from synced CRM data. " +
+                "Use this to look up existing donors by name or email BEFORE running external prospect research.",
+              parameters: z.object({
+                query: z.string().describe("Search term - name, email, or keyword"),
+                provider: z.enum(["bloomerang", "virtuous", "all"]).optional().default("all")
+                  .describe("Which CRM to search. Default 'all' searches all connected CRMs."),
+                limit: z.number().optional().default(10).describe("Max results (1-50)"),
+              }),
+              execute: async ({ query, provider, limit }) => {
+                return await searchCRMConstituents(userId, query, provider, limit)
+              },
+            }),
           }
         : {}),
     } as ToolSet
