@@ -4,6 +4,12 @@
  */
 
 import { CRM_API_CONFIG } from "../config"
+import {
+  withRetry,
+  shouldContinuePagination,
+  PAGINATION_LIMITS,
+  sleep,
+} from "../utils"
 import type {
   BloomerangConstituent,
   BloomerangTransaction,
@@ -122,7 +128,10 @@ export async function fetchBloomerangConstituents(
   const queryString = searchParams.toString()
   const endpoint = `/constituents${queryString ? `?${queryString}` : ""}`
 
-  return bloomerangFetch<BloomerangListResponse<BloomerangConstituent>>(endpoint, apiKey)
+  return withRetry(
+    () => bloomerangFetch<BloomerangListResponse<BloomerangConstituent>>(endpoint, apiKey),
+    { maxRetries: 3 }
+  )
 }
 
 /**
@@ -141,9 +150,12 @@ export async function searchBloomerangConstituents(
     take: limit.toString(),
   })
 
-  return bloomerangFetch<BloomerangListResponse<BloomerangConstituent>>(
-    `/constituents?${searchParams.toString()}`,
-    apiKey
+  return withRetry(
+    () => bloomerangFetch<BloomerangListResponse<BloomerangConstituent>>(
+      `/constituents?${searchParams.toString()}`,
+      apiKey
+    ),
+    { maxRetries: 3 }
   )
 }
 
@@ -156,7 +168,10 @@ export async function getBloomerangConstituent(
   apiKey: string,
   constituentId: number
 ): Promise<BloomerangConstituent> {
-  return bloomerangFetch<BloomerangConstituent>(`/constituents/${constituentId}`, apiKey)
+  return withRetry(
+    () => bloomerangFetch<BloomerangConstituent>(`/constituents/${constituentId}`, apiKey),
+    { maxRetries: 3 }
+  )
 }
 
 // ============================================================================
@@ -187,7 +202,10 @@ export async function fetchBloomerangTransactions(
   const queryString = searchParams.toString()
   const endpoint = `/transactions${queryString ? `?${queryString}` : ""}`
 
-  return bloomerangFetch<BloomerangListResponse<BloomerangTransaction>>(endpoint, apiKey)
+  return withRetry(
+    () => bloomerangFetch<BloomerangListResponse<BloomerangTransaction>>(endpoint, apiKey),
+    { maxRetries: 3 }
+  )
 }
 
 /**
@@ -225,22 +243,53 @@ export async function* fetchAllBloomerangConstituents(
 ): AsyncGenerator<BloomerangConstituent[], void, unknown> {
   let skip = 0
   let hasMore = true
+  let iterationCount = 0
+  let consecutiveEmptyBatches = 0
+  let totalFetched = 0
 
   while (hasMore) {
-    const response = await fetchBloomerangConstituents(apiKey, {
-      skip,
-      take: batchSize,
-      orderBy: "Id",
-      orderDirection: "Asc",
-      status: "Active", // Only sync active constituents
-    })
-
-    if (response.Results.length > 0) {
-      yield response.Results
-      skip += response.Results.length
+    // Pagination safety check
+    const paginationCheck = shouldContinuePagination(
+      totalFetched,
+      iterationCount,
+      consecutiveEmptyBatches,
+      PAGINATION_LIMITS
+    )
+    if (!paginationCheck.continue) {
+      console.warn(`[Bloomerang] Constituent pagination stopped: ${paginationCheck.reason}`)
+      break
     }
 
-    hasMore = response.Results.length === batchSize && skip < response.Total
+    iterationCount++
+
+    try {
+      const response = await fetchBloomerangConstituents(apiKey, {
+        skip,
+        take: batchSize,
+        orderBy: "Id",
+        orderDirection: "Asc",
+        status: "Active", // Only sync active constituents
+      })
+
+      if (response.Results.length > 0) {
+        consecutiveEmptyBatches = 0
+        yield response.Results
+        skip += response.Results.length
+        totalFetched += response.Results.length
+      } else {
+        consecutiveEmptyBatches++
+      }
+
+      hasMore = response.Results.length === batchSize && skip < response.Total
+
+      // Rate limiting delay between batches
+      if (hasMore) {
+        await sleep(CRM_API_CONFIG.rateLimitDelay)
+      }
+    } catch (error) {
+      console.error(`[Bloomerang] Error fetching constituents at skip=${skip}:`, error)
+      throw error
+    }
   }
 }
 
@@ -255,20 +304,51 @@ export async function* fetchAllBloomerangTransactions(
 ): AsyncGenerator<BloomerangTransaction[], void, unknown> {
   let skip = 0
   let hasMore = true
+  let iterationCount = 0
+  let consecutiveEmptyBatches = 0
+  let totalFetched = 0
 
   while (hasMore) {
-    const response = await fetchBloomerangTransactions(apiKey, {
-      skip,
-      take: batchSize,
-      orderBy: "Date",
-      orderDirection: "Desc",
-    })
-
-    if (response.Results.length > 0) {
-      yield response.Results
-      skip += response.Results.length
+    // Pagination safety check
+    const paginationCheck = shouldContinuePagination(
+      totalFetched,
+      iterationCount,
+      consecutiveEmptyBatches,
+      PAGINATION_LIMITS
+    )
+    if (!paginationCheck.continue) {
+      console.warn(`[Bloomerang] Transaction pagination stopped: ${paginationCheck.reason}`)
+      break
     }
 
-    hasMore = response.Results.length === batchSize && skip < response.Total
+    iterationCount++
+
+    try {
+      const response = await fetchBloomerangTransactions(apiKey, {
+        skip,
+        take: batchSize,
+        orderBy: "Date",
+        orderDirection: "Desc",
+      })
+
+      if (response.Results.length > 0) {
+        consecutiveEmptyBatches = 0
+        yield response.Results
+        skip += response.Results.length
+        totalFetched += response.Results.length
+      } else {
+        consecutiveEmptyBatches++
+      }
+
+      hasMore = response.Results.length === batchSize && skip < response.Total
+
+      // Rate limiting delay between batches
+      if (hasMore) {
+        await sleep(CRM_API_CONFIG.rateLimitDelay)
+      }
+    } catch (error) {
+      console.error(`[Bloomerang] Error fetching transactions at skip=${skip}:`, error)
+      throw error
+    }
   }
 }

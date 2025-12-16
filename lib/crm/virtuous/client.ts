@@ -4,6 +4,12 @@
  */
 
 import { CRM_API_CONFIG } from "../config"
+import {
+  withRetry,
+  shouldContinuePagination,
+  PAGINATION_LIMITS,
+  sleep,
+} from "../utils"
 import type {
   VirtuousContact,
   VirtuousGift,
@@ -136,10 +142,13 @@ export async function fetchVirtuousContacts(
     ]
   }
 
-  return virtuousFetch<VirtuousListResponse<VirtuousContact>>("/Contact/Query", apiKey, {
-    method: "POST",
-    body: JSON.stringify(queryBody),
-  })
+  return withRetry(
+    () => virtuousFetch<VirtuousListResponse<VirtuousContact>>("/Contact/Query", apiKey, {
+      method: "POST",
+      body: JSON.stringify(queryBody),
+    }),
+    { maxRetries: 3 }
+  )
 }
 
 /**
@@ -158,9 +167,12 @@ export async function searchVirtuousContacts(
     take: limit.toString(),
   })
 
-  return virtuousFetch<VirtuousListResponse<VirtuousContact>>(
-    `/Contact/Search?${searchParams.toString()}`,
-    apiKey
+  return withRetry(
+    () => virtuousFetch<VirtuousListResponse<VirtuousContact>>(
+      `/Contact/Search?${searchParams.toString()}`,
+      apiKey
+    ),
+    { maxRetries: 3 }
   )
 }
 
@@ -173,7 +185,10 @@ export async function getVirtuousContact(
   apiKey: string,
   contactId: number
 ): Promise<VirtuousContact> {
-  return virtuousFetch<VirtuousContact>(`/Contact/${contactId}`, apiKey)
+  return withRetry(
+    () => virtuousFetch<VirtuousContact>(`/Contact/${contactId}`, apiKey),
+    { maxRetries: 3 }
+  )
 }
 
 // ============================================================================
@@ -234,10 +249,13 @@ export async function fetchVirtuousGifts(
     queryBody.groups = [{ conditions: conditions as VirtuousQueryRequest["groups"] extends (infer U)[] ? U extends { conditions: infer C } ? C : never : never }]
   }
 
-  return virtuousFetch<VirtuousListResponse<VirtuousGift>>("/Gift/Query", apiKey, {
-    method: "POST",
-    body: JSON.stringify(queryBody),
-  })
+  return withRetry(
+    () => virtuousFetch<VirtuousListResponse<VirtuousGift>>("/Gift/Query", apiKey, {
+      method: "POST",
+      body: JSON.stringify(queryBody),
+    }),
+    { maxRetries: 3 }
+  )
 }
 
 /**
@@ -274,21 +292,52 @@ export async function* fetchAllVirtuousContacts(
 ): AsyncGenerator<VirtuousContact[], void, unknown> {
   let skip = 0
   let hasMore = true
+  let iterationCount = 0
+  let consecutiveEmptyBatches = 0
+  let totalFetched = 0
 
   while (hasMore) {
-    const response = await fetchVirtuousContacts(apiKey, {
-      skip,
-      take: batchSize,
-      sortBy: "Id",
-      descending: false,
-    })
-
-    if (response.list.length > 0) {
-      yield response.list
-      skip += response.list.length
+    // Pagination safety check
+    const paginationCheck = shouldContinuePagination(
+      totalFetched,
+      iterationCount,
+      consecutiveEmptyBatches,
+      PAGINATION_LIMITS
+    )
+    if (!paginationCheck.continue) {
+      console.warn(`[Virtuous] Contact pagination stopped: ${paginationCheck.reason}`)
+      break
     }
 
-    hasMore = response.list.length === batchSize && skip < response.total
+    iterationCount++
+
+    try {
+      const response = await fetchVirtuousContacts(apiKey, {
+        skip,
+        take: batchSize,
+        sortBy: "Id",
+        descending: false,
+      })
+
+      if (response.list.length > 0) {
+        consecutiveEmptyBatches = 0
+        yield response.list
+        skip += response.list.length
+        totalFetched += response.list.length
+      } else {
+        consecutiveEmptyBatches++
+      }
+
+      hasMore = response.list.length === batchSize && skip < response.total
+
+      // Rate limiting delay between batches
+      if (hasMore) {
+        await sleep(CRM_API_CONFIG.rateLimitDelay)
+      }
+    } catch (error) {
+      console.error(`[Virtuous] Error fetching contacts at skip=${skip}:`, error)
+      throw error
+    }
   }
 }
 
@@ -303,20 +352,51 @@ export async function* fetchAllVirtuousGifts(
 ): AsyncGenerator<VirtuousGift[], void, unknown> {
   let skip = 0
   let hasMore = true
+  let iterationCount = 0
+  let consecutiveEmptyBatches = 0
+  let totalFetched = 0
 
   while (hasMore) {
-    const response = await fetchVirtuousGifts(apiKey, {
-      skip,
-      take: batchSize,
-      sortBy: "GiftDate",
-      descending: true,
-    })
-
-    if (response.list.length > 0) {
-      yield response.list
-      skip += response.list.length
+    // Pagination safety check
+    const paginationCheck = shouldContinuePagination(
+      totalFetched,
+      iterationCount,
+      consecutiveEmptyBatches,
+      PAGINATION_LIMITS
+    )
+    if (!paginationCheck.continue) {
+      console.warn(`[Virtuous] Gift pagination stopped: ${paginationCheck.reason}`)
+      break
     }
 
-    hasMore = response.list.length === batchSize && skip < response.total
+    iterationCount++
+
+    try {
+      const response = await fetchVirtuousGifts(apiKey, {
+        skip,
+        take: batchSize,
+        sortBy: "GiftDate",
+        descending: true,
+      })
+
+      if (response.list.length > 0) {
+        consecutiveEmptyBatches = 0
+        yield response.list
+        skip += response.list.length
+        totalFetched += response.list.length
+      } else {
+        consecutiveEmptyBatches++
+      }
+
+      hasMore = response.list.length === batchSize && skip < response.total
+
+      // Rate limiting delay between batches
+      if (hasMore) {
+        await sleep(CRM_API_CONFIG.rateLimitDelay)
+      }
+    } catch (error) {
+      console.error(`[Virtuous] Error fetching gifts at skip=${skip}:`, error)
+      throw error
+    }
   }
 }

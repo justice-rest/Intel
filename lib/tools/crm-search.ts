@@ -17,7 +17,7 @@ const crmSearchSchema = z.object({
     .string()
     .describe("Search term - name, email, or keyword to search for in CRM data"),
   provider: z
-    .enum(["bloomerang", "virtuous", "all"])
+    .enum(["bloomerang", "virtuous", "neoncrm", "donorperfect", "all"])
     .optional()
     .default("all")
     .describe("Which CRM to search. Use 'all' to search all connected CRMs."),
@@ -34,7 +34,7 @@ const crmSearchSchema = z.object({
 
 export const crmSearchTool = tool({
   description:
-    "Search your connected CRM systems (Bloomerang, Virtuous) for constituent/donor information. " +
+    "Search your connected CRM systems (Bloomerang, Virtuous, Neon CRM, DonorPerfect) for constituent/donor information. " +
     "Returns name, contact info, address, and giving history. " +
     "Use this to look up existing donors by name or email before running external prospect research. " +
     "This searches data that has been synced from the user's CRM, not live CRM data.",
@@ -55,7 +55,7 @@ export const crmSearchTool = tool({
 export async function searchCRMConstituents(
   userId: string,
   query: string,
-  provider: "bloomerang" | "virtuous" | "all" = "all",
+  provider: "bloomerang" | "virtuous" | "neoncrm" | "donorperfect" | "all" = "all",
   limit: number = 10
 ): Promise<{
   rawContent: string
@@ -168,9 +168,15 @@ export async function searchCRMConstituents(
   // Create source entries for each CRM
   const sources: { url: string; title: string }[] = []
   const uniqueProviders = [...new Set(constituents.map((c) => c.provider))]
+  const providerUrls: Record<string, string> = {
+    bloomerang: "https://bloomerang.co",
+    virtuous: "https://virtuoussoftware.com",
+    neoncrm: "https://neoncrm.com",
+    donorperfect: "https://donorperfect.com",
+  }
   for (const p of uniqueProviders) {
     sources.push({
-      url: p === "bloomerang" ? "https://bloomerang.co" : "https://virtuoussoftware.com",
+      url: providerUrls[p] || "#",
       title: `${p.charAt(0).toUpperCase() + p.slice(1)} CRM`,
     })
   }
@@ -245,7 +251,7 @@ export async function hasCRMConnections(userId: string): Promise<boolean> {
     .from("user_keys")
     .select("provider")
     .eq("user_id", userId)
-    .in("provider", ["bloomerang", "virtuous"])
+    .in("provider", ["bloomerang", "virtuous", "neoncrm", "donorperfect"])
     .limit(1)
 
   if (error) {
@@ -275,7 +281,7 @@ export async function getCRMConnectionSummary(userId: string): Promise<{
     .from("user_keys")
     .select("provider")
     .eq("user_id", userId)
-    .in("provider", ["bloomerang", "virtuous"])
+    .in("provider", ["bloomerang", "virtuous", "neoncrm", "donorperfect"])
 
   const providers = (keys?.map((k) => k.provider) || []) as CRMProvider[]
 

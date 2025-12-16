@@ -4,6 +4,12 @@
  */
 
 import { CRM_API_CONFIG } from "../config"
+import {
+  withRetry,
+  shouldContinuePagination,
+  PAGINATION_LIMITS,
+  sleep,
+} from "../utils"
 import type {
   NeonCRMAccount,
   NeonCRMAccountsResponse,
@@ -200,7 +206,11 @@ export async function fetchNeonCRMAccounts(
   if (params?.email) searchParams.set("email", params.email)
 
   const endpoint = `/accounts${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
-  const response = await neonCRMFetch<NeonCRMAccountsResponse>(endpoint, credentials)
+
+  const response = await withRetry(
+    () => neonCRMFetch<NeonCRMAccountsResponse>(endpoint, credentials),
+    { maxRetries: 3 }
+  )
 
   return {
     accounts: response.accounts || [],
@@ -254,13 +264,16 @@ export async function searchNeonCRMAccounts(
     },
   }
 
-  const response = await neonCRMFetch<{ searchResults?: Array<Record<string, string | number>> }>(
-    "/accounts/search",
-    credentials,
-    {
-      method: "POST",
-      body: JSON.stringify(body),
-    }
+  const response = await withRetry(
+    () => neonCRMFetch<{ searchResults?: Array<Record<string, string | number>> }>(
+      "/accounts/search",
+      credentials,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      }
+    ),
+    { maxRetries: 3 }
   )
 
   // Map search results to account format
@@ -291,30 +304,56 @@ export async function fetchAllNeonCRMAccounts(
   let currentPage = 0
   let totalPages = 1
   const pageSize = CRM_API_CONFIG.defaultPageSize
+  let iterationCount = 0
+  let consecutiveEmptyBatches = 0
 
   while (currentPage < totalPages) {
-    const result = await fetchNeonCRMAccounts(credentials, {
-      pageSize,
-      currentPage,
-    })
-
-    allAccounts.push(...result.accounts)
-
-    if (result.pagination) {
-      totalPages = result.pagination.totalPages
-    } else {
+    // Pagination safety check
+    const paginationCheck = shouldContinuePagination(
+      allAccounts.length,
+      iterationCount,
+      consecutiveEmptyBatches,
+      PAGINATION_LIMITS
+    )
+    if (!paginationCheck.continue) {
+      console.warn(`[Neon CRM] Account pagination stopped: ${paginationCheck.reason}`)
       break
     }
 
-    if (onProgress) {
-      onProgress(allAccounts.length, result.pagination?.totalResults || allAccounts.length)
-    }
+    iterationCount++
 
-    currentPage++
+    try {
+      const result = await fetchNeonCRMAccounts(credentials, {
+        pageSize,
+        currentPage,
+      })
 
-    // Rate limiting delay
-    if (currentPage < totalPages) {
-      await new Promise((resolve) => setTimeout(resolve, CRM_API_CONFIG.rateLimitDelay))
+      if (result.accounts.length > 0) {
+        consecutiveEmptyBatches = 0
+        allAccounts.push(...result.accounts)
+      } else {
+        consecutiveEmptyBatches++
+      }
+
+      if (result.pagination) {
+        totalPages = result.pagination.totalPages
+      } else {
+        break
+      }
+
+      if (onProgress) {
+        onProgress(allAccounts.length, result.pagination?.totalResults || allAccounts.length)
+      }
+
+      currentPage++
+
+      // Rate limiting delay
+      if (currentPage < totalPages) {
+        await sleep(CRM_API_CONFIG.rateLimitDelay)
+      }
+    } catch (error) {
+      console.error(`[Neon CRM] Error fetching accounts at page=${currentPage}:`, error)
+      throw error
     }
   }
 
@@ -333,9 +372,12 @@ export async function fetchNeonCRMAccountDonations(
   accountId: string,
   limit: number = 50
 ): Promise<NeonCRMDonation[]> {
-  const response = await neonCRMFetch<NeonCRMDonationsResponse>(
-    `/accounts/${accountId}/donations?pageSize=${limit}`,
-    credentials
+  const response = await withRetry(
+    () => neonCRMFetch<NeonCRMDonationsResponse>(
+      `/accounts/${accountId}/donations?pageSize=${limit}`,
+      credentials
+    ),
+    { maxRetries: 3 }
   )
 
   return response.donations || []
@@ -391,13 +433,16 @@ export async function searchNeonCRMDonations(
     },
   }
 
-  const response = await neonCRMFetch<{
-    searchResults?: Array<Record<string, string | number>>
-    pagination?: { totalResults: number }
-  }>("/donations/search", credentials, {
-    method: "POST",
-    body: JSON.stringify(body),
-  })
+  const response = await withRetry(
+    () => neonCRMFetch<{
+      searchResults?: Array<Record<string, string | number>>
+      pagination?: { totalResults: number }
+    }>("/donations/search", credentials, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+    { maxRetries: 3 }
+  )
 
   const donations: NeonCRMDonation[] = (response.searchResults || []).map((result) => ({
     id: String(result["Donation ID"] || ""),
@@ -426,28 +471,55 @@ export async function fetchAllNeonCRMDonations(
   let currentPage = 0
   let totalResults = Infinity
   const pageSize = CRM_API_CONFIG.defaultPageSize
+  let iterationCount = 0
+  let consecutiveEmptyBatches = 0
 
   while (allDonations.length < totalResults) {
-    const result = await searchNeonCRMDonations(credentials, {
-      pageSize,
-      currentPage,
-    })
-
-    allDonations.push(...result.donations)
-    totalResults = result.totalResults
-
-    if (onProgress) {
-      onProgress(allDonations.length, totalResults)
-    }
-
-    if (result.donations.length < pageSize) {
+    // Pagination safety check
+    const paginationCheck = shouldContinuePagination(
+      allDonations.length,
+      iterationCount,
+      consecutiveEmptyBatches,
+      PAGINATION_LIMITS
+    )
+    if (!paginationCheck.continue) {
+      console.warn(`[Neon CRM] Donation pagination stopped: ${paginationCheck.reason}`)
       break
     }
 
-    currentPage++
+    iterationCount++
 
-    // Rate limiting delay
-    await new Promise((resolve) => setTimeout(resolve, CRM_API_CONFIG.rateLimitDelay))
+    try {
+      const result = await searchNeonCRMDonations(credentials, {
+        pageSize,
+        currentPage,
+      })
+
+      if (result.donations.length > 0) {
+        consecutiveEmptyBatches = 0
+        allDonations.push(...result.donations)
+      } else {
+        consecutiveEmptyBatches++
+      }
+
+      totalResults = result.totalResults
+
+      if (onProgress) {
+        onProgress(allDonations.length, totalResults)
+      }
+
+      if (result.donations.length < pageSize) {
+        break
+      }
+
+      currentPage++
+
+      // Rate limiting delay
+      await sleep(CRM_API_CONFIG.rateLimitDelay)
+    } catch (error) {
+      console.error(`[Neon CRM] Error fetching donations at page=${currentPage}:`, error)
+      throw error
+    }
   }
 
   return allDonations
