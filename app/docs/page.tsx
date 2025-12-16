@@ -76,7 +76,7 @@ export default function IntegrationDocs() {
           </ul>
 
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 my-4">
-            <p className="mb-0 text-sm"><strong>Note:</strong> CRM integrations require a Rōmy account. Guest users cannot connect CRMs. If you're using Rōmy locally without Supabase, this feature will not be available.</p>
+            <p className="mt-0 mb-0 text-sm"><strong>Note:</strong> CRM integrations require a Rōmy account. Guest users cannot connect CRMs. If you're using Rōmy locally without Supabase, this feature will not be available.</p>
           </div>
 
           <hr className="my-12" />
@@ -146,7 +146,7 @@ export default function IntegrationDocs() {
           </ol>
 
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 my-4">
-            <p className="mb-0 text-sm"><strong>Important:</strong> Bloomerang API keys are only displayed once when created. If you lose your key, you'll need to generate a new one.</p>
+            <p className="mt-0 mb-0 text-sm"><strong>Important:</strong> Bloomerang API keys are only displayed once when created. If you lose your key, you'll need to generate a new one.</p>
           </div>
 
           <h3>Step 2: Connect in Rōmy</h3>
@@ -169,7 +169,7 @@ export default function IntegrationDocs() {
           </ul>
 
           <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 my-4">
-            <p className="mb-0 text-sm"><strong>Note:</strong> Only <strong>"Active" constituents</strong> are synced from Bloomerang. Inactive, deceased, or archived constituents are not imported. This ensures you're working with current, relevant data.</p>
+            <p className="mt-0 mb-0 text-sm"><strong>Note:</strong> Only <strong>"Active" constituents</strong> are synced from Bloomerang. Inactive, deceased, or archived constituents are not imported. This ensures you're working with current, relevant data.</p>
           </div>
 
           <p><strong>API Documentation:</strong> <a href="https://bloomerang.co/product/integrations-data-management/api/" target="_blank" rel="noopener noreferrer">Bloomerang API Reference</a></p>
@@ -200,7 +200,7 @@ export default function IntegrationDocs() {
           </ol>
 
           <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 my-4">
-            <p className="mb-0 text-sm"><strong>Note:</strong> Virtuous uses Bearer token authentication. Rōmy handles the "Bearer " prefix automatically — just paste your raw API key.</p>
+            <p className="mt-0 mb-0 text-sm"><strong>Note:</strong> Virtuous uses Bearer token authentication. Rōmy handles the "Bearer " prefix automatically — just paste your raw API key.</p>
           </div>
 
           <h3>Step 2: Connect in Rōmy</h3>
@@ -254,7 +254,7 @@ export default function IntegrationDocs() {
           </ol>
 
           <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 my-4">
-            <p className="mb-0 text-sm"><strong>Tip:</strong> Create a dedicated "API User" in your Neon CRM account specifically for integrations. This makes it easier to manage access and revoke if needed.</p>
+            <p className="mt-0 mb-0 text-sm"><strong>Tip:</strong> Create a dedicated "API User" in your Neon CRM account specifically for integrations. This makes it easier to manage access and revoke if needed.</p>
           </div>
 
           <h3>Step 3: Connect in Rōmy</h3>
@@ -320,7 +320,7 @@ export default function IntegrationDocs() {
           </ol>
 
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 my-4">
-            <p className="mb-0 text-sm"><strong>Important:</strong> DonorPerfect API keys are very long (100+ characters). Make sure you copy the entire key without truncation.</p>
+            <p className="mt-0 mb-0 text-sm"><strong>Important:</strong> DonorPerfect API keys are very long (100+ characters). Make sure you copy the entire key without truncation.</p>
           </div>
 
           <h3>Step 3: Connect in Rōmy</h3>
@@ -401,7 +401,7 @@ export default function IntegrationDocs() {
           </ul>
 
           <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 my-4">
-            <p className="mb-0 text-sm"><strong>Tip:</strong> Try asking: "Research [donor name] from my CRM" or "Who are my top 10 donors by lifetime giving?" to leverage your synced data.</p>
+            <p className="mt-0 mb-0 text-sm"><strong>Tip:</strong> Try asking: "Research [donor name] from my CRM" or "Who are my top 10 donors by lifetime giving?" to leverage your synced data.</p>
           </div>
 
           <h3>Recommended Sync Frequency</h3>
