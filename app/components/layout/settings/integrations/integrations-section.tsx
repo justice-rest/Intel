@@ -27,6 +27,7 @@ export function IntegrationsSection() {
   const queryClient = useQueryClient()
   const [selectedProvider, setSelectedProvider] = useState<CRMProvider>("bloomerang")
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({})
+  const [secondaryKeys, setSecondaryKeys] = useState<Record<string, string>>({}) // For providers with two credentials (e.g., Neon CRM Org ID)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [providerToDelete, setProviderToDelete] = useState<CRMProvider | "">("")
 
@@ -45,6 +46,7 @@ export function IntegrationsSection() {
   const connectionStatus: Record<CRMProvider, boolean> = {
     bloomerang: integrations?.find((i) => i.provider === "bloomerang")?.connected || false,
     virtuous: integrations?.find((i) => i.provider === "virtuous")?.connected || false,
+    neoncrm: integrations?.find((i) => i.provider === "neoncrm")?.connected || false,
   }
 
   const getIntegrationInfo = (provider: CRMProvider) => {
@@ -62,18 +64,26 @@ export function IntegrationsSection() {
     return apiKeys[providerId] || fallbackValue
   }
 
+  const getSecondaryValue = (providerId: CRMProvider) => {
+    const hasKey = connectionStatus[providerId]
+    const fallbackValue = hasKey ? "••••••••••••••••" : ""
+    return secondaryKeys[providerId] || fallbackValue
+  }
+
   // Save API key mutation
   const saveMutation = useMutation({
     mutationFn: async ({
       provider,
       apiKey,
+      secondaryKey,
     }: {
       provider: CRMProvider
       apiKey: string
+      secondaryKey?: string
     }) => {
       const res = await fetchClient("/api/crm-integrations", {
         method: "POST",
-        body: JSON.stringify({ provider, apiKey }),
+        body: JSON.stringify({ provider, apiKey, secondaryKey }),
       })
       if (!res.ok) {
         const error = await res.json()
@@ -90,8 +100,12 @@ export function IntegrationsSection() {
       // Refresh integrations list
       await queryClient.invalidateQueries({ queryKey: ["crm-integrations"] })
 
-      // Clear the input
+      // Clear the inputs
       setApiKeys((prev) => ({
+        ...prev,
+        [provider]: "",
+      }))
+      setSecondaryKeys((prev) => ({
         ...prev,
         [provider]: "",
       }))
@@ -173,7 +187,10 @@ export function IntegrationsSection() {
   }
 
   const handleSave = (providerId: CRMProvider) => {
+    const providerConfig = CRM_PROVIDERS.find((p) => p.id === providerId)
     const value = apiKeys[providerId]
+    const secondaryValue = secondaryKeys[providerId]
+
     if (!value || value === "••••••••••••••••") {
       toast({
         title: "API Key Required",
@@ -181,7 +198,21 @@ export function IntegrationsSection() {
       })
       return
     }
-    saveMutation.mutate({ provider: providerId, apiKey: value })
+
+    // Check for secondary key if provider requires it
+    if (providerConfig?.secondaryPlaceholder && (!secondaryValue || secondaryValue === "••••••••••••••••")) {
+      toast({
+        title: `${providerConfig.secondaryLabel || "Secondary Key"} Required`,
+        description: `Please enter your ${providerConfig.secondaryLabel || "secondary credential"}.`,
+      })
+      return
+    }
+
+    saveMutation.mutate({
+      provider: providerId,
+      apiKey: value,
+      secondaryKey: providerConfig?.secondaryPlaceholder ? secondaryValue : undefined,
+    })
   }
 
   const handleSync = (providerId: CRMProvider) => {
@@ -257,12 +288,35 @@ export function IntegrationsSection() {
       <div className="mt-4">
         {selectedProviderConfig && (
           <div className="flex flex-col">
-            <Label htmlFor={`${selectedProvider}-key`} className="mb-2">
-              {selectedProviderConfig.name} API Key
-            </Label>
             <p className="text-muted-foreground text-xs mb-3">
               {selectedProviderConfig.description}
             </p>
+            {/* Secondary credential field (e.g., Neon CRM Org ID) - shown first for providers that need it */}
+            {selectedProviderConfig.secondaryPlaceholder && (
+              <>
+                <Label htmlFor={`${selectedProvider}-secondary`} className="mb-2">
+                  {selectedProviderConfig.secondaryLabel || "Secondary Credential"}
+                </Label>
+                <Input
+                  id={`${selectedProvider}-secondary`}
+                  type="text"
+                  placeholder={selectedProviderConfig.secondaryPlaceholder}
+                  value={getSecondaryValue(selectedProvider)}
+                  onChange={(e) =>
+                    setSecondaryKeys((prev) => ({
+                      ...prev,
+                      [selectedProvider]: e.target.value,
+                    }))
+                  }
+                  disabled={saveMutation.isPending}
+                  className="mb-3"
+                />
+              </>
+            )}
+
+            <Label htmlFor={`${selectedProvider}-key`} className="mb-2">
+              {selectedProviderConfig.name} API Key
+            </Label>
             <Input
               id={`${selectedProvider}-key`}
               type="password"

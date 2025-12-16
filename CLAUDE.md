@@ -445,6 +445,56 @@ wikidata_entity({ entityId: "Q317521" })
 - `/lib/tools/wikidata.ts` - Both search and entity tools
 - `/app/api/chat/route.ts` - Tool registration
 
+### CRM Integrations (Bloomerang, Virtuous, Neon CRM)
+**Nonprofit donor CRM integrations** - User-level credentials via Settings UI:
+
+| CRM | Setup Location | Data Synced |
+|-----|---------------|-------------|
+| Bloomerang | Settings → Integrations | Constituents, Transactions |
+| Virtuous | Settings → Integrations | Contacts, Gifts |
+| Neon CRM | Settings → Integrations | Accounts, Donations |
+
+**User Setup Flow**:
+1. Go to **Settings → Integrations**
+2. Select your CRM (Bloomerang, Virtuous, or Neon CRM)
+3. Enter credentials:
+   - **Bloomerang**: API Key only
+   - **Virtuous**: API Key only
+   - **Neon CRM**: Organization ID + API Key
+4. Click **Connect** to validate and save
+5. Click **Sync** to import donor data
+
+**Getting Neon CRM Credentials**:
+1. **Org ID**: Settings → Organization Profile → Account Information
+2. **API Key**: Settings → User Management → [User] → API Access
+
+**How It Works**:
+1. Credentials are encrypted and stored per-user in `user_keys` table
+2. Sync process fetches constituents/donations from CRM API
+3. Data is normalized and stored in `crm_constituents` and `crm_donations` tables
+4. The `crm_search` tool searches synced data
+
+**CRM Search Tool** (`crm_search`):
+```typescript
+// Search synced CRM data (available after connecting and syncing)
+crm_search({ query: "John Smith", provider: "all", limit: 10 })
+```
+
+**Key Files**:
+- `/lib/crm/` - CRM integration module (types, config, adapters)
+- `/lib/crm/neoncrm/` - Neon CRM client, types, mappers
+- `/app/api/crm-integrations/` - CRM API routes (connect, sync, delete)
+- `/app/components/layout/settings/integrations/` - Settings UI
+
+**Direct API Tools (Optional)**:
+For admin/system use, set environment variables to enable direct Neon CRM API tools:
+```bash
+NEON_CRM_ORG_ID=your_org_id
+NEON_CRM_API_KEY=your_api_key
+```
+
+This enables `neon_crm_search_accounts`, `neon_crm_get_account`, and `neon_crm_search_donations` tools.
+
 ## Environment Variables
 
 Required for full functionality:
@@ -467,6 +517,14 @@ LINKUP_API_KEY=                 # Optional - enables Linkup prospect research
 
 # USAspending API (no API key required - FREE)
 # Federal contracts, grants, loans data - works without a key
+
+# Neon CRM (optional - for admin/system-level direct API access)
+# NOTE: Users should add credentials via Settings → Integrations instead
+# These env vars enable direct API tools (neon_crm_search_accounts, etc.)
+# Get credentials: Settings > Organization Profile (Org ID), Settings > User Management (API Key)
+NEON_CRM_ORG_ID=                # Your Neon CRM Organization ID (optional)
+NEON_CRM_API_KEY=               # API key from user with API Access enabled (optional)
+NEON_CRM_TRIAL=false            # Set to "true" for trial instances
 
 # PostHog Analytics (optional - for product analytics)
 # Get your API key at https://posthog.com

@@ -85,6 +85,12 @@ import {
   shouldEnableGivingHistoryTool,
 } from "@/lib/tools/giving-history"
 import {
+  neonCRMSearchAccountsTool,
+  neonCRMGetAccountTool,
+  neonCRMSearchDonationsTool,
+  shouldEnableNeonCRMTools,
+} from "@/lib/tools/neon-crm"
+import {
   searchCRMConstituents,
   hasCRMConnections,
 } from "@/lib/tools/crm-search"
@@ -327,6 +333,7 @@ This provides existing giving history and contact details before running externa
       if (shouldEnableProspectReportTool()) dataTools.push("prospect_report (COMPREHENSIVE: Full research report with all data sources - FREE alternative to $125-$300/profile reports)")
       if (shouldEnableNonprofitBoardSearchTool()) dataTools.push("nonprofit_board_search (BOARD FINDER: Find all nonprofit & public company board positions for a person)")
       if (shouldEnableGivingHistoryTool()) dataTools.push("giving_history (GIVING AGGREGATOR: Combines FEC + 990 grants + major gifts - DonorSearch's core feature, FREE)")
+      if (shouldEnableNeonCRMTools()) dataTools.push("neon_crm_* (Neon CRM integration: search accounts/donors, get donor details, search donations - requires API key)")
       if (shouldEnableOpenCorporatesTools()) dataTools.push("opencorporates_company_search / opencorporates_officer_search (company ownership, officers, directors across 140+ jurisdictions)")
       if (shouldEnableOpenSanctionsTools()) dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
       if (shouldEnableLobbyingTools()) dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
@@ -371,7 +378,10 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - prospect_score: AI-powered prospect scoring (Capacity 0-100, Propensity 0-100, A-D Rating)
 - prospect_report: Comprehensive research report consolidating ALL data sources
 - nonprofit_board_search: Find nonprofit and public company board positions
-- giving_history: Aggregate all known giving (FEC political, 990 grants, major gifts)`
+- giving_history: Aggregate all known giving (FEC political, 990 grants, major gifts)
+- neon_crm_search_accounts: Search donors in Neon CRM by name/email
+- neon_crm_get_account: Get detailed donor profile and giving history from Neon CRM
+- neon_crm_search_donations: Search donations in Neon CRM by date, amount, campaign`
         }
 
         finalSystemPrompt += `\n\n### Research Strategy
@@ -597,6 +607,15 @@ For comprehensive prospect due diligence:
       ...(enableSearch && shouldEnableGivingHistoryTool()
         ? {
             giving_history: givingHistoryTool,
+          }
+        : {}),
+      // Add Neon CRM tools for nonprofit donor management
+      // Requires NEON_CRM_ORG_ID and NEON_CRM_API_KEY
+      ...(enableSearch && shouldEnableNeonCRMTools()
+        ? {
+            neon_crm_search_accounts: neonCRMSearchAccountsTool,
+            neon_crm_get_account: neonCRMGetAccountTool,
+            neon_crm_search_donations: neonCRMSearchDonationsTool,
           }
         : {}),
       // Add CRM Search Tool - Search synced Bloomerang/Virtuous data

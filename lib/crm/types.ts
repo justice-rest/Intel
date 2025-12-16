@@ -7,7 +7,7 @@
 // PROVIDER TYPES
 // ============================================================================
 
-export type CRMProvider = "bloomerang" | "virtuous"
+export type CRMProvider = "bloomerang" | "virtuous" | "neoncrm"
 
 export interface CRMProviderConfig {
   id: CRMProvider
@@ -18,7 +18,10 @@ export interface CRMProviderConfig {
   getKeyUrl: string // URL to get API key
   authHeader: "X-API-Key" | "Authorization" // Header name for auth
   authPrefix?: string // e.g., 'Bearer ' for Authorization header
+  authType?: "basic" | "header" // 'basic' for Basic Auth (Neon CRM), 'header' for header-based
   description: string
+  secondaryPlaceholder?: string // For CRMs requiring two credentials (e.g., Neon CRM Org ID)
+  secondaryLabel?: string // Label for second credential field
 }
 
 // ============================================================================

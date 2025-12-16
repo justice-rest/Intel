@@ -5,6 +5,7 @@
 
 import BloomerangIcon from "@/components/icons/bloomerang"
 import VirtuousIcon from "@/components/icons/virtuous"
+import NeonCRMIcon from "@/components/icons/neoncrm"
 import type { CRMProviderConfig, CRMProvider } from "./types"
 
 // ============================================================================
@@ -32,6 +33,19 @@ export const CRM_PROVIDERS: CRMProviderConfig[] = [
     authHeader: "Authorization",
     authPrefix: "Bearer ",
     description: "Connect your Virtuous CRM to sync contact and gift data.",
+  },
+  {
+    id: "neoncrm",
+    name: "Neon CRM",
+    icon: NeonCRMIcon,
+    baseUrl: "https://api.neoncrm.com/v2",
+    placeholder: "Enter your Neon CRM API key",
+    getKeyUrl: "https://developer.neoncrm.com/getting-started/",
+    authHeader: "Authorization",
+    authType: "basic",
+    description: "Connect Neon CRM to sync constituent and donation data.",
+    secondaryPlaceholder: "Enter your Neon CRM Org ID",
+    secondaryLabel: "Organization ID",
   },
 ]
 

@@ -7,8 +7,22 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { encryptKey } from "@/lib/encryption"
-import { isCRMProvider, getCRMProviderName, validateBloomerangKey, validateVirtuousKey } from "@/lib/crm"
-import type { CRMIntegrationStatus, CRMIntegrationsListResponse, SaveCRMKeyRequest, SaveCRMKeyResponse } from "@/lib/crm/types"
+import {
+  isCRMProvider,
+  getCRMProviderName,
+  validateBloomerangKey,
+  validateVirtuousKey,
+  validateNeonCRMKey,
+  combineNeonCRMCredentials,
+} from "@/lib/crm"
+import type { CRMIntegrationStatus, CRMIntegrationsListResponse, SaveCRMKeyResponse } from "@/lib/crm/types"
+
+// Extended request type to include secondary key for Neon CRM
+interface SaveCRMKeyRequestExtended {
+  provider: string
+  apiKey: string
+  secondaryKey?: string // Org ID for Neon CRM
+}
 
 // ============================================================================
 // GET - List all CRM integration statuses
@@ -42,7 +56,7 @@ export async function GET() {
       .from("user_keys")
       .select("provider")
       .eq("user_id", user.id)
-      .in("provider", ["bloomerang", "virtuous"])
+      .in("provider", ["bloomerang", "virtuous", "neoncrm"])
 
     if (keysError) {
       console.error("Error fetching CRM keys:", keysError)
@@ -60,7 +74,7 @@ export async function GET() {
       .from("crm_sync_logs")
       .select("provider, status, records_synced, completed_at")
       .eq("user_id", user.id)
-      .in("provider", ["bloomerang", "virtuous"])
+      .in("provider", ["bloomerang", "virtuous", "neoncrm"])
       .order("completed_at", { ascending: false })
 
     // Group sync logs by provider (get latest for each)
@@ -101,6 +115,12 @@ export async function GET() {
         connected: connectedProviders.has("virtuous"),
         lastSync: latestSyncs["virtuous"]?.completed_at || undefined,
         recordCount: countsByProvider["virtuous"] || 0,
+      },
+      {
+        provider: "neoncrm",
+        connected: connectedProviders.has("neoncrm"),
+        lastSync: latestSyncs["neoncrm"]?.completed_at || undefined,
+        recordCount: countsByProvider["neoncrm"] || 0,
       },
     ]
 
@@ -143,8 +163,8 @@ export async function POST(request: Request) {
     }
 
     // Parse request body
-    const body: SaveCRMKeyRequest = await request.json()
-    const { provider, apiKey } = body
+    const body: SaveCRMKeyRequestExtended = await request.json()
+    const { provider, apiKey, secondaryKey } = body
 
     if (!provider || !apiKey) {
       return NextResponse.json(
@@ -169,6 +189,15 @@ export async function POST(request: Request) {
       )
     }
 
+    // For Neon CRM, require secondary key (Org ID)
+    const trimmedSecondaryKey = secondaryKey?.trim()
+    if (provider === "neoncrm" && (!trimmedSecondaryKey || trimmedSecondaryKey.length < 1)) {
+      return NextResponse.json(
+        { error: "Organization ID is required for Neon CRM" },
+        { status: 400 }
+      )
+    }
+
     // Validate the API key before saving
     let validationResult: { valid: boolean; organizationName?: string; error?: string }
 
@@ -176,6 +205,8 @@ export async function POST(request: Request) {
       validationResult = await validateBloomerangKey(trimmedKey)
     } else if (provider === "virtuous") {
       validationResult = await validateVirtuousKey(trimmedKey)
+    } else if (provider === "neoncrm") {
+      validationResult = await validateNeonCRMKey(trimmedSecondaryKey!, trimmedKey)
     } else {
       return NextResponse.json(
         { error: "Unsupported CRM provider" },
@@ -204,8 +235,14 @@ export async function POST(request: Request) {
 
     const isNewKey = !existingKey
 
-    // Encrypt the API key
-    const { encrypted, iv } = encryptKey(trimmedKey)
+    // For Neon CRM, store combined credentials (orgId:apiKey)
+    // For other providers, just store the API key
+    const keyToStore = provider === "neoncrm"
+      ? combineNeonCRMCredentials(trimmedSecondaryKey!, trimmedKey)
+      : trimmedKey
+
+    // Encrypt the API key (or combined credentials for Neon CRM)
+    const { encrypted, iv } = encryptKey(keyToStore)
 
     // Upsert the key
     const { error: upsertError } = await supabase.from("user_keys").upsert(

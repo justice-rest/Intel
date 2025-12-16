@@ -36,3 +36,19 @@ export {
 } from "./virtuous/client"
 export { mapVirtuousContact, mapVirtuousGift, mapVirtuousContacts, mapVirtuousGifts } from "./virtuous/mappers"
 export type * from "./virtuous/types"
+
+// Neon CRM
+export {
+  validateNeonCRMKey,
+  fetchNeonCRMAccounts,
+  getNeonCRMAccount,
+  searchNeonCRMAccounts,
+  fetchAllNeonCRMAccounts,
+  fetchNeonCRMAccountDonations,
+  searchNeonCRMDonations,
+  fetchAllNeonCRMDonations,
+  parseNeonCRMCredentials,
+  combineNeonCRMCredentials,
+} from "./neoncrm/client"
+export { mapNeonCRMAccount, mapNeonCRMAccounts, mapNeonCRMDonation, mapNeonCRMDonations } from "./neoncrm/mappers"
+export type * from "./neoncrm/types"
