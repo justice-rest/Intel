@@ -57,7 +57,6 @@ export const CRM_PROVIDERS: CRMProviderConfig[] = [
     getKeyUrl: "https://www.donorperfect.com/support",
     authHeader: "X-API-Key", // Not actually used - auth is via query param
     description: "Connect DonorPerfect to sync donor and gift data.",
-    beta: true, // New integration - needs real-world testing
   },
 ]
 

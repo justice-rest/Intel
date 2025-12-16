@@ -58,7 +58,7 @@ export default function IntegrationDocs() {
               <li><a href="#bloomerang">Bloomerang Setup</a></li>
               <li><a href="#virtuous">Virtuous Setup</a></li>
               <li><a href="#neoncrm">Neon CRM Setup</a></li>
-              <li><a href="#donorperfect">DonorPerfect Setup</a> <span className="rounded-full bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-medium text-purple-600 dark:text-purple-400 ml-1">BETA</span></li>
+              <li><a href="#donorperfect">DonorPerfect Setup</a></li>
               <li><a href="#syncing">Syncing Your Data</a></li>
               <li><a href="#troubleshooting">Troubleshooting</a></li>
               <li><a href="#security">Security & Privacy</a></li>
@@ -285,19 +285,10 @@ export default function IntegrationDocs() {
           <hr className="my-12" />
 
           {/* DonorPerfect */}
-          <h2 id="donorperfect">
-            DonorPerfect Setup
-            <span className="ml-2 rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
-              BETA
-            </span>
-          </h2>
+          <h2 id="donorperfect">DonorPerfect Setup</h2>
           <p>
             <a href="https://donorperfect.com" target="_blank" rel="noopener noreferrer">DonorPerfect</a> is one of the most widely-used nonprofit CRMs, trusted by thousands of organizations. DonorPerfect uses an XML-based API.
           </p>
-
-          <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-4 my-4">
-            <p className="mb-0 text-sm"><strong>Beta Notice:</strong> The DonorPerfect integration is new and may have edge cases we haven't encountered yet. Please report any issues to help us improve!</p>
-          </div>
 
           <h3>Step 1: Request API Access</h3>
           <p>DonorPerfect API access must be enabled by their support team:</p>
@@ -335,7 +326,7 @@ export default function IntegrationDocs() {
           <h3>Step 3: Connect in Rōmy</h3>
           <ol>
             <li>Open Rōmy and go to <strong>Settings → Integrations</strong></li>
-            <li>Click on the <strong>DonorPerfect</strong> card (look for the BETA badge)</li>
+            <li>Click on the <strong>DonorPerfect</strong> card</li>
             <li>Paste your full API key</li>
             <li>Click <strong>Save Key</strong></li>
             <li>Rōmy will validate your key by making a test query</li>
@@ -542,7 +533,6 @@ export default function IntegrationDocs() {
           <p>If you're having trouble connecting your CRM or encounter issues not covered here:</p>
           <ul>
             <li><strong>Email:</strong> <a href="mailto:support@getromy.app">support@getromy.app</a></li>
-            <li><strong>Report bugs:</strong> <a href="https://github.com/justice-rest/Intel/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a></li>
           </ul>
           <p>When reporting issues, please include:</p>
           <ul>
