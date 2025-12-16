@@ -14,6 +14,14 @@
 
 import { XMLParser } from "fast-xml-parser"
 import { CRM_API_CONFIG } from "../config"
+import {
+  safeMaxId,
+  safeParseNumber,
+  shouldContinuePagination,
+  PAGINATION_LIMITS,
+  withRetry,
+  sleep,
+} from "../utils"
 import type {
   DonorPerfectDonor,
   DonorPerfectGift,
@@ -391,9 +399,24 @@ export async function* fetchAllDonorPerfectDonors(
   let lastDonorId = 0
   let hasMore = true
   let consecutiveEmptyBatches = 0
-  const maxEmptyBatches = 3 // Safety limit to prevent infinite loops
+  let iterationCount = 0
+  let totalRecordsFetched = 0
 
-  while (hasMore && consecutiveEmptyBatches < maxEmptyBatches) {
+  while (hasMore) {
+    // Check pagination safety limits
+    const paginationCheck = shouldContinuePagination(
+      totalRecordsFetched,
+      iterationCount,
+      consecutiveEmptyBatches,
+      PAGINATION_LIMITS
+    )
+    if (!paginationCheck.continue) {
+      console.warn(`[DonorPerfect] Pagination stopped: ${paginationCheck.reason}`)
+      break
+    }
+
+    iterationCount++
+
     // Use SELECT with donor_id > lastDonorId for pagination
     // Include key fields needed for constituent mapping
     const query = `SELECT TOP ${Math.min(batchSize, ROW_LIMIT)}
@@ -405,7 +428,8 @@ export async function* fetchAllDonorPerfectDonors(
     WHERE donor_id > ${lastDonorId}
     ORDER BY donor_id`
 
-    const result = await executeQuery(apiKey, query)
+    // Execute with retry logic
+    const result = await withRetry(() => executeQuery(apiKey, query))
 
     if (result.error) {
       throw new Error(`DonorPerfect query error: ${result.error}`)
@@ -420,11 +444,17 @@ export async function* fetchAllDonorPerfectDonors(
     }
 
     consecutiveEmptyBatches = 0 // Reset on successful batch
+    totalRecordsFetched += donors.length
 
-    // Update pagination state
-    const maxId = Math.max(...donors.map((d) => parseInt(d.donor_id, 10) || 0))
+    // Update pagination state using safe max calculation
+    const maxId = safeMaxId(
+      donors,
+      (d) => safeParseNumber(d.donor_id),
+      lastDonorId
+    )
     if (maxId <= lastDonorId) {
       // Safety check: prevent infinite loop if IDs don't increase
+      console.warn(`[DonorPerfect] ID progression stopped at ${maxId}, ending pagination`)
       hasMore = false
       break
     }
@@ -435,7 +465,7 @@ export async function* fetchAllDonorPerfectDonors(
 
     // Rate limiting delay
     if (hasMore) {
-      await new Promise((resolve) => setTimeout(resolve, CRM_API_CONFIG.rateLimitDelay))
+      await sleep(CRM_API_CONFIG.rateLimitDelay)
     }
   }
 }
@@ -493,9 +523,24 @@ export async function* fetchAllDonorPerfectGifts(
   let lastGiftId = 0
   let hasMore = true
   let consecutiveEmptyBatches = 0
-  const maxEmptyBatches = 3
+  let iterationCount = 0
+  let totalRecordsFetched = 0
 
-  while (hasMore && consecutiveEmptyBatches < maxEmptyBatches) {
+  while (hasMore) {
+    // Check pagination safety limits
+    const paginationCheck = shouldContinuePagination(
+      totalRecordsFetched,
+      iterationCount,
+      consecutiveEmptyBatches,
+      PAGINATION_LIMITS
+    )
+    if (!paginationCheck.continue) {
+      console.warn(`[DonorPerfect] Gift pagination stopped: ${paginationCheck.reason}`)
+      break
+    }
+
+    iterationCount++
+
     // Use SELECT with gift_id > lastGiftId for pagination
     // Include key fields needed for donation mapping
     const query = `SELECT TOP ${Math.min(batchSize, ROW_LIMIT)}
@@ -507,7 +552,8 @@ export async function* fetchAllDonorPerfectGifts(
     WHERE gift_id > ${lastGiftId} AND record_type = 'G'
     ORDER BY gift_id`
 
-    const result = await executeQuery(apiKey, query)
+    // Execute with retry logic
+    const result = await withRetry(() => executeQuery(apiKey, query))
 
     if (result.error) {
       throw new Error(`DonorPerfect query error: ${result.error}`)
@@ -522,10 +568,16 @@ export async function* fetchAllDonorPerfectGifts(
     }
 
     consecutiveEmptyBatches = 0
+    totalRecordsFetched += gifts.length
 
-    // Update pagination state
-    const maxId = Math.max(...gifts.map((g) => parseInt(g.gift_id, 10) || 0))
+    // Update pagination state using safe max calculation
+    const maxId = safeMaxId(
+      gifts,
+      (g) => safeParseNumber(g.gift_id),
+      lastGiftId
+    )
     if (maxId <= lastGiftId) {
+      console.warn(`[DonorPerfect] Gift ID progression stopped at ${maxId}, ending pagination`)
       hasMore = false
       break
     }
@@ -536,7 +588,7 @@ export async function* fetchAllDonorPerfectGifts(
 
     // Rate limiting delay
     if (hasMore) {
-      await new Promise((resolve) => setTimeout(resolve, CRM_API_CONFIG.rateLimitDelay))
+      await sleep(CRM_API_CONFIG.rateLimitDelay)
     }
   }
 }

@@ -22,17 +22,56 @@ const NEON_CRM_API_VERSION = "2.10"
 /**
  * Parse Neon CRM credentials from combined format
  * Format: "orgId:apiKey"
+ *
+ * Note: Uses first colon as separator. API keys may contain colons,
+ * but org IDs should not.
  */
 export function parseNeonCRMCredentials(combinedKey: string): NeonCRMCredentials | null {
-  const colonIndex = combinedKey.indexOf(":")
-  if (colonIndex === -1 || colonIndex === 0 || colonIndex === combinedKey.length - 1) {
+  // Input validation
+  if (!combinedKey || typeof combinedKey !== "string") {
+    console.error("[Neon CRM] Invalid credentials: input is null/undefined/non-string")
     return null
   }
 
-  return {
-    orgId: combinedKey.substring(0, colonIndex),
-    apiKey: combinedKey.substring(colonIndex + 1),
+  const trimmed = combinedKey.trim()
+  if (!trimmed) {
+    console.error("[Neon CRM] Invalid credentials: empty string")
+    return null
   }
+
+  // Find the separator - use first colon (API keys might contain colons)
+  const colonIndex = trimmed.indexOf(":")
+  if (colonIndex === -1) {
+    console.error("[Neon CRM] Invalid credentials format: missing colon separator")
+    return null
+  }
+
+  // Extract and validate parts
+  const orgId = trimmed.substring(0, colonIndex).trim()
+  const apiKey = trimmed.substring(colonIndex + 1).trim()
+
+  if (!orgId) {
+    console.error("[Neon CRM] Invalid credentials: empty Organization ID")
+    return null
+  }
+
+  if (!apiKey) {
+    console.error("[Neon CRM] Invalid credentials: empty API key")
+    return null
+  }
+
+  // Basic length validation (org IDs are typically short, API keys are longer)
+  if (orgId.length > 50) {
+    console.error("[Neon CRM] Invalid credentials: Organization ID appears too long")
+    return null
+  }
+
+  if (apiKey.length < 10) {
+    console.error("[Neon CRM] Invalid credentials: API key appears too short")
+    return null
+  }
+
+  return { orgId, apiKey }
 }
 
 /**
