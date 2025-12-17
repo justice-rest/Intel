@@ -347,17 +347,30 @@ export async function checkBatchCredits(
 
   try {
     // First check if user is on an unlimited plan (Pro or Scale)
-    const customerData = await getCustomerData(userId)
+    // Use longer timeout (2s) since batch processing isn't latency-critical
+    const customerData = await getCustomerData(userId, 2000)
+
+    console.log(`[Autumn] checkBatchCredits for user ${userId}:`, JSON.stringify(customerData?.products?.map((p: { id: string; status: string }) => ({ id: p.id, status: p.status })) || []))
+
     if (customerData?.products && customerData.products.length > 0) {
       // Find active or trialing product
       const activeProduct = customerData.products.find(
         (p: { status: string }) => p.status === "active" || p.status === "trialing"
       )
 
-      if (activeProduct && isUnlimitedPlan(activeProduct.id)) {
-        console.log(`[Autumn] User ${userId} is on unlimited plan (${activeProduct.id}), allowing batch access`)
-        return { allowed: true, balance: undefined }
+      if (activeProduct) {
+        const normalizedPlan = normalizePlanId(activeProduct.id)
+        console.log(`[Autumn] Active product: ${activeProduct.id} -> normalized: ${normalizedPlan}, isUnlimited: ${isUnlimitedPlan(activeProduct.id)}`)
+
+        if (isUnlimitedPlan(activeProduct.id)) {
+          console.log(`[Autumn] User ${userId} is on unlimited plan (${activeProduct.id}), allowing batch access`)
+          return { allowed: true, balance: undefined }
+        }
+      } else {
+        console.warn(`[Autumn] No active/trialing product found for user ${userId}`)
       }
+    } else {
+      console.warn(`[Autumn] No products found for user ${userId}`)
     }
 
     // For limited plans (Growth), check the balance
