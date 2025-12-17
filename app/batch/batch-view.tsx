@@ -759,7 +759,9 @@ export function BatchView() {
       if (response.ok) {
         const data = await response.json()
         setBatchLimit(data.limit)
-        setPlanName(data.plan)
+        // Capitalize plan name for display (API returns lowercase like "pro", "scale")
+        const displayName = data.plan ? data.plan.charAt(0).toUpperCase() + data.plan.slice(1) : "Growth"
+        setPlanName(displayName)
         return data
       }
       return null

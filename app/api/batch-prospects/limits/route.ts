@@ -31,9 +31,11 @@ export async function GET() {
       })
     }
 
-    // Get customer data from Autumn
+    // Get customer data from Autumn with longer timeout (2s) since batch limits isn't latency-critical
     try {
-      const customerData = await getCustomerData(user.id)
+      const customerData = await getCustomerData(user.id, 2000)
+
+      console.log("[BatchLimits] Customer data for user:", user.id, JSON.stringify(customerData?.products?.map((p: { id: string; status: string }) => ({ id: p.id, status: p.status })) || []))
 
       if (customerData?.products && customerData.products.length > 0) {
         // Get the first active or trialing product
@@ -43,14 +45,21 @@ export async function GET() {
 
         if (activeProduct) {
           const planId = normalizePlanId(activeProduct.id)
+          console.log("[BatchLimits] Active product:", activeProduct.id, "-> normalized:", planId)
 
           if (planId && PLAN_ROW_LIMITS[planId]) {
             return NextResponse.json({
               limit: PLAN_ROW_LIMITS[planId],
               plan: planId,
             })
+          } else {
+            console.warn("[BatchLimits] Plan not found in PLAN_ROW_LIMITS:", planId, "Available:", Object.keys(PLAN_ROW_LIMITS))
           }
+        } else {
+          console.warn("[BatchLimits] No active/trialing product found for user:", user.id)
         }
+      } else {
+        console.warn("[BatchLimits] No products found for user:", user.id)
       }
     } catch (error) {
       console.error("[BatchLimits] Error fetching customer data:", error)

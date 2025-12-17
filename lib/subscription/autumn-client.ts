@@ -91,23 +91,40 @@ class AutumnCircuitBreaker {
 const circuitBreaker = new AutumnCircuitBreaker()
 
 /**
- * Normalize plan ID by removing billing cycle suffixes
- * Handles variations like "-yearly", "-annual", "-monthly", etc.
+ * Normalize plan ID by extracting the core plan name
+ * Handles various product ID formats from Autumn:
  *
  * Examples:
  * - "growth-yearly" → "growth"
  * - "pro-annual" → "pro"
  * - "scale" → "scale"
+ * - "scale_yearly" → "scale" (underscore variant)
+ * - "romy-scale-monthly" → "scale" (with prefix)
+ * - "prod_pro_annual" → "pro" (multiple separators)
  */
 export function normalizePlanId(productId?: string): string | null {
   if (!productId) return null
 
-  // Remove common billing cycle suffixes
-  return productId
-    .replace(/-yearly$/i, "")
-    .replace(/-annual$/i, "")
-    .replace(/-monthly$/i, "")
-    .toLowerCase()
+  const lowerProductId = productId.toLowerCase()
+
+  // Known plan names to look for (in order of specificity)
+  const knownPlans = ["scale", "pro", "growth"]
+
+  // First, try to find a known plan name in the product ID
+  for (const plan of knownPlans) {
+    // Check if the product ID contains the plan name as a whole word
+    // Match: "scale", "scale-yearly", "romy-scale", "prod_scale_annual"
+    // Don't match: "escalate", "oproduction"
+    const regex = new RegExp(`(^|[-_])${plan}([-_]|$)`, "i")
+    if (regex.test(lowerProductId) || lowerProductId === plan) {
+      return plan
+    }
+  }
+
+  // Fallback: Remove common billing cycle suffixes (both hyphen and underscore variants)
+  return lowerProductId
+    .replace(/[-_](yearly|annual|monthly|year|month)$/i, "")
+    .replace(/^(prod|test|live)[-_]/i, "") // Remove environment prefixes
 }
 
 /**
@@ -381,8 +398,11 @@ export async function checkBatchCredits(
  * IMPORTANT: When the API times out, this function now returns stale cached data
  * as a fallback rather than returning null. This prevents plan check failures
  * for users with valid subscriptions when the Autumn API is slow.
+ *
+ * @param userId - The user's ID
+ * @param timeoutMs - Optional custom timeout in ms (default: 150ms for chat, use higher for non-latency-critical endpoints)
  */
-export async function getCustomerData(userId: string) {
+export async function getCustomerData(userId: string, timeoutMs?: number) {
   const autumn = getAutumnClient()
 
   if (!autumn) {
@@ -395,13 +415,16 @@ export async function getCustomerData(userId: string) {
     return cached.data
   }
 
+  // Use custom timeout if provided, otherwise use default (150ms for chat latency)
+  const effectiveTimeout = timeoutMs ?? AUTUMN_API_TIMEOUT
+
   try {
     // OPTIMIZATION: Use timeout to prevent blocking
     // Use a sentinel value to detect timeout vs actual null response
     const TIMEOUT_SENTINEL = { __timeout: true } as const
     const result = await withTimeout(
       autumn.customers.get(userId),
-      AUTUMN_API_TIMEOUT,
+      effectiveTimeout,
       { data: TIMEOUT_SENTINEL, error: undefined } as any
     )
 
