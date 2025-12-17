@@ -58,10 +58,39 @@ import {
   businessAffiliationSearchTool,
   shouldEnableBusinessAffiliationSearchTool,
 } from "@/lib/tools/business-affiliation-search"
+import {
+  nonprofitAffiliationSearchTool,
+  shouldEnableNonprofitAffiliationTool,
+} from "@/lib/tools/nonprofit-affiliation-search"
+import {
+  propertyValuationTool,
+  shouldEnablePropertyValuationTool,
+} from "@/lib/tools/property-valuation"
+import {
+  rentalInvestmentTool,
+  shouldEnableRentalInvestmentTool,
+} from "@/lib/tools/rental-investment-tool"
+import {
+  prospectScoringTool,
+  shouldEnableProspectScoringTool,
+} from "@/lib/tools/prospect-scoring"
+import {
+  prospectReportTool,
+  shouldEnableProspectReportTool,
+} from "@/lib/tools/prospect-report"
+import {
+  nonprofitBoardSearchTool,
+  shouldEnableNonprofitBoardSearchTool,
+} from "@/lib/tools/nonprofit-board-search"
+import {
+  givingHistoryTool,
+  shouldEnableGivingHistoryTool,
+} from "@/lib/tools/giving-history"
 
 /**
  * Build the tools object for batch processing
- * Same tools as the chat API, minus user-specific tools (RAG, memory, documents)
+ * All research tools from the chat API, minus user-specific tools (RAG, memory, documents, CRM)
+ * Includes: web search, financial data, nonprofit research, property valuation, prospect scoring, etc.
  */
 export function buildBatchTools(): ToolSet {
   const tools: ToolSet = {
@@ -154,6 +183,62 @@ export function buildBatchTools(): ToolSet {
           business_affiliation_search: businessAffiliationSearchTool,
         }
       : {}),
+
+    // Nonprofit Affiliation Search - AUTOMATIC person-to-nonprofit workflow
+    // Searches web for person's nonprofit connections, then queries ProPublica
+    ...(shouldEnableNonprofitAffiliationTool()
+      ? {
+          nonprofit_affiliation_search: nonprofitAffiliationSearchTool,
+        }
+      : {}),
+
+    // Property Valuation Tool - AVM (Automated Valuation Model) calculations
+    // Uses hedonic pricing, comparable sales, and online estimates
+    ...(shouldEnablePropertyValuationTool()
+      ? {
+          property_valuation: propertyValuationTool,
+        }
+      : {}),
+
+    // Rental Investment Tool - rental valuation and investment analysis
+    // Returns rent estimate, cap rate, cash flow
+    ...(shouldEnableRentalInvestmentTool()
+      ? {
+          rental_investment: rentalInvestmentTool,
+        }
+      : {}),
+
+    // Prospect Scoring Tool - AI-powered wealth/capacity assessment
+    // FREE alternative to DonorSearch AI, iWave
+    ...(shouldEnableProspectScoringTool()
+      ? {
+          prospect_score: prospectScoringTool,
+        }
+      : {}),
+
+    // Prospect Report Tool - Comprehensive research reports
+    // FREE alternative to DonorSearch Research on Demand
+    ...(shouldEnableProspectReportTool()
+      ? {
+          prospect_report: prospectReportTool,
+        }
+      : {}),
+
+    // Nonprofit Board Search - Find board positions held by a person
+    // FREE alternative to premium board mapping services
+    ...(shouldEnableNonprofitBoardSearchTool()
+      ? {
+          nonprofit_board_search: nonprofitBoardSearchTool,
+        }
+      : {}),
+
+    // Giving History Tool - Comprehensive giving history aggregation
+    // FREE alternative to DonorSearch/iWave giving history features
+    ...(shouldEnableGivingHistoryTool()
+      ? {
+          giving_history: givingHistoryTool,
+        }
+      : {}),
   }
 
   return tools
@@ -205,6 +290,27 @@ export function getToolDescriptions(): string {
   if (shouldEnableHouseholdSearchTool()) {
     dataTools.push("household_search (spouse/partner search - household wealth assessment, shared affiliations)")
   }
+  if (shouldEnableNonprofitAffiliationTool()) {
+    dataTools.push("nonprofit_affiliation_search (AUTOMATIC person-to-nonprofit workflow - finds foundation/charity connections)")
+  }
+  if (shouldEnablePropertyValuationTool()) {
+    dataTools.push("property_valuation (AVM - Automated Valuation Model for real estate wealth estimation)")
+  }
+  if (shouldEnableRentalInvestmentTool()) {
+    dataTools.push("rental_investment (rental valuation - rent estimate, cap rate, cash flow analysis)")
+  }
+  if (shouldEnableProspectScoringTool()) {
+    dataTools.push("prospect_score (AI-powered wealth/capacity scoring - FREE DonorSearch/iWave alternative)")
+  }
+  if (shouldEnableProspectReportTool()) {
+    dataTools.push("prospect_report (comprehensive research reports - FREE DonorSearch ROD alternative)")
+  }
+  if (shouldEnableNonprofitBoardSearchTool()) {
+    dataTools.push("nonprofit_board_search (find ALL board positions held by a person)")
+  }
+  if (shouldEnableGivingHistoryTool()) {
+    dataTools.push("giving_history (comprehensive giving history aggregation across all sources)")
+  }
 
   const hasLinkup = shouldEnableLinkupTool()
   let description = ""
@@ -239,7 +345,14 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
 - judge_search: Judge biographical data, positions, appointers, education
-- household_search: Find spouse/partner - returns household wealth assessment and shared affiliations\n\n`
+- household_search: Find spouse/partner - returns household wealth assessment and shared affiliations
+- nonprofit_affiliation_search: AUTOMATIC person-to-nonprofit workflow - web search + ProPublica lookup
+- property_valuation: AVM (Automated Valuation Model) for real estate - uses hedonic pricing + comparables
+- rental_investment: Rental analysis - rent estimate, cap rate, cash-on-cash return, cash flow
+- prospect_score: AI wealth/capacity scoring - outputs donor rating (A-D) with confidence
+- prospect_report: Full research report generation - comprehensive prospect profiles
+- nonprofit_board_search: Find ALL nonprofit board positions for a person
+- giving_history: Aggregate giving history from FEC, foundations, public records\n\n`
     }
 
     description += `### Research Strategy
