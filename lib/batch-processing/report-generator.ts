@@ -525,12 +525,17 @@ function extractMetricsFromReport(content: string): {
     }
   }
 
-  // Extract net worth - multiple formats including ranges, <$X, etc.
+  // Extract net worth - multiple formats including markdown tables, ranges, <$X, etc.
   const netWorthSectionPatterns = [
+    // Markdown table format: | **Est. Net Worth** | $1,000,000 |
+    /\|\s*\*\*Est\.?\s*Net\s*Worth\*\*\s*\|\s*([^|]+)\s*\|/i,
+    /\|\s*Est\.?\s*Net\s*Worth\s*\|\s*([^|]+)\s*\|/i,
+    // Standard formats
     /TOTAL\s*(?:ESTIMATED)?\s*NET\s*WORTH[^|\n]*\|?\s*\**\s*([^\n|]+)/i,
     /Estimated\s*Net\s*Worth[:\s]*([^\n|]+)/i,
     /\*\*(?:TOTAL\s*)?(?:ESTIMATED\s*)?NET\s*WORTH\*\*[:\s]*([^\n|]+)/i,
-    /Net\s*Worth[:\s|]*([^\n|]+)/i,
+    /Net\s*Worth[:\s]*\$([^\n|,]+)/i,
+    /Net\s*Worth[:\s|]+([^\n]+)/i,
   ]
 
   for (const pattern of netWorthSectionPatterns) {
@@ -544,9 +549,14 @@ function extractMetricsFromReport(content: string): {
     }
   }
 
-  // Extract gift capacity - multiple formats including ranges, <$X, etc.
+  // Extract gift capacity - multiple formats including markdown tables
   const giftCapacitySectionPatterns = [
-    /(?:Est\.?\s*)?Gift\s*Capacity[:\s|]*([^\n|]+)/i,
+    // Markdown table format: | **Est. Gift Capacity** | $25,000 |
+    /\|\s*\*\*Est\.?\s*Gift\s*Capacity\*\*\s*\|\s*([^|]+)\s*\|/i,
+    /\|\s*Est\.?\s*Gift\s*Capacity\s*\|\s*([^|]+)\s*\|/i,
+    // Standard formats
+    /(?:Est\.?\s*)?Gift\s*Capacity[:\s]*\$([^\n|,]+)/i,
+    /(?:Est\.?\s*)?Gift\s*Capacity[:\s|]+([^\n]+)/i,
     /Giving\s*Capacity[:\s|]*([^\n|]+)/i,
     /\*\*Gift\s*Capacity:?\*\*\s*([^\n|]+)/i,
     /Charitable\s*Capacity[:\s|]*([^\n|]+)/i,
@@ -563,14 +573,18 @@ function extractMetricsFromReport(content: string): {
     }
   }
 
-  // Extract recommended ask - multiple formats including <$1K, ranges, etc.
-  // First, try to find the ask section and extract the value using parseDollarAmount
+  // Extract recommended ask - multiple formats including markdown tables
   const askSectionPatterns = [
-    /Ask\s*Amount[:\s]*([^\n|]+)/i,
-    /Recommended\s*Ask[:\s]*([^\n|]+)/i,
+    // Markdown table format: | **Recommended Ask** | $5,000 |
+    /\|\s*\*\*Recommended\s*Ask\*\*\s*\|\s*([^|]+)\s*\|/i,
+    /\|\s*Recommended\s*Ask\s*\|\s*([^|]+)\s*\|/i,
+    // Standard formats
+    /Recommended\s*Ask[:\s]*\$([^\n|,]+)/i,
+    /Ask\s*Amount[:\s]*\$([^\n|,]+)/i,
+    /Recommended\s*Ask[:\s|]+([^\n]+)/i,
     /\*\*Ask\s*Amount:?\*\*\s*([^\n|]+)/i,
     /\*\*Recommended\s*Ask:?\*\*\s*([^\n|]+)/i,
-    /Ask[:\s]+([^\n|]+)/i,
+    /Ask[:\s]+\$([^\n|,]+)/i,
     /Suggested\s*Ask[:\s]*([^\n|]+)/i,
     /Initial\s*Ask[:\s]*([^\n|]+)/i,
   ]
@@ -915,37 +929,22 @@ After researching, produce the comprehensive report with all sections filled in 
 }
 
 /**
- * Generate a standard report using the fast 2-search approach.
- * This is the original implementation - fast and cost-effective.
+ * Generate a standard report using tools + web search.
+ * Uses all available research tools for comprehensive data gathering,
+ * but produces a concise output format.
  */
 async function generateStandardReport(
   options: GenerateReportOptions
 ): Promise<GenerateReportResult> {
-  const { prospect, enableWebSearch, apiKey } = options
+  const { prospect, apiKey } = options
   const startTime = Date.now()
 
   try {
-    // Build search queries
-    let searchContext = ""
-    let allSources: Array<{ name: string; url: string }> = []
-    const searchQueriesUsed: string[] = []
+    // Build the tools object - same tools as comprehensive mode
+    const tools = buildBatchTools()
+    const hasTools = Object.keys(tools).length > 0
 
-    // Perform web searches if enabled
-    if (enableWebSearch) {
-      const queries = generateStandardSearchQueries(prospect)
-      searchQueriesUsed.push(...queries)
-
-      console.log(`[BatchProcessor] Running ${queries.length} web searches (standard mode) for: ${prospect.name}`)
-
-      // Run all searches in parallel - LinkUp supports 10 QPS
-      const searchResults = await Promise.all(queries.map((query) => performWebSearch(query)))
-
-      const compiled = compileSearchContext(searchResults)
-      searchContext = compiled.context
-      allSources = compiled.allSources
-    }
-
-    // Build the full prompt
+    // Build prospect info for the prompt
     const prospectInfo = buildProspectQueryString(prospect)
     const additionalInfo = Object.entries(prospect)
       .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
@@ -953,16 +952,30 @@ async function generateStandardReport(
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n")
 
-    const userMessage = `Generate a brief prioritization summary for:
+    // Build system prompt with tool descriptions
+    let systemPrompt = STANDARD_MODE_SYSTEM_PROMPT
+    if (hasTools) {
+      systemPrompt += "\n\n" + getToolDescriptions()
+    }
+
+    const userMessage = `Research this prospect and generate a concise prospect summary:
 
 **Prospect:** ${prospectInfo}
 ${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
 
-${searchContext ? `## WEB SEARCH RESULTS\n\n${searchContext}` : "**Note:** No web search results available. Estimate based on location and typical property values for the area."}
+Use your research tools to gather data:
+1. Use searchWeb for property values, business ownership, and general background
+2. Use propublica_nonprofit_search if you find foundation affiliations
+3. Use fec_contributions for political giving history
+4. Use yahoo_finance tools if they're a public company executive
+5. Use sec_insider_search to verify board/officer positions at public companies
 
-Generate the 5-section prioritization summary now.`
+After researching, produce the concise prospect summary with ALL sections filled in. Include specific dollar amounts.`
 
-    // Generate report using AI via OpenRouter
+    console.log(`[BatchProcessor] Starting standard research with tools for: ${prospect.name}`)
+    console.log(`[BatchProcessor] Available tools: ${Object.keys(tools).join(", ")}`)
+
+    // Generate report using AI with tools
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
     })
@@ -970,30 +983,59 @@ Generate the 5-section prioritization summary now.`
 
     const result = await streamText({
       model,
-      system: STANDARD_MODE_SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-      maxTokens: 4000, // Increased for expanded report format
+      tools: hasTools ? tools : undefined,
+      maxSteps: hasTools ? 15 : 1, // Allow 15 steps for tool calls (fewer than comprehensive's 25)
+      maxTokens: 4000,
       temperature: 0.3,
     })
 
-    // Collect the full response
+    // Collect the full response and track tool results
     let reportContent = ""
+    const toolResults: Array<{ toolName: string; result: unknown }> = []
+
     for await (const chunk of result.textStream) {
       reportContent += chunk
     }
+
+    // Get tool results from steps
+    const steps = await result.steps
+    for (const step of steps) {
+      const stepToolResults = step.toolResults as Array<{
+        toolName: string
+        result: unknown
+      }> | undefined
+      if (stepToolResults && Array.isArray(stepToolResults)) {
+        for (const toolResult of stepToolResults) {
+          toolResults.push({
+            toolName: toolResult.toolName,
+            result: toolResult.result,
+          })
+        }
+      }
+    }
+
+    // Extract sources from tool results
+    const allSources = extractSourcesFromToolResults(toolResults)
 
     // Get usage stats
     const usage = await result.usage
     const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
 
-    // Extract AI-generated metrics from the report (for reference/fallback)
+    // Extract AI-generated metrics from the report
     const aiMetrics = extractMetricsFromReport(reportContent)
 
-    // Calculate CONSISTENT RomyScore - for standard mode we use AI-extracted values
-    // since we don't have structured tool results, but still cache for consistency
+    console.log(`[BatchProcessor] Extracted metrics:`, {
+      net_worth: aiMetrics.estimated_net_worth ?? "NOT FOUND",
+      gift_capacity: aiMetrics.estimated_gift_capacity ?? "NOT FOUND",
+      recommended_ask: aiMetrics.recommended_ask ?? "NOT FOUND",
+    })
+
+    // Calculate CONSISTENT RomyScore from tool results
     const romyBreakdown = await calculateConsistentRomyScore(
       prospect,
-      [], // No tool results in standard mode
+      toolResults,
       {
         estimated_net_worth: aiMetrics.estimated_net_worth,
         estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
@@ -1003,7 +1045,8 @@ Generate the 5-section prioritization summary now.`
     const processingTime = Date.now() - startTime
     console.log(
       `[BatchProcessor] Standard report generated for ${prospect.name} in ${processingTime}ms, ` +
-        `tokens: ${tokensUsed}, Consistent RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
+        `tokens: ${tokensUsed}, tool calls: ${toolResults.length}, ` +
+        `RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
     )
 
     return {
@@ -1017,7 +1060,7 @@ Generate the 5-section prioritization summary now.`
       estimated_net_worth: aiMetrics.estimated_net_worth,
       estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
       recommended_ask: aiMetrics.recommended_ask,
-      search_queries_used: searchQueriesUsed,
+      search_queries_used: toolResults.map((t) => `Tool: ${t.toolName}`),
       sources_found: allSources,
       tokens_used: tokensUsed,
     }
