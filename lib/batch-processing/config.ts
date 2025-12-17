@@ -48,7 +48,7 @@ export const DEFAULT_CONCURRENT_LIMIT = 3
 export const PLAN_ROW_LIMITS: Record<string, number> = {
   growth: 10,
   pro: 50,
-  scale: 100,
+  scale: 1000,
 }
 
 export const DEFAULT_PLAN_ROW_LIMIT = 10
@@ -57,7 +57,7 @@ export const DEFAULT_PLAN_ROW_LIMIT = 10
  * Maximum prospects per batch job
  * Prevents excessively long-running jobs
  */
-export const MAX_PROSPECTS_PER_BATCH = 500
+export const MAX_PROSPECTS_PER_BATCH = 1000
 
 /**
  * Minimum prospects for a batch (below this, use individual chat)
