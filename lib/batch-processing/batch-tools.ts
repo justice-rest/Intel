@@ -59,6 +59,10 @@ import {
   shouldEnableBusinessAffiliationSearchTool,
 } from "@/lib/tools/business-affiliation-search"
 import {
+  businessRegistryScraperTool,
+  shouldEnableBusinessRegistryScraperTool,
+} from "@/lib/tools/business-registry-scraper"
+import {
   nonprofitAffiliationSearchTool,
   shouldEnableNonprofitAffiliationTool,
 } from "@/lib/tools/nonprofit-affiliation-search"
@@ -144,6 +148,14 @@ export function buildBatchTools(): ToolSet {
       ? {
           opencorporates_company_search: opencorporatesCompanySearchTool,
           opencorporates_officer_search: opencorporatesOfficerSearchTool,
+        }
+      : {}),
+
+    // Business Registry Scraper - Stealth web scraping fallback
+    // Scrapes OpenCorporates + State SoS when API unavailable
+    ...(shouldEnableBusinessRegistryScraperTool()
+      ? {
+          business_registry_scraper: businessRegistryScraperTool,
         }
       : {}),
 

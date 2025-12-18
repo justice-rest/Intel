@@ -445,6 +445,59 @@ wikidata_entity({ entityId: "Q317521" })
 - `/lib/tools/wikidata.ts` - Both search and entity tools
 - `/app/api/chat/route.ts` - Tool registration
 
+### Business Registry Web Scraper
+**Stealth web scraping for business ownership data** - FREE, uses playwright-extra-plugin-stealth:
+
+| Source | Type | CAPTCHA | Notes |
+|--------|------|---------|-------|
+| OpenCorporates | Web scraper | No | Fallback when no API key |
+| Florida (Sunbiz) | State registry | No | Most reliable |
+| New York (DOS) | State registry + Open Data | No | Has FREE Open Data API |
+| California (bizfile) | State registry | No | React SPA |
+| Delaware (ICIS) | State registry | **Yes** | May require manual search |
+
+**How It Works**:
+- Uses `playwright-extra` with `puppeteer-extra-plugin-stealth` for bot detection bypass
+- Masks WebDriver property, HeadlessChrome user-agent, and other fingerprints
+- Human-like delays between requests
+- Automatic retries with exponential backoff
+
+**Usage**:
+```typescript
+import { scrapeBusinessRegistry } from '@/lib/scraper'
+
+// Search multiple sources in parallel
+const results = await scrapeBusinessRegistry('Apple Inc', {
+  sources: ['opencorporates', 'florida', 'california'],
+  searchType: 'company', // or 'officer'
+  limit: 20
+})
+```
+
+**AI Tool**: `business_registry_scraper`
+- Searches OpenCorporates web + state registries
+- Use when OpenCorporates API is not configured
+- Falls back gracefully when Playwright not installed
+
+**Configuration**:
+```bash
+# Enable web scraping (disabled in production by default)
+ENABLE_WEB_SCRAPING=true
+
+# Install Playwright (required)
+npm install playwright-extra puppeteer-extra-plugin-stealth playwright
+```
+
+**Key Files**:
+- `/lib/scraper/` - Core scraper module
+- `/lib/scraper/stealth-browser.ts` - Playwright with stealth setup
+- `/lib/scraper/scrapers/opencorporates.ts` - OpenCorporates web scraper
+- `/lib/scraper/scrapers/states/` - State-specific scrapers
+- `/lib/tools/business-registry-scraper.ts` - AI tool wrapper
+
+**Note**: For production, prefer OpenCorporates API (FREE for nonprofits) over web scraping.
+Apply at [opencorporates.com/api_accounts/new](https://opencorporates.com/api_accounts/new)
+
 ### CRM Integrations (Bloomerang, Virtuous, Neon CRM)
 **Nonprofit donor CRM integrations** - User-level credentials via Settings UI:
 

@@ -160,6 +160,18 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
+        // Handle Business Registry Scraper tool results
+        if (
+          part.toolInvocation.toolName === "business_registry_scraper" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string; snippet?: string }) => ({
+            title: s.name || "Business Registry",
+            url: s.url,
+            text: s.snippet || `Business registry data from ${result.sourcesSuccessful?.join(", ") || "registry"}`,
+          }))
+        }
+
         // Handle summarizeSources tool results
         if (
           part.toolInvocation.toolName === "summarizeSources" &&

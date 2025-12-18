@@ -69,6 +69,10 @@ import {
   shouldEnableBusinessAffiliationSearchTool,
 } from "@/lib/tools/business-affiliation-search"
 import {
+  businessRegistryScraperTool,
+  shouldEnableBusinessRegistryScraperTool,
+} from "@/lib/tools/business-registry-scraper"
+import {
   prospectScoringTool,
   shouldEnableProspectScoringTool,
 } from "@/lib/tools/prospect-scoring"
@@ -542,6 +546,14 @@ For comprehensive prospect due diligence:
         ? {
             opencorporates_company_search: opencorporatesCompanySearchTool,
             opencorporates_officer_search: opencorporatesOfficerSearchTool,
+          }
+        : {}),
+      // Add Business Registry Scraper - Stealth web scraping fallback
+      // Uses playwright-extra + puppeteer-extra-plugin-stealth
+      // Scrapes OpenCorporates + State SoS (FL, NY, CA, DE) when API unavailable
+      ...(enableSearch && shouldEnableBusinessRegistryScraperTool()
+        ? {
+            business_registry_scraper: businessRegistryScraperTool,
           }
         : {}),
       // Add OpenSanctions tool for PEP and sanctions screening
