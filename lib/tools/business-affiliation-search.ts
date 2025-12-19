@@ -6,7 +6,6 @@
  * 1. SEC EDGAR (primary) - Public company officers/directors, insider filings
  * 2. Wikidata - Employment history, positions held, board memberships
  * 3. Web Search (Linkup) - Private company info, state filings, news
- * 4. OpenCorporates (optional) - If API key configured
  *
  * Returns consolidated, deduplicated results with confidence scoring
  */
@@ -15,7 +14,6 @@ import { tool } from "ai"
 import { z } from "zod"
 import { LinkupClient } from "linkup-sdk"
 import { isLinkupEnabled, getLinkupApiKey, PROSPECT_RESEARCH_DOMAINS } from "@/lib/linkup/config"
-import { isOpenCorporatesEnabled, getOpenCorporatesApiKey, OPENCORPORATES_API_BASE_URL } from "@/lib/opencorporates/config"
 
 // ============================================================================
 // TYPES
@@ -58,8 +56,6 @@ export interface BusinessAffiliationSearchResult {
     wikidataResults: number
     webSearchSearched: boolean
     webSearchResults: number
-    openCorporatesSearched: boolean
-    openCorporatesResults: number
   }
   error?: string
 }
@@ -465,87 +461,6 @@ async function searchWeb(personName: string, jurisdiction?: string): Promise<{
 }
 
 // ============================================================================
-// OPENCORPORATES (Optional - if API key configured)
-// ============================================================================
-
-async function searchOpenCorporates(personName: string, jurisdiction?: string): Promise<{
-  affiliations: BusinessAffiliation[]
-  sources: Array<{ name: string; url: string }>
-}> {
-  const affiliations: BusinessAffiliation[] = []
-  const sources: Array<{ name: string; url: string }> = []
-
-  if (!isOpenCorporatesEnabled()) {
-    return { affiliations, sources }
-  }
-
-  try {
-    const apiKey = getOpenCorporatesApiKey()
-    const params = new URLSearchParams({
-      q: personName,
-      per_page: "20",
-      order: "score",
-    })
-
-    if (jurisdiction) {
-      params.append("jurisdiction_code", `us_${jurisdiction.toLowerCase()}`)
-    }
-    if (apiKey) {
-      params.append("api_token", apiKey)
-    }
-
-    const url = `${OPENCORPORATES_API_BASE_URL}/officers/search?${params.toString()}`
-
-    const response = await fetch(url, {
-      headers: { Accept: "application/json" },
-    })
-
-    if (!response.ok) {
-      console.log("[BusinessSearch] OpenCorporates returned", response.status)
-      return { affiliations, sources }
-    }
-
-    const data = await response.json()
-    const officers = data.results?.officers || []
-
-    for (const { officer } of officers) {
-      affiliations.push({
-        companyName: officer.company?.name || "Unknown",
-        role: officer.position || "Officer",
-        roleType: officer.position?.toLowerCase().includes("director") ? "director" : "officer",
-        current: !officer.inactive && !officer.end_date,
-        startDate: officer.start_date || undefined,
-        endDate: officer.end_date || undefined,
-        companyType: "private",
-        jurisdiction: officer.company?.jurisdiction_code,
-        source: "OpenCorporates",
-        sourceUrl: officer.company?.opencorporates_url,
-        confidence: "high",
-        isPublicCompany: false,
-      })
-
-      if (officer.company?.opencorporates_url) {
-        sources.push({
-          name: `${officer.company.name} - OpenCorporates`,
-          url: officer.company.opencorporates_url,
-        })
-      }
-    }
-
-    sources.unshift({
-      name: `OpenCorporates - "${personName}" Officer Search`,
-      url: `https://opencorporates.com/officers?q=${encodeURIComponent(personName)}`,
-    })
-
-    console.log("[BusinessSearch] OpenCorporates found", affiliations.length, "affiliations")
-  } catch (error) {
-    console.error("[BusinessSearch] OpenCorporates error:", error)
-  }
-
-  return { affiliations, sources }
-}
-
-// ============================================================================
 // DEDUPLICATE AND MERGE RESULTS
 // ============================================================================
 
@@ -598,9 +513,6 @@ function formatResultsForAI(result: BusinessAffiliationSearchResult): string {
     }
     if (result.searchDetails.webSearchSearched) {
       lines.push(`- **Web Search:** ${result.searchDetails.webSearchResults} results (news, profiles)`)
-    }
-    if (result.searchDetails.openCorporatesSearched) {
-      lines.push(`- **OpenCorporates:** ${result.searchDetails.openCorporatesResults} results (corporate registry)`)
     }
     lines.push("")
     lines.push("### Possible Reasons")
@@ -726,8 +638,7 @@ export const businessAffiliationSearchTool = tool({
     "Automatically searches multiple FREE sources: SEC EDGAR (public company insiders), " +
     "Wikidata (employment history), and web search (private companies). " +
     "Returns consolidated, deduplicated results with confidence scoring and wealth indicators. " +
-    "ENTERPRISE-GRADE: Combines 3-4 data sources for comprehensive coverage. " +
-    "Use this instead of opencorporates_officer_search for seamless results.",
+    "ENTERPRISE-GRADE: Combines 3 data sources for comprehensive coverage.",
   parameters: businessAffiliationSearchSchema,
   execute: async ({
     personName,
@@ -748,8 +659,6 @@ export const businessAffiliationSearchTool = tool({
       wikidataResults: 0,
       webSearchSearched: false,
       webSearchResults: 0,
-      openCorporatesSearched: false,
-      openCorporatesResults: 0,
     }
 
     // Run all searches in parallel for speed
@@ -775,14 +684,6 @@ export const businessAffiliationSearchTool = tool({
       )
     }
 
-    // OpenCorporates (if configured)
-    if (isOpenCorporatesEnabled()) {
-      searchPromises.push(
-        withTimeout(searchOpenCorporates(personName, jurisdiction), 15000, { affiliations: [], sources: [] })
-          .then((r) => ({ ...r, source: "OpenCorporates" }))
-      )
-    }
-
     // Wait for all searches
     const results = await Promise.all(searchPromises)
 
@@ -797,9 +698,6 @@ export const businessAffiliationSearchTool = tool({
       } else if (result.source === "Web Search (Linkup)") {
         searchDetails.webSearchSearched = true
         searchDetails.webSearchResults = result.affiliations.length
-      } else if (result.source === "OpenCorporates") {
-        searchDetails.openCorporatesSearched = true
-        searchDetails.openCorporatesResults = result.affiliations.length
       }
 
       if (result.affiliations.length > 0) {

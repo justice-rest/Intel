@@ -5,12 +5,12 @@
  * is unavailable or too expensive.
  *
  * Supported sources:
- * - OpenCorporates (web scraper fallback when no API key)
  * - US State Secretary of State registries:
  *   - Delaware (icis.corp.delaware.gov) - Note: Has CAPTCHA
  *   - New York (apps.dos.ny.gov) - Open data available
  *   - California (bizfileonline.sos.ca.gov)
  *   - Florida (search.sunbiz.org) - Most scrape-friendly
+ *   - Colorado (sos.state.co.us) - Open data available
  *
  * Uses playwright-extra with puppeteer-extra-plugin-stealth for bot detection bypass
  */
@@ -52,14 +52,17 @@ export const STATE_REGISTRY_CONFIG = {
     searchUrl: "https://icis.corp.delaware.gov/ecorp/entitysearch/namesearch.aspx",
     hasCaptcha: true,
     selectors: {
-      searchInput: "#txtEntityName",
-      searchButton: "#btnSearch",
-      resultsTable: "#tblResults",
-      resultRows: "#tblResults tbody tr",
-      entityName: ".entityName",
-      fileNumber: ".fileNumber",
-      status: ".status",
-      incorporationDate: ".incDate",
+      // ASP.NET naming convention - verified 2025-01
+      searchInput: "#ctl00_ContentPlaceHolder1_frmEntityName",
+      fileNumberInput: "#ctl00_ContentPlaceHolder1_frmFileNumber",
+      searchButton: "#ctl00_ContentPlaceHolder1_btnSubmit",
+      resultsTable: "#ctl00_ContentPlaceHolder1_pnlResults table, table[id*='Results'], .results-table",
+      resultRows: "#ctl00_ContentPlaceHolder1_pnlResults table tr, table[id*='Results'] tr",
+      entityName: "td:first-child a, td a",
+      fileNumber: "td:nth-child(2)",
+      status: "td:nth-child(7), td:last-child",
+      incorporationDate: "td:nth-child(3)",
+      entityType: "td:nth-child(5)",
     },
   },
   newYork: {
@@ -114,6 +117,27 @@ export const STATE_REGISTRY_CONFIG = {
     // Alternative: search by officer
     officerSearchUrl: "https://search.sunbiz.org/Inquiry/CorporationSearch/ByOfficerOrRegisteredAgent",
   },
+  colorado: {
+    name: "Colorado Secretary of State",
+    baseUrl: "https://www.sos.state.co.us",
+    searchUrl: "https://www.sos.state.co.us/biz/BusinessEntitySearch.do",
+    hasCaptcha: false,
+    // Colorado has FREE Open Data API (Socrata) - use this instead of web scraping!
+    openDataUrl: "https://data.colorado.gov/resource/4ykn-tg5h.json",
+    tier: 1, // API available, no scraping needed
+    selectors: {
+      // Web scraping selectors (fallback only)
+      searchInput: "#searchField",
+      searchButton: 'input[type="submit"]',
+      resultsTable: "#resultsTable",
+      resultRows: "#resultsTable tbody tr",
+      entityName: "td:nth-child(1) a",
+      entityNumber: "td:nth-child(2)",
+      status: "td:nth-child(3)",
+      entityType: "td:nth-child(4)",
+      formationDate: "td:nth-child(5)",
+    },
+  },
   texas: {
     name: "Texas Secretary of State (SOSDirect)",
     baseUrl: "https://www.sos.state.tx.us",
@@ -126,43 +150,9 @@ export const STATE_REGISTRY_CONFIG = {
 } as const
 
 /**
- * OpenCorporates web scraper configuration (fallback when no API key)
- */
-export const OPENCORPORATES_SCRAPER_CONFIG = {
-  name: "OpenCorporates",
-  baseUrl: "https://opencorporates.com",
-  searchUrl: "https://opencorporates.com/companies",
-  officerSearchUrl: "https://opencorporates.com/officers",
-  hasCaptcha: false, // May have rate limiting
-  selectors: {
-    // Company search results
-    searchInput: 'input[name="q"]',
-    searchButton: 'button[type="submit"]',
-    resultsContainer: "#results",
-    companyRows: ".company_search_result",
-    companyName: ".company_search_result a.company",
-    companyJurisdiction: ".company_search_result .jurisdiction",
-    companyNumber: ".company_search_result .company_number",
-    companyStatus: ".company_search_result .status",
-    companyAddress: ".company_search_result .registered_address",
-
-    // Officer search results
-    officerRows: ".officer_search_result",
-    officerName: ".officer_search_result a.officer",
-    officerPosition: ".officer_search_result .position",
-    officerCompany: ".officer_search_result a.company",
-
-    // Company detail page
-    detailOfficers: "#officers .officer",
-    detailFilings: "#filings .filing",
-    detailAddress: ".registered_address .address",
-  },
-} as const
-
-/**
  * Supported scraper sources
  */
-export type ScraperSource = "opencorporates" | "delaware" | "newYork" | "california" | "florida" | "texas"
+export type ScraperSource = "delaware" | "newYork" | "california" | "florida" | "texas" | "colorado"
 
 /**
  * Business entity result from any scraper
@@ -224,7 +214,6 @@ export interface ScraperResult<T> {
  * DEFAULT: ENABLED (can be disabled with ENABLE_WEB_SCRAPING=false)
  *
  * Web scraping is enabled by default as a fallback for when:
- * - OpenCorporates API key is not configured
  * - State registry data is needed beyond what APIs provide
  * - DatabaseUSA or similar commercial sources are too expensive
  */

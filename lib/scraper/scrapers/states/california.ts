@@ -13,7 +13,10 @@
  * - Search: https://bizfileonline.sos.ca.gov/search/business
  * - Entity details: https://bizfileonline.sos.ca.gov/search/business/XXX
  *
- * Note: California also offers bulk data for $100 (Master Unload files)
+ * Note: California's site is a React SPA, so HTTP fallback has limited effectiveness.
+ * Browser-based scraping (Playwright) is the primary method.
+ *
+ * Bulk data: California offers bulk data for $100 (Master Unload files)
  */
 
 import {
@@ -32,6 +35,45 @@ import {
 } from "../../stealth-browser"
 
 const CONFIG = STATE_REGISTRY_CONFIG.california
+
+// Timeout constants for CA React SPA (needs more time)
+const CA_PAGE_LOAD_TIMEOUT = 30000 // 30s for SPA to load
+const CA_RESULTS_TIMEOUT = 25000 // 25s to wait for results
+
+/**
+ * Resolve a URL properly (handles both absolute and relative URLs)
+ */
+function resolveUrl(href: string | null, baseUrl: string): string {
+  if (!href) return baseUrl
+  if (href.startsWith("http://") || href.startsWith("https://")) {
+    return href // Already absolute
+  }
+  // Use URL API for proper resolution
+  try {
+    return new URL(href, baseUrl).toString()
+  } catch {
+    // Fallback to simple concatenation if URL parsing fails
+    return href.startsWith("/") ? `${baseUrl}${href}` : `${baseUrl}/${href}`
+  }
+}
+
+/**
+ * Normalize California status values
+ */
+function normalizeStatus(status: string | null): string | null {
+  if (!status) return null
+  const s = status.trim().toUpperCase()
+
+  if (s === "ACTIVE" || s.includes("ACTIVE")) return "Active"
+  if (s === "SUSPENDED" || s.includes("SUSPEND")) return "Suspended"
+  if (s === "DISSOLVED" || s.includes("DISSOLV")) return "Dissolved"
+  if (s === "FORFEITED" || s.includes("FORFEIT")) return "Forfeited"
+  if (s === "CANCELLED" || s === "CANCELED" || s.includes("CANCEL")) return "Cancelled"
+  if (s === "CONVERTED" || s.includes("CONVERT")) return "Converted"
+  if (s === "MERGED" || s.includes("MERGE")) return "Merged"
+
+  return status.trim()
+}
 
 /**
  * Search California businesses by name or entity number
@@ -74,14 +116,44 @@ export async function scrapeCaliforniaBusinesses(
     await humanDelay()
 
     // California's search page is a React SPA, need to wait for it to load
-    await page.waitForSelector('input[type="text"]', { timeout: 10000 })
+    // Try multiple selectors for the search input
+    const searchInputSelectors = [
+      'input[type="text"]',
+      'input[name="searchInput"]',
+      'input[placeholder*="search" i]',
+      'input[placeholder*="business" i]',
+      '#searchInput',
+      '.search-input input',
+    ]
+
+    let searchInput = null
+    for (const selector of searchInputSelectors) {
+      try {
+        await page.waitForSelector(selector, { timeout: 5000 })
+        searchInput = await page.$(selector)
+        if (searchInput) {
+          console.log(`[California Scraper] Found search input with selector: ${selector}`)
+          break
+        }
+      } catch {
+        // Try next selector
+      }
+    }
+
+    if (!searchInput) {
+      // Try one more time with longer timeout for any text input
+      await page.waitForSelector('input[type="text"]', { timeout: CA_PAGE_LOAD_TIMEOUT })
+      searchInput = await page.$('input[type="text"]')
+    }
+
     await humanDelay()
 
-    // Find and fill the search input
-    const searchInput = await page.$('input[type="text"]')
+    // Fill the search input
     if (searchInput) {
       await searchInput.click()
       await page.keyboard.type(query, { delay: 50 })
+    } else {
+      throw new Error("Could not find search input on California SOS website")
     }
 
     await humanDelay()
@@ -89,8 +161,20 @@ export async function scrapeCaliforniaBusinesses(
     // Submit search (press Enter or click search button)
     await page.keyboard.press("Enter")
 
-    // Wait for results to load
-    await page.waitForSelector(".search-results, .no-results, .entity-name", { timeout: 20000 }).catch(() => null)
+    // Wait for results to load with multiple possible selectors
+    const resultsSelectors = [
+      ".search-results",
+      ".no-results",
+      ".entity-name",
+      "[class*='result']",
+      "table tbody tr",
+      ".list-group-item",
+    ]
+
+    await page.waitForSelector(resultsSelectors.join(", "), { timeout: CA_RESULTS_TIMEOUT }).catch(() => null)
+
+    // Extra wait for React to finish rendering
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => null)
     await humanDelay()
 
     // Check for no results
@@ -148,16 +232,25 @@ export async function scrapeCaliforniaBusinesses(
 
         if (!name || !name.trim()) continue
 
+        // Clean and validate entity number
+        const cleanEntityNumber = entityNumber?.trim().replace(/[^\w-]/g, "") || null
+
+        // Normalize the status
+        const normalizedStatus = normalizeStatus(status)
+
+        // Properly resolve the URL
+        const sourceUrl = resolveUrl(href, CONFIG.baseUrl)
+
         businesses.push({
           name: name.trim(),
-          entityNumber: entityNumber?.trim().replace(/[^\w-]/g, "") || null,
+          entityNumber: cleanEntityNumber,
           jurisdiction: "us_ca",
-          status: status?.trim() || null,
+          status: normalizedStatus,
           incorporationDate: formationDate?.trim() || null,
           entityType: entityType?.trim() || null,
           registeredAddress: null,
           registeredAgent: null,
-          sourceUrl: href ? `${CONFIG.baseUrl}${href}` : CONFIG.searchUrl,
+          sourceUrl,
           source: "california",
           scrapedAt: new Date().toISOString(),
         })

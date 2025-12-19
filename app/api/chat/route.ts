@@ -43,11 +43,6 @@ import {
   shouldEnableRentalInvestmentTool,
 } from "@/lib/tools/rental-investment-tool"
 import {
-  opencorporatesCompanySearchTool,
-  opencorporatesOfficerSearchTool,
-  shouldEnableOpenCorporatesTools,
-} from "@/lib/tools/opencorporates"
-import {
   opensanctionsScreeningTool,
   shouldEnableOpenSanctionsTools,
 } from "@/lib/tools/opensanctions"
@@ -73,6 +68,10 @@ import {
   shouldEnableBusinessRegistryScraperTool,
 } from "@/lib/tools/business-registry-scraper"
 import {
+  findBusinessOwnershipTool,
+  shouldEnableFindBusinessOwnershipTool,
+} from "@/lib/tools/find-business-ownership"
+import {
   prospectScoringTool,
   shouldEnableProspectScoringTool,
 } from "@/lib/tools/prospect-scoring"
@@ -88,6 +87,11 @@ import {
   givingHistoryTool,
   shouldEnableGivingHistoryTool,
 } from "@/lib/tools/giving-history"
+import {
+  gleifSearchTool,
+  gleifLookupTool,
+  shouldEnableGleifTools,
+} from "@/lib/tools/gleif-lei"
 import {
   neonCRMSearchAccountsTool,
   neonCRMGetAccountTool,
@@ -332,13 +336,15 @@ This provides existing giving history and contact details before running externa
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
       if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
-      dataTools.push("business_affiliation_search (UNIFIED: finds ALL business roles from SEC EDGAR + Wikidata + Web - use this for officer/director search)")
+      dataTools.push("business_affiliation_search (UNIFIED: finds business roles from SEC EDGAR + Wikidata + Web - best for PUBLIC company officer/director search)")
+      if (shouldEnableFindBusinessOwnershipTool()) dataTools.push("find_business_ownership (STATE REGISTRIES: find what businesses a person owns/controls - searches FL, NY, CA, DE, CO with ownership inference)")
+      if (shouldEnableBusinessRegistryScraperTool()) dataTools.push("business_registry_scraper (STATE REGISTRIES: search by company name OR officer name - FL, NY, CA, DE, CO)")
       if (shouldEnableProspectScoringTool()) dataTools.push("prospect_score (AI-POWERED: Giving Capacity Score 0-100, Propensity Score, A-D Rating - FREE DonorSearch AI alternative)")
       if (shouldEnableProspectReportTool()) dataTools.push("prospect_report (COMPREHENSIVE: Full research report with all data sources - FREE alternative to $125-$300/profile reports)")
       if (shouldEnableNonprofitBoardSearchTool()) dataTools.push("nonprofit_board_search (BOARD FINDER: Find all nonprofit & public company board positions for a person)")
       if (shouldEnableGivingHistoryTool()) dataTools.push("giving_history (GIVING AGGREGATOR: Combines FEC + 990 grants + major gifts - DonorSearch's core feature, FREE)")
+      if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
       if (shouldEnableNeonCRMTools()) dataTools.push("neon_crm_* (Neon CRM integration: search accounts/donors, get donor details, search donations - requires API key)")
-      if (shouldEnableOpenCorporatesTools()) dataTools.push("opencorporates_company_search / opencorporates_officer_search (company ownership, officers, directors across 140+ jurisdictions)")
       if (shouldEnableOpenSanctionsTools()) dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
       if (shouldEnableLobbyingTools()) dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
       if (shouldEnableCourtListenerTools()) dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
@@ -371,9 +377,11 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - wikidata_search/entity: Biographical data (education, employers, net worth)
 - property_valuation: Home value estimate - just pass the address, auto-fetches Zillow/Redfin/comps
 - rental_investment: Rental analysis - REQUIRES property value from property_valuation first
-- business_affiliation_search: **USE THIS** for officer/director search - automatically searches SEC EDGAR + Wikidata + Web + OpenCorporates
-- opencorporates_company_search: Search companies by name (LLC, Corp, etc.) - returns officers, status, filings (requires API key)
-- opencorporates_officer_search: Find all companies where a person is officer/director (requires API key)
+- business_affiliation_search: Search SEC EDGAR + Wikidata + Web for PUBLIC company officer/director roles
+- find_business_ownership: **USE THIS** for "what businesses does [person] own?" - searches state registries with ownership inference
+- business_registry_scraper: Search state registries (FL, NY, CA, DE, CO) by company name OR officer name
+- gleif_search: Search Global LEI database for corporate entities (2.5M+ entities)
+- gleif_lookup: Get LEI details with ownership chain (direct/ultimate parent)
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
 - lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
@@ -393,9 +401,30 @@ Run 6-10 searchWeb queries per prospect with different angles:
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
 4. **property_valuation**: Just pass the address - tool auto-searches Zillow, Redfin, county records, and comps
-5. **business ownership**: Use **business_affiliation_search** (unified tool) - automatically searches SEC + Wikidata + Web + OpenCorporates
-6. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
-7. Run tools in parallel when possible. Be thorough.
+5. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
+6. Run tools in parallel when possible. Be thorough.
+
+### Business & Ownership Research (IMPORTANT)
+**Choose the right tool based on your goal:**
+
+| Goal | Tool | When to Use |
+|------|------|-------------|
+| "What businesses does [person] own?" | **find_business_ownership** | Person→Business search. Searches state registries with ownership inference. |
+| "Is [person] a director/officer at any PUBLIC companies?" | **business_affiliation_search** | SEC EDGAR + Wikidata + Web. Best for public company roles. |
+| "Find info about [company name]" | **business_registry_scraper** (searchType="company") | Company→Details search. Gets registration, officers, status. |
+| "Find all officer positions for [person]" in private companies | **business_registry_scraper** (searchType="officer") | Person→Companies via state registries |
+
+**State Registry Knowledge:**
+- **Delaware (DE)**: 65% of Fortune 500 companies. Holdings, LLCs, corporations. ALWAYS include for large companies.
+- **Florida (FL)**: Most reliable for officer search. Best overall data quality.
+- **New York (NY)**: Open Data API - fastest and most reliable. Good for NYC-based entities.
+- **California (CA)**: Tech companies, startups. Required for Silicon Valley prospects.
+- **Colorado (CO)**: Open Data API available. Good secondary source.
+
+**Ownership Inference (find_business_ownership):**
+- LLC Managing Member = likely owner
+- S-Corp President/CEO/Secretary = often sole owner (wears multiple hats)
+- General Partner = ownership stake in partnership
 
 ### Board & Officer Validation (PUBLIC COMPANIES)
 When asked to verify if someone is on a board, is a director, officer, or executive:
@@ -406,10 +435,11 @@ Use BOTH tools: insider search confirms the person files as insider, proxy shows
 ### Due Diligence Workflow
 For comprehensive prospect due diligence:
 1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **business_affiliation_search** - Find ALL business affiliations (unified search)
-3. **court_search** - Check for litigation history
-4. **lobbying_search** - Discover political connections
-5. **fec_contributions** - Political giving patterns`
+2. **find_business_ownership** - Find ALL business affiliations via state registries
+3. **business_affiliation_search** - Find public company roles via SEC + Wikidata
+4. **court_search** - Check for litigation history
+5. **lobbying_search** - Discover political connections
+6. **fec_contributions** - Political giving patterns`
       }
     }
 
@@ -540,20 +570,20 @@ For comprehensive prospect due diligence:
             rental_investment: rentalInvestmentTool,
           }
         : {}),
-      // Add OpenCorporates tools for company and officer search
-      // FREE API - no key required (100-200 requests/month)
-      ...(enableSearch && shouldEnableOpenCorporatesTools()
-        ? {
-            opencorporates_company_search: opencorporatesCompanySearchTool,
-            opencorporates_officer_search: opencorporatesOfficerSearchTool,
-          }
-        : {}),
       // Add Business Registry Scraper - Stealth web scraping fallback
       // Uses playwright-extra + puppeteer-extra-plugin-stealth
-      // Scrapes OpenCorporates + State SoS (FL, NY, CA, DE) when API unavailable
+      // Scrapes State SoS (FL, NY, CA, DE, CO) registries
       ...(enableSearch && shouldEnableBusinessRegistryScraperTool()
         ? {
             business_registry_scraper: businessRegistryScraperTool,
+          }
+        : {}),
+      // Add Find Business Ownership - Person-to-business search with ownership inference
+      // Searches state registries for officer/director positions
+      // Includes ownership likelihood scoring (confirmed/high/medium/low)
+      ...(enableSearch && shouldEnableFindBusinessOwnershipTool()
+        ? {
+            find_business_ownership: findBusinessOwnershipTool,
           }
         : {}),
       // Add OpenSanctions tool for PEP and sanctions screening
@@ -586,7 +616,7 @@ For comprehensive prospect due diligence:
           }
         : {}),
       // Add Business Affiliation Search - UNIFIED enterprise-grade tool
-      // Combines SEC EDGAR + Wikidata + Web Search + OpenCorporates (if available)
+      // Combines SEC EDGAR + Wikidata + Web Search + State Registries
       // ALWAYS FREE - automatically uses available sources
       ...(enableSearch && shouldEnableBusinessAffiliationSearchTool()
         ? {
@@ -619,6 +649,14 @@ For comprehensive prospect due diligence:
       ...(enableSearch && shouldEnableGivingHistoryTool()
         ? {
             giving_history: givingHistoryTool,
+          }
+        : {}),
+      // Add GLEIF LEI Tools - Global Legal Entity Identifier database
+      // FREE API - 2.5M+ entities with corporate ownership chains
+      ...(enableSearch && shouldEnableGleifTools()
+        ? {
+            gleif_search: gleifSearchTool,
+            gleif_lookup: gleifLookupTool,
           }
         : {}),
       // Add Neon CRM tools for nonprofit donor management
@@ -687,8 +725,8 @@ For comprehensive prospect due diligence:
           usage,
         })
         if (supabase) {
-          // Store assistant message
-          await storeAssistantMessage({
+          // Store assistant message and get the message ID
+          const savedMessage = await storeAssistantMessage({
             supabase,
             chatId,
             messages:
@@ -696,6 +734,101 @@ For comprehensive prospect due diligence:
             message_group_id,
             model: normalizedModel,
           })
+
+          // RESPONSE VERIFICATION: Verify Grok responses with Perplexity Sonar (background operation)
+          if (isAuthenticated && savedMessage?.messageId) {
+            const messageId = savedMessage.messageId
+            const responseContent = savedMessage.content || text || ""
+
+            Promise.resolve().then(async () => {
+              try {
+                const { shouldVerifyResponse, verifyResponse } = await import("@/lib/verification")
+
+                if (!shouldVerifyResponse(normalizedModel, responseContent)) {
+                  console.log("[Verification] Skipping - criteria not met")
+                  return
+                }
+
+                console.log("[Verification] Starting verification for message:", messageId)
+                const numericMessageId = parseInt(messageId, 10)
+
+                // Set verifying = true immediately so UI shows the badge
+                // Using type assertion since verification columns are added via migration
+                const { error: verifyingError } = await supabase
+                  .from("messages")
+                  .update({ verifying: true } as Record<string, unknown>)
+                  .eq("id", numericMessageId)
+
+                if (verifyingError) {
+                  console.error("[Verification] Failed to set verifying flag:", verifyingError)
+                }
+
+                // Run verification
+                const verificationResult = await verifyResponse(
+                  {
+                    originalResponse: responseContent,
+                    userQuery: String(userMessage?.content || ""),
+                    modelId: normalizedModel,
+                  },
+                  apiKey || process.env.OPENROUTER_API_KEY || ""
+                )
+
+                if (!verificationResult) {
+                  console.log("[Verification] No result returned, clearing verifying flag")
+                  await supabase
+                    .from("messages")
+                    .update({ verifying: false } as Record<string, unknown>)
+                    .eq("id", numericMessageId)
+                  return
+                }
+
+                // Check if response was modified
+                const wasModified =
+                  verificationResult.mergedResponse &&
+                  verificationResult.mergedResponse !== responseContent
+
+                if (wasModified) {
+                  console.log(
+                    `[Verification] Response updated with ${verificationResult.corrections.length} corrections and ${verificationResult.gapsFilled.length} gaps filled`
+                  )
+                } else {
+                  console.log("[Verification] Response verified - no changes needed")
+                }
+
+                // Update message with verification results
+                // Using type assertion since verification columns are added via migration
+                const { error: updateError } = await supabase
+                  .from("messages")
+                  .update({
+                    content: wasModified ? verificationResult.mergedResponse : responseContent,
+                    verified: true,
+                    verifying: false,
+                    verification_result: {
+                      corrections: verificationResult.corrections,
+                      gapsFilled: verificationResult.gapsFilled,
+                      confidenceScore: verificationResult.confidenceScore,
+                      sources: verificationResult.sources,
+                      wasModified,
+                    },
+                    verified_at: verificationResult.verificationTimestamp,
+                  } as Record<string, unknown>)
+                  .eq("id", numericMessageId)
+
+                if (updateError) {
+                  console.error("[Verification] Failed to update message:", updateError)
+                } else {
+                  console.log("[Verification] Message updated successfully")
+                }
+              } catch (error) {
+                console.error("[Verification] Verification failed:", error)
+                // Clear verifying flag on error
+                await supabase
+                  .from("messages")
+                  .update({ verifying: false } as Record<string, unknown>)
+                  .eq("id", parseInt(messageId, 10))
+              }
+            }).catch((err) => console.error("[Verification] Background verification failed:", err))
+          }
 
           // MEMORY EXTRACTION: Extract and save important facts (background operation)
           if (isAuthenticated) {

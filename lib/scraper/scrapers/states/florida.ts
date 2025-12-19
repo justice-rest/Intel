@@ -107,24 +107,63 @@ function normalizeStatus(status: string | null): string | null {
 }
 
 /**
+ * Build searchNameOrder parameter for Sunbiz URL
+ * Sunbiz uses a specific format:
+ * - Uppercase
+ * - Keep alphanumeric chars and spaces
+ * - Replace spaces with nothing (concatenate words)
+ * - Special chars like & become AND, etc.
+ */
+function buildSearchNameOrder(query: string): string {
+  return query
+    .toUpperCase()
+    // Replace & with AND (common in company names like "Ben & Jerry's")
+    .replace(/&/g, "AND")
+    // Replace common punctuation that might be in company names
+    .replace(/'/g, "")  // O'Brien -> OBRIEN
+    .replace(/-/g, "")  // Smith-Jones -> SMITHJONES
+    .replace(/\./g, "") // Inc. -> INC
+    .replace(/,/g, "")  // Remove commas
+    // Keep only alphanumeric (spaces will be removed but first kept for ordering)
+    .replace(/[^A-Z0-9 ]/g, "")
+    // Remove spaces (Sunbiz concatenates)
+    .replace(/\s+/g, "")
+}
+
+/**
+ * Extract total page count from search results HTML
+ */
+function extractTotalPages(html: string): number {
+  // Look for pagination links like "Page2", "Page3", etc.
+  const pageLinks = html.match(/Page(\d+)/g)
+  if (!pageLinks || pageLinks.length === 0) return 1
+
+  const pageNumbers = pageLinks.map(p => parseInt(p.replace("Page", ""), 10))
+  return Math.max(...pageNumbers, 1)
+}
+
+/**
  * Search Florida businesses via HTTP (fast, no browser needed)
+ * Supports pagination to fetch multiple pages of results
  */
 export async function searchFloridaHttp(
   query: string,
-  options: { limit?: number } = {}
+  options: { limit?: number; maxPages?: number } = {}
 ): Promise<ScraperResult<ScrapedBusinessEntity>> {
   const startTime = Date.now()
-  const { limit = 25 } = options
+  const { limit = 25, maxPages = 3 } = options
 
   console.log("[Florida Scraper] HTTP search:", query)
 
   try {
     // Build search URL - Sunbiz uses a specific URL pattern for search results
-    // searchNameOrder needs to be the query without spaces in uppercase
-    const searchNameOrder = query.toUpperCase().replace(/[^A-Z0-9]/g, "")
-    const searchUrl = `https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResults/EntityName/${encodeURIComponent(query)}/Page1?searchNameOrder=${searchNameOrder}`
+    const searchNameOrder = buildSearchNameOrder(query)
+    const encodedQuery = encodeURIComponent(query)
 
-    const response = await fetch(searchUrl, {
+    // Fetch first page
+    const firstPageUrl = `https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResults/EntityName/${encodedQuery}/Page1?searchNameOrder=${searchNameOrder}`
+
+    const response = await fetch(firstPageUrl, {
       method: "GET",
       headers: HTTP_HEADERS,
       redirect: "follow",
@@ -141,17 +180,53 @@ export async function searchFloridaHttp(
       throw new Error("CAPTCHA detected, falling back to browser")
     }
 
-    // Parse results
-    const businesses = parseFloridaResultsFromHtml(html)
-    console.log(`[Florida Scraper] HTTP found ${businesses.length} results`)
+    // Parse first page results
+    let allBusinesses = parseFloridaResultsFromHtml(html)
+    console.log(`[Florida Scraper] Page 1: ${allBusinesses.length} results`)
+
+    // Check if we need more results and have pagination
+    const totalPages = extractTotalPages(html)
+    console.log(`[Florida Scraper] Total pages available: ${totalPages}`)
+
+    // Fetch additional pages if needed (up to maxPages)
+    if (allBusinesses.length < limit && totalPages > 1) {
+      const pagesToFetch = Math.min(totalPages, maxPages)
+
+      for (let page = 2; page <= pagesToFetch && allBusinesses.length < limit; page++) {
+        try {
+          const pageUrl = `https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResults/EntityName/${encodedQuery}/Page${page}?searchNameOrder=${searchNameOrder}`
+
+          const pageResponse = await fetch(pageUrl, {
+            method: "GET",
+            headers: HTTP_HEADERS,
+            redirect: "follow",
+          })
+
+          if (pageResponse.ok) {
+            const pageHtml = await pageResponse.text()
+            const pageResults = parseFloridaResultsFromHtml(pageHtml)
+            console.log(`[Florida Scraper] Page ${page}: ${pageResults.length} results`)
+            allBusinesses = [...allBusinesses, ...pageResults]
+          }
+
+          // Small delay between page requests to be respectful
+          await new Promise(resolve => setTimeout(resolve, 300))
+        } catch (pageError) {
+          console.warn(`[Florida Scraper] Failed to fetch page ${page}:`, pageError)
+          break // Stop fetching more pages on error
+        }
+      }
+    }
+
+    console.log(`[Florida Scraper] HTTP total found: ${allBusinesses.length} results`)
 
     // Apply limit
-    const limitedResults = businesses.slice(0, limit)
+    const limitedResults = allBusinesses.slice(0, limit)
 
     return {
       success: true,
       data: limitedResults as ScrapedBusinessEntity[],
-      totalFound: businesses.length,
+      totalFound: allBusinesses.length,
       source: "florida",
       query,
       scrapedAt: new Date().toISOString(),

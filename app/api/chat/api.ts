@@ -399,16 +399,20 @@ export async function storeAssistantMessage({
   messages,
   message_group_id,
   model,
-}: StoreAssistantMessageParams): Promise<void> {
+}: StoreAssistantMessageParams): Promise<{
+  messageId?: string
+  content?: string
+} | void> {
   if (!supabase) return
   try {
-    await saveFinalAssistantMessage(
+    const result = await saveFinalAssistantMessage(
       supabase,
       chatId,
       messages,
       message_group_id,
       model
     )
+    return result
   } catch (err) {
     console.error("Failed to save assistant messages:", err)
   }

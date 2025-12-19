@@ -35,10 +35,10 @@ export function getLinkupApiKeyOptional(): string | null {
 
 /**
  * Default configuration for Linkup search
- * Using "deep" mode for comprehensive prospect research results
+ * Using "standard" (fast) mode for cost-effective prospect research
  */
 export const LINKUP_DEFAULTS = {
-  depth: "deep" as const, // Deep search for better prospect research coverage
+  depth: "standard" as const, // Standard (fast) search - more affordable
   outputType: "sourcedAnswer" as const, // Pre-synthesized answer with sources
   maxResults: 10, // Number of sources to return
 } as const

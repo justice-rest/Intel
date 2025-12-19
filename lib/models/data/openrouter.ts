@@ -36,4 +36,40 @@ export const openrouterModels: ModelConfig[] = [
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
       }).chat("x-ai/grok-4.1-fast"),
   },
+  // Perplexity Sonar - used internally for response verification
+  // Not shown in model selector (hidden: true)
+  {
+    id: "openrouter:perplexity/sonar",
+    name: "Perplexity Sonar",
+    provider: "OpenRouter",
+    providerId: "openrouter",
+    modelFamily: "Sonar",
+    baseProviderId: "perplexity",
+    description:
+      "Fast, affordable QA model with web search and citations. Used for response verification.",
+    tags: ["fast", "web-search", "verification", "internal"],
+    contextWindow: 127072,
+    inputCost: 1.0,
+    outputCost: 1.0,
+    priceUnit: "per 1M tokens",
+    vision: false,
+    tools: false,
+    audio: false,
+    reasoning: true,
+    webSearch: true,
+    openSource: false,
+    speed: "Fast",
+    intelligence: "Medium",
+    website: "https://openrouter.ai",
+    apiDocs: "https://openrouter.ai/perplexity/sonar/api",
+    modelPage: "https://www.perplexity.ai/",
+    releasedAt: "2025-01-27",
+    icon: "perplexity",
+    isPro: false,
+    hidden: true, // Internal model - not shown in model selector
+    apiSdk: (apiKey?: string) =>
+      createOpenRouter({
+        apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+      }).chat("perplexity/sonar"),
+  },
 ]

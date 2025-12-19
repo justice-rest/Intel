@@ -43,6 +43,8 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   list_documents: "List Documents",
   search_memory: "Memory Search",
   sec_edgar_filings: "SEC Filings",
+  sec_insider_search: "SEC Insider Filings",
+  sec_proxy_search: "SEC Proxy Statements",
   fec_contributions: "Political Contributions",
   us_gov_data: "US Government Data",
   wikidata_search: "Wikidata Search",
@@ -53,6 +55,21 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   giving_history: "Giving History",
   prospect_report: "Prospect Report",
   prospect_score: "Prospect Score",
+  opensanctions_screening: "Sanctions Screening",
+  lobbying_search: "Lobbying Records",
+  court_search: "Court Cases",
+  judge_search: "Judge Profile",
+  household_search: "Household Data",
+  rental_investment: "Rental Analysis",
+  business_registry_scraper: "Business Registry",
+  find_business_ownership: "Business Ownership",
+  crm_search: "CRM Search",
+  neon_crm_search_accounts: "CRM Accounts",
+  neon_crm_get_account: "CRM Account",
+  neon_crm_search_donations: "CRM Donations",
+  gleif_search: "LEI Search",
+  gleif_lookup: "LEI Details",
+  nonprofit_affiliation_search: "Nonprofit Affiliations",
 }
 
 /**
@@ -2542,6 +2559,529 @@ function SingleToolCard({
                     <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
                   </a>
                 ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle SEC Insider Search results (Form 3/4/5)
+    if (
+      toolName === "sec_insider_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "filings" in parsedResult
+    ) {
+      const result = parsedResult as {
+        personName: string
+        totalFilings: number
+        filings: Array<{
+          formType: string
+          companyName: string
+          filedDate: string
+          url: string
+        }>
+        sources?: Array<{ name: string; url: string }>
+        rawContent?: string
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-medium">{result.personName}</span>
+            <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs">
+              {result.totalFilings} filings
+            </span>
+          </div>
+          <div className="space-y-2">
+            {result.filings.slice(0, 10).map((filing, index) => (
+              <div key={index} className="border-border border-b pb-2 last:border-0">
+                <a
+                  href={filing.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                >
+                  Form {filing.formType} - {filing.companyName}
+                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                </a>
+                <div className="text-muted-foreground text-xs">Filed: {filing.filedDate}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle SEC Proxy Search results (DEF 14A)
+    if (
+      toolName === "sec_proxy_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "filings" in parsedResult
+    ) {
+      const result = parsedResult as {
+        companyName: string
+        totalFilings: number
+        filings: Array<{
+          formType: string
+          filedDate: string
+          description?: string
+          url: string
+        }>
+        sources?: Array<{ name: string; url: string }>
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-medium">{result.companyName}</span>
+            <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs">
+              {result.totalFilings} proxy statements
+            </span>
+          </div>
+          <div className="space-y-2">
+            {result.filings.slice(0, 5).map((filing, index) => (
+              <div key={index} className="border-border border-b pb-2 last:border-0">
+                <a
+                  href={filing.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                >
+                  {filing.formType} - {filing.filedDate}
+                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                </a>
+                {filing.description && (
+                  <div className="text-muted-foreground text-xs line-clamp-2">{filing.description}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle OpenSanctions Screening results
+    if (
+      toolName === "opensanctions_screening" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "screeningResult" in parsedResult
+    ) {
+      const result = parsedResult as {
+        query: string
+        screeningResult: "CLEAR" | "POTENTIAL_MATCH" | "CONFIRMED_MATCH"
+        matchCount: number
+        matches?: Array<{
+          name: string
+          score: number
+          datasets: string[]
+          countries?: string[]
+          topics?: string[]
+          url?: string
+        }>
+        sources?: Array<{ name: string; url: string }>
+      }
+
+      const getBadgeClass = (status: string) => {
+        switch (status) {
+          case "CLEAR":
+            return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400"
+          case "POTENTIAL_MATCH":
+            return "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400"
+          case "CONFIRMED_MATCH":
+            return "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400"
+          default:
+            return "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
+        }
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-medium">{result.query}</span>
+            <span className={cn("rounded-full border px-2 py-0.5 text-xs font-medium", getBadgeClass(result.screeningResult))}>
+              {result.screeningResult === "CLEAR" ? "Clear" : result.screeningResult === "POTENTIAL_MATCH" ? "Potential Match" : "Match Found"}
+            </span>
+          </div>
+          {result.matches && result.matches.length > 0 && (
+            <div className="space-y-2">
+              {result.matches.slice(0, 5).map((match, index) => (
+                <div key={index} className="border-border rounded-md border p-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{match.name}</span>
+                    <span className="text-muted-foreground text-xs">{Math.round(match.score * 100)}% match</span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {match.datasets.map((ds, i) => (
+                      <span key={i} className="bg-secondary rounded px-1.5 py-0.5 text-xs">{ds}</span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Lobbying Search results
+    if (
+      toolName === "lobbying_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "filings" in parsedResult
+    ) {
+      const result = parsedResult as {
+        totalFilings: number
+        filings: Array<{
+          registrantName: string
+          clientName: string
+          amount?: number
+          year: number
+          issues?: string[]
+          url?: string
+        }>
+        sources?: Array<{ name: string; url: string }>
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">{result.totalFilings} lobbying filings</span>
+          </div>
+          <div className="space-y-2">
+            {result.filings.slice(0, 10).map((filing, index) => (
+              <div key={index} className="border-border border-b pb-2 last:border-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium">{filing.registrantName}</span>
+                  {filing.amount && (
+                    <span className="text-muted-foreground text-sm">
+                      ${filing.amount.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <div className="text-sm">Client: {filing.clientName}</div>
+                <div className="text-muted-foreground text-xs">{filing.year}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle Court Search results
+    if (
+      toolName === "court_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "cases" in parsedResult
+    ) {
+      const result = parsedResult as {
+        totalCases: number
+        cases: Array<{
+          caseName: string
+          docketNumber?: string
+          court: string
+          dateFiled?: string
+          status?: string
+          url: string
+        }>
+        sources?: Array<{ name: string; url: string }>
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">{result.totalCases} court cases</span>
+          </div>
+          <div className="space-y-2">
+            {result.cases.slice(0, 10).map((courtCase, index) => (
+              <div key={index} className="border-border border-b pb-2 last:border-0">
+                <a
+                  href={courtCase.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                >
+                  {courtCase.caseName}
+                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                </a>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  {courtCase.court}
+                  {courtCase.docketNumber && <span> | {courtCase.docketNumber}</span>}
+                  {courtCase.dateFiled && <span> | Filed: {courtCase.dateFiled}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle Business Registry Scraper results
+    if (
+      toolName === "business_registry_scraper" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "businesses" in parsedResult
+    ) {
+      const result = parsedResult as {
+        totalFound: number
+        sourcesSuccessful: string[]
+        sourcesFailed?: string[]
+        businesses: Array<{
+          name: string
+          entityNumber?: string
+          jurisdiction: string
+          status?: string
+          incorporationDate?: string
+          entityType?: string
+          registeredAddress?: string
+          sourceUrl: string
+          source: string
+        }>
+        sources?: Array<{ name: string; url: string }>
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Found {result.totalFound} businesses</span>
+            {result.sourcesSuccessful.length > 0 && (
+              <span className="bg-secondary rounded px-1.5 py-0.5 text-xs">
+                Sources: {result.sourcesSuccessful.join(", ")}
+              </span>
+            )}
+          </div>
+          <div className="space-y-3">
+            {result.businesses.slice(0, 10).map((business, index) => (
+              <div key={index} className="border-border rounded-md border p-3">
+                <a
+                  href={business.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                >
+                  {business.name}
+                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                </a>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                  <span className="bg-secondary rounded px-1.5 py-0.5">{business.jurisdiction}</span>
+                  {business.status && (
+                    <span className={cn(
+                      "rounded px-1.5 py-0.5",
+                      business.status.toLowerCase().includes("active")
+                        ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    )}>
+                      {business.status}
+                    </span>
+                  )}
+                  {business.entityNumber && (
+                    <span className="text-muted-foreground font-mono">{business.entityNumber}</span>
+                  )}
+                </div>
+                {business.entityType && (
+                  <div className="text-muted-foreground mt-1 text-xs">{business.entityType}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle GLEIF Search results
+    if (
+      toolName === "gleif_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "entities" in parsedResult
+    ) {
+      const result = parsedResult as {
+        totalResults: number
+        entities: Array<{
+          lei: string
+          legalName: string
+          jurisdiction: string
+          status?: string
+          entityCategory?: string
+          legalAddress?: string
+          url: string
+        }>
+        sources?: Array<{ name: string; url: string }>
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">{result.totalResults} LEI records</span>
+          </div>
+          <div className="space-y-3">
+            {result.entities.slice(0, 10).map((entity, index) => (
+              <div key={index} className="border-border rounded-md border p-3">
+                <a
+                  href={entity.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                >
+                  {entity.legalName}
+                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                </a>
+                <div className="text-muted-foreground mt-1 font-mono text-xs">{entity.lei}</div>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                  <span className="bg-secondary rounded px-1.5 py-0.5">{entity.jurisdiction}</span>
+                  {entity.status && (
+                    <span className={cn(
+                      "rounded px-1.5 py-0.5",
+                      entity.status === "ACTIVE"
+                        ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    )}>
+                      {entity.status}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle GLEIF Lookup results (with ownership chain)
+    if (
+      toolName === "gleif_lookup" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "entity" in parsedResult
+    ) {
+      const result = parsedResult as {
+        entity: {
+          lei: string
+          legalName: string
+          jurisdiction: string
+          status?: string
+          entityCategory?: string
+          legalAddress?: string
+        }
+        directParent?: {
+          lei: string
+          legalName: string
+          jurisdiction?: string
+        }
+        ultimateParent?: {
+          lei: string
+          legalName: string
+          jurisdiction?: string
+        }
+        sources?: Array<{ name: string; url: string }>
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Main Entity */}
+          <div className="border-border rounded-md border p-3">
+            <div className="font-medium">{result.entity.legalName}</div>
+            <div className="text-muted-foreground mt-1 font-mono text-xs">{result.entity.lei}</div>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs">
+              <span className="bg-secondary rounded px-1.5 py-0.5">{result.entity.jurisdiction}</span>
+              {result.entity.status && (
+                <span className={cn(
+                  "rounded px-1.5 py-0.5",
+                  result.entity.status === "ACTIVE"
+                    ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                )}>
+                  {result.entity.status}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Ownership Chain */}
+          {(result.directParent || result.ultimateParent) && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Ownership Chain
+              </div>
+              <div className="space-y-2">
+                {result.directParent && (
+                  <div className="border-border rounded border-l-2 border-l-blue-500 p-2">
+                    <div className="text-muted-foreground text-xs">Direct Parent</div>
+                    <div className="font-medium">{result.directParent.legalName}</div>
+                    <div className="text-muted-foreground font-mono text-xs">{result.directParent.lei}</div>
+                  </div>
+                )}
+                {result.ultimateParent && result.ultimateParent.lei !== result.directParent?.lei && (
+                  <div className="border-border rounded border-l-2 border-l-green-500 p-2">
+                    <div className="text-muted-foreground text-xs">Ultimate Parent</div>
+                    <div className="font-medium">{result.ultimateParent.legalName}</div>
+                    <div className="text-muted-foreground font-mono text-xs">{result.ultimateParent.lei}</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Rental Investment results
+    if (
+      toolName === "rental_investment" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "rentEstimate" in parsedResult
+    ) {
+      const result = parsedResult as {
+        address: string
+        rentEstimate: number
+        rentRange?: { low: number; high: number }
+        propertyValue?: number
+        capRate?: number
+        cashOnCashReturn?: number
+        monthlyCashFlow?: number
+        sources?: Array<{ name: string; url: string }>
+      }
+
+      return (
+        <div className="space-y-4">
+          <div className="font-medium">{result.address}</div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="border-border rounded-md border p-3">
+              <div className="text-muted-foreground text-xs">Monthly Rent Estimate</div>
+              <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                ${result.rentEstimate.toLocaleString()}
+              </div>
+              {result.rentRange && (
+                <div className="text-muted-foreground text-xs">
+                  Range: ${result.rentRange.low.toLocaleString()} - ${result.rentRange.high.toLocaleString()}
+                </div>
+              )}
+            </div>
+
+            {result.capRate !== undefined && (
+              <div className="border-border rounded-md border p-3">
+                <div className="text-muted-foreground text-xs">Cap Rate</div>
+                <div className="text-xl font-bold">{result.capRate.toFixed(2)}%</div>
+              </div>
+            )}
+          </div>
+
+          {result.monthlyCashFlow !== undefined && (
+            <div className="border-border rounded-md border p-3">
+              <div className="text-muted-foreground text-xs">Monthly Cash Flow</div>
+              <div className={cn(
+                "text-lg font-bold",
+                result.monthlyCashFlow >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+              )}>
+                ${result.monthlyCashFlow.toLocaleString()}
               </div>
             </div>
           )}

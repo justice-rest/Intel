@@ -6,6 +6,16 @@ import { readFromIndexedDB, writeToIndexedDB } from "../persist"
 export interface ExtendedMessageAISDK extends MessageAISDK {
   message_group_id?: string
   model?: string
+  // Verification status (from Perplexity Sonar)
+  verified?: boolean
+  verifying?: boolean
+  verification_result?: {
+    corrections?: string[]
+    gapsFilled?: string[]
+    confidenceScore?: number
+    sources?: string[]
+    wasModified?: boolean
+  }
 }
 
 export async function getMessagesFromDb(
@@ -20,10 +30,12 @@ export async function getMessagesFromDb(
   const supabase = createClient()
   if (!supabase) return []
 
+  // Select messages with verification columns (added via migration 014)
+  // Using type assertion since verification columns may not be in generated types yet
   const { data, error } = await supabase
     .from("messages")
     .select(
-      "id, content, role, experimental_attachments, created_at, parts, message_group_id, model"
+      "id, content, role, experimental_attachments, created_at, parts, message_group_id, model, verified, verifying, verification_result"
     )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true })
@@ -33,14 +45,19 @@ export async function getMessagesFromDb(
     return []
   }
 
-  return data.map((message) => ({
-    ...message,
+  // Cast data to any to handle verification columns not in generated types
+  return (data as unknown as Array<Record<string, unknown>>).map((message) => ({
     id: String(message.id),
-    content: message.content ?? "",
-    createdAt: new Date(message.created_at || ""),
-    parts: (message?.parts as MessageAISDK["parts"]) || undefined,
-    message_group_id: message.message_group_id,
-    model: message.model,
+    role: message.role as MessageAISDK["role"],
+    content: (message.content as string) ?? "",
+    createdAt: new Date((message.created_at as string) || ""),
+    experimental_attachments: message.experimental_attachments as MessageAISDK["experimental_attachments"],
+    parts: (message.parts as MessageAISDK["parts"]) || undefined,
+    message_group_id: message.message_group_id as string | undefined,
+    model: message.model as string | undefined,
+    verified: message.verified as boolean | undefined,
+    verifying: message.verifying as boolean | undefined,
+    verification_result: message.verification_result as ExtendedMessageAISDK["verification_result"],
   }))
 }
 

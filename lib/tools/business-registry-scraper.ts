@@ -5,12 +5,12 @@
  * Uses playwright-extra with stealth plugin to bypass bot detection.
  *
  * Features:
- * - OpenCorporates web scraping (when no API key configured)
  * - State Secretary of State registries:
  *   - Florida (Sunbiz) - Most reliable
  *   - New York (DOS) - Uses Open Data API (FREE)
  *   - California (bizfile)
  *   - Delaware (ICIS) - Has CAPTCHA warning
+ *   - Colorado (Open Data API)
  *
  * UI Integration:
  * - Returns sources array in Linkup-compatible format for SourcesList component
@@ -22,16 +22,12 @@ import { tool } from "ai"
 import { z } from "zod"
 import {
   scrapeBusinessRegistry,
-  scrapeOpenCorporatesCompanies,
-  scrapeOpenCorporatesOfficers,
-  scrapeOpenCorporatesCompanyDetails,
   type ScrapedBusinessEntity,
   type ScrapedOfficer,
   type ScraperSource,
   isScrapingEnabled,
   isPlaywrightAvailable,
 } from "@/lib/scraper"
-import { isOpenCorporatesEnabled } from "@/lib/opencorporates/config"
 
 // ============================================================================
 // TYPES (matching Linkup format for UI compatibility)
@@ -86,12 +82,12 @@ const businessRegistrySearchSchema = z.object({
       "Use 'officer' to discover someone's business affiliations and board seats."
     ),
   sources: z
-    .array(z.enum(["opencorporates", "florida", "newYork", "california", "delaware"]))
+    .array(z.enum(["florida", "newYork", "california", "delaware", "colorado"]))
     .optional()
     .describe(
-      "Specific registries to search. Default: opencorporates + florida + newYork. " +
+      "Specific registries to search. Default: newYork + florida + delaware. " +
       "Add 'delaware' for Fortune 500 companies (65% are registered there). " +
-      "Add 'california' for tech companies."
+      "Add 'california' for tech companies. Add 'colorado' for additional coverage."
     ),
   jurisdiction: z
     .string()
@@ -323,12 +319,11 @@ function formatOfficerAnswer(
 export const businessRegistryScraperTool = tool({
   description:
     "Search business registries for company ownership and corporate officer positions. " +
-    "Uses State Secretary of State databases (FL, NY, CA, DE) + OpenCorporates (may have CAPTCHA). " +
+    "Uses State Secretary of State databases (FL, NY, CA, DE, CO). " +
     "**RECOMMENDED:** NY Open Data API (FREE, reliable) and Florida Sunbiz (most accessible). " +
     "**COMPANY SEARCH:** Find business entities, registration status, incorporation dates, officers. " +
     "**OFFICER SEARCH:** Find a person's corporate positions, board seats, business affiliations. " +
-    "Returns results from multiple registries in parallel. Delaware hosts 65% of Fortune 500 companies. " +
-    "**NOTE:** OpenCorporates has CAPTCHA protection - state registries are more reliable for scraping.",
+    "Returns results from multiple registries in parallel. Delaware hosts 65% of Fortune 500 companies.",
   parameters: businessRegistrySearchSchema,
   execute: async ({
     query,
@@ -356,23 +351,16 @@ export const businessRegistryScraperTool = tool({
       }
     }
 
-    // Check if OpenCorporates API is available
-    if (isOpenCorporatesEnabled() && !sources) {
-      // If OpenCorporates API is configured, suggest using it instead
-      // but still allow scraping if user explicitly requests it
-      console.log("[Business Registry Scraper] OpenCorporates API available - proceeding with scraper as requested")
-    }
-
     // Check Playwright availability
     const playwrightAvailable = await isPlaywrightAvailable()
 
     if (!playwrightAvailable) {
       const manualLinks = [
-        { name: "OpenCorporates Search", url: `https://opencorporates.com/${searchType === "officer" ? "officers" : "companies"}?q=${encodeURIComponent(query)}`, snippet: "Search companies and officers worldwide" },
         { name: "Florida Sunbiz", url: "https://search.sunbiz.org/Inquiry/CorporationSearch/ByName", snippet: "Florida Division of Corporations" },
         { name: "New York DOS", url: "https://apps.dos.ny.gov/publicInquiry/", snippet: "New York Department of State" },
         { name: "California bizfile", url: "https://bizfileonline.sos.ca.gov/search/business", snippet: "California Secretary of State" },
         { name: "Delaware ICIS", url: "https://icis.corp.delaware.gov/ecorp/entitysearch/namesearch.aspx", snippet: "Delaware Division of Corporations (65% of Fortune 500)" },
+        { name: "Colorado SOS", url: "https://www.sos.state.co.us/biz/BusinessEntityCriteriaExt.do", snippet: "Colorado Secretary of State" },
       ]
 
       return {
@@ -394,7 +382,8 @@ export const businessRegistryScraperTool = tool({
       return {
         answer: "Web scraping is disabled. Set `ENABLE_WEB_SCRAPING=true` in environment to enable.",
         sources: [
-          { name: "OpenCorporates", url: `https://opencorporates.com/companies?q=${encodeURIComponent(query)}`, snippet: "Manual search available" },
+          { name: "Florida Sunbiz", url: "https://search.sunbiz.org/Inquiry/CorporationSearch/ByName", snippet: "Manual search available" },
+          { name: "New York DOS", url: "https://apps.dos.ny.gov/publicInquiry/", snippet: "Manual search available" },
         ],
         query,
         searchType,
@@ -410,8 +399,7 @@ export const businessRegistryScraperTool = tool({
     try {
       // Determine sources to search
       // Prioritize NY Open Data (FREE API) and Florida (most scrape-friendly)
-      // OpenCorporates last since it often has CAPTCHA protection
-      let sourcesToSearch: ScraperSource[] = sources || ["newYork", "florida", "opencorporates"]
+      let sourcesToSearch: ScraperSource[] = sources || ["newYork", "florida", "delaware"]
 
       // Add Delaware if searching for large corporations or if specified
       if (!sources && query.toLowerCase().includes("inc") || query.toLowerCase().includes("corp")) {
@@ -514,8 +502,8 @@ export const businessRegistryScraperTool = tool({
       return {
         answer: `## Search Error\n\n${errorMessage}\n\n**Manual Search:**\nUse the sources below to search manually.`,
         sources: [
-          { name: "OpenCorporates", url: `https://opencorporates.com/${searchType === "officer" ? "officers" : "companies"}?q=${encodeURIComponent(query)}`, snippet: "Search worldwide" },
           { name: "Florida Sunbiz", url: "https://search.sunbiz.org/Inquiry/CorporationSearch/ByName", snippet: "Florida businesses" },
+          { name: "New York DOS", url: "https://apps.dos.ny.gov/publicInquiry/", snippet: "New York businesses" },
         ],
         query,
         searchType,

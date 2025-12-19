@@ -180,6 +180,230 @@ export function getSources(parts: MessageAISDK["parts"]) {
           return result.result.flatMap((item: { citations?: unknown[] }) => item.citations || [])
         }
 
+        // Handle ProPublica Nonprofit tools
+        if (
+          (part.toolInvocation.toolName === "propublica_nonprofit_search" ||
+           part.toolInvocation.toolName === "propublica_nonprofit_details") &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "ProPublica Nonprofit",
+            url: s.url,
+            text: "Nonprofit data from ProPublica",
+          }))
+        }
+
+        // Handle SEC Insider tools
+        if (
+          (part.toolInvocation.toolName === "sec_insider_search" ||
+           part.toolInvocation.toolName === "sec_proxy_search") &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "SEC EDGAR",
+            url: s.url,
+            text: "SEC filing data",
+          }))
+        }
+
+        // Handle Wikidata tools
+        if (
+          (part.toolInvocation.toolName === "wikidata_search" ||
+           part.toolInvocation.toolName === "wikidata_entity") &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Wikidata",
+            url: s.url,
+            text: "Biographical data from Wikidata",
+          }))
+        }
+
+        // Handle Yahoo Finance tools
+        if (
+          (part.toolInvocation.toolName === "yahoo_finance_quote" ||
+           part.toolInvocation.toolName === "yahoo_finance_search" ||
+           part.toolInvocation.toolName === "yahoo_finance_profile") &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Yahoo Finance",
+            url: s.url,
+            text: "Financial data from Yahoo Finance",
+          }))
+        }
+
+        // Handle OpenSanctions screening
+        if (
+          part.toolInvocation.toolName === "opensanctions_screening" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "OpenSanctions",
+            url: s.url,
+            text: "Sanctions/PEP screening data",
+          }))
+        }
+
+        // Handle Lobbying search
+        if (
+          part.toolInvocation.toolName === "lobbying_search" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Lobbying Disclosure",
+            url: s.url,
+            text: "Federal lobbying data",
+          }))
+        }
+
+        // Handle CourtListener tools
+        if (
+          (part.toolInvocation.toolName === "court_search" ||
+           part.toolInvocation.toolName === "judge_search") &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "CourtListener",
+            url: s.url,
+            text: "Federal court records",
+          }))
+        }
+
+        // Handle Household search
+        if (
+          part.toolInvocation.toolName === "household_search" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Household Data",
+            url: s.url,
+            text: "Household wealth assessment",
+          }))
+        }
+
+        // Handle Business affiliation search
+        if (
+          part.toolInvocation.toolName === "business_affiliation_search" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Business Affiliation",
+            url: s.url,
+            text: "Corporate role data",
+          }))
+        }
+
+        // Handle Nonprofit affiliation search
+        if (
+          part.toolInvocation.toolName === "nonprofit_affiliation_search" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Nonprofit Affiliation",
+            url: s.url,
+            text: "Nonprofit connection data",
+          }))
+        }
+
+        // Handle Nonprofit board search
+        if (
+          part.toolInvocation.toolName === "nonprofit_board_search" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Board Position",
+            url: s.url,
+            text: "Nonprofit board data",
+          }))
+        }
+
+        // Handle Giving history
+        if (
+          part.toolInvocation.toolName === "giving_history" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Giving History",
+            url: s.url,
+            text: "Donation records",
+          }))
+        }
+
+        // Handle Prospect scoring
+        if (
+          part.toolInvocation.toolName === "prospect_score" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Prospect Data",
+            url: s.url,
+            text: "Prospect research source",
+          }))
+        }
+
+        // Handle Prospect report
+        if (
+          part.toolInvocation.toolName === "prospect_report" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Research Report",
+            url: s.url,
+            text: "Prospect report source",
+          }))
+        }
+
+        // Handle Rental investment
+        if (
+          part.toolInvocation.toolName === "rental_investment" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Rental Data",
+            url: s.url,
+            text: "Rental valuation source",
+          }))
+        }
+
+        // Handle Find business ownership
+        if (
+          part.toolInvocation.toolName === "find_business_ownership" &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "Ownership Data",
+            url: s.url,
+            text: "Business ownership source",
+          }))
+        }
+
+        // Handle CRM tools
+        if (
+          (part.toolInvocation.toolName === "crm_search" ||
+           part.toolInvocation.toolName.startsWith("neon_crm_")) &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name?: string; url: string; title?: string }) => ({
+            title: s.name || s.title || "CRM Record",
+            url: s.url,
+            text: "CRM data",
+          }))
+        }
+
+        // Handle GLEIF LEI tools
+        if (
+          (part.toolInvocation.toolName === "gleif_search" ||
+           part.toolInvocation.toolName === "gleif_lookup") &&
+          result?.sources
+        ) {
+          return result.sources.map((s: { name: string; url: string }) => ({
+            title: s.name || "GLEIF Record",
+            url: s.url,
+            text: "Global LEI data",
+          }))
+        }
+
         return Array.isArray(result) ? result.flat() : result
       }
 

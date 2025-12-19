@@ -1,38 +1,146 @@
 /**
  * Business Registry Scraper Module
  *
- * Provides stealth web scraping for business registry data when API access
- * is unavailable or too expensive.
+ * HTTP-based web scraping for business registry data.
+ * Works on Vercel serverless - no Playwright/browser required.
+ *
+ * Architecture:
+ * - Tier 1 (API): States with FREE API/Open Data (CO, NY)
+ * - Tier 2 (HTTP): States with simple HTML scraping (47 states including DE)
  *
  * Supported sources:
- * - OpenCorporates (web scraper fallback)
- * - US State Secretary of State registries:
+ * - US State Secretary of State registries (49 states)
  *   - Florida (Sunbiz) - Most reliable
  *   - New York (DOS) - Has Open Data API
- *   - California (bizfile) - React SPA
- *   - Delaware (ICIS) - Has CAPTCHA
+ *   - California (bizfile)
+ *   - Delaware (ICIS)
+ *   - And 45 more states...
  *
  * Usage:
  * ```typescript
- * import { scrapeBusinessRegistry } from '@/lib/scraper'
+ * import { scrapeState, searchMultipleStates } from '@/lib/scraper'
  *
- * // Search across all sources
- * const results = await scrapeBusinessRegistry('Apple Inc', {
- *   sources: ['opencorporates', 'delaware', 'california'],
- *   limit: 20
- * })
+ * // Search a single state
+ * const result = await scrapeState('fl', 'Apple Inc')
+ *
+ * // Search multiple states
+ * const results = await searchMultipleStates('Apple Inc', { states: ['fl', 'de', 'ny'] })
  * ```
  */
 
+// Core configuration and types
 export * from "./config"
 export * from "./stealth-browser"
 
-// OpenCorporates scraper
+// Validation utilities
 export {
-  scrapeOpenCorporatesCompanies,
-  scrapeOpenCorporatesOfficers,
-  scrapeOpenCorporatesCompanyDetails,
-} from "./scrapers/opencorporates"
+  validateSearchQuery,
+  validateStateCode,
+  validateStateCodes,
+  validateLimit,
+  validateUrl,
+  validateEntityNumber,
+  sanitizeForUrl,
+  sanitizeForSoql,
+  VALID_STATE_CODES,
+  type ValidationResult,
+} from "./validation"
+
+// State configuration templates
+export * from "./config/index"
+
+// Scraper engines
+export {
+  // API Scraper (Tier 1)
+  searchSocrataApi,
+  searchRestApi,
+  fetchSocrataApi,
+  fetchRestApi,
+  buildSocrataFilter,
+  mapSocrataToEntity,
+  type SocrataFieldMapping,
+  // HTTP Scraper (Tier 2)
+  scrapeHttpState,
+  fetchHtml,
+  parseHtmlResults,
+  buildFormData,
+  decodeHtmlEntities,
+  extractWithSelector,
+  extractRows,
+  type HtmlParseConfig,
+  // Browser Scraper (Tier 3)
+  scrapeBrowserState,
+  scrapeDetailPageBrowser,
+  scrapeDetailPages,
+  // Detail Page Scraper
+  scrapeDetailPage,
+  mergeEntityDetails,
+  enrichEntitiesWithDetails,
+  type EntityDetails,
+  type ExtractedOfficer,
+  // Unified Scraper (Routes to appropriate engine)
+  scrapeState,
+  searchMultipleStates,
+  searchCompany,
+  getScraperHealth,
+  resetStateCircuitBreaker,
+  getTierStatistics,
+  type UnifiedScraperOptions,
+  type MultiStateSearchOptions,
+  type MultiStateSearchResult,
+} from "./engine"
+
+// Services
+export {
+  // Rate Limiter
+  RateLimiter,
+  getRateLimiter,
+  rateLimited,
+  withRateLimit,
+  DEFAULT_RATE_LIMITS,
+  type RateLimitConfig,
+  // Circuit Breaker
+  CircuitBreaker,
+  getCircuitBreaker,
+  withCircuitBreaker,
+  DEFAULT_CIRCUIT_CONFIG,
+  type CircuitState,
+  type CircuitBreakerConfig,
+  type CircuitBreakerResult,
+  // Cache
+  ScraperCache,
+  getScraperCache,
+  withCache,
+  generateCacheKey,
+  DEFAULT_CACHE_CONFIG,
+  type CacheEntry,
+  type CacheConfig,
+} from "./services"
+
+// Person Search & Ownership Inference
+export {
+  // Person search
+  searchBusinessesByPerson,
+  quickPersonSearch,
+  getOwnershipSummary,
+  type PersonSearchResult,
+  type PersonBusinessResult,
+  type SecInsiderResult,
+  type PersonSearchOptions,
+  // Ownership inference
+  inferOwnership,
+  inferOwnershipFromRole,
+  inferOwnershipFromRoles,
+  detectEntityType,
+  adjustForEntityType,
+  adjustForSource,
+  getLikelihoodLabel,
+  getLikelihoodColor,
+  type OwnershipLikelihood,
+  type OwnershipInference,
+  type DataSource,
+  type EntityType,
+} from "./search"
 
 // State scrapers
 export {
@@ -43,7 +151,8 @@ export {
   scrapeNewYorkWebsite,
   scrapeCaliforniaBusinesses,
   scrapeDelawareBusinesses,
-  getDelawareManualSearchInfo,
+  scrapeColoradoBusinesses,
+  searchColoradoOpenData,
 } from "./scrapers/states"
 
 import {
@@ -53,13 +162,13 @@ import {
   type ScraperSource,
   isScrapingEnabled,
 } from "./config"
-import { scrapeOpenCorporatesCompanies, scrapeOpenCorporatesOfficers } from "./scrapers/opencorporates"
 import {
   scrapeFloridaBusinesses,
   scrapeFloridaByOfficer,
   scrapeNewYorkBusinesses,
   scrapeCaliforniaBusinesses,
   scrapeDelawareBusinesses,
+  scrapeColoradoBusinesses,
 } from "./scrapers/states"
 
 /**
@@ -80,7 +189,7 @@ export async function scrapeBusinessRegistry(
   failed: ScraperSource[]
 }> {
   const {
-    sources = ["opencorporates", "florida", "newYork"],
+    sources = ["florida", "newYork", "delaware"],
     searchType = "company",
     limit = 20,
     parallel = true,
@@ -97,12 +206,6 @@ export async function scrapeBusinessRegistry(
 
   // Define scraper functions for each source
   const scraperFunctions: Record<ScraperSource, () => Promise<ScraperResult<ScrapedBusinessEntity | ScrapedOfficer>>> = {
-    opencorporates: async () => {
-      if (searchType === "officer") {
-        return scrapeOpenCorporatesOfficers(query, { limit })
-      }
-      return scrapeOpenCorporatesCompanies(query, { limit })
-    },
     florida: async () => {
       if (searchType === "officer") {
         return scrapeFloridaByOfficer(query, { limit })
@@ -118,6 +221,9 @@ export async function scrapeBusinessRegistry(
     },
     delaware: async () => {
       return scrapeDelawareBusinesses(query, { limit })
+    },
+    colorado: async () => {
+      return scrapeColoradoBusinesses(query, { limit })
     },
     texas: async () => {
       // Texas requires account and $1 per search - not implemented

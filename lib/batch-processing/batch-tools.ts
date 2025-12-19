@@ -33,11 +33,6 @@ import {
   shouldEnableWikidataTools,
 } from "@/lib/tools/wikidata"
 import {
-  opencorporatesCompanySearchTool,
-  opencorporatesOfficerSearchTool,
-  shouldEnableOpenCorporatesTools,
-} from "@/lib/tools/opencorporates"
-import {
   opensanctionsScreeningTool,
   shouldEnableOpenSanctionsTools,
 } from "@/lib/tools/opensanctions"
@@ -90,6 +85,15 @@ import {
   givingHistoryTool,
   shouldEnableGivingHistoryTool,
 } from "@/lib/tools/giving-history"
+import {
+  gleifSearchTool,
+  gleifLookupTool,
+  shouldEnableGleifTools,
+} from "@/lib/tools/gleif-lei"
+import {
+  findBusinessOwnershipTool,
+  shouldEnableFindBusinessOwnershipTool,
+} from "@/lib/tools/find-business-ownership"
 
 /**
  * Build the tools object for batch processing
@@ -143,16 +147,8 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // OpenCorporates (company and officer search)
-    ...(shouldEnableOpenCorporatesTools()
-      ? {
-          opencorporates_company_search: opencorporatesCompanySearchTool,
-          opencorporates_officer_search: opencorporatesOfficerSearchTool,
-        }
-      : {}),
-
     // Business Registry Scraper - Stealth web scraping fallback
-    // Scrapes OpenCorporates + State SoS when API unavailable
+    // Scrapes State SoS (FL, NY, CA, DE, CO) registries
     ...(shouldEnableBusinessRegistryScraperTool()
       ? {
           business_registry_scraper: businessRegistryScraperTool,
@@ -189,7 +185,7 @@ export function buildBatchTools(): ToolSet {
       : {}),
 
     // Business Affiliation Search - UNIFIED enterprise-grade tool
-    // Automatically searches SEC EDGAR + Wikidata + Web + OpenCorporates
+    // Automatically searches SEC EDGAR + Wikidata + Web + State Registries
     ...(shouldEnableBusinessAffiliationSearchTool()
       ? {
           business_affiliation_search: businessAffiliationSearchTool,
@@ -251,6 +247,23 @@ export function buildBatchTools(): ToolSet {
           giving_history: givingHistoryTool,
         }
       : {}),
+
+    // GLEIF LEI Tools - Global corporate ownership data
+    // FREE API, no authentication required, 2.5M+ entities
+    ...(shouldEnableGleifTools()
+      ? {
+          gleif_search: gleifSearchTool,
+          gleif_lookup: gleifLookupTool,
+        }
+      : {}),
+
+    // Find Business Ownership Tool - Person→Business search with ownership inference
+    // Searches FL, NY, CA, DE, CO state registries for businesses where person is officer/registered agent
+    ...(shouldEnableFindBusinessOwnershipTool()
+      ? {
+          find_business_ownership: findBusinessOwnershipTool,
+        }
+      : {}),
   }
 
   return tools
@@ -285,10 +298,13 @@ export function getToolDescriptions(): string {
   if (shouldEnableWikidataTools()) {
     dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
   }
-  // Business Affiliation Search is always available (uses free sources)
-  dataTools.push("business_affiliation_search (UNIFIED: finds ALL business roles from SEC EDGAR + Wikidata + Web - use this for officer/director search)")
-  if (shouldEnableOpenCorporatesTools()) {
-    dataTools.push("opencorporates_company_search / opencorporates_officer_search (company ownership, officers, directors across 140+ jurisdictions)")
+  // Business research tools - different tools for different purposes
+  dataTools.push("business_affiliation_search (UNIFIED: finds PUBLIC company roles from SEC EDGAR + Wikidata + Web - best for officer/director search at PUBLIC companies)")
+  if (shouldEnableFindBusinessOwnershipTool()) {
+    dataTools.push("find_business_ownership (STATE REGISTRIES: find what businesses a person owns/controls - searches FL, NY, CA, DE, CO with ownership inference)")
+  }
+  if (shouldEnableBusinessRegistryScraperTool()) {
+    dataTools.push("business_registry_scraper (STATE REGISTRIES: search by company name OR officer name - FL, NY, CA, DE, CO)")
   }
   if (shouldEnableOpenSanctionsTools()) {
     dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
@@ -323,6 +339,10 @@ export function getToolDescriptions(): string {
   if (shouldEnableGivingHistoryTool()) {
     dataTools.push("giving_history (comprehensive giving history aggregation across all sources)")
   }
+  if (shouldEnableGleifTools()) {
+    dataTools.push("gleif_search (search Global LEI database by entity name - 2.5M+ entities, FREE)")
+    dataTools.push("gleif_lookup (LEI lookup with ownership chain - direct/ultimate parent relationships)")
+  }
 
   const hasLinkup = shouldEnableLinkupTool()
   let description = ""
@@ -350,9 +370,9 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
 - us_gov_data: Federal contracts/grants by company/org name
 - wikidata_search/entity: Biographical data (education, employers, net worth)
-- business_affiliation_search: **USE THIS** for officer/director search - automatically searches SEC EDGAR + Wikidata + Web + OpenCorporates
-- opencorporates_company_search: Search companies by name (LLC, Corp, etc.) - returns officers, status, filings (requires API key)
-- opencorporates_officer_search: Find all companies where a person is officer/director (requires API key)
+- business_affiliation_search: PUBLIC company roles - SEC EDGAR + Wikidata + Web search
+- find_business_ownership: PRIVATE business ownership - FL, NY, CA, DE, CO state registries with ownership inference
+- business_registry_scraper: State registry search by company OR officer name
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
 - lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
@@ -364,16 +384,41 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - prospect_score: AI wealth/capacity scoring - outputs donor rating (A-D) with confidence
 - prospect_report: Full research report generation - comprehensive prospect profiles
 - nonprofit_board_search: Find ALL nonprofit board positions for a person
-- giving_history: Aggregate giving history from FEC, foundations, public records\n\n`
+- giving_history: Aggregate giving history from FEC, foundations, public records
+- gleif_search/lookup: Global LEI database - corporate ownership chains, parent relationships\n\n`
     }
 
     description += `### Research Strategy
 1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
 2. Use **data API tools** to get detailed info on discovered entities
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
-4. **business ownership**: Use **business_affiliation_search** (unified tool) - automatically searches SEC + Wikidata + Web + OpenCorporates
+4. **business ownership**: See Business & Ownership Research section below for which tool to use
 5. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
 6. Run tools in parallel when possible. Be thorough.
+
+### Business & Ownership Research
+**TOOL SELECTION GUIDE** - Choose the right tool based on your goal:
+
+| Goal | Tool | When to Use |
+|------|------|-------------|
+| Find PUBLIC company roles | business_affiliation_search | Board seats, officer positions at NYSE/NASDAQ companies |
+| Find PRIVATE business ownership | find_business_ownership | LLCs, private corps, small businesses |
+| Search by COMPANY name | business_registry_scraper | Know the company, need officers/details |
+| Verify SPECIFIC public role | sec_insider_search | Confirm someone is insider at specific public company |
+
+**State Registry Knowledge (for find_business_ownership & business_registry_scraper):**
+- **Delaware (DE)**: Most LLCs/corps registered here. ICIS system - may hit CAPTCHA
+- **Florida (FL)**: Sunbiz - most reliable scraper. Officer + Registered Agent search
+- **New York (NY)**: Has Open Data API (FREE, fast). Falls back to web search
+- **California (CA)**: bizfile React SPA - searches active entities
+- **Colorado (CO)**: Socrata Open Data API - very reliable
+
+**Ownership Inference Logic:**
+- LLC Managing Member = likely OWNER (personal liability)
+- S-Corp President = likely OWNER (small corps)
+- C-Corp Officer = may be employee (check for founder indicators)
+- Registered Agent = may just be service provider, not owner
+- Multiple officer roles at SAME address = likely owner
 
 ### Board & Officer Validation (PUBLIC COMPANIES)
 When verifying board membership or officer status:
@@ -383,11 +428,12 @@ When verifying board membership or officer status:
 ### Due Diligence Workflow
 For comprehensive prospect due diligence:
 1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **business_affiliation_search** - Find ALL business affiliations (unified search)
-3. **court_search** - Check for litigation history
-4. **lobbying_search** - Discover political connections
-5. **fec_contributions** - Political giving patterns
-6. **household_search** - Identify spouse/household wealth\n`
+2. **business_affiliation_search** - Find PUBLIC company affiliations (SEC + Wikidata + Web)
+3. **find_business_ownership** - Find PRIVATE business ownership (state registries)
+4. **court_search** - Check for litigation history
+5. **lobbying_search** - Discover political connections
+6. **fec_contributions** - Political giving patterns
+7. **household_search** - Identify spouse/household wealth\n`
   }
 
   return description

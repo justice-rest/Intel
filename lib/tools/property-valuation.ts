@@ -412,12 +412,12 @@ async function runLinkupSearch(
     // Build search options
     const searchOptions: {
       query: string
-      depth: "deep"
+      depth: "standard"
       outputType: "sourcedAnswer"
       includeDomains?: string[]
     } = {
       query,
-      depth: "deep",
+      depth: "standard",
       outputType: "sourcedAnswer",
     }
 

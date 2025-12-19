@@ -41,6 +41,7 @@ type ModelConfig = {
 
   accessible?: boolean // true if the model is accessible to the user
   isPro?: boolean // true if the model requires a pro/premium subscription (e.g. Ultra plan)
+  hidden?: boolean // true if the model should not be shown in model selector (internal use only)
 }
 
 export type { ModelConfig }

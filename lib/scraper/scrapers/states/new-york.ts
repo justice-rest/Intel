@@ -6,12 +6,17 @@
  * 2. Web scraping fallback (apps.dos.ny.gov)
  *
  * Open Data URLs:
- * - Corporations: https://data.ny.gov/resource/7tqb-y2d4.json
+ * - Corporations: https://data.ny.gov/resource/n9v6-gdp6.json
  * - Addresses: https://data.ny.gov/resource/djse-xbpp.json
  *
  * Web Scraping URLs:
  * - Search: https://apps.dos.ny.gov/publicInquiry/
  * - Entity: https://apps.dos.ny.gov/publicInquiry/EntityDisplay?dosId=XXX
+ *
+ * ⚠️ IMPORTANT LIMITATION:
+ * The NY Open Data API dataset (n9v6-gdp6) ONLY contains ACTIVE corporations.
+ * Dissolved, inactive, or historical entities are NOT included.
+ * For historical data, web scraping fallback may find more results but is less reliable.
  */
 
 import {
@@ -102,32 +107,42 @@ export async function searchNewYorkOpenData(
     // Dataset n9v6-gdp6 fields: dos_id, current_entity_name, initial_dos_filing_date,
     // county, jurisdiction, entity_type, dos_process_name, dos_process_address_1, etc.
     const businesses: ScrapedBusinessEntity[] = data.map((entity: {
-      current_entity_name?: string
-      dos_id?: string
-      initial_dos_filing_date?: string
-      jurisdiction?: string
-      entity_type?: string
-      county?: string
-      dos_process_name?: string
-      dos_process_address_1?: string
-      dos_process_city?: string
-      dos_process_state?: string
-      dos_process_zip?: string
+      current_entity_name?: string | null
+      dos_id?: string | null
+      initial_dos_filing_date?: string | null
+      jurisdiction?: string | null
+      entity_type?: string | null
+      county?: string | null
+      dos_process_name?: string | null
+      dos_process_address_1?: string | null
+      dos_process_city?: string | null
+      dos_process_state?: string | null
+      dos_process_zip?: string | null
     }) => {
-      // Build address from components
+      // Build address from components (filter nulls and empty strings)
       const addressParts = [
         entity.dos_process_address_1,
         entity.dos_process_city,
         entity.dos_process_state,
         entity.dos_process_zip,
-      ].filter(Boolean)
+      ].filter((part): part is string => Boolean(part))
+
+      // Safely parse date - handle null, undefined, and invalid formats
+      let incorporationDate: string | null = null
+      if (entity.initial_dos_filing_date && typeof entity.initial_dos_filing_date === "string") {
+        const datePart = entity.initial_dos_filing_date.split("T")[0]
+        // Validate it looks like a date (YYYY-MM-DD)
+        if (datePart && /^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+          incorporationDate = datePart
+        }
+      }
 
       return {
         name: entity.current_entity_name || "",
         entityNumber: entity.dos_id || null,
         jurisdiction: "us_ny",
         status: "Active", // This dataset only contains active corporations
-        incorporationDate: entity.initial_dos_filing_date?.split("T")[0] || null,
+        incorporationDate,
         entityType: entity.entity_type || null,
         registeredAddress: addressParts.length > 0 ? addressParts.join(", ") : (entity.county ? `${entity.county} County, NY` : null),
         registeredAgent: entity.dos_process_name || null,
@@ -147,6 +162,10 @@ export async function searchNewYorkOpenData(
       query,
       scrapedAt: new Date().toISOString(),
       duration: Date.now() - startTime,
+      warnings: [
+        "⚠️ NY Open Data API only contains ACTIVE corporations. Dissolved/inactive entities are NOT included.",
+        "For historical data, search manually at: https://apps.dos.ny.gov/publicInquiry/",
+      ],
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)

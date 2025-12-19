@@ -3,6 +3,8 @@
 import { toast } from "@/components/ui/toast"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { useStandaloneChatSession } from "@/lib/chat-store/session/standalone-provider"
+import { createClient } from "@/lib/supabase/client"
+import { isSupabaseEnabled } from "@/lib/supabase/config"
 import type { Message as MessageAISDK } from "ai"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { writeToIndexedDB } from "../persist"
@@ -106,6 +108,60 @@ export function MessagesProvider({
 
     return () => {
       cancelled = true
+    }
+  }, [chatId])
+
+  // Subscribe to realtime updates for message changes (verification updates)
+  useEffect(() => {
+    if (!chatId || !isSupabaseEnabled) return
+
+    const supabase = createClient()
+    if (!supabase) return
+
+    const channel = supabase
+      .channel(`messages-updates:${chatId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `chat_id=eq.${chatId}`,
+        },
+        (payload) => {
+          // Update the specific message in state when it's updated (e.g., after verification)
+          const updatedMessage = payload.new as {
+            id: number // Database ID is a number
+            content: string
+            verified?: boolean
+            verifying?: boolean
+            verification_result?: Record<string, unknown>
+          }
+
+          // Convert to string for comparison since message IDs in state are strings
+          const updatedMessageId = String(updatedMessage.id)
+
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === updatedMessageId) {
+                // Update content and add verification metadata
+                return {
+                  ...msg,
+                  content: updatedMessage.content,
+                  verified: updatedMessage.verified,
+                  verifying: updatedMessage.verifying,
+                  verification_result: updatedMessage.verification_result,
+                } as MessageAISDK
+              }
+              return msg
+            })
+          )
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
   }, [chatId])
 
