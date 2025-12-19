@@ -86,15 +86,18 @@ export function MessagesProvider({
       try {
         const fresh = await getMessagesFromDb(chatId)
         if (cancelled) return
-        // Only update state if data changed to prevent unnecessary re-renders
-        const hasChanged =
-          cached.length !== fresh.length ||
-          (fresh.length > 0 &&
-            fresh.some((m) => !cached.find((c) => c.id === m.id)))
-        if (hasChanged) {
-          setMessages(fresh)
+        // Only update if we got actual data from Supabase
+        // Don't overwrite cached messages with empty results (could be network error)
+        if (fresh.length > 0 || cached.length === 0) {
+          const hasChanged =
+            cached.length !== fresh.length ||
+            fresh.some((m) => !cached.find((c) => c.id === m.id))
+          if (hasChanged) {
+            setMessages(fresh)
+          }
+          cacheMessages(chatId, fresh)
         }
-        cacheMessages(chatId, fresh)
+        // If fresh is empty but cache has data, keep showing cached messages
       } catch (error) {
         console.error("Failed to fetch messages:", error)
       } finally {

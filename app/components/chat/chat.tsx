@@ -95,7 +95,7 @@ export function Chat({
     [chatId, getChatById]
   )
 
-  const { messages: initialMessages, cacheAndAddMessage } = useMessages()
+  const { messages: initialMessages, cacheAndAddMessage, isLoading: isMessagesLoading } = useMessages()
   const { user } = useUser()
   const { preferences } = useUserPreferences()
   const { customer } = useCustomer()
@@ -335,10 +335,11 @@ export function Chat({
   )
 
   // Handle redirect for invalid chatId - only redirect if we're certain the chat doesn't exist
-  // and we're not in a transient state during chat creation
+  // and we're not in a transient state during chat creation or message loading
   if (
     chatId &&
     !isChatsLoading &&
+    !isMessagesLoading &&
     !currentChat &&
     !isSubmitting &&
     status === "ready" &&
