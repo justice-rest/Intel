@@ -67,18 +67,22 @@ export function ChatsProvider({
 
       try {
         const fresh = await fetchAndCacheChats(userId)
-        // Only update state if data changed to prevent flash on startup
-        const cachedIds = new Set(cached.map((c) => c.id))
-        const cachedUpdates = new Map(cached.map((c) => [c.id, c.updated_at]))
-        const hasChanged =
-          cached.length !== fresh.length ||
-          fresh.some(
-            (c) =>
-              !cachedIds.has(c.id) || cachedUpdates.get(c.id) !== c.updated_at
-          )
-        if (hasChanged) {
-          setChats(fresh)
+        // Only update if we got actual data from Supabase
+        // Don't overwrite cached chats with empty results (could be network error)
+        if (fresh.length > 0 || cached.length === 0) {
+          const cachedIds = new Set(cached.map((c) => c.id))
+          const cachedUpdates = new Map(cached.map((c) => [c.id, c.updated_at]))
+          const hasChanged =
+            cached.length !== fresh.length ||
+            fresh.some(
+              (c) =>
+                !cachedIds.has(c.id) || cachedUpdates.get(c.id) !== c.updated_at
+            )
+          if (hasChanged) {
+            setChats(fresh)
+          }
         }
+        // If fresh is empty but cache has data, keep showing cached chats
       } finally {
         setIsLoading(false)
       }

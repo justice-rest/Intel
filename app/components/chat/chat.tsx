@@ -253,6 +253,7 @@ export function Chat({
       onReload: handleReload,
       onQuote: handleQuotedSelected,
       isUserAuthenticated: isAuthenticated,
+      isLoading: isMessagesLoading,
     }),
     [
       messages,
@@ -260,6 +261,7 @@ export function Chat({
       handleDelete,
       submitEdit,
       handleReload,
+      isMessagesLoading,
       handleQuotedSelected,
       isAuthenticated,
     ]

@@ -42,7 +42,9 @@ export async function getMessagesFromDb(
 
   if (!data || error) {
     console.error("Failed to fetch messages:", error)
-    return []
+    // Fall back to cached messages instead of returning empty
+    const cached = await getCachedMessages(chatId)
+    return cached
   }
 
   // Cast data to any to handle verification columns not in generated types

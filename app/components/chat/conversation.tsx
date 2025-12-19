@@ -17,6 +17,7 @@ type ConversationProps = {
   onReload: () => void
   onQuote?: (text: string, messageId: string) => void
   isUserAuthenticated?: boolean
+  isLoading?: boolean
 }
 
 export function Conversation({
@@ -27,8 +28,18 @@ export function Conversation({
   onReload,
   onQuote,
   isUserAuthenticated,
+  isLoading,
 }: ConversationProps) {
   const initialMessageCount = useRef(messages.length)
+
+  // Show loading state when loading messages for an existing chat
+  if (isLoading && (!messages || messages.length === 0)) {
+    return (
+      <div className="flex h-full w-full items-center justify-center">
+        <TextShimmer text="Loading messages" size="md" />
+      </div>
+    )
+  }
 
   if (!messages || messages.length === 0)
     return <div className="h-full w-full"></div>
