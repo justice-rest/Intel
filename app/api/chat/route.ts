@@ -72,13 +72,9 @@ import {
   shouldEnableFindBusinessOwnershipTool,
 } from "@/lib/tools/find-business-ownership"
 import {
-  prospectScoringTool,
-  shouldEnableProspectScoringTool,
-} from "@/lib/tools/prospect-scoring"
-import {
-  prospectReportTool,
-  shouldEnableProspectReportTool,
-} from "@/lib/tools/prospect-report"
+  prospectProfileTool,
+  shouldEnableProspectProfileTool,
+} from "@/lib/tools/prospect-profile"
 import {
   nonprofitBoardSearchTool,
   shouldEnableNonprofitBoardSearchTool,
@@ -98,6 +94,94 @@ import {
   neonCRMSearchDonationsTool,
   shouldEnableNeonCRMTools,
 } from "@/lib/tools/neon-crm"
+import {
+  countyAssessorTool,
+  shouldEnableCountyAssessorTool,
+} from "@/lib/tools/county-assessor"
+import {
+  voterRegistrationTool,
+  shouldEnableVoterRegistrationTool,
+} from "@/lib/tools/voter-registration"
+import {
+  foundationGrantsTool,
+  shouldEnableFoundationGrantsTool,
+} from "@/lib/tools/foundation-grants"
+import {
+  familyDiscoveryTool,
+  shouldEnableFamilyDiscoveryTool,
+} from "@/lib/tools/family-discovery"
+import {
+  businessRevenueEstimatorTool,
+  shouldEnableBusinessRevenueEstimatorTool,
+} from "@/lib/tools/business-revenue-estimator"
+import {
+  stateCampaignFinanceTool,
+  shouldEnableStateCampaignFinanceTool,
+} from "@/lib/tools/state-campaign-finance"
+import {
+  professionalLicenseTool,
+  shouldEnableProfessionalLicenseTool,
+} from "@/lib/tools/professional-license"
+import {
+  buildingPermitTool,
+  shouldEnableBuildingPermitTool,
+} from "@/lib/tools/building-permits"
+import {
+  stateContractsTool,
+  shouldEnableStateContractsTool,
+} from "@/lib/tools/state-contracts"
+import {
+  businessEntitiesTool,
+  shouldEnableBusinessEntitiesTool,
+} from "@/lib/tools/business-entities"
+import {
+  governmentSalaryTool,
+  shouldEnableGovernmentSalaryTool,
+} from "@/lib/tools/government-salary"
+import {
+  faaAircraftTool,
+  shouldEnableFAAAircraftTool,
+} from "@/lib/tools/faa-aircraft"
+import {
+  uscgVesselTool,
+  shouldEnableUSCGVesselTool,
+} from "@/lib/tools/uscg-vessels"
+import {
+  npiRegistryTool,
+  shouldEnableNPIRegistryTool,
+} from "@/lib/tools/npi-registry"
+import {
+  finraBrokerCheckTool,
+  shouldEnableFINRABrokerCheckTool,
+} from "@/lib/tools/finra-brokercheck"
+import {
+  lobbyistSearchTool,
+  shouldEnableLobbyistSearchTool,
+} from "@/lib/tools/lobbyist-search"
+import {
+  businessLicenseTool,
+  shouldEnableBusinessLicenseTool,
+} from "@/lib/tools/business-licenses"
+import {
+  usptoSearchTool,
+  shouldEnableUSPTOSearchTool,
+} from "@/lib/tools/uspto-search"
+import {
+  nycPropertySalesTool,
+  shouldEnableNYCPropertySalesTool,
+} from "@/lib/tools/nyc-property-sales"
+import {
+  acrisDeedsTool,
+  shouldEnableACRISDeedsTool,
+} from "@/lib/tools/nyc-acris-deeds"
+import {
+  cmsOpenPaymentsTool,
+  shouldEnableCMSOpenPaymentsTool,
+} from "@/lib/tools/cms-open-payments"
+import {
+  federalLobbyingTool,
+  shouldEnableFederalLobbyingTool,
+} from "@/lib/tools/federal-lobbying"
 import {
   searchCRMConstituents,
   hasCRMConnections,
@@ -339,8 +423,7 @@ This provides existing giving history and contact details before running externa
       dataTools.push("business_affiliation_search (UNIFIED: finds business roles from SEC EDGAR + Wikidata + Web - best for PUBLIC company officer/director search)")
       if (shouldEnableFindBusinessOwnershipTool()) dataTools.push("find_business_ownership (STATE REGISTRIES: find what businesses a person owns/controls - searches FL, NY, CA, DE, CO with ownership inference)")
       if (shouldEnableBusinessRegistryScraperTool()) dataTools.push("business_registry_scraper (STATE REGISTRIES: search by company name OR officer name - FL, NY, CA, DE, CO)")
-      if (shouldEnableProspectScoringTool()) dataTools.push("prospect_score (AI-POWERED: Giving Capacity Score 0-100, Propensity Score, A-D Rating - FREE DonorSearch AI alternative)")
-      if (shouldEnableProspectReportTool()) dataTools.push("prospect_report (COMPREHENSIVE: Full research report with all data sources - FREE alternative to $125-$300/profile reports)")
+      if (shouldEnableProspectProfileTool()) dataTools.push("prospect_profile (AI-POWERED: Unified wealth scoring + verified evidence - Capacity/Propensity/Affinity scores with source citations - FREE DonorSearch/iWave alternative)")
       if (shouldEnableNonprofitBoardSearchTool()) dataTools.push("nonprofit_board_search (BOARD FINDER: Find all nonprofit & public company board positions for a person)")
       if (shouldEnableGivingHistoryTool()) dataTools.push("giving_history (GIVING AGGREGATOR: Combines FEC + 990 grants + major gifts - DonorSearch's core feature, FREE)")
       if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
@@ -349,6 +432,19 @@ This provides existing giving history and contact details before running externa
       if (shouldEnableLobbyingTools()) dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
       if (shouldEnableCourtListenerTools()) dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
       if (shouldEnableHouseholdSearchTool()) dataTools.push("household_search (spouse/partner search - household wealth assessment, shared affiliations)")
+      if (shouldEnableStateCampaignFinanceTool()) dataTools.push("state_campaign_finance (STATE-level political contributions - CA, NY, TX, FL, IL, OH, CO, WA, MA, NJ)")
+      if (shouldEnableProfessionalLicenseTool()) dataTools.push("professional_license (verify credentials: MD, JD, CPA, Real Estate - CA, NY, TX, FL, IL)")
+      if (shouldEnableBuildingPermitTool()) dataTools.push("building_permits (city renovation permits - wealth indicator from permit values)")
+      if (shouldEnableStateContractsTool()) dataTools.push("state_contracts (state government contracts - CA, NY, TX, FL, IL, OH, CO, MA)")
+      if (shouldEnableBusinessEntitiesTool()) dataTools.push("business_entities (state corporation registry - NY, CO, OR, IA, WA - search by entity name or agent/officer)")
+      if (shouldEnableGovernmentSalaryTool()) dataTools.push("government_salary (public employee salaries - NYC, VT, NJ, OR, LA - wealth indicator)")
+      if (shouldEnableFAAAircraftTool()) dataTools.push("faa_aircraft (FAA N-Number registry - aircraft ownership - ULTRA-HIGH wealth indicator)")
+      if (shouldEnableUSCGVesselTool()) dataTools.push("uscg_vessels (USCG vessel documentation - boat/yacht ownership - HIGH wealth indicator)")
+      if (shouldEnableNPIRegistryTool()) dataTools.push("npi_registry (CMS NPI Registry - healthcare providers - income by specialty)")
+      if (shouldEnableFINRABrokerCheckTool()) dataTools.push("finra_brokercheck (FINRA BrokerCheck - financial advisors - HIGH income profession)")
+      if (shouldEnableLobbyistSearchTool()) dataTools.push("lobbyist_search (state/local lobbyists - NY, IL, CA, WA, CO - HIGH wealth indicator)")
+      if (shouldEnableBusinessLicenseTool()) dataTools.push("business_licenses (city business licenses - Chicago, Seattle, KC, Cincinnati, Berkeley, DE)")
+      if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
       const hasLinkup = shouldEnableLinkupTool()
       if (hasLinkup || dataTools.length > 0) {
@@ -393,7 +489,20 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - giving_history: Aggregate all known giving (FEC political, 990 grants, major gifts)
 - neon_crm_search_accounts: Search donors in Neon CRM by name/email
 - neon_crm_get_account: Get detailed donor profile and giving history from Neon CRM
-- neon_crm_search_donations: Search donations in Neon CRM by date, amount, campaign`
+- neon_crm_search_donations: Search donations in Neon CRM by date, amount, campaign
+- state_campaign_finance: STATE-level political giving (complements fec_contributions which is federal-only)
+- professional_license: Verify credentials (MD, JD, CPA, Real Estate) - wealth indicator from profession
+- building_permits: City renovation permits - $500K+ permits suggest high wealth
+- state_contracts: State government contracts - $1M+ contracts suggest successful business
+- business_entities: State corporation registry search (NY, CO, OR, IA, WA) - find LLC/Corp by name or officer
+- government_salary: Public employee salaries (NYC, VT, NJ, OR, LA) - known income source
+- faa_aircraft: FAA aircraft registry - ULTRA-HIGH wealth ($500K-$70M+ aircraft)
+- uscg_vessels: USCG vessel documentation - yacht/boat ownership ($25K-$50M+)
+- npi_registry: Healthcare provider credentials - income estimates by specialty ($100K-$900K)
+- finra_brokercheck: Financial advisor credentials - HIGH income ($80K-$1M+)
+- lobbyist_search: State/local lobbyists (NY, IL, CA, WA, CO) - HIGH income profession ($150K-$500K+)
+- business_licenses: City business licenses (Chicago, Seattle, KC, Cincinnati, Berkeley, DE)
+- uspto_search: Patent/trademark search by inventor or assignee - IP wealth indicator`
         }
 
         finalSystemPrompt += `\n\n### Research Strategy
@@ -402,7 +511,9 @@ Run 6-10 searchWeb queries per prospect with different angles:
 3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
 4. **property_valuation**: Just pass the address - tool auto-searches Zillow, Redfin, county records, and comps
 5. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
-6. Run tools in parallel when possible. Be thorough.
+6. **wealth screening**: Run **faa_aircraft** + **uscg_vessels** for luxury asset discovery
+7. **professional verification**: Run **npi_registry** (doctors), **finra_brokercheck** (finance), or **government_salary** (public employees)
+8. Run tools in parallel when possible. Be thorough.
 
 ### Business & Ownership Research (IMPORTANT)
 **Choose the right tool based on your goal:**
@@ -432,6 +543,32 @@ When asked to verify if someone is on a board, is a director, officer, or execut
 2. **sec_proxy_search("[company name]")** - Gets DEF 14A proxy statement listing ALL directors and officers.
 Use BOTH tools: insider search confirms the person files as insider, proxy shows full board composition.
 
+### Wealth Indicator Tools (USE PROACTIVELY)
+These tools reveal high-value prospects. Run them during comprehensive research:
+
+**Luxury Assets (ULTRA-HIGH wealth signals):**
+- **faa_aircraft** - Aircraft ownership ($500K-$70M+). Run for any suspected high-net-worth prospect.
+- **uscg_vessels** - Yacht/boat ownership ($25K-$50M+). Run alongside faa_aircraft for complete picture.
+
+**High-Income Professions (verify profession + estimate income):**
+- **npi_registry** - Healthcare providers. If prospect is MD/DO/NP, run this for specialty and income estimate ($100K-$900K).
+- **finra_brokercheck** - Financial advisors. If prospect works in finance, run this for CRD#, licenses, disclosures ($80K-$1M+).
+- **lobbyist_search** - Registered lobbyists (NY, IL, CA, WA, CO). High-income profession ($150K-$500K+).
+- **government_salary** - Public employees (NYC, VT, NJ, OR, LA). Known income from public payroll records.
+
+**Business & IP Research:**
+- **business_entities** - State corporation registry (NY, CO, OR, IA, WA). Search by entity OR agent/officer name.
+- **business_licenses** - City licenses (Chicago, Seattle, KC, Cincinnati, Berkeley, DE). Find business ownership.
+- **uspto_search** - Patents/trademarks. Inventors and IP holders = wealth indicator.
+
+### Professional Verification Workflow
+When researching someone's profession:
+1. **Doctor/Healthcare**: Run **npi_registry** first - authoritative NPI number + specialty + income estimate
+2. **Financial Advisor**: Run **finra_brokercheck** - CRD number, licenses, disclosures, firm history
+3. **Attorney**: Run **professional_license** with "attorney" type
+4. **Lobbyist**: Run **lobbyist_search** for state registrations + compensation data
+5. **Government Employee**: Run **government_salary** for exact salary from payroll records
+
 ### Due Diligence Workflow
 For comprehensive prospect due diligence:
 1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
@@ -439,7 +576,9 @@ For comprehensive prospect due diligence:
 3. **business_affiliation_search** - Find public company roles via SEC + Wikidata
 4. **court_search** - Check for litigation history
 5. **lobbying_search** - Discover political connections
-6. **fec_contributions** - Political giving patterns`
+6. **fec_contributions** + **state_campaign_finance** - Complete political giving (federal + state)
+7. **faa_aircraft** + **uscg_vessels** - Luxury asset screening (aircraft, yachts)
+8. **npi_registry** / **finra_brokercheck** - Professional credential verification if applicable`
       }
     }
 
@@ -623,18 +762,12 @@ For comprehensive prospect due diligence:
             business_affiliation_search: businessAffiliationSearchTool,
           }
         : {}),
-      // Add Prospect Scoring Tool - AI-powered wealth/capacity assessment
+      // Add Prospect Profile Tool - Unified wealth assessment + research report
+      // Combines scoring (capacity, propensity, affinity) with verified evidence
       // FREE alternative to DonorSearch AI ($4,000+/yr), iWave ($4,150+/yr)
-      ...(enableSearch && shouldEnableProspectScoringTool()
+      ...(enableSearch && shouldEnableProspectProfileTool()
         ? {
-            prospect_score: prospectScoringTool,
-          }
-        : {}),
-      // Add Prospect Report Tool - Comprehensive research reports
-      // FREE alternative to DonorSearch Research on Demand ($125-$300/profile)
-      ...(enableSearch && shouldEnableProspectReportTool()
-        ? {
-            prospect_report: prospectReportTool,
+            prospect_profile: prospectProfileTool,
           }
         : {}),
       // Add Nonprofit Board Search - Find board positions held by a person
@@ -666,6 +799,160 @@ For comprehensive prospect due diligence:
             neon_crm_search_accounts: neonCRMSearchAccountsTool,
             neon_crm_get_account: neonCRMGetAccountTool,
             neon_crm_search_donations: neonCRMSearchDonationsTool,
+          }
+        : {}),
+      // Add County Property Assessor Tool - Official government property records
+      // FREE Socrata APIs - Supports major counties (LA, Cook, Miami-Dade, etc.)
+      ...(enableSearch && shouldEnableCountyAssessorTool()
+        ? {
+            county_assessor: countyAssessorTool,
+          }
+        : {}),
+      // Add Voter Registration Tool - Party affiliation and registration status
+      // FREE - Uses FEC patterns + public voter records
+      ...(enableSearch && shouldEnableVoterRegistrationTool()
+        ? {
+            voter_registration: voterRegistrationTool,
+          }
+        : {}),
+      // Add Foundation Grants Tool - 990-PF Schedule I grant data
+      // FREE ProPublica API + web search for grant details
+      ...(enableSearch && shouldEnableFoundationGrantsTool()
+        ? {
+            foundation_grants: foundationGrantsTool,
+          }
+        : {}),
+      // Add Family Discovery Tool - Household member identification
+      // Uses property records, voter data, web search
+      ...(enableSearch && shouldEnableFamilyDiscoveryTool()
+        ? {
+            family_discovery: familyDiscoveryTool,
+          }
+        : {}),
+      // Add Business Revenue Estimator - Private company revenue estimates
+      // Uses employee count × industry benchmarks methodology
+      ...(enableSearch && shouldEnableBusinessRevenueEstimatorTool()
+        ? {
+            business_revenue_estimate: businessRevenueEstimatorTool,
+          }
+        : {}),
+      // Add State Campaign Finance - State-level political contributions
+      // Socrata APIs for CA, NY, TX, FL, IL, OH, CO, WA, MA, NJ
+      ...(enableSearch && shouldEnableStateCampaignFinanceTool()
+        ? {
+            state_campaign_finance: stateCampaignFinanceTool,
+          }
+        : {}),
+      // Add Professional License Search - State licensing databases
+      // Verifies credentials for MD, JD, CPA, Real Estate, etc.
+      ...(enableSearch && shouldEnableProfessionalLicenseTool()
+        ? {
+            professional_license: professionalLicenseTool,
+          }
+        : {}),
+      // Add Building Permit Search - City permit databases
+      // Wealth indicator from renovation/construction permits
+      ...(enableSearch && shouldEnableBuildingPermitTool()
+        ? {
+            building_permits: buildingPermitTool,
+          }
+        : {}),
+      // Add State Contracts Search - State/local government contracts
+      // Reveals business-government relationships and contract values
+      ...(enableSearch && shouldEnableStateContractsTool()
+        ? {
+            state_contracts: stateContractsTool,
+          }
+        : {}),
+      // Add Business Entities Tool - State corporation registries via Socrata
+      // Searches NY, CO, OR, IA, WA for LLC/Corp registrations
+      ...(enableSearch && shouldEnableBusinessEntitiesTool()
+        ? {
+            business_entities: businessEntitiesTool,
+          }
+        : {}),
+      // Add Government Salary Tool - Public employee salaries via Socrata
+      // Searches NYC, VT, NJ, OR, LA payroll databases
+      ...(enableSearch && shouldEnableGovernmentSalaryTool()
+        ? {
+            government_salary: governmentSalaryTool,
+          }
+        : {}),
+      // Add FAA Aircraft Registry Tool - Aircraft ownership lookup
+      // Ultra-high wealth indicator ($500K-$70M+ for jets)
+      ...(enableSearch && shouldEnableFAAAircraftTool()
+        ? {
+            faa_aircraft: faaAircraftTool,
+          }
+        : {}),
+      // Add USCG Vessel Documentation Tool - Boat/yacht ownership
+      // High wealth indicator ($25K-$50M+ for yachts)
+      ...(enableSearch && shouldEnableUSCGVesselTool()
+        ? {
+            uscg_vessels: uscgVesselTool,
+          }
+        : {}),
+      // Add NPI Registry Tool - Healthcare provider credentials
+      // Authoritative source for MD, DO, NP, PA credentials with income estimates
+      ...(enableSearch && shouldEnableNPIRegistryTool()
+        ? {
+            npi_registry: npiRegistryTool,
+          }
+        : {}),
+      // Add FINRA BrokerCheck Tool - Financial advisor credentials
+      // CRD number, licenses, disclosures, income estimates
+      ...(enableSearch && shouldEnableFINRABrokerCheckTool()
+        ? {
+            finra_brokercheck: finraBrokerCheckTool,
+          }
+        : {}),
+      // Add Lobbyist Search Tool - State/local lobbyist registries
+      // NY, IL, CA, WA, CO - HIGH income profession ($150K-$500K+)
+      ...(enableSearch && shouldEnableLobbyistSearchTool()
+        ? {
+            lobbyist_search: lobbyistSearchTool,
+          }
+        : {}),
+      // Add Business License Tool - City business license databases
+      // Chicago, Seattle, Kansas City, Cincinnati, Berkeley, Delaware
+      ...(enableSearch && shouldEnableBusinessLicenseTool()
+        ? {
+            business_licenses: businessLicenseTool,
+          }
+        : {}),
+      // Add USPTO Search Tool - Patent and trademark search
+      // Search by inventor or assignee - IP wealth indicator
+      ...(enableSearch && shouldEnableUSPTOSearchTool()
+        ? {
+            uspto_search: usptoSearchTool,
+          }
+        : {}),
+      // Add NYC Property Sales Tool - Actual transaction prices
+      // NYC DOF Rolling Sales data - real prices, not estimates
+      ...(enableSearch && shouldEnableNYCPropertySalesTool()
+        ? {
+            nyc_property_sales: nycPropertySalesTool,
+          }
+        : {}),
+      // Add NYC ACRIS Deeds Tool - Property ownership records
+      // NYC deed transfers, mortgages since 1966
+      ...(enableSearch && shouldEnableACRISDeedsTool()
+        ? {
+            nyc_acris_deeds: acrisDeedsTool,
+          }
+        : {}),
+      // Add CMS Open Payments Tool - Sunshine Act physician payments
+      // Pharma/device payments to physicians (consulting, speaking, research)
+      ...(enableSearch && shouldEnableCMSOpenPaymentsTool()
+        ? {
+            cms_open_payments: cmsOpenPaymentsTool,
+          }
+        : {}),
+      // Add Federal Lobbying Tool - LDA filings
+      // Federal lobbying disclosures (registrants, clients, lobbyists)
+      ...(enableSearch && shouldEnableFederalLobbyingTool()
+        ? {
+            federal_lobbying: federalLobbyingTool,
           }
         : {}),
       // Add CRM Search Tool - Search synced Bloomerang/Virtuous data
