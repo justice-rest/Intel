@@ -9,12 +9,15 @@
  * - SEC insider filings (spouses often appear together)
  * - OpenCorporates (shared company affiliations)
  * - FEC contributions (household giving patterns)
+ * - Linkup web search (automatic fallback when other sources fail)
  *
  * All sources are FREE - no API keys required
  */
 
 import { tool } from "ai"
 import { z } from "zod"
+import { LinkupClient } from "linkup-sdk"
+import { getLinkupApiKey, isLinkupEnabled } from "../linkup/config"
 
 // ============================================================================
 // TYPES
@@ -76,6 +79,11 @@ const householdSearchSchema = z.object({
     .optional()
     .default(true)
     .describe("Cross-reference with SEC, FEC, and business records for validation"),
+  autoWebSearch: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe("Automatically search web (Linkup) if no spouse found in Wikidata/SEC"),
 })
 
 // ============================================================================
@@ -218,6 +226,86 @@ async function searchSecForJointFilings(personName: string): Promise<string[]> {
 }
 
 /**
+ * Search Linkup for family/spouse information when other sources fail
+ */
+async function searchLinkupForFamily(personName: string): Promise<{
+  spouses: Array<{
+    name: string
+    relationship: string
+    current: boolean
+  }>
+  sources: Array<{ name: string; url: string }>
+}> {
+  if (!isLinkupEnabled()) {
+    console.log("[Household] Linkup not enabled, skipping web search")
+    return { spouses: [], sources: [] }
+  }
+
+  try {
+    const client = new LinkupClient({ apiKey: getLinkupApiKey() })
+
+    // Search for spouse/family information
+    const searchResult = await withTimeout(
+      client.search({
+        query: `${personName} spouse wife husband married family`,
+        depth: "deep",
+        outputType: "sourcedAnswer",
+      }),
+      30000,
+      "Linkup family search timed out"
+    )
+
+    const answer = typeof searchResult === "string"
+      ? searchResult
+      : (searchResult as { answer?: string })?.answer || ""
+
+    const sources = (searchResult as { sources?: Array<{ name: string; url: string }> })?.sources || []
+
+    // Parse the answer to extract family members
+    const spouses: Array<{ name: string; relationship: string; current: boolean }> = []
+
+    // Common patterns to look for
+    const marriagePatterns = [
+      /married to ([A-Z][a-zA-Z]+ [A-Z][a-zA-Z]+)/gi,
+      /wife,? ([A-Z][a-zA-Z]+ [A-Z][a-zA-Z]+)/gi,
+      /husband,? ([A-Z][a-zA-Z]+ [A-Z][a-zA-Z]+)/gi,
+      /spouse,? ([A-Z][a-zA-Z]+ [A-Z][a-zA-Z]+)/gi,
+      /partner,? ([A-Z][a-zA-Z]+ [A-Z][a-zA-Z]+)/gi,
+    ]
+
+    for (const pattern of marriagePatterns) {
+      const matches = answer.matchAll(pattern)
+      for (const match of matches) {
+        if (match[1] && match[1].toLowerCase() !== personName.toLowerCase()) {
+          const name = match[1].trim()
+          // Avoid duplicates
+          if (!spouses.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+            spouses.push({
+              name,
+              relationship: "Spouse (Web Search)",
+              current: true,
+            })
+          }
+        }
+      }
+    }
+
+    console.log("[Household] Linkup found", spouses.length, "potential family members")
+
+    return {
+      spouses,
+      sources: sources.slice(0, 5).map(s => ({
+        name: s.name || "Web Source",
+        url: s.url || "",
+      }))
+    }
+  } catch (error) {
+    console.error("[Household] Linkup family search failed:", error)
+    return { spouses: [], sources: [] }
+  }
+}
+
+/**
  * Format household data for AI analysis
  */
 function formatHouseholdForAI(result: HouseholdSearchResult): string {
@@ -229,13 +317,13 @@ function formatHouseholdForAI(result: HouseholdSearchResult): string {
   if (result.spouses.length === 0) {
     lines.push("## No Spouse/Partner Information Found")
     lines.push("")
-    lines.push("No spouse or partner information was found in public records.")
+    lines.push("No spouse or partner information was found in public records (including web search).")
     lines.push("This could mean:")
     lines.push("- The person is not married or in a registered partnership")
-    lines.push("- The spouse information is not in public databases")
+    lines.push("- The spouse information is not publicly available")
     lines.push("- The spouse prefers to maintain a lower public profile")
     lines.push("")
-    lines.push("Consider using searchWeb for additional research.")
+    lines.push("**Note:** Web search was automatically conducted - no further action needed.")
     return lines.join("\n")
   }
 
@@ -344,6 +432,7 @@ export const householdSearchTool = tool({
     personWikidataId,
     includeFormerSpouses = true,
     crossReferenceData = true,
+    autoWebSearch = true,
   }): Promise<HouseholdSearchResult> => {
     console.log("[Household] Searching for:", personName)
     const startTime = Date.now()
@@ -405,6 +494,30 @@ export const householdSearchTool = tool({
             sharedCompanies: [],
           })
         }
+      }
+
+      // Step 3: If no spouse found and autoWebSearch is enabled, use Linkup
+      let linkupSources: Array<{ name: string; url: string }> = []
+      if (spouseMap.size === 0 && autoWebSearch) {
+        console.log("[Household] No spouse found in Wikidata/SEC, trying Linkup web search...")
+        const linkupResult = await withTimeout(
+          searchLinkupForFamily(personName),
+          35000,
+          "Linkup family search timed out"
+        ).catch(() => ({ spouses: [], sources: [] }))
+
+        for (const spouse of linkupResult.spouses) {
+          const key = spouse.name.toLowerCase()
+          if (!spouseMap.has(key)) {
+            spouseMap.set(key, {
+              name: spouse.name,
+              relationship: spouse.relationship,
+              current: spouse.current,
+              sharedCompanies: [],
+            })
+          }
+        }
+        linkupSources = linkupResult.sources
       }
 
       const spouses = Array.from(spouseMap.values())
@@ -472,6 +585,11 @@ export const householdSearchTool = tool({
           })
         }
       })
+
+      // Add Linkup sources if web search was used
+      if (linkupSources.length > 0) {
+        result.sources.push(...linkupSources)
+      }
 
       // Generate formatted content
       result.rawContent = formatHouseholdForAI(result)

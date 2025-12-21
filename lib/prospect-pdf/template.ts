@@ -205,82 +205,206 @@ export function generateProspectReportHtml(data: ProspectReportData): string {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Donor Profile - ${escapeHtml(data.prospectName)}</title>
+    <title>Prospect Profile - ${escapeHtml(data.prospectName)}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
             --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --font-head: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --font-round: "SF Pro Rounded", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --color-heading: #545F63;
-            --color-accent: #00A5E4;
-            --color-text: #000;
-            --color-muted: #666;
-            --base-font-size: 10.75pt;
-            --base-line-height: 1.45;
+            --color-heading: #0f172a;
+            --color-text: #1e293b;
+            --color-muted: #64748b;
+            --color-border: #e2e8f0;
+            --color-bg-subtle: #f8fafc;
+            --base-font-size: 11pt;
+            --base-line-height: 1.6;
         }
-        html, body { font-family: var(--font-body); font-size: var(--base-font-size); font-weight: 400; line-height: var(--base-line-height); color: var(--color-text); font-feature-settings: "liga", "kern"; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
-        body { max-width: 8.5in; margin: 0 auto; padding: 0.85in 0.85in 0.9in; background: #fff; }
-        .brand-header { margin-bottom: 0.75em; }
-        .brand-header img { max-width: 2in; max-height: 0.5in; width: auto; height: auto; display: block; object-fit: contain; }
-        h1, h2, h3 { font-family: var(--font-head); color: var(--color-heading); }
-        h1 { font-size: 16pt; font-weight: 700; margin: 0.15em 0 0.45em; letter-spacing: -0.02em; line-height: 1.2; }
-        h2 { font-size: 12.5pt; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.5em; border-bottom: 2px solid var(--color-heading); letter-spacing: -0.01em; line-height: 1.25; padding-bottom: 0.15em; }
-        h3 { font-size: 10.75pt; font-weight: 600; margin-top: 0.9em; margin-bottom: 0.25em; }
-        p { margin: 0 0 0.65em; text-align: left; }
-        strong { font-weight: 600; color: var(--color-heading); }
+        * { box-sizing: border-box; }
+        html, body {
+            font-family: var(--font-body);
+            font-size: var(--base-font-size);
+            font-weight: 400;
+            line-height: var(--base-line-height);
+            color: var(--color-text);
+            -webkit-font-smoothing: antialiased;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            max-width: 7.5in;
+            margin: 0 auto;
+            padding: 0.75in 0.85in;
+            background: #fff;
+        }
+
+        /* Header - centered like shared page */
+        .header {
+            text-align: center;
+            margin-bottom: 2em;
+            padding-bottom: 1.5em;
+            border-bottom: 1px solid var(--color-border);
+        }
+        .header img {
+            height: 36px;
+            width: auto;
+            display: inline-block;
+            margin-bottom: 1em;
+            object-fit: contain;
+        }
+        .header .date {
+            font-size: 10pt;
+            color: var(--color-muted);
+            margin-bottom: 0.5em;
+        }
+        .header h1 {
+            font-size: 24pt;
+            font-weight: 600;
+            margin: 0 0 0.25em;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+            color: var(--color-heading);
+        }
+        .header .subtitle {
+            font-size: 11pt;
+            color: var(--color-muted);
+            margin: 0;
+        }
+
+        /* Content */
+        h2 {
+            font-size: 14pt;
+            font-weight: 600;
+            color: var(--color-heading);
+            margin: 1.75em 0 0.75em;
+            padding-bottom: 0.4em;
+            border-bottom: 2px solid var(--color-heading);
+        }
+        h3 {
+            font-size: 12pt;
+            font-weight: 600;
+            color: var(--color-heading);
+            margin: 1.25em 0 0.5em;
+        }
+        p { margin: 0 0 0.75em; }
+        strong { font-weight: 600; }
         em { font-style: italic; }
-        ul { margin: 0.25em 0 0.9em 1.25em; padding: 0; }
-        li { margin: 0.25em 0; }
-        .at-a-glance { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75em 1em; padding: 0.8em; border: 1px solid rgba(84,95,99,0.25); border-left: 4px solid var(--color-accent); background: rgba(0, 165, 228, 0.06); margin: 0.75em 0 1.0em; }
-        .at-a-glance .k { font-family: var(--font-body); font-weight: 600; color: var(--color-heading); font-size: 9.6pt; margin-bottom: 0.1em; }
-        .at-a-glance .v { font-size: 10.5pt; margin: 0; }
-        .executive-summary { background: rgba(0, 165, 228, 0.10); padding: 0.9em; margin: 0.85em 0 1.1em; border-left: 4px solid var(--color-accent); }
-        .callout { border: 1px solid rgba(84,95,99,0.25); border-left: 4px solid var(--color-accent); padding: 0.75em 0.85em; margin: 0.9em 0 0.8em; background: rgba(0, 165, 228, 0.04); }
-        .callout .label { font-family: var(--font-round); font-weight: 600; letter-spacing: 0.01em; text-transform: uppercase; font-size: 9.25pt; color: var(--color-heading); margin-bottom: 0.25em; }
-        .callout .big { font-family: var(--font-head); font-weight: 700; font-size: 13pt; margin: 0.1em 0 0.25em; color: var(--color-heading); }
-        .callout .notes { margin: 0; color: var(--color-text); font-size: 10.25pt; }
-        .subsection { margin-left: 0; background: rgba(0, 165, 228, 0.045); padding: 0.75em 0.85em; border-radius: 6px; margin-bottom: 0.9em; border: 1px solid rgba(0, 165, 228, 0.22); }
-        .footer { margin-top: 2.25em; padding-top: 0.75em; border-top: 2px solid var(--color-heading); font-size: 9.75pt; }
+        ul { margin: 0.5em 0 1em 1.5em; padding: 0; }
+        li { margin: 0.35em 0; }
+
+        /* Info grid - cleaner style */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5em 1.5em;
+            padding: 1em;
+            background: var(--color-bg-subtle);
+            border-radius: 8px;
+            margin: 1em 0 1.5em;
+            border: 1px solid var(--color-border);
+        }
+        .info-grid .item { margin-bottom: 0.25em; }
+        .info-grid .label {
+            font-size: 9pt;
+            font-weight: 600;
+            color: var(--color-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-bottom: 0.15em;
+        }
+        .info-grid .value {
+            font-size: 10.5pt;
+            margin: 0;
+            color: var(--color-heading);
+        }
+
+        /* Summary box */
+        .summary-box {
+            background: var(--color-bg-subtle);
+            padding: 1em 1.25em;
+            margin: 1em 0 1.5em;
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+        }
+
+        /* Callout - for giving capacity */
+        .callout {
+            text-align: center;
+            padding: 1.25em;
+            margin: 1.25em 0;
+            background: var(--color-bg-subtle);
+            border-radius: 8px;
+            border: 1px solid var(--color-border);
+        }
+        .callout .label {
+            font-size: 9pt;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--color-muted);
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5em;
+        }
+        .callout .big {
+            font-size: 20pt;
+            font-weight: 700;
+            margin: 0.25em 0;
+            color: var(--color-heading);
+        }
+        .callout .notes {
+            margin: 0.5em 0 0;
+            color: var(--color-muted);
+            font-size: 10pt;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 2.5em;
+            padding-top: 1em;
+            border-top: 1px solid var(--color-border);
+            font-size: 9pt;
+            color: var(--color-muted);
+            text-align: center;
+        }
+
         .page-break-before { break-before: page; page-break-before: always; }
+
         @media print {
-            body { padding: 0.7in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            h1, h2, h3, .executive-summary, .subsection, .callout, .at-a-glance, ul { break-inside: avoid; page-break-inside: avoid; }
-            h2, h3 { break-after: avoid; page-after: avoid; }
+            body { padding: 0.5in 0.65in; }
+            h1, h2, h3, .summary-box, .callout, .info-grid, ul {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+            h2, h3 { break-after: avoid; }
             p { orphans: 3; widows: 3; }
-            .page-break-before { break-before: page; page-break-before: always; }
             a[href]:after { content: ""; }
-            img { break-inside: avoid; page-break-inside: avoid; }
         }
     </style>
 </head>
 <body>
-    <div class="brand-header">
-        ${logoBase64 ? `<img src="${logoBase64}" alt="Rōmy logo">` : ""}
+    <div class="header">
+        ${logoBase64 ? `<img src="${logoBase64}" alt="Rōmy">` : ""}
+        <div class="date">${escapeHtml(data.reportDate)}</div>
+        <h1>${escapeHtml(data.prospectName)}</h1>
+        <p class="subtitle">${escapeHtml(data.location)}${data.preparedFor ? ` | Prepared for ${escapeHtml(data.preparedFor)}` : ""}</p>
     </div>
-
-    <h1>Donor Profile</h1>
-    <p><strong>Prospect Name:</strong> ${escapeHtml(data.prospectName)} | <strong>Location:</strong> ${escapeHtml(data.location)}</p>
 
     <!-- SECTION 1: EXECUTIVE SUMMARY -->
     <h2>Executive Summary</h2>
 
-    <div class="executive-summary">
+    <div class="summary-box">
         <p>${formatText(data.executiveSummary)}</p>
     </div>
 
     <!-- SECTION 2: PERSONAL BACKGROUND AND CONTACT INFORMATION -->
-    <h2>Personal Background and Contact Information</h2>
+    <h2>Personal Background</h2>
 
-    <div class="at-a-glance">
-        <div><div class="k">Name</div><p class="v">${escapeHtml(data.personal.fullName)}</p></div>
-        <div><div class="k">Current Location</div><p class="v">${escapeHtml(data.personal.currentLocation || "Not available")}</p></div>
-        <div><div class="k">Age / Birth Year</div><p class="v">${escapeHtml(data.personal.ageBirthYear || "Not available")}</p></div>
-        <div><div class="k">Contact Information</div><p class="v">${escapeHtml(data.personal.contactInfo || "Not available")}</p></div>
-        <div><div class="k">Family Status</div><p class="v">${escapeHtml(data.personal.familyStatus || "Not available")}</p></div>
-        <div><div class="k">Primary Residence</div><p class="v">${escapeHtml(data.personal.primaryResidence || "Not available")}</p></div>
+    <div class="info-grid">
+        <div class="item"><div class="label">Name</div><p class="value">${escapeHtml(data.personal.fullName)}</p></div>
+        <div class="item"><div class="label">Location</div><p class="value">${escapeHtml(data.personal.currentLocation || "Not available")}</p></div>
+        <div class="item"><div class="label">Age / Birth Year</div><p class="value">${escapeHtml(data.personal.ageBirthYear || "Not available")}</p></div>
+        <div class="item"><div class="label">Contact</div><p class="value">${escapeHtml(data.personal.contactInfo || "Not available")}</p></div>
+        <div class="item"><div class="label">Family Status</div><p class="value">${escapeHtml(data.personal.familyStatus || "Not available")}</p></div>
+        <div class="item"><div class="label">Primary Residence</div><p class="value">${escapeHtml(data.personal.primaryResidence || "Not available")}</p></div>
     </div>
 
     ${

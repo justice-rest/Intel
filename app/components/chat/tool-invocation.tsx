@@ -64,6 +64,8 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   judge_search: "Judge Profile",
   household_search: "Household Data",
   rental_investment: "Rental Analysis",
+  county_assessor: "County Property Records",
+  faa_registry: "FAA Aircraft Registry",
   business_registry_scraper: "Business Registry",
   find_business_ownership: "Business Ownership",
   crm_search: "CRM Search",
@@ -1880,6 +1882,401 @@ function SingleToolCard({
                     ...and {avmResult.sources.length - 5} more sources
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle County Assessor results
+    if (
+      toolName === "county_assessor" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "query" in parsedResult
+    ) {
+      const result = parsedResult as {
+        query: {
+          address?: string
+          owner?: string
+          county: string
+          state: string
+        }
+        properties: Array<{
+          address?: string
+          owner?: string
+          parcelId?: string
+          assessedValue?: number
+          marketValue?: number
+          landValue?: number
+          buildingValue?: number
+          yearBuilt?: number
+          squareFeet?: number
+          acres?: number
+          propertyType?: string
+          taxAmount?: number
+          lastSaleDate?: string
+          lastSalePrice?: number
+        }>
+        totalFound: number
+        county: string
+        state: string
+        dataSource: string
+        confidence: "high" | "medium" | "low"
+        sources: Array<{ name: string; url: string }>
+        rawContent?: string
+      }
+
+      // Confidence badge styling
+      const confidenceBadgeClass = {
+        high: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400",
+        medium: "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400",
+        low: "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400",
+      }
+
+      const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="text-center">
+            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+              County Property Records
+            </div>
+            <div className="font-medium text-foreground text-xl">
+              {result.query.address || result.query.owner || "Property Search"}
+            </div>
+            <div className="text-muted-foreground text-sm mt-1">
+              {result.county} County, {result.state}
+            </div>
+          </div>
+
+          {/* Stats badges */}
+          <div className="flex justify-center gap-2 flex-wrap">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
+              <span className="font-mono">{result.totalFound}</span>
+              <span className="opacity-75">{result.totalFound === 1 ? "Property" : "Properties"}</span>
+            </div>
+            <div className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium capitalize",
+              confidenceBadgeClass[result.confidence]
+            )}>
+              <span>{result.confidence}</span>
+              <span className="opacity-75">Confidence</span>
+            </div>
+          </div>
+
+          {/* Properties list */}
+          {result.properties.length > 0 ? (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Properties Found
+              </div>
+              <div className="space-y-2">
+                {result.properties.slice(0, 5).map((property, index) => (
+                  <div
+                    key={index}
+                    className="border-border rounded-lg border p-3 bg-muted/20"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">{property.address || "Address Unknown"}</div>
+                        {property.owner && (
+                          <div className="text-muted-foreground text-xs mt-0.5">
+                            Owner: {property.owner}
+                          </div>
+                        )}
+                      </div>
+                      {(property.assessedValue || property.marketValue) && (
+                        <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                          {formatCurrency(property.marketValue || property.assessedValue || 0)}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-muted-foreground text-xs flex flex-wrap gap-x-3 gap-y-1">
+                      {property.parcelId && <span>Parcel: {property.parcelId}</span>}
+                      {property.yearBuilt && <span>Built: {property.yearBuilt}</span>}
+                      {property.squareFeet && <span>{property.squareFeet.toLocaleString()} sqft</span>}
+                      {property.acres && <span>{property.acres} acres</span>}
+                      {property.propertyType && <span>{property.propertyType}</span>}
+                    </div>
+                    {(property.landValue || property.buildingValue || property.taxAmount) && (
+                      <div className="text-muted-foreground text-xs mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                        {property.landValue && <span>Land: {formatCurrency(property.landValue)}</span>}
+                        {property.buildingValue && <span>Building: {formatCurrency(property.buildingValue)}</span>}
+                        {property.taxAmount && <span>Tax: {formatCurrency(property.taxAmount)}/yr</span>}
+                      </div>
+                    )}
+                    {property.lastSaleDate && property.lastSalePrice && (
+                      <div className="text-muted-foreground text-xs mt-2">
+                        Last sale: {formatCurrency(property.lastSalePrice)} on {property.lastSaleDate}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-4">
+              <div className="text-muted-foreground text-sm mb-2">
+                No properties found matching the search criteria.
+              </div>
+              <div className="text-muted-foreground text-xs">
+                Try a partial address or search by owner name
+              </div>
+            </div>
+          )}
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources ({result.sources.length})
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {result.sources.slice(0, 6).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    {source.name.length > 40 ? source.name.substring(0, 40) + "..." : source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+                {result.sources.length > 6 && (
+                  <span className="text-muted-foreground text-xs">
+                    +{result.sources.length - 6} more
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle FAA Aircraft Registry results
+    if (
+      toolName === "faa_registry" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "searchTerm" in parsedResult
+    ) {
+      const result = parsedResult as {
+        searchTerm: string
+        searchType: "name" | "nNumber" | "serial"
+        aircraft: Array<{
+          nNumber: string
+          serialNumber?: string
+          manufacturer: string
+          model: string
+          year?: number
+          registrantName: string
+          registrantCity?: string
+          registrantState?: string
+          aircraftType: string
+          engineType?: string
+          status?: string
+          estimatedValue?: number
+        }>
+        summary: {
+          totalFound: number
+          estimatedTotalValue: string
+          wealthIndicator: "ultra_high" | "very_high" | "high" | "moderate" | "unknown"
+          aircraftTypes: string[]
+        }
+        rawContent?: string
+        sources: Array<{ name: string; url: string }>
+      }
+
+      // Wealth indicator badge styling
+      const wealthBadgeClass: Record<string, string> = {
+        ultra_high: "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-400",
+        very_high: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400",
+        high: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+        moderate: "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400",
+        unknown: "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400",
+      }
+
+      const wealthLabels: Record<string, string> = {
+        ultra_high: "$50M+ Net Worth",
+        very_high: "$10M+ Net Worth",
+        high: "Millionaire",
+        moderate: "Upper Middle Class",
+        unknown: "No Aircraft Found",
+      }
+
+      // Aircraft type badge colors
+      const aircraftTypeBadge: Record<string, string> = {
+        jet: "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-400",
+        turboprop: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+        helicopter: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400",
+        piston: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400",
+      }
+
+      const getAircraftTypeBadge = (type: string) => {
+        const lowerType = type.toLowerCase()
+        if (lowerType.includes("jet")) return aircraftTypeBadge.jet
+        if (lowerType.includes("turbo")) return aircraftTypeBadge.turboprop
+        if (lowerType.includes("heli") || lowerType.includes("rotor")) return aircraftTypeBadge.helicopter
+        return aircraftTypeBadge.piston
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="text-center">
+            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+              FAA Aircraft Registry
+            </div>
+            <div className="font-medium text-foreground text-xl">
+              {result.searchTerm}
+            </div>
+            <div className="text-muted-foreground text-sm mt-1">
+              Registered Aircraft Search
+            </div>
+          </div>
+
+          {/* Stats badges */}
+          <div className="flex justify-center gap-2 flex-wrap">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400">
+              <span className="font-mono">{result.summary.totalFound}</span>
+              <span className="opacity-75">Aircraft</span>
+            </div>
+            {result.summary.estimatedTotalValue && result.summary.estimatedTotalValue !== "$0" && (
+              <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                <span className="font-mono">{result.summary.estimatedTotalValue}</span>
+                <span className="opacity-75">Est. Value</span>
+              </div>
+            )}
+          </div>
+
+          {/* Wealth indicator */}
+          <div className="flex justify-center">
+            <div className={cn(
+              "inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium",
+              wealthBadgeClass[result.summary.wealthIndicator]
+            )}>
+              {wealthLabels[result.summary.wealthIndicator]}
+            </div>
+          </div>
+
+          {/* Aircraft type badges */}
+          {result.summary.aircraftTypes.length > 0 && (
+            <div className="flex justify-center gap-1 flex-wrap">
+              {result.summary.aircraftTypes.map((type, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
+                >
+                  {type}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Aircraft list */}
+          {result.aircraft.length > 0 ? (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Registered Aircraft
+              </div>
+              <div className="space-y-2">
+                {result.aircraft.slice(0, 5).map((aircraft, index) => (
+                  <div
+                    key={index}
+                    className="border-border rounded-lg border p-3 bg-muted/20"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1">
+                        <div className="font-medium text-sm">
+                          {aircraft.manufacturer} {aircraft.model}
+                          {aircraft.year && <span className="text-muted-foreground"> ({aircraft.year})</span>}
+                        </div>
+                        <div className="text-muted-foreground text-xs mt-0.5">
+                          {aircraft.registrantName}
+                          {aircraft.registrantCity && aircraft.registrantState && (
+                            <span> • {aircraft.registrantCity}, {aircraft.registrantState}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={cn(
+                          "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+                          getAircraftTypeBadge(aircraft.aircraftType)
+                        )}>
+                          {aircraft.aircraftType}
+                        </span>
+                        <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-mono text-gray-700 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
+                          N{aircraft.nNumber}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground text-xs flex flex-wrap gap-x-3 gap-y-1">
+                      {aircraft.serialNumber && <span>S/N: {aircraft.serialNumber}</span>}
+                      {aircraft.engineType && <span>{aircraft.engineType}</span>}
+                      {aircraft.status && <span>Status: {aircraft.status}</span>}
+                      {aircraft.estimatedValue && (
+                        <span className="text-green-600 dark:text-green-400">
+                          Est. ${(aircraft.estimatedValue / 1000000).toFixed(1)}M
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {result.aircraft.length > 5 && (
+                <div className="text-muted-foreground text-xs text-center mt-2">
+                  +{result.aircraft.length - 5} more aircraft
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-center py-4 border-border rounded-lg border bg-muted/20 p-4">
+              <div className="text-muted-foreground text-sm mb-3">
+                No aircraft found registered to "{result.searchTerm}"
+              </div>
+              <div className="text-muted-foreground text-xs space-y-1">
+                <div className="font-medium mb-2">Aircraft ownership indicates high net worth:</div>
+                <div className="grid grid-cols-2 gap-2 max-w-sm mx-auto text-left">
+                  <span>Single-engine piston</span><span className="text-right">$50K - $500K</span>
+                  <span>Turboprop</span><span className="text-right">$1M - $8M</span>
+                  <span>Light jet</span><span className="text-right">$2M - $15M</span>
+                  <span>Large cabin jet</span><span className="text-right">$15M - $75M</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {result.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
               </div>
             </div>
           )}
