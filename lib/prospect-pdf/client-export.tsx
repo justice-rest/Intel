@@ -5,6 +5,9 @@
  *
  * Uses react-pdf/renderer for browser-based PDF generation.
  * Matches the Rōmy brand styling from pdf.html.
+ *
+ * NOTE: Uses built-in PDF fonts (Helvetica) to avoid CSP issues
+ * with external font loading from fonts.gstatic.com
  */
 
 import {
@@ -15,32 +18,11 @@ import {
   StyleSheet,
   Image,
   pdf,
-  Font,
 } from "@react-pdf/renderer"
 import type { ProspectReportData } from "./template"
 
-// Register Inter font
-Font.register({
-  family: "Inter",
-  fonts: [
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfMZg.ttf",
-      fontWeight: 400,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fMZg.ttf",
-      fontWeight: 500,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuGKYMZg.ttf",
-      fontWeight: 600,
-    },
-    {
-      src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYMZg.ttf",
-      fontWeight: 700,
-    },
-  ],
-})
+// Using built-in Helvetica fonts to avoid CSP issues with external font loading
+// Helvetica is available in all PDF readers without network requests
 
 // Brand colors from pdf.html
 const COLORS = {
@@ -53,11 +35,11 @@ const COLORS = {
   border: "rgba(84, 95, 99, 0.25)",
 }
 
-// Styles matching pdf.html
+// Styles matching pdf.html (using Helvetica to avoid CSP font loading issues)
 const styles = StyleSheet.create({
   page: {
     padding: "0.85in",
-    fontFamily: "Inter",
+    fontFamily: "Helvetica",
     fontSize: 10.75,
     lineHeight: 1.45,
     color: COLORS.text,
@@ -70,7 +52,7 @@ const styles = StyleSheet.create({
   },
   h1: {
     fontSize: 16,
-    fontWeight: 700,
+    fontFamily: "Helvetica-Bold",
     color: COLORS.heading,
     marginTop: 4,
     marginBottom: 12,
@@ -78,7 +60,7 @@ const styles = StyleSheet.create({
   },
   h2: {
     fontSize: 12.5,
-    fontWeight: 700,
+    fontFamily: "Helvetica-Bold",
     color: COLORS.heading,
     marginTop: 24,
     marginBottom: 12,
@@ -89,7 +71,7 @@ const styles = StyleSheet.create({
   },
   h3: {
     fontSize: 10.75,
-    fontWeight: 600,
+    fontFamily: "Helvetica-Bold",
     color: COLORS.heading,
     marginTop: 18,
     marginBottom: 6,
@@ -98,7 +80,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   strong: {
-    fontWeight: 600,
+    fontFamily: "Helvetica-Bold",
     color: COLORS.heading,
   },
   executiveSummary: {
@@ -127,7 +109,7 @@ const styles = StyleSheet.create({
   },
   atAGlanceKey: {
     fontSize: 9.6,
-    fontWeight: 600,
+    fontFamily: "Helvetica-Bold",
     color: COLORS.heading,
     marginBottom: 2,
   },
@@ -146,7 +128,7 @@ const styles = StyleSheet.create({
   },
   calloutLabel: {
     fontSize: 9.25,
-    fontWeight: 600,
+    fontFamily: "Helvetica-Bold",
     textTransform: "uppercase",
     color: COLORS.heading,
     marginBottom: 4,
@@ -154,7 +136,7 @@ const styles = StyleSheet.create({
   },
   calloutBig: {
     fontSize: 13,
-    fontWeight: 700,
+    fontFamily: "Helvetica-Bold",
     color: COLORS.heading,
     marginTop: 2,
     marginBottom: 6,
