@@ -54,9 +54,9 @@ import {
   shouldEnableBusinessAffiliationSearchTool,
 } from "@/lib/tools/business-affiliation-search"
 import {
-  businessRegistryScraperTool,
-  shouldEnableBusinessRegistryScraperTool,
-} from "@/lib/tools/business-registry-scraper"
+  businessLookupTool,
+  shouldEnableBusinessLookupTool,
+} from "@/lib/tools/business-lookup"
 import {
   nonprofitAffiliationSearchTool,
   shouldEnableNonprofitAffiliationTool,
@@ -86,10 +86,7 @@ import {
   gleifLookupTool,
   shouldEnableGleifTools,
 } from "@/lib/tools/gleif-lei"
-import {
-  findBusinessOwnershipTool,
-  shouldEnableFindBusinessOwnershipTool,
-} from "@/lib/tools/find-business-ownership"
+// find-business-ownership merged into business-lookup
 import {
   countyAssessorTool,
   shouldEnableCountyAssessorTool,
@@ -163,11 +160,10 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // Business Registry Scraper - Stealth web scraping fallback
-    // Scrapes State SoS (FL, NY, CA, DE, CO) registries
-    ...(shouldEnableBusinessRegistryScraperTool()
+    // Unified Business Lookup - searches CO, CT, NY, OR, IA, WA, FL + Linkup fallback
+    ...(shouldEnableBusinessLookupTool()
       ? {
-          business_registry_scraper: businessRegistryScraperTool,
+          business_lookup: businessLookupTool,
         }
       : {}),
 
@@ -266,13 +262,7 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // Find Business Ownership Tool - Person→Business search with ownership inference
-    // Searches FL, NY, CA, DE, CO state registries for businesses where person is officer/registered agent
-    ...(shouldEnableFindBusinessOwnershipTool()
-      ? {
-          find_business_ownership: findBusinessOwnershipTool,
-        }
-      : {}),
+    // find_business_ownership merged into business_lookup above
 
     // County Assessor Tool - Official property assessment data from county Socrata APIs
     // FREE, no API key required - verified government data
@@ -349,11 +339,8 @@ export function getToolDescriptions(): string {
   }
   // Business research tools - different tools for different purposes
   dataTools.push("business_affiliation_search (UNIFIED: finds PUBLIC company roles from SEC EDGAR + Wikidata + Web - best for officer/director search at PUBLIC companies)")
-  if (shouldEnableFindBusinessOwnershipTool()) {
-    dataTools.push("find_business_ownership (STATE REGISTRIES: find what businesses a person owns/controls - searches FL, NY, CA, DE, CO with ownership inference)")
-  }
-  if (shouldEnableBusinessRegistryScraperTool()) {
-    dataTools.push("business_registry_scraper (STATE REGISTRIES: search by company name OR officer name - FL, NY, CA, DE, CO)")
+  if (shouldEnableBusinessLookupTool()) {
+    dataTools.push("business_lookup (UNIFIED: search companies OR find person's business ownership - CO, CT, NY, OR, IA, WA, FL + Linkup fallback for other states)")
   }
   if (shouldEnableOpenSanctionsTools()) {
     dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")

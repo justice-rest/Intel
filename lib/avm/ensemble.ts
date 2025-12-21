@@ -288,6 +288,16 @@ function formatAVMOutput(data: {
   lines.push("")
   lines.push("## Interpretation")
 
+  // Check if we only have online estimates (no county/hedonic or comps)
+  const onlyOnlineEstimates = !data.hedonicValue && !data.compValue && data.onlineAvg
+
+  if (onlyOnlineEstimates) {
+    lines.push(
+      "**LOW CONFIDENCE WARNING:** This estimate is based on online sources only (Zillow, Redfin, etc.) without official county assessor data or recent comparable sales. Online estimates can vary significantly from actual value - verify with county assessor records for accurate assessment."
+    )
+    lines.push("")
+  }
+
   if (data.confidence.level === "high") {
     lines.push(
       "This valuation has high confidence and is suitable for preliminary lending decisions."

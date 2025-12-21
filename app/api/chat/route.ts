@@ -64,13 +64,9 @@ import {
   shouldEnableBusinessAffiliationSearchTool,
 } from "@/lib/tools/business-affiliation-search"
 import {
-  businessRegistryScraperTool,
-  shouldEnableBusinessRegistryScraperTool,
-} from "@/lib/tools/business-registry-scraper"
-import {
-  findBusinessOwnershipTool,
-  shouldEnableFindBusinessOwnershipTool,
-} from "@/lib/tools/find-business-ownership"
+  businessLookupTool,
+  shouldEnableBusinessLookupTool,
+} from "@/lib/tools/business-lookup"
 import {
   prospectProfileTool,
   shouldEnableProspectProfileTool,
@@ -130,10 +126,7 @@ import {
   stateContractsTool,
   shouldEnableStateContractsTool,
 } from "@/lib/tools/state-contracts"
-import {
-  businessEntitiesTool,
-  shouldEnableBusinessEntitiesTool,
-} from "@/lib/tools/business-entities"
+// business-entities merged into business-lookup
 import {
   governmentSalaryTool,
   shouldEnableGovernmentSalaryTool,
@@ -425,8 +418,7 @@ This provides existing giving history and contact details before running externa
       if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
       dataTools.push("business_affiliation_search (UNIFIED: finds business roles from SEC EDGAR + Wikidata + Web - best for PUBLIC company officer/director search)")
-      if (shouldEnableFindBusinessOwnershipTool()) dataTools.push("find_business_ownership (STATE REGISTRIES: find what businesses a person owns/controls - searches FL, NY, CA, DE, CO with ownership inference)")
-      if (shouldEnableBusinessRegistryScraperTool()) dataTools.push("business_registry_scraper (STATE REGISTRIES: search by company name OR officer name - FL, NY, CA, DE, CO)")
+      if (shouldEnableBusinessLookupTool()) dataTools.push("business_lookup (UNIFIED: search companies OR find person's business ownership - CO, CT, NY, OR, IA, WA, FL + Linkup fallback for other states)")
       if (shouldEnableProspectProfileTool()) dataTools.push("prospect_profile (AI-POWERED: Unified wealth scoring + verified evidence - Capacity/Propensity/Affinity scores with source citations - FREE DonorSearch/iWave alternative)")
       if (shouldEnableNonprofitBoardSearchTool()) dataTools.push("nonprofit_board_search (BOARD FINDER: Find all nonprofit & public company board positions for a person)")
       if (shouldEnableGivingHistoryTool()) dataTools.push("giving_history (GIVING AGGREGATOR: Combines FEC + 990 grants + major gifts - DonorSearch's core feature, FREE)")
@@ -440,7 +432,7 @@ This provides existing giving history and contact details before running externa
       if (shouldEnableProfessionalLicenseTool()) dataTools.push("professional_license (verify credentials: MD, JD, CPA, Real Estate - CA, NY, TX, FL, IL)")
       if (shouldEnableBuildingPermitTool()) dataTools.push("building_permits (city renovation permits - wealth indicator from permit values)")
       if (shouldEnableStateContractsTool()) dataTools.push("state_contracts (state government contracts - CA, NY, TX, FL, IL, OH, CO, MA)")
-      if (shouldEnableBusinessEntitiesTool()) dataTools.push("business_entities (state corporation registry - NY, CO, OR, IA, WA - search by entity name or agent/officer)")
+      // business_entities merged into business_lookup
       if (shouldEnableGovernmentSalaryTool()) dataTools.push("government_salary (public employee salaries - NYC, VT, NJ, OR, LA - wealth indicator)")
       if (shouldEnableFAAAircraftTool()) dataTools.push("faa_aircraft (FAA N-Number registry - aircraft ownership - ULTRA-HIGH wealth indicator)")
       if (shouldEnableUSCGVesselTool()) dataTools.push("uscg_vessels (USCG vessel documentation - boat/yacht ownership - HIGH wealth indicator)")
@@ -478,8 +470,7 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - property_valuation: Home value estimate - just pass the address, auto-fetches Zillow/Redfin/comps
 - rental_investment: Rental analysis - REQUIRES property value from property_valuation first
 - business_affiliation_search: Search SEC EDGAR + Wikidata + Web for PUBLIC company officer/director roles
-- find_business_ownership: **USE THIS** for "what businesses does [person] own?" - searches state registries with ownership inference
-- business_registry_scraper: Search state registries (FL, NY, CA, DE, CO) by company name OR officer name
+- business_lookup: **USE THIS** for "what businesses does [person] own?" OR "find info about [company]" - searches CO, CT, NY, OR, IA, WA, FL with Linkup fallback
 - gleif_search: Search Global LEI database for corporate entities (2.5M+ entities)
 - gleif_lookup: Get LEI details with ownership chain (direct/ultimate parent)
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
@@ -487,8 +478,7 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - court_search: Federal court opinions and dockets by party name or case
 - judge_search: Judge biographical data, positions, appointers, education
 - household_search: Find spouse/partner - returns household wealth assessment and shared affiliations
-- prospect_score: AI-powered prospect scoring (Capacity 0-100, Propensity 0-100, A-D Rating)
-- prospect_report: Comprehensive research report consolidating ALL data sources
+- prospect_profile: AI-powered prospect profiling (Capacity/Propensity/Affinity 0-100 scores + A-D Rating + verified evidence with source citations)
 - nonprofit_board_search: Find nonprofit and public company board positions
 - giving_history: Aggregate all known giving (FEC political, 990 grants, major gifts)
 - neon_crm_search_accounts: Search donors in Neon CRM by name/email
@@ -498,7 +488,6 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - professional_license: Verify credentials (MD, JD, CPA, Real Estate) - wealth indicator from profession
 - building_permits: City renovation permits - $500K+ permits suggest high wealth
 - state_contracts: State government contracts - $1M+ contracts suggest successful business
-- business_entities: State corporation registry search (NY, CO, OR, IA, WA) - find LLC/Corp by name or officer
 - government_salary: Public employee salaries (NYC, VT, NJ, OR, LA) - known income source
 - faa_aircraft: FAA aircraft registry - ULTRA-HIGH wealth ($500K-$70M+ aircraft)
 - uscg_vessels: USCG vessel documentation - yacht/boat ownership ($25K-$50M+)
@@ -524,19 +513,21 @@ Run 6-10 searchWeb queries per prospect with different angles:
 
 | Goal | Tool | When to Use |
 |------|------|-------------|
-| "What businesses does [person] own?" | **find_business_ownership** | Person→Business search. Searches state registries with ownership inference. |
+| "What businesses does [person] own?" | **business_lookup** (searchType="person") | Person→Business search. Searches state registries with ownership inference. |
 | "Is [person] a director/officer at any PUBLIC companies?" | **business_affiliation_search** | SEC EDGAR + Wikidata + Web. Best for public company roles. |
-| "Find info about [company name]" | **business_registry_scraper** (searchType="company") | Company→Details search. Gets registration, officers, status. |
-| "Find all officer positions for [person]" in private companies | **business_registry_scraper** (searchType="officer") | Person→Companies via state registries |
+| "Find info about [company name]" | **business_lookup** (searchType="company") | Company→Details search. Gets registration, officers, status. |
 
-**State Registry Knowledge:**
-- **Delaware (DE)**: 65% of Fortune 500 companies. Holdings, LLCs, corporations. ALWAYS include for large companies.
-- **Florida (FL)**: Most reliable for officer search. Best overall data quality.
-- **New York (NY)**: Open Data API - fastest and most reliable. Good for NYC-based entities.
-- **California (CA)**: Tech companies, startups. Required for Silicon Valley prospects.
-- **Colorado (CO)**: Open Data API available. Good secondary source.
+**Reliable States (Free APIs - Serverless):**
+- **Colorado (CO)**: Open Data API - entity + agent search
+- **Connecticut (CT)**: Open Data API - best-in-class, updated nightly
+- **New York (NY)**: Open Data API - fastest and most reliable
+- **Oregon (OR)**, **Iowa (IA)**, **Washington (WA)**: Open Data APIs
+- **Florida (FL)**: HTTP scraper (no browser needed) - good officer data
 
-**Ownership Inference (find_business_ownership):**
+**Other States (Linkup Web Search Fallback):**
+- CA, TX, DE, NV, AZ, etc. - automatically uses Linkup when needed
+
+**Ownership Inference (business_lookup):**
 - LLC Managing Member = likely owner
 - S-Corp President/CEO/Secretary = often sole owner (wears multiple hats)
 - General Partner = ownership stake in partnership
@@ -561,7 +552,7 @@ These tools reveal high-value prospects. Run them during comprehensive research:
 - **government_salary** - Public employees (NYC, VT, NJ, OR, LA). Known income from public payroll records.
 
 **Business & IP Research:**
-- **business_entities** - State corporation registry (NY, CO, OR, IA, WA). Search by entity OR agent/officer name.
+- **business_lookup** - Unified business search (CO, CT, NY, OR, IA, WA, FL + Linkup fallback). Search by company OR person name.
 - **business_licenses** - City licenses (Chicago, Seattle, KC, Cincinnati, Berkeley, DE). Find business ownership.
 - **uspto_search** - Patents/trademarks. Inventors and IP holders = wealth indicator.
 
@@ -576,7 +567,7 @@ When researching someone's profession:
 ### Due Diligence Workflow
 For comprehensive prospect due diligence:
 1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **find_business_ownership** - Find ALL business affiliations via state registries
+2. **business_lookup** - Find ALL business affiliations via state registries
 3. **business_affiliation_search** - Find public company roles via SEC + Wikidata
 4. **court_search** - Check for litigation history
 5. **lobbying_search** - Discover political connections
@@ -714,19 +705,12 @@ For comprehensive prospect due diligence:
           }
         : {}),
       // Add Business Registry Scraper - Stealth web scraping fallback
-      // Uses playwright-extra + puppeteer-extra-plugin-stealth
-      // Scrapes State SoS (FL, NY, CA, DE, CO) registries
-      ...(enableSearch && shouldEnableBusinessRegistryScraperTool()
+      // Unified Business Lookup - combines company search + person ownership search
+      // Reliable states: CO, CT, NY, OR, IA, WA, FL (free Socrata APIs)
+      // Other states: automatic Linkup web search fallback
+      ...(enableSearch && shouldEnableBusinessLookupTool()
         ? {
-            business_registry_scraper: businessRegistryScraperTool,
-          }
-        : {}),
-      // Add Find Business Ownership - Person-to-business search with ownership inference
-      // Searches state registries for officer/director positions
-      // Includes ownership likelihood scoring (confirmed/high/medium/low)
-      ...(enableSearch && shouldEnableFindBusinessOwnershipTool()
-        ? {
-            find_business_ownership: findBusinessOwnershipTool,
+            business_lookup: businessLookupTool,
           }
         : {}),
       // Add OpenSanctions tool for PEP and sanctions screening
@@ -868,13 +852,7 @@ For comprehensive prospect due diligence:
             state_contracts: stateContractsTool,
           }
         : {}),
-      // Add Business Entities Tool - State corporation registries via Socrata
-      // Searches NY, CO, OR, IA, WA for LLC/Corp registrations
-      ...(enableSearch && shouldEnableBusinessEntitiesTool()
-        ? {
-            business_entities: businessEntitiesTool,
-          }
-        : {}),
+      // business_entities merged into business_lookup
       // Add Government Salary Tool - Public employee salaries via Socrata
       // Searches NYC, VT, NJ, OR, LA payroll databases
       ...(enableSearch && shouldEnableGovernmentSalaryTool()
@@ -961,7 +939,7 @@ For comprehensive prospect due diligence:
         : {}),
       // Add Giving Capacity Calculator - TFG Research Formulas (GS, EGS, Snapshot)
       // Calculates giving capacity from property, business, salary, and giving data
-      // Use AFTER gathering data from property_valuation, find_business_ownership, etc.
+      // Use AFTER gathering data from property_valuation, business_lookup, etc.
       ...(enableSearch && shouldEnableGivingCapacityCalculatorTool()
         ? {
             giving_capacity_calculator: givingCapacityCalculatorTool,
@@ -1002,8 +980,8 @@ For comprehensive prospect due diligence:
       system: finalSystemPrompt,
       messages: optimizedMessages,
       tools,
-      // Allow multiple tool call steps for RAG and memory search
-      maxSteps: 25,
+      // Allow multiple tool call steps for complex research workflows
+      maxSteps: 50,
       maxTokens: AI_MAX_OUTPUT_TOKENS,
       // Increase retries to handle rate limits (default is 3, which often fails)
       // Uses exponential backoff: ~1s, ~2s, ~4s, ~8s, ~16s, ~32s, ~64s, ~128s
@@ -1034,14 +1012,15 @@ For comprehensive prospect due diligence:
             model: normalizedModel,
           })
 
-          // RESPONSE VERIFICATION: Verify Grok responses with Perplexity Sonar (background operation)
+          // RESPONSE VERIFICATION: Verify Grok responses with Perplexity Sonar
+          // Supports both blocking mode (awaits verification) and async mode (background)
           if (isAuthenticated && savedMessage?.messageId) {
             const messageId = savedMessage.messageId
             const responseContent = savedMessage.content || text || ""
 
-            Promise.resolve().then(async () => {
+            const runVerification = async () => {
               try {
-                const { shouldVerifyResponse, verifyResponse } = await import("@/lib/verification")
+                const { shouldVerifyResponse, verifyResponse, BLOCKING_VERIFICATION_ENABLED } = await import("@/lib/verification")
 
                 if (!shouldVerifyResponse(normalizedModel, responseContent)) {
                   console.log("[Verification] Skipping - criteria not met")
@@ -1049,6 +1028,7 @@ For comprehensive prospect due diligence:
                 }
 
                 console.log("[Verification] Starting verification for message:", messageId)
+                console.log("[Verification] Blocking mode:", BLOCKING_VERIFICATION_ENABLED)
                 const numericMessageId = parseInt(messageId, 10)
 
                 // Set verifying = true immediately so UI shows the badge
@@ -1062,12 +1042,13 @@ For comprehensive prospect due diligence:
                   console.error("[Verification] Failed to set verifying flag:", verifyingError)
                 }
 
-                // Run verification
+                // Run verification - pass blocking flag for shorter timeout
                 const verificationResult = await verifyResponse(
                   {
                     originalResponse: responseContent,
                     userQuery: String(userMessage?.content || ""),
                     modelId: normalizedModel,
+                    blocking: BLOCKING_VERIFICATION_ENABLED,
                   },
                   apiKey || process.env.OPENROUTER_API_KEY || ""
                 )
@@ -1126,7 +1107,19 @@ For comprehensive prospect due diligence:
                   .update({ verifying: false } as Record<string, unknown>)
                   .eq("id", parseInt(messageId, 10))
               }
-            }).catch((err) => console.error("[Verification] Background verification failed:", err))
+            }
+
+            // Check if blocking mode is enabled
+            const { BLOCKING_VERIFICATION_ENABLED } = await import("@/lib/verification")
+
+            if (BLOCKING_VERIFICATION_ENABLED) {
+              // BLOCKING: Await verification (response waits for fact-check)
+              console.log("[Verification] Running in BLOCKING mode - awaiting verification")
+              await runVerification()
+            } else {
+              // ASYNC: Fire-and-forget (existing behavior)
+              runVerification().catch((err) => console.error("[Verification] Background verification failed:", err))
+            }
           }
 
           // MEMORY EXTRACTION: Extract and save important facts (background operation)
