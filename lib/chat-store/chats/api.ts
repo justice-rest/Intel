@@ -4,10 +4,22 @@ import { createClient } from "@/lib/supabase/client"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { MODEL_DEFAULT } from "../../config"
 import { fetchClient } from "../../fetch"
+import { normalizeModelId } from "../../models"
 import {
   API_ROUTE_TOGGLE_CHAT_PIN,
   API_ROUTE_UPDATE_CHAT_MODEL,
 } from "../../routes"
+
+/**
+ * Normalize model IDs in chat objects for backwards compatibility
+ * Converts old model IDs (e.g., grok-4.1-fast) to current versions
+ */
+function normalizeChatsModelIds(chats: Chats[]): Chats[] {
+  return chats.map((chat) => ({
+    ...chat,
+    model: chat.model ? normalizeModelId(chat.model) : MODEL_DEFAULT,
+  }))
+}
 
 export async function getChatsForUserInDb(userId: string): Promise<Chats[]> {
   const supabase = createClient()
@@ -26,7 +38,8 @@ export async function getChatsForUserInDb(userId: string): Promise<Chats[]> {
     return []
   }
 
-  return data
+  // Normalize model IDs for backwards compatibility
+  return normalizeChatsModelIds(data)
 }
 
 export async function updateChatTitleInDb(id: string, title: string) {
@@ -59,7 +72,8 @@ export async function getAllUserChatsInDb(userId: string): Promise<Chats[]> {
     .order("created_at", { ascending: false })
 
   if (!data || error) return []
-  return data
+  // Normalize model IDs for backwards compatibility
+  return normalizeChatsModelIds(data)
 }
 
 export async function createChatInDb(
@@ -97,9 +111,11 @@ export async function fetchAndCacheChats(userId: string): Promise<Chats[]> {
 
 export async function getCachedChats(): Promise<Chats[]> {
   const all = await readFromIndexedDB<Chats>("chats")
-  return (all as Chats[]).sort(
+  const sorted = (all as Chats[]).sort(
     (a, b) => +new Date(b.created_at || "") - +new Date(a.created_at || "")
   )
+  // Normalize model IDs for backwards compatibility
+  return normalizeChatsModelIds(sorted)
 }
 
 export async function updateChatTitle(
@@ -125,7 +141,12 @@ export async function deleteChat(id: string): Promise<void> {
 
 export async function getChat(chatId: string): Promise<Chat | null> {
   const all = await readFromIndexedDB<Chat>("chats")
-  return (all as Chat[]).find((c) => c.id === chatId) || null
+  const chat = (all as Chat[]).find((c) => c.id === chatId) || null
+  // Normalize model ID for backwards compatibility
+  if (chat && chat.model) {
+    return { ...chat, model: normalizeModelId(chat.model) }
+  }
+  return chat
 }
 
 export async function getUserChats(userId: string): Promise<Chat[]> {
@@ -253,7 +274,8 @@ export async function createNewChat(
       id: responseData.chat.id,
       title: responseData.chat.title,
       created_at: responseData.chat.created_at,
-      model: responseData.chat.model,
+      // Normalize model ID for backwards compatibility
+      model: normalizeModelId(responseData.chat.model || MODEL_DEFAULT),
       user_id: responseData.chat.user_id,
       public: responseData.chat.public,
       updated_at: responseData.chat.updated_at,

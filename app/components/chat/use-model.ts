@@ -1,6 +1,7 @@
 import { toast } from "@/components/ui/toast"
 import { Chats } from "@/lib/chat-store/types"
 import { MODEL_DEFAULT } from "@/lib/config"
+import { normalizeModelId } from "@/lib/models"
 import type { UserProfile } from "@/lib/user/types"
 import { useCallback, useState } from "react"
 
@@ -27,9 +28,11 @@ export function useModel({
   chatId,
 }: UseModelProps) {
   // Calculate the effective model based on priority: chat model > first favorite model > default
+  // Normalize model IDs for backwards compatibility (e.g., grok-4.1-fast → perplexity/sonar-reasoning)
   const getEffectiveModel = useCallback(() => {
     const firstFavoriteModel = user?.favorite_models?.[0]
-    return currentChat?.model || firstFavoriteModel || MODEL_DEFAULT
+    const rawModel = currentChat?.model || firstFavoriteModel || MODEL_DEFAULT
+    return normalizeModelId(rawModel)
   }, [currentChat?.model, user?.favorite_models])
 
   // Use local state only for temporary overrides, derive base value from props
