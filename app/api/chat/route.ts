@@ -751,6 +751,28 @@ For comprehensive prospect due diligence:
     // This prevents "Bad Request" errors for models like Perplexity that only accept text
     const cleanedMessages = cleanMessagesForTools(optimizedMessages, modelSupportsTools, modelSupportsVision)
 
+    // Debug logging for model configuration
+    console.log("[Chat API] Request config:", {
+      model: normalizedModel,
+      modelSupportsTools,
+      modelSupportsVision,
+      hasTools,
+      enableSearch,
+      messageCount: cleanedMessages.length,
+      hasApiKey: !!apiKey,
+      hasEnvKey: !!process.env.OPENROUTER_API_KEY,
+    })
+
+    // Log message structure for debugging
+    console.log("[Chat API] Messages being sent:")
+    cleanedMessages.forEach((msg, i) => {
+      const msgAny = msg as any
+      console.log(`[Chat API]   [${i}] role: ${msg.role}, contentType: ${typeof msg.content}, hasAttachments: ${!!msgAny.experimental_attachments}`)
+      if (Array.isArray(msg.content)) {
+        console.log(`[Chat API]       content parts: ${(msg.content as any[]).map((p: any) => p.type || 'text').join(', ')}`)
+      }
+    })
+
     const result = streamText({
       model: modelConfig.apiSdk(apiKey, { enableSearch }),
       system: finalSystemPrompt,
@@ -767,7 +789,42 @@ For comprehensive prospect due diligence:
       // Only use smoothStream when no tools are available (smoothStream breaks tool calls)
       experimental_transform: hasTools ? undefined : smoothStream(),
       onError: (err: unknown) => {
-        console.error("[Chat API] Streaming error:", err)
+        // Enhanced error logging to capture full error details
+        console.error("[Chat API] ========== STREAMING ERROR ==========")
+        console.error("[Chat API] Error type:", typeof err)
+        console.error("[Chat API] Error:", err)
+
+        // Try to extract detailed error info
+        if (err && typeof err === "object") {
+          const errorObj = err as Record<string, unknown>
+          console.error("[Chat API] Error keys:", Object.keys(errorObj))
+
+          if (errorObj.message) {
+            console.error("[Chat API] Error message:", errorObj.message)
+          }
+          if (errorObj.cause) {
+            console.error("[Chat API] Error cause:", errorObj.cause)
+          }
+          if (errorObj.error) {
+            console.error("[Chat API] Nested error:", JSON.stringify(errorObj.error, null, 2))
+          }
+          if (errorObj.responseBody) {
+            console.error("[Chat API] Response body:", errorObj.responseBody)
+          }
+          if ((errorObj as any).response) {
+            const resp = (errorObj as any).response
+            console.error("[Chat API] Response status:", resp.status)
+            console.error("[Chat API] Response headers:", resp.headers)
+          }
+        }
+
+        // Try to stringify the whole error
+        try {
+          console.error("[Chat API] Full error JSON:", JSON.stringify(err, null, 2))
+        } catch {
+          console.error("[Chat API] Could not stringify error")
+        }
+        console.error("[Chat API] =====================================")
       },
 
       onFinish: async ({ response, text, finishReason, usage }) => {
