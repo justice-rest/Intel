@@ -14,6 +14,7 @@ import { ButtonFileUpload } from "./button-file-upload"
 import { FileList } from "./file-list"
 import { PopoverContentUpgradeRequired } from "./popover-content-upgrade-required"
 import { PopoverContentWelcome } from "./popover-content-welcome"
+import { ResearchModeSelector, type ResearchMode } from "./research-mode-selector"
 
 type ChatInputProps = {
   value: string
@@ -32,6 +33,8 @@ type ChatInputProps = {
   status?: "submitted" | "streaming" | "ready" | "error"
   setEnableSearch: (enabled: boolean) => void
   enableSearch: boolean
+  researchMode: ResearchMode
+  setResearchMode: (mode: ResearchMode) => void
   quotedText?: { text: string; messageId: string } | null
   showWelcome?: boolean
   firstName?: string | null
@@ -55,6 +58,8 @@ export function ChatInput({
   status,
   setEnableSearch,
   enableSearch,
+  researchMode,
+  setResearchMode,
   quotedText,
   showWelcome,
   firstName,
@@ -219,6 +224,12 @@ export function ChatInput({
                     onFileUpload={onFileUpload}
                     isUserAuthenticated={isUserAuthenticated}
                     model={selectedModel}
+                  />
+                  <ResearchModeSelector
+                    selectedMode={researchMode}
+                    onModeChange={setResearchMode}
+                    isAuthenticated={isUserAuthenticated}
+                    className="rounded-full"
                   />
                 </div>
                 <PromptInputAction

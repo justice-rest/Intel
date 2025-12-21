@@ -136,6 +136,8 @@ export const maxDuration = 300
 export const preferredRegion = "auto" // Use closest region to reduce latency
 export const dynamic = "force-dynamic" // Ensure fresh responses
 
+type ResearchMode = "research" | "deep-research"
+
 type ChatRequest = {
   messages: MessageAISDK[]
   chatId: string
@@ -144,8 +146,15 @@ type ChatRequest = {
   isAuthenticated: boolean
   systemPrompt: string
   enableSearch: boolean
+  researchMode?: ResearchMode
   message_group_id?: string
   editCutoffTimestamp?: string
+}
+
+// Map research modes to Perplexity model IDs
+const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
+  "research": "sonar-reasoning",
+  "deep-research": "sonar-deep-research",
 }
 
 export async function POST(req: Request) {
@@ -154,13 +163,19 @@ export async function POST(req: Request) {
       messages,
       chatId,
       userId,
-      model,
+      model: requestedModel,
       isAuthenticated,
       systemPrompt,
       enableSearch,
+      researchMode,
       message_group_id,
       editCutoffTimestamp,
     } = (await req.json()) as ChatRequest
+
+    // When research mode is active, override the model with Perplexity's research models
+    const model = researchMode
+      ? RESEARCH_MODE_MODELS[researchMode]
+      : requestedModel
 
     if (!messages || !chatId || !userId) {
       return new Response(

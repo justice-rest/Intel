@@ -11,6 +11,7 @@ import type { Message } from "@ai-sdk/react"
 import { useChat } from "@ai-sdk/react"
 import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { ResearchMode } from "@/app/components/chat-input/research-mode-selector"
 
 type UseChatCoreProps = {
   initialMessages: Message[]
@@ -60,6 +61,7 @@ export function useChatCore({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasDialogAuth, setHasDialogAuth] = useState(false)
   const [enableSearch, setEnableSearch] = useState(true)
+  const [researchMode, setResearchMode] = useState<ResearchMode>("research")
   const [responseStartTime, setResponseStartTime] = useState<number | null>(null)
 
   // Refs and derived state
@@ -264,6 +266,7 @@ export function useChatCore({
           isAuthenticated,
           systemPrompt: systemPrompt || SYSTEM_PROMPT_DEFAULT,
           enableSearch,
+          researchMode,
         },
         experimental_attachments: attachments || undefined,
       }
@@ -301,6 +304,7 @@ export function useChatCore({
     isAuthenticated,
     systemPrompt,
     enableSearch,
+    researchMode,
     handleSubmit,
     cacheAndAddMessage,
     clearDraft,
@@ -405,6 +409,7 @@ export function useChatCore({
             isAuthenticated,
             systemPrompt: systemPrompt || SYSTEM_PROMPT_DEFAULT,
             enableSearch,
+            researchMode,
             editCutoffTimestamp: cutoffIso, // Backend will delete messages from this timestamp
           },
           experimental_attachments:
@@ -446,6 +451,7 @@ export function useChatCore({
       isAuthenticated,
       systemPrompt,
       enableSearch,
+      researchMode,
       append,
       setMessages,
       bumpChat,
@@ -582,6 +588,8 @@ export function useChatCore({
     setHasDialogAuth,
     enableSearch,
     setEnableSearch,
+    researchMode,
+    setResearchMode,
     responseStartTime,
 
     // Actions
