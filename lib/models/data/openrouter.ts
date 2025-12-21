@@ -10,14 +10,14 @@ export const openrouterModels: ModelConfig[] = [
     modelFamily: "Sonar",
     baseProviderId: "perplexity",
     description:
-      "DeepSeek R1 with Chain of Thought reasoning and built-in web search. Provides citations with every response.",
-    tags: ["reasoning", "web-search", "citations", "flagship"],
-    contextWindow: 128000,
-    inputCost: 1.0,
-    outputCost: 5.0,
+      "An enhanced version of Sonar optimized for deeper reasoning and more complex tasks, while retaining fast response times.",
+    tags: ["reasoning", "fast", "QA", "affordable"],
+    contextWindow: 127072,
+    inputCost: 1,
+    outputCost: 5,
     priceUnit: "per 1M tokens",
     vision: false,
-    tools: false, // Perplexity Sonar models don't support tool calling
+    tools: false,
     audio: false,
     reasoning: true,
     webSearch: true,
@@ -25,16 +25,19 @@ export const openrouterModels: ModelConfig[] = [
     speed: "Medium",
     intelligence: "High",
     website: "https://openrouter.ai",
-    apiDocs: "https://openrouter.ai/perplexity/sonar-reasoning",
-    modelPage: "https://www.perplexity.ai/",
-    releasedAt: "2025-02-01",
+    apiDocs: "https://openrouter.ai/docs",
+    modelPage: "https://openrouter.ai/perplexity/sonar-reasoning",
+    releasedAt: "2025-01-29",
     icon: "perplexity",
-    isPro: false, // Available for all users
-    // Web search is BUILT-IN to Perplexity models - no plugins needed
-    // Perplexity uses web_search_options, NOT plugins (plugins causes Bad Request)
-    apiSdk: (apiKey?: string) =>
+    isPro: false,
+    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+        ...(opts?.enableSearch && {
+          extraBody: {
+            plugins: [{ id: "web", max_results: 3 }],
+          },
+        }),
       }).chat("perplexity/sonar-reasoning"),
   },
 ]
