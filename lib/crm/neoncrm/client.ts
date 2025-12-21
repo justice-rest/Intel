@@ -146,6 +146,7 @@ async function neonCRMFetch<T>(
 
 /**
  * Validate Neon CRM credentials by making a test request
+ * Also verifies access to both accounts and donations
  * @param orgId Organization ID
  * @param apiKey API Key
  * @returns Validation result with organization info if valid
@@ -160,17 +161,65 @@ export async function validateNeonCRMKey(
 }> {
   try {
     const credentials: NeonCRMCredentials = { orgId, apiKey }
+    const organizationName = `Neon CRM (Org: ${orgId})`
 
-    // Use accounts endpoint with limit 1 to validate credentials
-    await neonCRMFetch<NeonCRMAccountsResponse>(
-      "/accounts?pageSize=1",
-      credentials
-    )
+    // Step 1: Validate credentials and account access
+    try {
+      await neonCRMFetch<NeonCRMAccountsResponse>(
+        "/accounts?pageSize=1",
+        credentials
+      )
+    } catch (accountError) {
+      const errorMsg = accountError instanceof Error ? accountError.message : "Unknown error"
+      // Check for permission-related errors
+      if (errorMsg.includes("401") || errorMsg.includes("403") ||
+          errorMsg.toLowerCase().includes("permission") ||
+          errorMsg.toLowerCase().includes("unauthorized") ||
+          errorMsg.toLowerCase().includes("forbidden")) {
+        return {
+          valid: false,
+          error: `Invalid credentials or insufficient permissions to access accounts. Please verify your Organization ID and API Key, and ensure the API user has account read access.`,
+        }
+      }
+      throw accountError
+    }
 
-    // If we get a response, the credentials are valid
+    // Step 2: Verify donation access by attempting to search donations
+    try {
+      await neonCRMFetch<{ searchResults?: unknown[] }>(
+        "/donations/search",
+        credentials,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            searchFields: [],
+            outputFields: ["Donation ID"],
+            pagination: { currentPage: 0, pageSize: 1 },
+          }),
+        }
+      )
+    } catch (donationError) {
+      const errorMsg = donationError instanceof Error ? donationError.message : "Unknown error"
+      // Check for permission-related errors
+      if (errorMsg.includes("401") || errorMsg.includes("403") ||
+          errorMsg.toLowerCase().includes("permission") ||
+          errorMsg.toLowerCase().includes("unauthorized") ||
+          errorMsg.toLowerCase().includes("forbidden") ||
+          errorMsg.toLowerCase().includes("access")) {
+        return {
+          valid: false,
+          organizationName,
+          error: `API credentials are valid but the API user lacks donation read permission. Please ensure the Neon CRM user has access to view donations.`,
+        }
+      }
+      // Re-throw unexpected errors
+      throw donationError
+    }
+
+    // If we get here, credentials are valid and have full access
     return {
       valid: true,
-      organizationName: `Neon CRM (Org: ${orgId})`,
+      organizationName,
     }
   } catch (error) {
     return {

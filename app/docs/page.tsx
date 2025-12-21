@@ -452,6 +452,47 @@ export default function IntegrationDocs() {
             <li><strong>Slow syncs:</strong> DonorPerfect's 500-row limit means large databases require many requests. This is normal.</li>
           </ul>
 
+          <h3>Virtuous-Specific Issues</h3>
+
+          <h4>"No Access to Data" or Empty Sync Results</h4>
+          <p>
+            If your Virtuous API key connects successfully but syncs return no data, this is almost always a <strong>user permissions issue</strong> in Virtuous, not a Rōmy bug.
+          </p>
+
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 my-4">
+            <p className="mt-0 mb-2 text-sm font-semibold">Important: API keys inherit the permissions of the user who created them</p>
+            <p className="mt-0 mb-0 text-sm">If your Virtuous user account has limited permissions, your API key will have those same limitations — even if the key itself is valid.</p>
+          </div>
+
+          <p><strong>Common causes:</strong></p>
+          <ul>
+            <li><strong>Insufficient Contact/Gift permissions:</strong> Your user role may not have Read access to Contacts or Gifts</li>
+            <li><strong>Private data restrictions:</strong> Contacts or Gifts marked as "private" in Virtuous won't sync unless your user has "View Private Data" permission</li>
+            <li><strong>Non-Admin role:</strong> Only Admin users have full access to all data by default</li>
+          </ul>
+
+          <p><strong>How to fix:</strong></p>
+          <ol>
+            <li>Log in to Virtuous as an <strong>Admin user</strong></li>
+            <li>Go to <strong>Settings → User Management → Permissions</strong></li>
+            <li>Check the permission group for the user who generated the API key</li>
+            <li>Ensure they have:
+              <ul>
+                <li><strong>Contact Read</strong> permission</li>
+                <li><strong>Gift Read</strong> permission</li>
+                <li><strong>View Private Data</strong> (if your org uses private records)</li>
+              </ul>
+            </li>
+            <li>Alternatively, generate a new API key as an Admin user</li>
+          </ol>
+
+          <p><strong>Helpful Virtuous documentation:</strong></p>
+          <ul>
+            <li><a href="https://support.virtuous.org/hc/en-us/articles/360050985731-How-Do-I-Manage-User-Permissions" target="_blank" rel="noopener noreferrer">How Do I Manage User Permissions?</a></li>
+            <li><a href="https://support.virtuous.org/hc/en-us/articles/6984382728589-Understanding-Private-Data-in-Virtuous-CRM" target="_blank" rel="noopener noreferrer">Understanding Private Data in Virtuous CRM+</a></li>
+            <li><a href="https://support.virtuous.org/hc/en-us/articles/360052340251-Virtuous-API-Authentication" target="_blank" rel="noopener noreferrer">Virtuous API Authentication</a></li>
+          </ul>
+
           <hr className="my-12" />
 
           {/* Security & Privacy */}

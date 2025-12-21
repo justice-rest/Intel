@@ -83,6 +83,7 @@ async function virtuousFetch<T>(
 
 /**
  * Validate a Virtuous API key by making a test request
+ * Also verifies the user has permission to access contacts and gifts
  * @param apiKey The API key to validate
  * @returns Validation result with organization info if valid
  */
@@ -92,12 +93,61 @@ export async function validateVirtuousKey(apiKey: string): Promise<{
   error?: string
 }> {
   try {
-    // Use Organization endpoint to validate key and get org info
+    // Step 1: Validate API key and get org info
     const org = await virtuousFetch<VirtuousOrganization>("/Organization", apiKey)
+    const organizationName = org.name || "Virtuous Organization"
+
+    // Step 2: Verify contact read access by attempting to query contacts
+    try {
+      await virtuousFetch<VirtuousListResponse<VirtuousContact>>("/Contact/Query", apiKey, {
+        method: "POST",
+        body: JSON.stringify({ take: 1, skip: 0 }),
+      })
+    } catch (contactError) {
+      const errorMsg = contactError instanceof Error ? contactError.message : "Unknown error"
+      // Check for permission-related errors (401, 403, or permission messages)
+      if (errorMsg.includes("401") || errorMsg.includes("403") ||
+          errorMsg.toLowerCase().includes("permission") ||
+          errorMsg.toLowerCase().includes("unauthorized") ||
+          errorMsg.toLowerCase().includes("forbidden") ||
+          errorMsg.toLowerCase().includes("access")) {
+        return {
+          valid: false,
+          organizationName,
+          error: `API key is valid but lacks Contact Read permission. The user who generated this API key needs Contact Read access in Virtuous. See: https://support.virtuous.org/hc/en-us/articles/360050985731`,
+        }
+      }
+      // Re-throw unexpected errors
+      throw contactError
+    }
+
+    // Step 3: Verify gift read access by attempting to query gifts
+    try {
+      await virtuousFetch<VirtuousListResponse<VirtuousGift>>("/Gift/Query", apiKey, {
+        method: "POST",
+        body: JSON.stringify({ take: 1, skip: 0 }),
+      })
+    } catch (giftError) {
+      const errorMsg = giftError instanceof Error ? giftError.message : "Unknown error"
+      // Check for permission-related errors
+      if (errorMsg.includes("401") || errorMsg.includes("403") ||
+          errorMsg.toLowerCase().includes("permission") ||
+          errorMsg.toLowerCase().includes("unauthorized") ||
+          errorMsg.toLowerCase().includes("forbidden") ||
+          errorMsg.toLowerCase().includes("access")) {
+        return {
+          valid: false,
+          organizationName,
+          error: `API key is valid but lacks Gift Read permission. The user who generated this API key needs Gift Read access in Virtuous. See: https://support.virtuous.org/hc/en-us/articles/360050985731`,
+        }
+      }
+      // Re-throw unexpected errors
+      throw giftError
+    }
 
     return {
       valid: true,
-      organizationName: org.name || "Virtuous Organization",
+      organizationName,
     }
   } catch (error) {
     return {
