@@ -126,7 +126,7 @@ import {
   storeAssistantMessage,
   validateAndTrackUsage,
 } from "./api"
-import { createErrorResponse, extractErrorMessage } from "./utils"
+import { createErrorResponse, extractErrorMessage, cleanMessagesForTools } from "./utils"
 
 // Increase timeout to 5 minutes for large PDFs + web search operations
 // Note: Vercel Pro allows up to 300 seconds (5 min) for serverless functions
@@ -744,10 +744,14 @@ For comprehensive prospect due diligence:
     // This limits message history, removes blob URLs, and truncates large tool results
     const optimizedMessages = optimizeMessagePayload(messages)
 
+    // Clean tool-related content from messages if model doesn't support tools
+    // This prevents "Bad Request" errors when switching from tool-supporting models to Perplexity
+    const cleanedMessages = cleanMessagesForTools(optimizedMessages, modelSupportsTools)
+
     const result = streamText({
       model: modelConfig.apiSdk(apiKey, { enableSearch }),
       system: finalSystemPrompt,
-      messages: optimizedMessages,
+      messages: cleanedMessages,
       // Only pass tools if model supports them - Perplexity models error on tool definitions
       ...(modelSupportsTools && { tools }),
       // Allow multiple tool call steps for complex research workflows
