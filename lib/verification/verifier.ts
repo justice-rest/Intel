@@ -18,6 +18,7 @@ import {
   MAX_RESPONSE_LENGTH_FOR_VERIFICATION,
   VERIFICATION_MAX_TOKENS,
   VERIFICATION_TIMEOUT,
+  BLOCKING_VERIFICATION_TIMEOUT,
   MODELS_REQUIRING_VERIFICATION,
   getSourceAuthority,
   CONFIDENCE_THRESHOLDS,
@@ -32,6 +33,8 @@ export interface VerificationRequest {
   modelId: string
   /** Optional: tools that were used to generate the response (for context) */
   toolsUsed?: string[]
+  /** Use blocking mode with shorter timeout (user is actively waiting) */
+  blocking?: boolean
 }
 
 /**
@@ -231,10 +234,14 @@ ${request.toolsUsed.join(", ")}
     prompt += `\n\nPlease verify this response for factual accuracy using your web search capability. Extract key claims, verify each against authoritative sources, correct any errors, and fill in important gaps. Return your analysis as JSON.`
 
     // Create AbortController for timeout
+    // Use shorter timeout in blocking mode (user is actively waiting)
+    const timeout = request.blocking ? BLOCKING_VERIFICATION_TIMEOUT : VERIFICATION_TIMEOUT
     const abortController = new AbortController()
     const timeoutId = setTimeout(() => {
       abortController.abort()
-    }, VERIFICATION_TIMEOUT)
+    }, timeout)
+
+    console.log(`[Verification] Mode: ${request.blocking ? "BLOCKING" : "async"}, Timeout: ${timeout}ms`)
 
     let text: string
     try {
@@ -345,7 +352,8 @@ ${request.toolsUsed.join(", ")}
   } catch (error) {
     // Check if it was a timeout
     if (error instanceof Error && error.name === "AbortError") {
-      console.error("[Verification] Request timed out after", VERIFICATION_TIMEOUT, "ms")
+      const timeout = request.blocking ? BLOCKING_VERIFICATION_TIMEOUT : VERIFICATION_TIMEOUT
+      console.error(`[Verification] Request timed out after ${timeout}ms (blocking: ${request.blocking})`)
     } else {
       console.error("[Verification] Failed to verify response:", error)
     }

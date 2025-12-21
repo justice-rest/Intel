@@ -11,7 +11,8 @@ export function isVerificationEnabled(): boolean {
 }
 
 // Model ID for verification (OpenRouter format)
-export const VERIFICATION_MODEL_ID = "perplexity/sonar"
+// Using sonar-pro for 2-3x more sources and better factual accuracy
+export const VERIFICATION_MODEL_ID = "perplexity/sonar-pro"
 
 // Minimum response length to trigger verification (characters)
 // Shorter responses don't benefit much from verification
@@ -25,10 +26,18 @@ export const MAX_RESPONSE_LENGTH_FOR_VERIFICATION = 15000
 export const MODELS_REQUIRING_VERIFICATION = ["openrouter:x-ai/grok-4.1-fast"]
 
 // Max tokens for verification response
-export const VERIFICATION_MAX_TOKENS = 8000
+// Increased from 8000 to 12000 for richer verification with more sources
+export const VERIFICATION_MAX_TOKENS = 12000
 
 // Timeout for verification request (ms)
 export const VERIFICATION_TIMEOUT = 60000
+
+// Blocking verification mode - user waits for fact-check before seeing final response
+export const BLOCKING_VERIFICATION_ENABLED =
+  process.env.ENABLE_BLOCKING_VERIFICATION === "true"
+
+// Shorter timeout for blocking mode (user is actively waiting)
+export const BLOCKING_VERIFICATION_TIMEOUT = 45000
 
 /**
  * Source Authority Scoring
