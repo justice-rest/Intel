@@ -1,31 +1,40 @@
 import { Message as MessageAISDK } from "ai"
 
 /**
- * Clean messages when switching between agents with different tool capabilities.
- * This removes tool invocations and tool-related content from messages when tools are not available
- * to prevent OpenAI API errors.
+ * Clean messages for models based on their capabilities.
+ * - Removes tool invocations when model doesn't support tools
+ * - Removes attachments when model doesn't support vision/files
+ * This prevents "Bad Request" errors when using models like Perplexity.
  */
 export function cleanMessagesForTools(
   messages: MessageAISDK[],
-  hasTools: boolean
+  hasTools: boolean,
+  hasVision: boolean = true // Default to true for backwards compatibility
 ): MessageAISDK[] {
-  if (hasTools) {
+  // If model supports everything, return as-is
+  if (hasTools && hasVision) {
     return messages
   }
 
-  // If no tools available, clean all tool-related content
+  // Clean messages based on model capabilities
   const cleanedMessages = messages
     .map((message) => {
       // Skip tool messages entirely when no tools are available
-      // Note: Using type assertion since AI SDK types might not include 'tool' role
-      if ((message as { role: string }).role === "tool") {
+      if (!hasTools && (message as { role: string }).role === "tool") {
         return null
       }
 
-      if (message.role === "assistant") {
-        const cleanedMessage: MessageAISDK = { ...message }
+      // Start with a copy of the message
+      let cleanedMessage: MessageAISDK = { ...message }
 
-        if (message.toolInvocations && message.toolInvocations.length > 0) {
+      // Remove attachments for non-vision models (like Perplexity which only supports text)
+      if (!hasVision && (cleanedMessage as any).experimental_attachments) {
+        delete (cleanedMessage as any).experimental_attachments
+      }
+
+      if (message.role === "assistant") {
+        // Clean tool invocations if model doesn't support tools
+        if (!hasTools && message.toolInvocations && message.toolInvocations.length > 0) {
           delete cleanedMessage.toolInvocations
         }
 
@@ -34,12 +43,22 @@ export function cleanMessagesForTools(
             message.content as Array<{ type?: string; text?: string }>
           ).filter((part: { type?: string }) => {
             if (part && typeof part === "object" && part.type) {
-              // Remove tool-call, tool-result, and tool-invocation parts
-              const isToolPart =
-                part.type === "tool-call" ||
-                part.type === "tool-result" ||
-                part.type === "tool-invocation"
-              return !isToolPart
+              // Remove tool-related parts if model doesn't support tools
+              if (!hasTools) {
+                const isToolPart =
+                  part.type === "tool-call" ||
+                  part.type === "tool-result" ||
+                  part.type === "tool-invocation"
+                if (isToolPart) return false
+              }
+              // Remove image parts if model doesn't support vision
+              if (!hasVision) {
+                const isImagePart =
+                  part.type === "image" ||
+                  part.type === "image_url" ||
+                  part.type === "file"
+                if (isImagePart) return false
+              }
             }
             return true
           })
@@ -78,17 +97,28 @@ export function cleanMessagesForTools(
         return cleanedMessage
       }
 
-      // For user messages, clean any tool-related content from array content
+      // For user messages, clean content based on model capabilities
       if (message.role === "user" && Array.isArray(message.content)) {
         const filteredContent = (
           message.content as Array<{ type?: string }>
         ).filter((part: { type?: string }) => {
           if (part && typeof part === "object" && part.type) {
-            const isToolPart =
-              part.type === "tool-call" ||
-              part.type === "tool-result" ||
-              part.type === "tool-invocation"
-            return !isToolPart
+            // Remove tool-related parts if model doesn't support tools
+            if (!hasTools) {
+              const isToolPart =
+                part.type === "tool-call" ||
+                part.type === "tool-result" ||
+                part.type === "tool-invocation"
+              if (isToolPart) return false
+            }
+            // Remove image parts if model doesn't support vision
+            if (!hasVision) {
+              const isImagePart =
+                part.type === "image" ||
+                part.type === "image_url" ||
+                part.type === "file"
+              if (isImagePart) return false
+            }
           }
           return true
         })
@@ -97,14 +127,14 @@ export function cleanMessagesForTools(
           filteredContent.length !== (message.content as Array<unknown>).length
         ) {
           return {
-            ...message,
+            ...cleanedMessage,
             content:
               filteredContent.length > 0 ? filteredContent : "User message",
           }
         }
       }
 
-      return message
+      return cleanedMessage
     })
     .filter((message): message is MessageAISDK => message !== null)
 

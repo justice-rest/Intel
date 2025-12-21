@@ -735,18 +735,21 @@ For comprehensive prospect due diligence:
         : {}),
     } as ToolSet
 
-    // Check if model supports tools AND if any tools are available
-    // Perplexity models don't support tool calling - passing tools causes errors
+    // Check model capabilities to determine what content to clean
+    // Perplexity models don't support tool calling or vision - passing such content causes errors
     const modelSupportsTools = modelConfig.tools !== false
+    const modelSupportsVision = modelConfig.vision !== false
     const hasTools = modelSupportsTools && Object.keys(tools).length > 0
 
     // Optimize message payload to prevent FUNCTION_PAYLOAD_TOO_LARGE errors
     // This limits message history, removes blob URLs, and truncates large tool results
     const optimizedMessages = optimizeMessagePayload(messages)
 
-    // Clean tool-related content from messages if model doesn't support tools
-    // This prevents "Bad Request" errors when switching from tool-supporting models to Perplexity
-    const cleanedMessages = cleanMessagesForTools(optimizedMessages, modelSupportsTools)
+    // Clean messages based on model capabilities:
+    // - Remove tool invocations if model doesn't support tools
+    // - Remove image/file attachments if model doesn't support vision
+    // This prevents "Bad Request" errors for models like Perplexity that only accept text
+    const cleanedMessages = cleanMessagesForTools(optimizedMessages, modelSupportsTools, modelSupportsVision)
 
     const result = streamText({
       model: modelConfig.apiSdk(apiKey, { enableSearch }),
