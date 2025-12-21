@@ -1,6 +1,7 @@
 "use client"
 
 import { ChatInput } from "@/app/components/chat-input/chat-input"
+import type { ResearchMode } from "@/app/components/chat-input/research-mode-selector"
 import { Conversation } from "@/app/components/chat/conversation"
 import { useChatOperations } from "@/app/components/chat/use-chat-operations"
 import { useFileUpload } from "@/app/components/chat/use-file-upload"
@@ -36,6 +37,7 @@ type ProjectViewProps = {
 export function ProjectView({ projectId }: ProjectViewProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [enableSearch, setEnableSearch] = useState(true)
+  const [researchMode, setResearchMode] = useState<ResearchMode | null>("research")
   const [currentChatId, setCurrentChatId] = useState<string | null>(null)
   const { user } = useUser()
   const { createNewChat, bumpChat } = useChats()
@@ -253,6 +255,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
           isAuthenticated: true,
           systemPrompt: SYSTEM_PROMPT_DEFAULT,
           enableSearch,
+          researchMode,
         },
         experimental_attachments: attachments || undefined,
       }
@@ -290,6 +293,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     messages.length,
     bumpChat,
     enableSearch,
+    researchMode,
   ])
 
   const handleReload = useCallback(async () => {
@@ -304,11 +308,13 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         model: selectedModel,
         isAuthenticated: true,
         systemPrompt: SYSTEM_PROMPT_DEFAULT,
+        enableSearch,
+        researchMode,
       },
     }
 
     reload(options)
-  }, [user, selectedModel, reload])
+  }, [user, selectedModel, enableSearch, researchMode, reload])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -349,6 +355,8 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       status,
       setEnableSearch,
       enableSearch,
+      researchMode,
+      setResearchMode,
     }),
     [
       input,
@@ -365,6 +373,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       status,
       setEnableSearch,
       enableSearch,
+      researchMode,
     ]
   )
 

@@ -151,10 +151,10 @@ type ChatRequest = {
   editCutoffTimestamp?: string
 }
 
-// Map research modes to Perplexity model IDs
+// Map research modes to Perplexity model IDs (via OpenRouter)
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
-  "research": "sonar-reasoning",
-  "deep-research": "sonar-deep-research",
+  "research": "perplexity/sonar-reasoning-pro",
+  "deep-research": "perplexity/sonar-deep-research",
 }
 
 export async function POST(req: Request) {

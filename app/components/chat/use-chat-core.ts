@@ -61,7 +61,7 @@ export function useChatCore({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasDialogAuth, setHasDialogAuth] = useState(false)
   const [enableSearch, setEnableSearch] = useState(true)
-  const [researchMode, setResearchMode] = useState<ResearchMode>("research")
+  const [researchMode, setResearchMode] = useState<ResearchMode | null>("research")
   const [responseStartTime, setResponseStartTime] = useState<number | null>(null)
 
   // Refs and derived state
@@ -505,6 +505,8 @@ export function useChatCore({
             model: selectedModel,
             isAuthenticated,
             systemPrompt: SYSTEM_PROMPT_DEFAULT,
+            enableSearch,
+            researchMode,
           },
         }
 
@@ -530,6 +532,8 @@ export function useChatCore({
       append,
       checkLimitsAndNotify,
       isAuthenticated,
+      enableSearch,
+      researchMode,
       setMessages,
       setIsSubmitting,
     ]
@@ -549,11 +553,13 @@ export function useChatCore({
         model: selectedModel,
         isAuthenticated,
         systemPrompt: systemPrompt || SYSTEM_PROMPT_DEFAULT,
+        enableSearch,
+        researchMode,
       },
     }
 
     reload(options)
-  }, [user, chatId, selectedModel, isAuthenticated, systemPrompt, reload])
+  }, [user, chatId, selectedModel, isAuthenticated, systemPrompt, enableSearch, researchMode, reload])
 
   // Handle input change - now with access to the real setInput function!
   const { setDraftValue } = useChatDraft(chatId)

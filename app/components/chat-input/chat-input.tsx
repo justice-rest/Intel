@@ -33,8 +33,8 @@ type ChatInputProps = {
   status?: "submitted" | "streaming" | "ready" | "error"
   setEnableSearch: (enabled: boolean) => void
   enableSearch: boolean
-  researchMode: ResearchMode
-  setResearchMode: (mode: ResearchMode) => void
+  researchMode: ResearchMode | null
+  setResearchMode: (mode: ResearchMode | null) => void
   quotedText?: { text: string; messageId: string } | null
   showWelcome?: boolean
   firstName?: string | null

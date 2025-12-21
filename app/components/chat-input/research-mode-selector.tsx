@@ -57,8 +57,8 @@ const RESEARCH_MODES: ResearchModeOption[] = [
 ]
 
 type ResearchModeSelectorProps = {
-  selectedMode: ResearchMode
-  onModeChange: (mode: ResearchMode) => void
+  selectedMode: ResearchMode | null
+  onModeChange: (mode: ResearchMode | null) => void
   isAuthenticated: boolean
   className?: string
 }
@@ -73,18 +73,20 @@ export function ResearchModeSelector({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
-  const currentMode = RESEARCH_MODES.find((mode) => mode.id === selectedMode)
+  const currentMode = selectedMode ? RESEARCH_MODES.find((mode) => mode.id === selectedMode) : null
+  const isActive = selectedMode !== null
 
   const trigger = (
     <Button
       variant="outline"
       className={cn(
         "dark:bg-secondary justify-between gap-1.5",
+        isActive && "border-primary/50 bg-primary/10 dark:bg-primary/20",
         className
       )}
     >
       <div className="flex items-center gap-1.5">
-        <MagnifyingGlassIcon className="size-4" />
+        <MagnifyingGlassIcon className={cn("size-4", isActive && "text-primary")} />
         <span className="hidden md:inline">{currentMode?.name || "Research"}</span>
       </div>
       <CaretDownIcon className="size-3.5 opacity-50" />
@@ -129,6 +131,27 @@ export function ResearchModeSelector({
             <DrawerTitle>Select Research Mode</DrawerTitle>
           </DrawerHeader>
           <div className="flex flex-col gap-1 px-4 pb-6">
+            {/* Off option */}
+            <div
+              className={cn(
+                "flex w-full cursor-pointer flex-col gap-1 rounded-md px-3 py-2.5 hover:bg-accent",
+                selectedMode === null && "bg-accent"
+              )}
+              onClick={() => {
+                onModeChange(null)
+                setIsDrawerOpen(false)
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Off</span>
+                {selectedMode === null && (
+                  <div className="bg-primary size-2 rounded-full" />
+                )}
+              </div>
+              <span className="text-muted-foreground text-xs">
+                Use standard AI chat without web research
+              </span>
+            </div>
             {RESEARCH_MODES.map((mode) => (
               <div
                 key={mode.id}
@@ -182,6 +205,27 @@ export function ResearchModeSelector({
           sideOffset={4}
           side="top"
         >
+          {/* Off option */}
+          <DropdownMenuItem
+            className={cn(
+              "flex w-full cursor-pointer flex-col items-start gap-1 px-3 py-2.5",
+              selectedMode === null && "bg-accent"
+            )}
+            onSelect={() => {
+              onModeChange(null)
+              setIsDropdownOpen(false)
+            }}
+          >
+            <div className="flex w-full items-center justify-between">
+              <span className="text-sm font-medium">Off</span>
+              {selectedMode === null && (
+                <div className="bg-primary size-2 rounded-full" />
+              )}
+            </div>
+            <span className="text-muted-foreground text-xs">
+              Use standard AI chat without web research
+            </span>
+          </DropdownMenuItem>
           {RESEARCH_MODES.map((mode) => (
             <DropdownMenuItem
               key={mode.id}
