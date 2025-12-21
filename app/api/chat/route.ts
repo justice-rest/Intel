@@ -735,8 +735,10 @@ For comprehensive prospect due diligence:
         : {}),
     } as ToolSet
 
-    // Check if any tools are available - smoothStream causes issues with tool calls
-    const hasTools = Object.keys(tools).length > 0
+    // Check if model supports tools AND if any tools are available
+    // Perplexity models don't support tool calling - passing tools causes errors
+    const modelSupportsTools = modelConfig.tools !== false
+    const hasTools = modelSupportsTools && Object.keys(tools).length > 0
 
     // Optimize message payload to prevent FUNCTION_PAYLOAD_TOO_LARGE errors
     // This limits message history, removes blob URLs, and truncates large tool results
@@ -746,9 +748,10 @@ For comprehensive prospect due diligence:
       model: modelConfig.apiSdk(apiKey, { enableSearch }),
       system: finalSystemPrompt,
       messages: optimizedMessages,
-      tools,
+      // Only pass tools if model supports them - Perplexity models error on tool definitions
+      ...(modelSupportsTools && { tools }),
       // Allow multiple tool call steps for complex research workflows
-      maxSteps: 50,
+      maxSteps: modelSupportsTools ? 50 : 1,
       maxTokens: AI_MAX_OUTPUT_TOKENS,
       // Increase retries to handle rate limits (default is 3, which often fails)
       // Uses exponential backoff: ~1s, ~2s, ~4s, ~8s, ~16s, ~32s, ~64s, ~128s
