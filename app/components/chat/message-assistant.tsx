@@ -11,8 +11,7 @@ import { exportProspectToPdf } from "@/lib/prospect-pdf/client-export"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { cn } from "@/lib/utils"
 import type { Message as MessageAISDK } from "@ai-sdk/react"
-import { ArrowClockwise, Check, CheckCircle, Copy, FilePdf, Spinner, SpinnerGap } from "@phosphor-icons/react"
-import { AnimatePresence, motion } from "framer-motion"
+import { ArrowClockwise, Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
 import { useCallback, useRef, useState } from "react"
 import { getSources } from "./get-sources"
 import { getCitations } from "./get-citations"
@@ -37,16 +36,6 @@ type MessageAssistantProps = {
   className?: string
   messageId: string
   onQuote?: (text: string, messageId: string) => void
-  // Verification status (from Perplexity Sonar)
-  verified?: boolean
-  verifying?: boolean
-  verification_result?: {
-    corrections?: string[]
-    gapsFilled?: string[]
-    confidenceScore?: number
-    sources?: string[]
-    wasModified?: boolean
-  }
 }
 
 export function MessageAssistant({
@@ -61,9 +50,6 @@ export function MessageAssistant({
   className,
   messageId,
   onQuote,
-  verified,
-  verifying,
-  verification_result,
 }: MessageAssistantProps) {
   const { preferences } = useUserPreferences()
   const { chatId } = useChatSession()
@@ -364,47 +350,6 @@ export function MessageAssistant({
         {citations && citations.length > 0 && (
           <CitationSources citations={citations} />
         )}
-
-        {/* Verification status badge */}
-        <AnimatePresence mode="wait">
-          {verifying && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.15 }}
-              key="verifying"
-              className="mt-2"
-            >
-              <div className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
-                <Spinner className="mr-1.5 h-3 w-3 animate-spin" />
-                Verifying response
-              </div>
-            </motion.div>
-          )}
-          {verified && !verifying && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              transition={{ duration: 0.15 }}
-              key="verified"
-              className="mt-2"
-            >
-              <div
-                className={cn(
-                  "inline-flex items-center rounded-full px-2 py-1 text-xs",
-                  verification_result?.wasModified
-                    ? "border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
-                    : "border border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400"
-                )}
-              >
-                <CheckCircle className="mr-1.5 h-3 w-3" weight="fill" />
-                {verification_result?.wasModified ? "Enhanced" : "Verified"}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {Boolean(isLastStreaming || contentNullOrEmpty) ? null : (
           <MessageActions

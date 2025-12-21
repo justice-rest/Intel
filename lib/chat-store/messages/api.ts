@@ -6,16 +6,6 @@ import { readFromIndexedDB, writeToIndexedDB } from "../persist"
 export interface ExtendedMessageAISDK extends MessageAISDK {
   message_group_id?: string
   model?: string
-  // Verification status (from Perplexity Sonar)
-  verified?: boolean
-  verifying?: boolean
-  verification_result?: {
-    corrections?: string[]
-    gapsFilled?: string[]
-    confidenceScore?: number
-    sources?: string[]
-    wasModified?: boolean
-  }
 }
 
 export async function getMessagesFromDb(
@@ -30,12 +20,10 @@ export async function getMessagesFromDb(
   const supabase = createClient()
   if (!supabase) return []
 
-  // Select messages with verification columns (added via migration 014)
-  // Using type assertion since verification columns may not be in generated types yet
   const { data, error } = await supabase
     .from("messages")
     .select(
-      "id, content, role, experimental_attachments, created_at, parts, message_group_id, model, verified, verifying, verification_result"
+      "id, content, role, experimental_attachments, created_at, parts, message_group_id, model"
     )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true })
@@ -47,8 +35,7 @@ export async function getMessagesFromDb(
     return cached
   }
 
-  // Cast data to any to handle verification columns not in generated types
-  return (data as unknown as Array<Record<string, unknown>>).map((message) => ({
+  return data.map((message) => ({
     id: String(message.id),
     role: message.role as MessageAISDK["role"],
     content: (message.content as string) ?? "",
@@ -57,9 +44,6 @@ export async function getMessagesFromDb(
     parts: (message.parts as MessageAISDK["parts"]) || undefined,
     message_group_id: message.message_group_id as string | undefined,
     model: message.model as string | undefined,
-    verified: message.verified as boolean | undefined,
-    verifying: message.verifying as boolean | undefined,
-    verification_result: message.verification_result as ExtendedMessageAISDK["verification_result"],
   }))
 }
 

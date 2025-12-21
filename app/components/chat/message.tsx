@@ -19,16 +19,6 @@ type MessageProps = {
   onQuote?: (text: string, messageId: string) => void
   messageGroupId?: string | null
   isUserAuthenticated?: boolean
-  // Verification status (from Perplexity Sonar)
-  verified?: boolean
-  verifying?: boolean
-  verification_result?: {
-    corrections?: string[]
-    gapsFilled?: string[]
-    confidenceScore?: number
-    sources?: string[]
-    wasModified?: boolean
-  }
 }
 
 export function Message({
@@ -46,9 +36,6 @@ export function Message({
   onQuote,
   messageGroupId,
   isUserAuthenticated,
-  verified,
-  verifying,
-  verification_result,
 }: MessageProps) {
   const [copied, setCopied] = useState(false)
 
@@ -90,9 +77,6 @@ export function Message({
         className={className}
         messageId={id}
         onQuote={onQuote}
-        verified={verified}
-        verifying={verifying}
-        verification_result={verification_result}
       >
         {children}
       </MessageAssistant>

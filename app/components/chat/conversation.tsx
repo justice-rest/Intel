@@ -82,9 +82,6 @@ export function Conversation({
                   (message as ExtendedMessageAISDK).message_group_id ?? null
                 }
                 isUserAuthenticated={isUserAuthenticated}
-                verified={(message as ExtendedMessageAISDK).verified}
-                verifying={(message as ExtendedMessageAISDK).verifying}
-                verification_result={(message as ExtendedMessageAISDK).verification_result}
               >
                 {message.content}
               </Message>

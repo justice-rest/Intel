@@ -132,13 +132,10 @@ export function MessagesProvider({
           filter: `chat_id=eq.${chatId}`,
         },
         (payload) => {
-          // Update the specific message in state when it's updated (e.g., after verification)
+          // Update the specific message in state when it's updated
           const updatedMessage = payload.new as {
             id: number // Database ID is a number
             content: string
-            verified?: boolean
-            verifying?: boolean
-            verification_result?: Record<string, unknown>
           }
 
           // Convert to string for comparison since message IDs in state are strings
@@ -147,13 +144,9 @@ export function MessagesProvider({
           setMessages((prev) =>
             prev.map((msg) => {
               if (msg.id === updatedMessageId) {
-                // Update content and add verification metadata
                 return {
                   ...msg,
                   content: updatedMessage.content,
-                  verified: updatedMessage.verified,
-                  verifying: updatedMessage.verifying,
-                  verification_result: updatedMessage.verification_result,
                 } as MessageAISDK
               }
               return msg
