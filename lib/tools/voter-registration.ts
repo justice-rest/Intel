@@ -27,8 +27,6 @@
 
 import { tool } from "ai"
 import { z } from "zod"
-import { getLinkupApiKeyOptional, isLinkupEnabled } from "@/lib/linkup/config"
-import { LinkupClient } from "linkup-sdk"
 
 // ============================================================================
 // TYPES
@@ -471,108 +469,6 @@ async function inferPartyFromFEC(
 }
 
 // ============================================================================
-// LINKUP WEB SEARCH
-// ============================================================================
-
-/**
- * Search for voter registration info via Linkup
- */
-async function searchViaLinkup(
-  params: VoterRegistrationParams
-): Promise<{
-  record: VoterRecord | null
-  sources: Array<{ name: string; url: string }>
-}> {
-  const apiKey = getLinkupApiKeyOptional()
-  if (!apiKey || !isLinkupEnabled()) {
-    return { record: null, sources: [] }
-  }
-
-  const client = new LinkupClient({ apiKey })
-
-  // Build search query for voter registration
-  const queryParts = [
-    `"${params.personName}"`,
-    "voter registration",
-    params.state,
-  ]
-  if (params.county) queryParts.push(`${params.county} County`)
-  if (params.city) queryParts.push(params.city)
-  queryParts.push("party affiliation")
-
-  const query = queryParts.join(" ")
-
-  console.log(`[Voter Registration] Linkup search: ${query}`)
-
-  try {
-    const result = await client.search({
-      query,
-      depth: "standard",
-      outputType: "sourcedAnswer",
-    })
-
-    if (!result.answer) {
-      return { record: null, sources: [] }
-    }
-
-    // Parse party affiliation from answer
-    let partyAffiliation: string | null = null
-    const partyPatterns = [
-      /(?:party|affiliation)[:\s]+(\w+)/i,
-      /registered\s+(?:as\s+(?:a|an)\s+)?(\w+)/i,
-      /(democrat|republican|independent|libertarian|green)/i,
-    ]
-
-    for (const pattern of partyPatterns) {
-      const match = result.answer.match(pattern)
-      if (match) {
-        const party = match[1].toLowerCase()
-        if (party.includes("democrat")) {
-          partyAffiliation = "Democratic"
-        } else if (party.includes("republican")) {
-          partyAffiliation = "Republican"
-        } else if (party.includes("independent")) {
-          partyAffiliation = "Independent"
-        } else if (party.includes("libertarian")) {
-          partyAffiliation = "Libertarian"
-        } else if (party.includes("green")) {
-          partyAffiliation = "Green"
-        }
-        if (partyAffiliation) break
-      }
-    }
-
-    // Parse birth year if mentioned
-    let birthYear: number | null = null
-    const birthMatch = result.answer.match(/born\s+(?:in\s+)?(\d{4})/i)
-    if (birthMatch) {
-      birthYear = parseInt(birthMatch[1], 10)
-    }
-
-    const record: VoterRecord = {
-      name: params.personName,
-      partyAffiliation,
-      registrationDate: null,
-      birthYear,
-      county: params.county || null,
-      status: "unknown",
-    }
-
-    const sources = (result.sources || []).map(
-      (s: { name?: string; url: string }) => ({
-        name: s.name || "Voter Registration",
-        url: s.url,
-      })
-    )
-
-    return { record, sources }
-  } catch (error) {
-    console.error("[Voter Registration] Linkup search failed:", error)
-    return { record: null, sources: [] }
-  }
-}
-
-// ============================================================================
 // TOOL DEFINITION
 // ============================================================================
 
@@ -624,18 +520,7 @@ export const voterRegistrationTool = tool({
       }
     }
 
-    // Step 2: Try Linkup web search if no Socrata endpoint or no results
-    if (!voterRecord && isLinkupEnabled()) {
-      const linkupResult = await searchViaLinkup(params)
-      if (linkupResult.record && linkupResult.record.partyAffiliation) {
-        voterRecord = linkupResult.record
-        sources.push(...linkupResult.sources)
-        confidence = "medium"
-        methodology = "Web search of public voter records"
-      }
-    }
-
-    // Step 3: Supplement/fallback with FEC contribution analysis
+    // Step 2: Supplement/fallback with FEC contribution analysis
     if (!voterRecord || !voterRecord.partyAffiliation) {
       const fecResult = await inferPartyFromFEC(
         params.personName,

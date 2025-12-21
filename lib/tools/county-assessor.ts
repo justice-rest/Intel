@@ -28,15 +28,12 @@
 import { tool } from "ai"
 import { z } from "zod"
 import {
-  COUNTY_DATA_SOURCES,
   SOCRATA_DEFAULTS,
   getSocrataAppToken,
   findCountyDataSource,
   getSupportedCounties,
   type CountyDataSource,
 } from "@/lib/socrata/config"
-import { getLinkupApiKeyOptional, isLinkupEnabled } from "@/lib/linkup/config"
-import { LinkupClient } from "linkup-sdk"
 
 // ============================================================================
 // TYPES
@@ -252,83 +249,6 @@ async function fetchFromSocrata(
   })
 }
 
-/**
- * Fallback: Search county assessor via Linkup web search
- */
-async function searchViaLinkup(
-  params: CountyAssessorParams
-): Promise<{ properties: PropertyRecord[]; sources: Array<{ name: string; url: string }> }> {
-  const apiKey = getLinkupApiKeyOptional()
-  if (!apiKey || !isLinkupEnabled()) {
-    return { properties: [], sources: [] }
-  }
-
-  const client = new LinkupClient({ apiKey })
-
-  // Build search query
-  const queryParts: string[] = []
-  if (params.address) queryParts.push(`"${params.address}"`)
-  if (params.ownerName) queryParts.push(`"${params.ownerName}"`)
-  if (params.city) queryParts.push(params.city)
-  if (params.county) queryParts.push(`${params.county} County`)
-  if (params.state) queryParts.push(params.state)
-  queryParts.push("property assessor assessed value tax records")
-
-  const query = queryParts.join(" ")
-
-  console.log(`[County Assessor] Fallback Linkup search: ${query}`)
-
-  try {
-    const result = await client.search({
-      query,
-      depth: "standard",
-      outputType: "sourcedAnswer",
-    })
-
-    // Parse Linkup response into PropertyRecord(s)
-    const properties: PropertyRecord[] = []
-
-    // Extract property data from answer
-    if (result.answer) {
-      // Try to extract values from the answer text
-      const assessedMatch = result.answer.match(
-        /assessed\s+(?:value|at)[:\s]+\$?([\d,]+)/i
-      )
-      const marketMatch = result.answer.match(
-        /market\s+value[:\s]+\$?([\d,]+)/i
-      )
-      const addressMatch = result.answer.match(
-        /(\d+\s+[\w\s]+(?:st|street|ave|avenue|rd|road|dr|drive|ln|lane|ct|court|blvd|way)[^,]*)/i
-      )
-
-      if (assessedMatch || marketMatch) {
-        properties.push({
-          parcelId: "",
-          ownerName: params.ownerName || "",
-          address: addressMatch?.[1] || params.address || "",
-          assessedValue: assessedMatch
-            ? parseFloat(assessedMatch[1].replace(/,/g, ""))
-            : undefined,
-          marketValue: marketMatch
-            ? parseFloat(marketMatch[1].replace(/,/g, ""))
-            : undefined,
-        })
-      }
-    }
-
-    const sources = (result.sources || []).map(
-      (s: { name?: string; url: string }) => ({
-        name: s.name || "County Assessor",
-        url: s.url,
-      })
-    )
-
-    return { properties, sources }
-  } catch (error) {
-    console.error("[County Assessor] Linkup search failed:", error)
-    return { properties: [], sources: [] }
-  }
-}
 
 /**
  * Format property record for display
@@ -557,37 +477,11 @@ export const countyAssessorTool = tool({
       }
     }
 
-    // Fallback to Linkup web search
-    if (isLinkupEnabled()) {
-      console.log("[County Assessor] Falling back to Linkup search")
-      const linkupResult = await searchViaLinkup(params)
-
-      const result: Omit<CountyAssessorResult, "rawContent"> = {
-        ...baseResult,
-        properties: linkupResult.properties,
-        totalFound: linkupResult.properties.length,
-        dataSource: "linkup",
-        confidence: linkupResult.properties.length > 0 ? "medium" : "low",
-        sources: linkupResult.sources,
-      }
-
-      if (!source) {
-        result.error = `County "${params.county || "Unknown"}, ${params.state || "Unknown"}" is not directly supported. ` +
-          `Attempted web search fallback. For best results, use one of the supported counties.`
-      }
-
-      const finalResult: CountyAssessorResult = {
-        ...result,
-        rawContent: generateRawContent(result),
-      }
-      return finalResult
-    }
-
-    // No data available
+    // No data available for unsupported county
     const result: CountyAssessorResult = {
       ...baseResult,
-      error: `County "${params.county || "Unknown"}, ${params.state || "Unknown"}" is not supported ` +
-        `and Linkup web search is not configured.`,
+      error: `County "${params.county || "Unknown"}, ${params.state || "Unknown"}" is not supported. ` +
+        `Supported counties: St. Johns FL, Miami-Dade FL, Los Angeles CA, Cook IL, Harris TX, Maricopa AZ, King WA, NYC NY.`,
       rawContent: "",
     }
     result.rawContent = generateRawContent(result)

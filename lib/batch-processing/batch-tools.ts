@@ -7,7 +7,7 @@
 import { ToolSet } from "ai"
 
 // Import all the tools from lib/tools
-import { linkupSearchTool, shouldEnableLinkupTool } from "@/lib/tools/linkup-search"
+// Note: Perplexity Sonar Reasoning has built-in web search - no need for separate search tools
 import {
   yahooFinanceQuoteTool,
   yahooFinanceSearchTool,
@@ -46,21 +46,9 @@ import {
   shouldEnableCourtListenerTools,
 } from "@/lib/tools/courtlistener"
 import {
-  householdSearchTool,
-  shouldEnableHouseholdSearchTool,
-} from "@/lib/tools/household-search"
-import {
-  businessAffiliationSearchTool,
-  shouldEnableBusinessAffiliationSearchTool,
-} from "@/lib/tools/business-affiliation-search"
-import {
   businessLookupTool,
   shouldEnableBusinessLookupTool,
 } from "@/lib/tools/business-lookup"
-import {
-  nonprofitAffiliationSearchTool,
-  shouldEnableNonprofitAffiliationTool,
-} from "@/lib/tools/nonprofit-affiliation-search"
 import {
   propertyValuationTool,
   shouldEnablePropertyValuationTool,
@@ -73,14 +61,6 @@ import {
   prospectProfileTool,
   shouldEnableProspectProfileTool,
 } from "@/lib/tools/prospect-profile"
-import {
-  nonprofitBoardSearchTool,
-  shouldEnableNonprofitBoardSearchTool,
-} from "@/lib/tools/nonprofit-board-search"
-import {
-  givingHistoryTool,
-  shouldEnableGivingHistoryTool,
-} from "@/lib/tools/giving-history"
 import {
   gleifSearchTool,
   gleifLookupTool,
@@ -99,14 +79,6 @@ import {
   foundationGrantsTool,
   shouldEnableFoundationGrantsTool,
 } from "@/lib/tools/foundation-grants"
-import {
-  familyDiscoveryTool,
-  shouldEnableFamilyDiscoveryTool,
-} from "@/lib/tools/family-discovery"
-import {
-  businessRevenueEstimatorTool,
-  shouldEnableBusinessRevenueEstimatorTool,
-} from "@/lib/tools/business-revenue-estimator"
 
 /**
  * Build the tools object for batch processing
@@ -115,8 +87,7 @@ import {
  */
 export function buildBatchTools(): ToolSet {
   const tools: ToolSet = {
-    // Web Search Tool - Linkup for prospect research with curated domains
-    ...(shouldEnableLinkupTool() ? { searchWeb: linkupSearchTool } : {}),
+    // Note: Perplexity Sonar Reasoning has built-in web search - no need for separate search tools
 
     // Financial Data Tools
     ...(shouldEnableYahooFinanceTools()
@@ -160,7 +131,7 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // Unified Business Lookup - searches CO, CT, NY, OR, IA, WA, FL + Linkup fallback
+    // Unified Business Lookup - searches CO, CT, NY, OR, IA, WA, FL state registries
     ...(shouldEnableBusinessLookupTool()
       ? {
           business_lookup: businessLookupTool,
@@ -189,29 +160,6 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // Household/Spouse Search
-    ...(shouldEnableHouseholdSearchTool()
-      ? {
-          household_search: householdSearchTool,
-        }
-      : {}),
-
-    // Business Affiliation Search - UNIFIED enterprise-grade tool
-    // Automatically searches SEC EDGAR + Wikidata + Web + State Registries
-    ...(shouldEnableBusinessAffiliationSearchTool()
-      ? {
-          business_affiliation_search: businessAffiliationSearchTool,
-        }
-      : {}),
-
-    // Nonprofit Affiliation Search - AUTOMATIC person-to-nonprofit workflow
-    // Searches web for person's nonprofit connections, then queries ProPublica
-    ...(shouldEnableNonprofitAffiliationTool()
-      ? {
-          nonprofit_affiliation_search: nonprofitAffiliationSearchTool,
-        }
-      : {}),
-
     // Property Valuation Tool - AVM (Automated Valuation Model) calculations
     // Uses hedonic pricing, comparable sales, and online estimates
     ...(shouldEnablePropertyValuationTool()
@@ -234,22 +182,6 @@ export function buildBatchTools(): ToolSet {
     ...(shouldEnableProspectProfileTool()
       ? {
           prospect_profile: prospectProfileTool,
-        }
-      : {}),
-
-    // Nonprofit Board Search - Find board positions held by a person
-    // FREE alternative to premium board mapping services
-    ...(shouldEnableNonprofitBoardSearchTool()
-      ? {
-          nonprofit_board_search: nonprofitBoardSearchTool,
-        }
-      : {}),
-
-    // Giving History Tool - Comprehensive giving history aggregation
-    // FREE alternative to DonorSearch/iWave giving history features
-    ...(shouldEnableGivingHistoryTool()
-      ? {
-          giving_history: givingHistoryTool,
         }
       : {}),
 
@@ -288,21 +220,6 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // Family Discovery Tool - Discover spouse/children from public records
-    // Uses property records, voter data, web search
-    ...(shouldEnableFamilyDiscoveryTool()
-      ? {
-          family_discovery: familyDiscoveryTool,
-        }
-      : {}),
-
-    // Business Revenue Estimator - Estimate private company revenue
-    // Uses employee count × industry benchmarks (BLS data)
-    ...(shouldEnableBusinessRevenueEstimatorTool()
-      ? {
-          business_revenue_estimate: businessRevenueEstimatorTool,
-        }
-      : {}),
   }
 
   return tools
@@ -310,6 +227,7 @@ export function buildBatchTools(): ToolSet {
 
 /**
  * Get a description of available tools for the system prompt
+ * Note: Perplexity Sonar Reasoning has built-in web search - no need for separate search tools
  */
 export function getToolDescriptions(): string {
   const dataTools: string[] = []
@@ -337,10 +255,8 @@ export function getToolDescriptions(): string {
   if (shouldEnableWikidataTools()) {
     dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
   }
-  // Business research tools - different tools for different purposes
-  dataTools.push("business_affiliation_search (UNIFIED: finds PUBLIC company roles from SEC EDGAR + Wikidata + Web - best for officer/director search at PUBLIC companies)")
   if (shouldEnableBusinessLookupTool()) {
-    dataTools.push("business_lookup (UNIFIED: search companies OR find person's business ownership - CO, CT, NY, OR, IA, WA, FL + Linkup fallback for other states)")
+    dataTools.push("business_lookup (search companies OR find person's business ownership - CO, CT, NY, OR, IA, WA, FL)")
   }
   if (shouldEnableOpenSanctionsTools()) {
     dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
@@ -351,12 +267,6 @@ export function getToolDescriptions(): string {
   if (shouldEnableCourtListenerTools()) {
     dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
   }
-  if (shouldEnableHouseholdSearchTool()) {
-    dataTools.push("household_search (spouse/partner search - household wealth assessment, shared affiliations)")
-  }
-  if (shouldEnableNonprofitAffiliationTool()) {
-    dataTools.push("nonprofit_affiliation_search (AUTOMATIC person-to-nonprofit workflow - finds foundation/charity connections)")
-  }
   if (shouldEnablePropertyValuationTool()) {
     dataTools.push("property_valuation (AVM - Automated Valuation Model for real estate wealth estimation)")
   }
@@ -365,12 +275,6 @@ export function getToolDescriptions(): string {
   }
   if (shouldEnableProspectProfileTool()) {
     dataTools.push("prospect_profile (unified wealth scoring + verified evidence - FREE DonorSearch/iWave alternative)")
-  }
-  if (shouldEnableNonprofitBoardSearchTool()) {
-    dataTools.push("nonprofit_board_search (find ALL board positions held by a person)")
-  }
-  if (shouldEnableGivingHistoryTool()) {
-    dataTools.push("giving_history (comprehensive giving history aggregation across all sources)")
   }
   if (shouldEnableGleifTools()) {
     dataTools.push("gleif_search (search Global LEI database by entity name - 2.5M+ entities, FREE)")
@@ -385,31 +289,18 @@ export function getToolDescriptions(): string {
   if (shouldEnableFoundationGrantsTool()) {
     dataTools.push("foundation_grants (990-PF Schedule I - grants made by foundations)")
   }
-  if (shouldEnableFamilyDiscoveryTool()) {
-    dataTools.push("family_discovery (discover spouse, children from property records, voter data, web search)")
-  }
-  if (shouldEnableBusinessRevenueEstimatorTool()) {
-    dataTools.push("business_revenue_estimate (estimate private company revenue from employee count × industry benchmarks)")
-  }
 
-  const hasLinkup = shouldEnableLinkupTool()
   let description = ""
 
-  if (hasLinkup || dataTools.length > 0) {
-    description += `## Available Research Tools\n\n`
+  if (dataTools.length > 0) {
+    description += `## Available Research Tools
 
-    if (hasLinkup) {
-      description += `### searchWeb - Your Primary Research Tool
-Use searchWeb for prospect research with curated domains (SEC filings, FEC contributions, foundation 990s, property records, corporate data).
-Run 6-10 searchWeb queries per prospect with different angles:
-- Property: "[address] home value Zillow Redfin", "[address] property records"
-- Business: "[name] founder CEO business [city]", "[name] LLC [state]"
-- Philanthropy: "[name] foundation board nonprofit", "[name] donor charitable giving"\n\n`
-    }
+You have built-in web search capabilities through Perplexity Sonar Reasoning. Use this naturally to search the web for prospect information.
 
-    if (dataTools.length > 0) {
-      description += `### Data API Tools\n${dataTools.map((t) => `- ${t}`).join("\n")}\n\n`
-      description += `**Usage:**
+### Data API Tools
+${dataTools.map((t) => `- ${t}`).join("\n")}
+
+**Usage:**
 - sec_edgar_filings: Public company financials, 10-K/10-Q, executive compensation
 - sec_insider_search: Verify board membership - search Form 3/4/5 by person name
 - sec_proxy_search: DEF 14A proxy statements listing all directors/officers
@@ -418,69 +309,44 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
 - us_gov_data: Federal contracts/grants by company/org name
 - wikidata_search/entity: Biographical data (education, employers, net worth)
-- business_affiliation_search: PUBLIC company roles - SEC EDGAR + Wikidata + Web search
-- find_business_ownership: PRIVATE business ownership - FL, NY, CA, DE, CO state registries with ownership inference
-- business_registry_scraper: State registry search by company OR officer name
+- business_lookup: Search companies OR find person's business ownership via state registries
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
 - lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
 - judge_search: Judge biographical data, positions, appointers, education
-- household_search: Find spouse/partner - returns household wealth assessment and shared affiliations
-- nonprofit_affiliation_search: AUTOMATIC person-to-nonprofit workflow - web search + ProPublica lookup
-- property_valuation: AVM (Automated Valuation Model) for real estate - uses hedonic pricing + comparables
+- property_valuation: AVM (Automated Valuation Model) for real estate - uses county records + comparables
 - rental_investment: Rental analysis - rent estimate, cap rate, cash-on-cash return, cash flow
 - prospect_profile: AI wealth/capacity scoring + verified evidence - outputs donor rating (A-D) with source citations
-- nonprofit_board_search: Find ALL nonprofit board positions for a person
-- giving_history: Aggregate giving history from FEC, foundations, public records
-- gleif_search/lookup: Global LEI database - corporate ownership chains, parent relationships\n\n`
-    }
+- gleif_search/lookup: Global LEI database - corporate ownership chains, parent relationships
 
-    description += `### Research Strategy
-1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
-2. Use **data API tools** to get detailed info on discovered entities
-3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
-4. **business ownership**: See Business & Ownership Research section below for which tool to use
-5. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
-6. Run tools in parallel when possible. Be thorough.
+### Research Strategy
+1. Use **built-in web search** for general prospect research (property, business, philanthropy)
+2. Use **data API tools** to get detailed structured data from authoritative sources
+3. **propublica workflow**: Search web for nonprofit names → propublica_nonprofit_search with ORG name
+4. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
+5. Run tools in parallel when possible. Be thorough.
 
 ### Business & Ownership Research
-**TOOL SELECTION GUIDE** - Choose the right tool based on your goal:
-
 | Goal | Tool | When to Use |
 |------|------|-------------|
-| Find PUBLIC company roles | business_affiliation_search | Board seats, officer positions at NYSE/NASDAQ companies |
-| Find PRIVATE business ownership | find_business_ownership | LLCs, private corps, small businesses |
-| Search by COMPANY name | business_registry_scraper | Know the company, need officers/details |
-| Verify SPECIFIC public role | sec_insider_search | Confirm someone is insider at specific public company |
+| Find person's business ownership | **business_lookup** (searchType="person") | Searches state registries with ownership inference |
+| Find public company roles | **sec_insider_search** + **sec_proxy_search** | SEC EDGAR Form 3/4/5 and DEF 14A |
+| Search by company name | **business_lookup** (searchType="company") | Gets registration, officers, status |
 
-**State Registry Knowledge (for find_business_ownership & business_registry_scraper):**
-- **Delaware (DE)**: Most LLCs/corps registered here. ICIS system - may hit CAPTCHA
-- **Florida (FL)**: Sunbiz - most reliable scraper. Officer + Registered Agent search
-- **New York (NY)**: Has Open Data API (FREE, fast). Falls back to web search
-- **California (CA)**: bizfile React SPA - searches active entities
-- **Colorado (CO)**: Socrata Open Data API - very reliable
-
-**Ownership Inference Logic:**
-- LLC Managing Member = likely OWNER (personal liability)
-- S-Corp President = likely OWNER (small corps)
-- C-Corp Officer = may be employee (check for founder indicators)
-- Registered Agent = may just be service provider, not owner
-- Multiple officer roles at SAME address = likely owner
+**Supported States:** CO, CT, NY, OR, IA, WA, FL (free APIs)
+**Other states:** Use built-in web search
 
 ### Board & Officer Validation (PUBLIC COMPANIES)
-When verifying board membership or officer status:
-1. **sec_insider_search("[person name]")** - If results found, they ARE an insider (officer/director/10%+ owner)
-2. **sec_proxy_search("[company name]")** - Lists ALL directors and officers from DEF 14A proxy statement
+1. **sec_insider_search("[person name]")** - If results found, they ARE an insider
+2. **sec_proxy_search("[company name]")** - Lists ALL directors and officers
 
 ### Due Diligence Workflow
-For comprehensive prospect due diligence:
-1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **business_affiliation_search** - Find PUBLIC company affiliations (SEC + Wikidata + Web)
-3. **find_business_ownership** - Find PRIVATE business ownership (state registries)
-4. **court_search** - Check for litigation history
-5. **lobbying_search** - Discover political connections
-6. **fec_contributions** - Political giving patterns
-7. **household_search** - Identify spouse/household wealth\n`
+1. **opensanctions_screening** - Sanctions/PEP check (REQUIRED)
+2. **business_lookup** - Business affiliations via state registries
+3. **sec_insider_search** + **sec_proxy_search** - Public company roles
+4. **court_search** - Litigation history
+5. **fec_contributions** - Political giving
+`
   }
 
   return description

@@ -9,8 +9,6 @@
 
 import { streamText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
-import { LinkupClient } from "linkup-sdk"
-import { isLinkupEnabled, getLinkupApiKey, PROSPECT_RESEARCH_DOMAINS } from "@/lib/linkup/config"
 import { ProspectInputData, BatchProspectItem, BatchSearchMode } from "./types"
 import { buildProspectQueryString } from "./parser"
 import { buildBatchTools, getToolDescriptions, extractSourcesFromToolResults } from "./batch-tools"
@@ -662,56 +660,15 @@ interface WebSearchResult {
 // WEB SEARCH
 // ============================================================================
 
-// Shared LinkUp client for connection reuse
-let linkupClient: LinkupClient | null = null
-
-function getLinkupClient(): LinkupClient {
-  if (!linkupClient) {
-    linkupClient = new LinkupClient({ apiKey: getLinkupApiKey() })
-  }
-  return linkupClient
-}
+// Note: Perplexity Sonar Reasoning has built-in web search - no separate search tool needed
+// The model will search the web naturally during agentic research
 
 async function performWebSearch(query: string): Promise<WebSearchResult | null> {
-  if (!isLinkupEnabled()) {
-    console.log("[BatchProcessor] Linkup not enabled, skipping web search")
-    return null
-  }
-
-  try {
-    const client = getLinkupClient()
-
-    // Use "standard" mode with curated domains for fast, targeted research
-    // includeDomains focuses search on authoritative prospect research sources
-    // 60s timeout to allow thorough results
-    const result = await Promise.race([
-      client.search({
-        query,
-        depth: "standard",
-        outputType: "sourcedAnswer",
-        includeDomains: [...PROSPECT_RESEARCH_DOMAINS],
-      }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Search timeout")), 60000)
-      ),
-    ])
-
-    // Type assertion: we know result is SourcedAnswer because outputType is "sourcedAnswer"
-    const sourcedResult = result as { answer?: string; sources?: Array<{ name?: string; url: string; snippet?: string }> }
-
-    return {
-      answer: sourcedResult.answer || "",
-      sources: (sourcedResult.sources || []).map((s) => ({
-        name: s.name || "Source",
-        url: s.url,
-        snippet: s.snippet,
-      })),
-      query,
-    }
-  } catch (error) {
-    console.error("[BatchProcessor] Web search failed:", error)
-    return null
-  }
+  // Web search is now built into Perplexity Sonar Reasoning model
+  // Returning null to indicate separate web search is not available
+  // The model handles web search natively during generation
+  console.log(`[BatchProcessor] Web search for "${query}" - handled by model's built-in search`)
+  return null
 }
 
 // ============================================================================

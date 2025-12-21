@@ -5,7 +5,6 @@ import { createListDocumentsTool } from "@/lib/tools/list-documents"
 import { createRagSearchTool } from "@/lib/tools/rag-search"
 import { createMemorySearchTool } from "@/lib/tools/memory-tool"
 import { createBatchReportsSearchTool } from "@/lib/tools/batch-reports-search"
-import { linkupSearchTool, shouldEnableLinkupTool } from "@/lib/tools/linkup-search"
 import {
   yahooFinanceQuoteTool,
   yahooFinanceSearchTool,
@@ -17,10 +16,6 @@ import {
   propublicaNonprofitDetailsTool,
   shouldEnableProPublicaTools,
 } from "@/lib/tools/propublica-nonprofits"
-import {
-  nonprofitAffiliationSearchTool,
-  shouldEnableNonprofitAffiliationTool,
-} from "@/lib/tools/nonprofit-affiliation-search"
 import { secEdgarFilingsTool, shouldEnableSecEdgarTools } from "@/lib/tools/sec-edgar"
 import {
   secInsiderSearchTool,
@@ -56,14 +51,6 @@ import {
   shouldEnableCourtListenerTools,
 } from "@/lib/tools/courtlistener"
 import {
-  householdSearchTool,
-  shouldEnableHouseholdSearchTool,
-} from "@/lib/tools/household-search"
-import {
-  businessAffiliationSearchTool,
-  shouldEnableBusinessAffiliationSearchTool,
-} from "@/lib/tools/business-affiliation-search"
-import {
   businessLookupTool,
   shouldEnableBusinessLookupTool,
 } from "@/lib/tools/business-lookup"
@@ -71,14 +58,6 @@ import {
   prospectProfileTool,
   shouldEnableProspectProfileTool,
 } from "@/lib/tools/prospect-profile"
-import {
-  nonprofitBoardSearchTool,
-  shouldEnableNonprofitBoardSearchTool,
-} from "@/lib/tools/nonprofit-board-search"
-import {
-  givingHistoryTool,
-  shouldEnableGivingHistoryTool,
-} from "@/lib/tools/giving-history"
 import {
   gleifSearchTool,
   gleifLookupTool,
@@ -102,14 +81,6 @@ import {
   foundationGrantsTool,
   shouldEnableFoundationGrantsTool,
 } from "@/lib/tools/foundation-grants"
-import {
-  familyDiscoveryTool,
-  shouldEnableFamilyDiscoveryTool,
-} from "@/lib/tools/family-discovery"
-import {
-  businessRevenueEstimatorTool,
-  shouldEnableBusinessRevenueEstimatorTool,
-} from "@/lib/tools/business-revenue-estimator"
 import {
   stateCampaignFinanceTool,
   shouldEnableStateCampaignFinanceTool,
@@ -404,6 +375,7 @@ This provides existing giving history and contact details before running externa
     }
 
     // Add search guidance when search is enabled
+    // Note: Perplexity Sonar Reasoning has built-in web search - no need for separate search tools
     if (enableSearch) {
       // Data API tools (direct access to authoritative sources)
       const dataTools: string[] = []
@@ -417,22 +389,17 @@ This provides existing giving history and contact details before running externa
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
       if (shouldEnablePropertyValuationTool()) dataTools.push("property_valuation (AVM home valuation: hedonic pricing, comp sales, confidence score)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
-      dataTools.push("business_affiliation_search (UNIFIED: finds business roles from SEC EDGAR + Wikidata + Web - best for PUBLIC company officer/director search)")
-      if (shouldEnableBusinessLookupTool()) dataTools.push("business_lookup (UNIFIED: search companies OR find person's business ownership - CO, CT, NY, OR, IA, WA, FL + Linkup fallback for other states)")
+      if (shouldEnableBusinessLookupTool()) dataTools.push("business_lookup (UNIFIED: search companies OR find person's business ownership - CO, CT, NY, OR, IA, WA, FL)")
       if (shouldEnableProspectProfileTool()) dataTools.push("prospect_profile (AI-POWERED: Unified wealth scoring + verified evidence - Capacity/Propensity/Affinity scores with source citations - FREE DonorSearch/iWave alternative)")
-      if (shouldEnableNonprofitBoardSearchTool()) dataTools.push("nonprofit_board_search (BOARD FINDER: Find all nonprofit & public company board positions for a person)")
-      if (shouldEnableGivingHistoryTool()) dataTools.push("giving_history (GIVING AGGREGATOR: Combines FEC + 990 grants + major gifts - DonorSearch's core feature, FREE)")
       if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
       if (shouldEnableNeonCRMTools()) dataTools.push("neon_crm_* (Neon CRM integration: search accounts/donors, get donor details, search donations - requires API key)")
       if (shouldEnableOpenSanctionsTools()) dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
       if (shouldEnableLobbyingTools()) dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
       if (shouldEnableCourtListenerTools()) dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
-      if (shouldEnableHouseholdSearchTool()) dataTools.push("household_search (spouse/partner search - household wealth assessment, shared affiliations)")
       if (shouldEnableStateCampaignFinanceTool()) dataTools.push("state_campaign_finance (STATE-level political contributions - CA, NY, TX, FL, IL, OH, CO, WA, MA, NJ)")
       if (shouldEnableProfessionalLicenseTool()) dataTools.push("professional_license (verify credentials: MD, JD, CPA, Real Estate - CA, NY, TX, FL, IL)")
       if (shouldEnableBuildingPermitTool()) dataTools.push("building_permits (city renovation permits - wealth indicator from permit values)")
       if (shouldEnableStateContractsTool()) dataTools.push("state_contracts (state government contracts - CA, NY, TX, FL, IL, OH, CO, MA)")
-      // business_entities merged into business_lookup
       if (shouldEnableGovernmentSalaryTool()) dataTools.push("government_salary (public employee salaries - NYC, VT, NJ, OR, LA - wealth indicator)")
       if (shouldEnableFAAAircraftTool()) dataTools.push("faa_aircraft (FAA N-Number registry - aircraft ownership - ULTRA-HIGH wealth indicator)")
       if (shouldEnableUSCGVesselTool()) dataTools.push("uscg_vessels (USCG vessel documentation - boat/yacht ownership - HIGH wealth indicator)")
@@ -442,21 +409,13 @@ This provides existing giving history and contact details before running externa
       if (shouldEnableBusinessLicenseTool()) dataTools.push("business_licenses (city business licenses - Chicago, Seattle, KC, Cincinnati, Berkeley, DE)")
       if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
-      const hasLinkup = shouldEnableLinkupTool()
-      if (hasLinkup || dataTools.length > 0) {
-        finalSystemPrompt += `\n\n## Prospect Research Tools`
+      if (dataTools.length > 0) {
+        finalSystemPrompt += `\n\n## Prospect Research Tools
 
-        if (hasLinkup) {
-          finalSystemPrompt += `\n### searchWeb - Your Primary Research Tool
-Use searchWeb for prospect research with curated domains (SEC filings, FEC contributions, foundation 990s, property records, corporate data).
-Run 6-10 searchWeb queries per prospect with different angles:
-- Property: "[address] home value Zillow Redfin", "[address] property records"
-- Business: "[name] founder CEO business [city]", "[name] LLC [state]"
-- Philanthropy: "[name] foundation board nonprofit", "[name] donor charitable giving"`
-        }
+You have built-in web search capabilities through Perplexity Sonar Reasoning. Use this naturally to search the web for prospect information - property records, business affiliations, philanthropic activity, news articles, etc.
 
-        if (dataTools.length > 0) {
-          finalSystemPrompt += `\n\n### Data API Tools\n${dataTools.join("\n")}
+### Data API Tools
+${dataTools.join("\n")}
 
 **Usage:**
 - sec_edgar_filings: Public company financials, 10-K/10-Q, executive compensation
@@ -467,20 +426,16 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
 - usaspending_awards: Federal contracts/grants by company/org name
 - wikidata_search/entity: Biographical data (education, employers, net worth)
-- property_valuation: Home value estimate - just pass the address, auto-fetches Zillow/Redfin/comps
+- property_valuation: Home value estimate - just pass the address, auto-fetches county records and comps
 - rental_investment: Rental analysis - REQUIRES property value from property_valuation first
-- business_affiliation_search: Search SEC EDGAR + Wikidata + Web for PUBLIC company officer/director roles
-- business_lookup: **USE THIS** for "what businesses does [person] own?" OR "find info about [company]" - searches CO, CT, NY, OR, IA, WA, FL with Linkup fallback
+- business_lookup: **USE THIS** for "what businesses does [person] own?" OR "find info about [company]" - searches CO, CT, NY, OR, IA, WA, FL state registries
 - gleif_search: Search Global LEI database for corporate entities (2.5M+ entities)
 - gleif_lookup: Get LEI details with ownership chain (direct/ultimate parent)
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
 - lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
 - judge_search: Judge biographical data, positions, appointers, education
-- household_search: Find spouse/partner - returns household wealth assessment and shared affiliations
 - prospect_profile: AI-powered prospect profiling (Capacity/Propensity/Affinity 0-100 scores + A-D Rating + verified evidence with source citations)
-- nonprofit_board_search: Find nonprofit and public company board positions
-- giving_history: Aggregate all known giving (FEC political, 990 grants, major gifts)
 - neon_crm_search_accounts: Search donors in Neon CRM by name/email
 - neon_crm_get_account: Get detailed donor profile and giving history from Neon CRM
 - neon_crm_search_donations: Search donations in Neon CRM by date, amount, campaign
@@ -495,14 +450,13 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - finra_brokercheck: Financial advisor credentials - HIGH income ($80K-$1M+)
 - lobbyist_search: State/local lobbyists (NY, IL, CA, WA, CO) - HIGH income profession ($150K-$500K+)
 - business_licenses: City business licenses (Chicago, Seattle, KC, Cincinnati, Berkeley, DE)
-- uspto_search: Patent/trademark search by inventor or assignee - IP wealth indicator`
-        }
+- uspto_search: Patent/trademark search by inventor or assignee - IP wealth indicator
 
-        finalSystemPrompt += `\n\n### Research Strategy
-1. Run 6-10 **searchWeb** queries covering property, business, philanthropy
-2. Use **data API tools** to get detailed info on discovered entities
-3. **propublica workflow**: searchWeb to find nonprofit names → propublica_nonprofit_search with ORG name
-4. **property_valuation**: Just pass the address - tool auto-searches Zillow, Redfin, county records, and comps
+### Research Strategy
+1. Use your **built-in web search** for general prospect research (property values, business affiliations, philanthropy)
+2. Use **data API tools** to get detailed structured data from authoritative sources
+3. **propublica workflow**: Search web for nonprofit names → propublica_nonprofit_search with ORG name
+4. **property_valuation**: Pass the address for automated valuation with county records and comps
 5. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
 6. **wealth screening**: Run **faa_aircraft** + **uscg_vessels** for luxury asset discovery
 7. **professional verification**: Run **npi_registry** (doctors), **finra_brokercheck** (finance), or **government_salary** (public employees)
@@ -514,18 +468,17 @@ Run 6-10 searchWeb queries per prospect with different angles:
 | Goal | Tool | When to Use |
 |------|------|-------------|
 | "What businesses does [person] own?" | **business_lookup** (searchType="person") | Person→Business search. Searches state registries with ownership inference. |
-| "Is [person] a director/officer at any PUBLIC companies?" | **business_affiliation_search** | SEC EDGAR + Wikidata + Web. Best for public company roles. |
+| "Is [person] a director/officer at any PUBLIC companies?" | Use **sec_insider_search** + **sec_proxy_search** | SEC EDGAR filings. Best for public company roles. |
 | "Find info about [company name]" | **business_lookup** (searchType="company") | Company→Details search. Gets registration, officers, status. |
 
-**Reliable States (Free APIs - Serverless):**
+**Supported States (Free APIs):**
 - **Colorado (CO)**: Open Data API - entity + agent search
 - **Connecticut (CT)**: Open Data API - best-in-class, updated nightly
 - **New York (NY)**: Open Data API - fastest and most reliable
 - **Oregon (OR)**, **Iowa (IA)**, **Washington (WA)**: Open Data APIs
 - **Florida (FL)**: HTTP scraper (no browser needed) - good officer data
 
-**Other States (Linkup Web Search Fallback):**
-- CA, TX, DE, NV, AZ, etc. - automatically uses Linkup when needed
+**Other States:** Use built-in web search for states not supported by direct APIs.
 
 **Ownership Inference (business_lookup):**
 - LLC Managing Member = likely owner
@@ -552,7 +505,7 @@ These tools reveal high-value prospects. Run them during comprehensive research:
 - **government_salary** - Public employees (NYC, VT, NJ, OR, LA). Known income from public payroll records.
 
 **Business & IP Research:**
-- **business_lookup** - Unified business search (CO, CT, NY, OR, IA, WA, FL + Linkup fallback). Search by company OR person name.
+- **business_lookup** - Unified business search (CO, CT, NY, OR, IA, WA, FL). Search by company OR person name.
 - **business_licenses** - City licenses (Chicago, Seattle, KC, Cincinnati, Berkeley, DE). Find business ownership.
 - **uspto_search** - Patents/trademarks. Inventors and IP holders = wealth indicator.
 
@@ -567,8 +520,8 @@ When researching someone's profession:
 ### Due Diligence Workflow
 For comprehensive prospect due diligence:
 1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **business_lookup** - Find ALL business affiliations via state registries
-3. **business_affiliation_search** - Find public company roles via SEC + Wikidata
+2. **business_lookup** - Find business affiliations via state registries
+3. **sec_insider_search** + **sec_proxy_search** - Find public company roles via SEC
 4. **court_search** - Check for litigation history
 5. **lobbying_search** - Discover political connections
 6. **fec_contributions** + **state_campaign_finance** - Complete political giving (federal + state)
@@ -623,11 +576,6 @@ For comprehensive prospect due diligence:
             search_prospects: createBatchReportsSearchTool(userId),
           }
         : {}),
-      // Add Linkup web search tool - prospect research with curated domains
-      // Note: Native Exa integration via OpenRouter :online suffix handles general web grounding when tools are disabled
-      ...(enableSearch && shouldEnableLinkupTool()
-        ? { searchWeb: linkupSearchTool }
-        : {}),
       // Add Yahoo Finance tools for stock data, executive profiles, and insider transactions
       // Available to all users (no API key required)
       ...(enableSearch && shouldEnableYahooFinanceTools()
@@ -643,13 +591,6 @@ For comprehensive prospect due diligence:
         ? {
             propublica_nonprofit_search: propublicaNonprofitSearchTool,
             propublica_nonprofit_details: propublicaNonprofitDetailsTool,
-          }
-        : {}),
-      // Add Nonprofit Affiliation Search - AUTOMATIC person-to-nonprofit workflow
-      // Searches web for person's nonprofit connections, then queries ProPublica
-      ...(enableSearch && shouldEnableNonprofitAffiliationTool()
-        ? {
-            nonprofit_affiliation_search: nonprofitAffiliationSearchTool,
           }
         : {}),
       // Add SEC EDGAR tool for public company filings and financial data
@@ -735,41 +676,12 @@ For comprehensive prospect due diligence:
             judge_search: judgeSearchTool,
           }
         : {}),
-      // Add Household/Spouse search tool for major gift strategy
-      // FREE - uses Wikidata, SEC, and other public records
-      ...(enableSearch && shouldEnableHouseholdSearchTool()
-        ? {
-            household_search: householdSearchTool,
-          }
-        : {}),
-      // Add Business Affiliation Search - UNIFIED enterprise-grade tool
-      // Combines SEC EDGAR + Wikidata + Web Search + State Registries
-      // ALWAYS FREE - automatically uses available sources
-      ...(enableSearch && shouldEnableBusinessAffiliationSearchTool()
-        ? {
-            business_affiliation_search: businessAffiliationSearchTool,
-          }
-        : {}),
       // Add Prospect Profile Tool - Unified wealth assessment + research report
       // Combines scoring (capacity, propensity, affinity) with verified evidence
       // FREE alternative to DonorSearch AI ($4,000+/yr), iWave ($4,150+/yr)
       ...(enableSearch && shouldEnableProspectProfileTool()
         ? {
             prospect_profile: prospectProfileTool,
-          }
-        : {}),
-      // Add Nonprofit Board Search - Find board positions held by a person
-      // FREE alternative to premium board mapping services
-      ...(enableSearch && shouldEnableNonprofitBoardSearchTool()
-        ? {
-            nonprofit_board_search: nonprofitBoardSearchTool,
-          }
-        : {}),
-      // Add Giving History Tool - Comprehensive giving history aggregation
-      // FREE alternative to DonorSearch/iWave giving history features
-      ...(enableSearch && shouldEnableGivingHistoryTool()
-        ? {
-            giving_history: givingHistoryTool,
           }
         : {}),
       // Add GLEIF LEI Tools - Global Legal Entity Identifier database
@@ -808,20 +720,6 @@ For comprehensive prospect due diligence:
       ...(enableSearch && shouldEnableFoundationGrantsTool()
         ? {
             foundation_grants: foundationGrantsTool,
-          }
-        : {}),
-      // Add Family Discovery Tool - Household member identification
-      // Uses property records, voter data, web search
-      ...(enableSearch && shouldEnableFamilyDiscoveryTool()
-        ? {
-            family_discovery: familyDiscoveryTool,
-          }
-        : {}),
-      // Add Business Revenue Estimator - Private company revenue estimates
-      // Uses employee count × industry benchmarks methodology
-      ...(enableSearch && shouldEnableBusinessRevenueEstimatorTool()
-        ? {
-            business_revenue_estimate: businessRevenueEstimatorTool,
           }
         : {}),
       // Add State Campaign Finance - State-level political contributions
@@ -1011,116 +909,6 @@ For comprehensive prospect due diligence:
             message_group_id,
             model: normalizedModel,
           })
-
-          // RESPONSE VERIFICATION: Verify Grok responses with Perplexity Sonar
-          // Supports both blocking mode (awaits verification) and async mode (background)
-          if (isAuthenticated && savedMessage?.messageId) {
-            const messageId = savedMessage.messageId
-            const responseContent = savedMessage.content || text || ""
-
-            const runVerification = async () => {
-              try {
-                const { shouldVerifyResponse, verifyResponse, BLOCKING_VERIFICATION_ENABLED } = await import("@/lib/verification")
-
-                if (!shouldVerifyResponse(normalizedModel, responseContent)) {
-                  console.log("[Verification] Skipping - criteria not met")
-                  return
-                }
-
-                console.log("[Verification] Starting verification for message:", messageId)
-                console.log("[Verification] Blocking mode:", BLOCKING_VERIFICATION_ENABLED)
-                const numericMessageId = parseInt(messageId, 10)
-
-                // Set verifying = true immediately so UI shows the badge
-                // Using type assertion since verification columns are added via migration
-                const { error: verifyingError } = await supabase
-                  .from("messages")
-                  .update({ verifying: true } as Record<string, unknown>)
-                  .eq("id", numericMessageId)
-
-                if (verifyingError) {
-                  console.error("[Verification] Failed to set verifying flag:", verifyingError)
-                }
-
-                // Run verification - pass blocking flag for shorter timeout
-                const verificationResult = await verifyResponse(
-                  {
-                    originalResponse: responseContent,
-                    userQuery: String(userMessage?.content || ""),
-                    modelId: normalizedModel,
-                    blocking: BLOCKING_VERIFICATION_ENABLED,
-                  },
-                  apiKey || process.env.OPENROUTER_API_KEY || ""
-                )
-
-                if (!verificationResult) {
-                  console.log("[Verification] No result returned, clearing verifying flag")
-                  await supabase
-                    .from("messages")
-                    .update({ verifying: false } as Record<string, unknown>)
-                    .eq("id", numericMessageId)
-                  return
-                }
-
-                // Check if response was modified
-                const wasModified =
-                  verificationResult.mergedResponse &&
-                  verificationResult.mergedResponse !== responseContent
-
-                if (wasModified) {
-                  console.log(
-                    `[Verification] Response updated with ${verificationResult.corrections.length} corrections and ${verificationResult.gapsFilled.length} gaps filled`
-                  )
-                } else {
-                  console.log("[Verification] Response verified - no changes needed")
-                }
-
-                // Update message with verification results
-                // Using type assertion since verification columns are added via migration
-                const { error: updateError } = await supabase
-                  .from("messages")
-                  .update({
-                    content: wasModified ? verificationResult.mergedResponse : responseContent,
-                    verified: true,
-                    verifying: false,
-                    verification_result: {
-                      corrections: verificationResult.corrections,
-                      gapsFilled: verificationResult.gapsFilled,
-                      confidenceScore: verificationResult.confidenceScore,
-                      sources: verificationResult.sources,
-                      wasModified,
-                    },
-                    verified_at: verificationResult.verificationTimestamp,
-                  } as Record<string, unknown>)
-                  .eq("id", numericMessageId)
-
-                if (updateError) {
-                  console.error("[Verification] Failed to update message:", updateError)
-                } else {
-                  console.log("[Verification] Message updated successfully")
-                }
-              } catch (error) {
-                console.error("[Verification] Verification failed:", error)
-                // Clear verifying flag on error
-                await supabase
-                  .from("messages")
-                  .update({ verifying: false } as Record<string, unknown>)
-                  .eq("id", parseInt(messageId, 10))
-              }
-            }
-
-            // Check if blocking mode is enabled
-            const { BLOCKING_VERIFICATION_ENABLED } = await import("@/lib/verification")
-
-            if (BLOCKING_VERIFICATION_ENABLED) {
-              // BLOCKING: Await verification (response waits for fact-check)
-              console.log("[Verification] Running in BLOCKING mode - awaiting verification")
-              await runVerification()
-            } else {
-              // ASYNC: Fire-and-forget (existing behavior)
-              runVerification().catch((err) => console.error("[Verification] Background verification failed:", err))
-            }
-          }
 
           // MEMORY EXTRACTION: Extract and save important facts (background operation)
           if (isAuthenticated) {

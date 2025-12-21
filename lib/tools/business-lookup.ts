@@ -2,17 +2,16 @@
  * Unified Business Lookup Tool
  *
  * Consolidates business_registry_scraper, business_entities, and find_business_ownership
- * into a single intelligent tool with automatic Linkup fallback.
+ * into a single intelligent tool.
  *
  * Features:
  * - Search by company name OR person/officer name
  * - Auto-detects search type from query patterns
  * - Uses reliable Socrata APIs (CT, NY, CO, OR, IA, WA) + FL HTTP scraper
- * - Automatic Linkup fallback for unsupported states or no results
  * - Ownership inference for person searches
  * - Returns sources for UI + structured data
  *
- * Reliable States (Serverless-Compatible):
+ * Supported States (Free APIs - Serverless-Compatible):
  * - Colorado (CO) - Socrata API, entity + agent search
  * - Connecticut (CT) - Socrata API, entity search (best-in-class)
  * - New York (NY) - Socrata API, entity + agent search
@@ -21,14 +20,12 @@
  * - Washington (WA) - Socrata API, entity search
  * - Florida (FL) - HTTP scraper (no browser needed)
  *
- * Unsupported States (Fallback to Linkup):
- * - California, Texas, Delaware, Michigan, etc.
+ * Unsupported States:
+ * - For CA, TX, DE, etc. use the model's built-in web search
  */
 
 import { tool } from "ai"
 import { z } from "zod"
-import { LinkupClient } from "linkup-sdk"
-import { getLinkupApiKey, isLinkupEnabled } from "@/lib/linkup/config"
 import type { ScrapedBusinessEntity } from "@/lib/scraper/config"
 
 // ============================================================================
@@ -455,78 +452,17 @@ async function queryFlorida(query: string, searchType: "company" | "person"): Pr
 }
 
 /**
- * Search via Linkup for unsupported states
+ * Search fallback for unsupported states
+ * Note: Linkup has been removed. For unsupported states, use the model's built-in web search.
  */
 async function searchViaLinkup(
-  query: string,
-  searchType: "company" | "person",
+  _query: string,
+  _searchType: "company" | "person",
   states: string[]
 ): Promise<{ results: BusinessResult[]; success: boolean }> {
-  if (!isLinkupEnabled()) {
-    console.log("[BusinessLookup] Linkup not enabled, skipping fallback")
-    return { results: [], success: false }
-  }
-
-  try {
-    const apiKey = getLinkupApiKey()
-    if (!apiKey) {
-      return { results: [], success: false }
-    }
-
-    const client = new LinkupClient({ apiKey })
-
-    // Build site-specific search query
-    const siteClauses = states
-      .filter((s) => STATE_SOS_DOMAINS[s])
-      .map((s) => `site:${STATE_SOS_DOMAINS[s]}`)
-      .join(" OR ")
-
-    const searchQuery =
-      searchType === "company"
-        ? `"${query}" business corporation LLC ${siteClauses}`
-        : `"${query}" officer director registered agent business ${siteClauses}`
-
-    console.log(`[BusinessLookup] Searching Linkup for: ${states.join(", ")}`)
-
-    const response = await client.search({
-      query: searchQuery,
-      depth: "standard",
-      outputType: "sourcedAnswer",
-    })
-
-    // Parse Linkup response into BusinessResults
-    const results: BusinessResult[] = []
-
-    if (response.sources && Array.isArray(response.sources)) {
-      for (const source of response.sources.slice(0, 10)) {
-        // Try to extract state from URL
-        let state = "Unknown"
-        for (const [stateCode, domain] of Object.entries(STATE_SOS_DOMAINS)) {
-          if (source.url?.includes(domain)) {
-            state = stateCode
-            break
-          }
-        }
-
-        results.push({
-          name: source.name || query,
-          entityId: "",
-          type: "Unknown",
-          status: "Unknown",
-          state,
-          sourceName: `${state} Secretary of State (via Linkup)`,
-          sourceUrl: source.url || "",
-          confidence: "medium",
-        })
-      }
-    }
-
-    console.log(`[BusinessLookup] Found ${results.length} results via Linkup`)
-    return { results, success: true }
-  } catch (error) {
-    console.error("[BusinessLookup] Linkup search error:", error)
-    return { results: [], success: false }
-  }
+  // Linkup has been removed - use Perplexity's built-in web search for unsupported states
+  console.log(`[BusinessLookup] States ${states.join(", ")} not supported by direct APIs. Use model's built-in web search.`)
+  return { results: [], success: false }
 }
 
 /**
@@ -709,15 +645,7 @@ export const businessLookupTool = tool({
       }
     }
 
-    // Also try Linkup if no results from registries
-    if (allResults.length === 0 && !linkupUsed && isLinkupEnabled()) {
-      console.log("[BusinessLookup] No registry results, trying Linkup for all requested states")
-      const linkupResult = await searchViaLinkup(query, detectedType, requestedStates)
-      if (linkupResult.success) {
-        allResults.push(...linkupResult.results)
-        linkupUsed = true
-      }
-    }
+    // Note: Linkup has been removed. For unsupported states, the model's built-in web search is used.
 
     // Deduplicate by name + state
     const seen = new Set<string>()

@@ -22,8 +22,6 @@
 
 import { tool } from "ai"
 import { z } from "zod"
-import { getLinkupApiKeyOptional, isLinkupEnabled } from "@/lib/linkup/config"
-import { LinkupClient } from "linkup-sdk"
 
 // ============================================================================
 // CONSTANTS
@@ -228,90 +226,6 @@ async function getFoundationDetails(ein: string): Promise<ProPublicaOrgResponse 
   }
 }
 
-/**
- * Search for grant details via Linkup
- * Schedule I data isn't in the ProPublica API, so we search the web
- */
-async function searchGrantsViaLinkup(
-  foundationName: string,
-  taxYear?: number,
-  recipientName?: string
-): Promise<{ grants: GrantRecord[]; sources: Array<{ name: string; url: string }> }> {
-  const apiKey = getLinkupApiKeyOptional()
-  if (!apiKey || !isLinkupEnabled()) {
-    return { grants: [], sources: [] }
-  }
-
-  const client = new LinkupClient({ apiKey })
-
-  // Build search query
-  const queryParts = [`"${foundationName}"`, "foundation grants", "990-PF"]
-  if (taxYear) queryParts.push(String(taxYear))
-  if (recipientName) queryParts.push(`"${recipientName}"`)
-  queryParts.push("Schedule I grantees")
-
-  const query = queryParts.join(" ")
-
-  console.log(`[Foundation Grants] Linkup search: ${query}`)
-
-  try {
-    const result = await client.search({
-      query,
-      depth: "deep",
-      outputType: "sourcedAnswer",
-    })
-
-    if (!result.answer) {
-      return { grants: [], sources: [] }
-    }
-
-    // Parse grants from the answer
-    const grants: GrantRecord[] = []
-
-    // Look for grant patterns: "$X to Organization" or "Organization: $X"
-    const grantPatterns = [
-      /\$\s*([\d,]+(?:\.\d{2})?)\s*(?:to|for)\s+([^,\n]+)/gi,
-      /([A-Z][^:,\n]+)(?::|received)\s*\$\s*([\d,]+)/gi,
-    ]
-
-    for (const pattern of grantPatterns) {
-      let match
-      while ((match = pattern.exec(result.answer)) !== null) {
-        let amount: number
-        let recipient: string
-
-        if (match[1].startsWith("$") || /^\d/.test(match[1])) {
-          // Pattern 1: $X to Organization
-          amount = parseFloat(match[1].replace(/[$,]/g, ""))
-          recipient = match[2].trim()
-        } else {
-          // Pattern 2: Organization: $X
-          recipient = match[1].trim()
-          amount = parseFloat(match[2].replace(/[$,]/g, ""))
-        }
-
-        if (amount > 0 && recipient.length > 2) {
-          grants.push({
-            recipientName: recipient,
-            amount,
-          })
-        }
-      }
-    }
-
-    const sources = (result.sources || []).map(
-      (s: { name?: string; url: string }) => ({
-        name: s.name || "Foundation Grants Data",
-        url: s.url,
-      })
-    )
-
-    return { grants, sources }
-  } catch (error) {
-    console.error("[Foundation Grants] Linkup search failed:", error)
-    return { grants: [], sources: [] }
-  }
-}
 
 /**
  * Categorize grants by recipient type
@@ -445,17 +359,9 @@ export const foundationGrantsTool = tool({
       })
     }
 
-    // Step 3: Search for grant details via Linkup
+    // Note: Grant details (Schedule I) are not available in ProPublica API
+    // Users should view the 990-PF PDF directly for grant recipient details
     let grants: GrantRecord[] = []
-    if (foundationName) {
-      const linkupResult = await searchGrantsViaLinkup(
-        foundationName,
-        params.taxYear,
-        params.recipientName
-      )
-      grants = linkupResult.grants
-      sources.push(...linkupResult.sources)
-    }
 
     // Filter by recipient if specified
     if (params.recipientName && grants.length > 0) {

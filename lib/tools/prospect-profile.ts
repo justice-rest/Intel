@@ -31,16 +31,8 @@ import {
   shouldEnableVoterRegistrationTool,
   type VoterRegistrationResult,
 } from "./voter-registration"
-import {
-  familyDiscoveryTool,
-  shouldEnableFamilyDiscoveryTool,
-  type FamilyDiscoveryResult,
-} from "./family-discovery"
-import {
-  businessRevenueEstimatorTool,
-  shouldEnableBusinessRevenueEstimatorTool,
-  type RevenueEstimate,
-} from "./business-revenue-estimator"
+// Note: Family discovery and business revenue estimator tools were removed
+// Use Perplexity's built-in web search for family member discovery and revenue estimates
 
 // ============================================================================
 // CONSTANTS
@@ -586,40 +578,16 @@ async function checkVoterRegistration(
 /**
  * Check family discovery for spouse and household
  */
+// Note: Family discovery tool was removed - use Perplexity's built-in web search instead
 async function checkFamilyDiscovery(
-  personName: string,
-  address?: string,
-  city?: string,
-  state?: string
-): Promise<{ result: FamilyDiscoveryResult | null }> {
-  if (!shouldEnableFamilyDiscoveryTool()) {
-    return { result: null }
-  }
-
-  try {
-    const result = await familyDiscoveryTool.execute(
-      {
-        personName,
-        address,
-        city,
-        state,
-      },
-      {
-        toolCallId: `prospect-profile-family-${Date.now()}`,
-        messages: [],
-        abortSignal: AbortSignal.timeout(30000),
-      }
-    )
-
-    if (!result || result.householdMembers.length === 0) {
-      return { result: null }
-    }
-
-    return { result }
-  } catch (error) {
-    console.error("[ProspectProfile] Family discovery check failed:", error)
-    return { result: null }
-  }
+  _personName: string,
+  _address?: string,
+  _city?: string,
+  _state?: string
+): Promise<{ result: null }> {
+  // Family discovery tool was removed - return null
+  // Use Perplexity's built-in web search for family member discovery
+  return { result: null }
 }
 
 /**
@@ -957,46 +925,20 @@ export const prospectProfileTool = tool({
         })
       }
 
-      // Family/Household Evidence Section (NEW)
-      if (familyResult.result && familyResult.result.householdMembers.length > 0) {
-        const spouse = familyResult.result.householdMembers.find(m => m.relationship === "spouse")
-        evidence.push({
-          title: "Family & Household",
-          status: spouse?.confidence === "high" ? "verified" : "unverified",
-          confidence: spouse?.confidence || "low",
-          items: [
-            {
-              claim: "Marital Status",
-              value: familyResult.result.maritalStatus === "married" ? "Married" : familyResult.result.maritalStatus === "single" ? "Single" : "Unknown",
-            },
-            ...(spouse ? [{
-              claim: "Spouse",
-              value: spouse.name,
-            }] : []),
-            {
-              claim: "Household Size",
-              value: `${familyResult.result.householdSize} member${familyResult.result.householdSize !== 1 ? "s" : ""}`,
-            },
-          ],
-        })
-
-        // Add sources from family discovery
-        for (const src of familyResult.result.sources || []) {
-          if (!sources.some(s => s.url === src.url)) {
-            sources.push(src)
-          }
-        }
-      } else {
-        evidence.push({
-          title: "Family & Household",
-          status: "not_found",
-          confidence: "medium",
-          items: [{
-            claim: "Household Information",
-            value: "No family/household data found in public records",
-          }],
-        })
-      }
+      // Family/Household Evidence Section
+      // Note: Family discovery tool was removed - always show "not found"
+      // Use Perplexity's built-in web search for family member discovery
+      evidence.push({
+        title: "Family & Household",
+        status: "not_found",
+        confidence: "medium",
+        items: [{
+          claim: "Household Information",
+          value: "Use built-in web search for family/household data",
+        }],
+      })
+      // Mark familyResult as used to avoid unused variable warning
+      void familyResult
 
       // Calculate scores
       let capacityScore = 0

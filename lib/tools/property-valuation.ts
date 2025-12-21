@@ -1,21 +1,21 @@
 /**
- * Property Valuation Tool (Enhanced with Redfin API + Linkup + Supabase Caching)
+ * Property Valuation Tool (Redfin API + County Assessor + Supabase Caching)
  *
- * Enterprise-grade AVM tool that fetches property data from multiple sources:
+ * Enterprise-grade AVM tool that fetches property data from authoritative sources:
  * 1. Redfin Internal API - Direct property data, estimates, tax records, comparables
- * 2. Linkup Web Search - Zillow, county assessor sites, public records
+ * 2. County Assessor Socrata APIs - Official government property records
  *
  * Key Features:
  * - Redfin API integration (FREE, no API key) for accurate property data
- * - County tax assessment data from Redfin's public records
+ * - County tax assessment data from official Socrata APIs
  * - Supabase cache (24h TTL) ensures consistent results across all instances
  * - Statistical aggregation (median, outlier filtering) for robust estimates
- * - Cross-validation between multiple sources
+ * - Cross-validation between sources
  *
  * Workflow:
  * 1. Check Supabase cache for existing valuation (returns if found)
  * 2. Call Redfin API for direct property data + estimate + tax records
- * 3. Run parallel Linkup searches for additional data (Zillow, county sites)
+ * 3. Call County Assessor tool for official government records
  * 4. Merge data from all sources, prefer Redfin for structured data
  * 5. Calculate ensemble valuation with confidence score
  * 6. Cache result in Supabase and return
@@ -23,7 +23,6 @@
 
 import { tool } from "ai"
 import { z } from "zod"
-import { LinkupClient } from "linkup-sdk"
 import { createServerClient } from "@supabase/ssr"
 import { calculateEnsembleValue } from "@/lib/avm/ensemble"
 import type {
@@ -34,10 +33,6 @@ import type {
   EstimateSource,
 } from "@/lib/avm/types"
 import { AVM_TIMEOUT_MS } from "@/lib/avm/config"
-import {
-  getLinkupApiKeyOptional,
-  isLinkupEnabled,
-} from "@/lib/linkup/config"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { getRedfinClient } from "@/lib/redfin/client"
 import { countyAssessorTool, shouldEnableCountyAssessorTool } from "./county-assessor"
@@ -345,20 +340,8 @@ const propertyValuationSchema = z.object({
 export type PropertyValuationParams = z.infer<typeof propertyValuationSchema>
 
 // ============================================================================
-// Search Result Types
+// Data Types
 // ============================================================================
-
-interface LinkupSource {
-  name?: string
-  url: string
-  snippet?: string
-}
-
-interface SearchResult {
-  answer: string
-  sources: LinkupSource[]
-  query: string
-}
 
 interface ExtractedData {
   property: Partial<PropertyCharacteristics>
@@ -369,89 +352,6 @@ interface ExtractedData {
   searchesRun: number
   searchesFailed: number
   extractionConfidence: number // 0-1 scale
-}
-
-// ============================================================================
-// Linkup Search Helper
-// ============================================================================
-
-/**
- * Property-specific domains for real estate searches
- * Includes online estimates AND county assessor sites
- */
-const PROPERTY_VALUATION_DOMAINS = [
-  // Online Estimate Providers
-  "zillow.com",
-  "redfin.com",
-  "realtor.com",
-  "trulia.com",
-  "homes.com",
-  "homelight.com",
-  "eppraisal.com",
-  "chase.com",
-  "bankofamerica.com",
-
-  // Property Records Aggregators
-  "propertyshark.com",
-  "blockshopper.com",
-  "publicrecords.netronline.com",
-] as const
-
-/**
- * Run Linkup search with optional domain restriction
- * @param client - Linkup client instance
- * @param query - Search query
- * @param usePropertyDomains - If true, restrict to property domains. If false, search entire web.
- * @param timeoutMs - Timeout in milliseconds
- */
-async function runLinkupSearch(
-  client: LinkupClient,
-  query: string,
-  usePropertyDomains: boolean = true,
-  timeoutMs: number = SEARCH_TIMEOUT_MS
-): Promise<SearchResult | null> {
-  try {
-    // Build search options
-    const searchOptions: {
-      query: string
-      depth: "standard"
-      outputType: "sourcedAnswer"
-      includeDomains?: string[]
-    } = {
-      query,
-      depth: "standard",
-      outputType: "sourcedAnswer",
-    }
-
-    // Only add domain restriction for property-specific searches
-    // County assessor searches need full web access
-    if (usePropertyDomains) {
-      searchOptions.includeDomains = [...PROPERTY_VALUATION_DOMAINS]
-    }
-
-    const result = await Promise.race([
-      client.search(searchOptions),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs)),
-    ])
-
-    if (!result) {
-      console.log(`[Property Valuation] Search timed out: ${query}`)
-      return null
-    }
-
-    return {
-      answer: result.answer || "",
-      sources: (result.sources || []).map((s: LinkupSource) => ({
-        name: s.name || "Untitled",
-        url: s.url,
-        snippet: s.snippet || "",
-      })),
-      query,
-    }
-  } catch (error) {
-    console.error(`[Property Valuation] Search failed for "${query}":`, error)
-    return null
-  }
 }
 
 // ============================================================================
@@ -686,339 +586,9 @@ function extractPropertyDetails(text: string): Partial<PropertyCharacteristics> 
   return details
 }
 
-/**
- * Extract online estimates from search results using context-aware parsing
- * Collects ALL amounts found per source across all results, then uses median
- *
- * Data source hierarchy (by reliability):
- * 1. County assessor / tax records (OFFICIAL GOVERNMENT DATA)
- * 2. Recent sale price (if property sold recently)
- * 3. Zillow Zestimate
- * 4. Redfin Estimate
- * 5. Realtor.com estimate
- */
-function extractOnlineEstimates(results: SearchResult[]): OnlineEstimate[] {
-  // Collect all amounts per source
-  const zillowAmounts: number[] = []
-  const redfinAmounts: number[] = []
-  const realtorAmounts: number[] = []
-  const countyAssessedAmounts: number[] = []
-  const countyMarketAmounts: number[] = []
-  const lastSaleAmounts: number[] = []
-
-  let zillowUrl = ""
-  let redfinUrl = ""
-  let realtorUrl = ""
-  let countyUrl = ""
-
-  for (const result of results) {
-    const text = result.answer
-
-    // === COUNTY ASSESSOR DATA (GOVERNMENT - HIGHEST PRIORITY) ===
-
-    // Tax assessed value - official government record
-    const assessedKeywords = [
-      "assessed value",
-      "tax assessed",
-      "assessed at",
-      "assessment value",
-      "total assessed",
-      "property assessment",
-    ]
-    const assessedAmounts = extractAmountsNearKeyword(text, assessedKeywords, 200)
-    countyAssessedAmounts.push(...assessedAmounts)
-
-    // Market value from county (different from assessed - often higher)
-    const marketKeywords = [
-      "market value",
-      "appraised value",
-      "fair market",
-      "appraisal value",
-      "estimated market",
-      "total value",
-    ]
-    const marketAmounts = extractAmountsNearKeyword(text, marketKeywords, 200)
-    countyMarketAmounts.push(...marketAmounts)
-
-    // Find county assessor URLs
-    if (!countyUrl) {
-      const countySource = result.sources.find(
-        (s) =>
-          s.url.includes("assessor") ||
-          s.url.includes("tax") ||
-          s.url.includes("appraisal") ||
-          s.url.includes(".gov") ||
-          s.url.includes("county")
-      )
-      if (countySource) countyUrl = countySource.url
-    }
-
-    // === RECENT SALE PRICE ===
-    // If property sold recently, that's a strong indicator
-    const saleKeywords = [
-      "sold for",
-      "sale price",
-      "last sold",
-      "sold in 2024",
-      "sold in 2023",
-      "purchased for",
-      "transferred for",
-    ]
-    const saleAmounts = extractAmountsNearKeyword(text, saleKeywords, 150)
-    lastSaleAmounts.push(...saleAmounts)
-
-    // === ONLINE ESTIMATES ===
-
-    // Zillow - look for amounts near "zillow" or "zestimate"
-    const zillowKeywords = ["zillow", "zestimate", "zillow estimate", "zillow value"]
-    const zillowContextAmounts = extractAmountsNearKeyword(text, zillowKeywords)
-    zillowAmounts.push(...zillowContextAmounts)
-    if (!zillowUrl) {
-      const source = result.sources.find((s) => s.url.includes("zillow.com"))
-      if (source) zillowUrl = source.url
-    }
-
-    // Redfin - look for amounts near "redfin"
-    const redfinKeywords = ["redfin", "redfin estimate", "redfin value"]
-    const redfinContextAmounts = extractAmountsNearKeyword(text, redfinKeywords)
-    redfinAmounts.push(...redfinContextAmounts)
-    if (!redfinUrl) {
-      const source = result.sources.find((s) => s.url.includes("redfin.com"))
-      if (source) redfinUrl = source.url
-    }
-
-    // Realtor.com
-    const realtorKeywords = ["realtor.com", "realtor estimate"]
-    const realtorContextAmounts = extractAmountsNearKeyword(text, realtorKeywords)
-    realtorAmounts.push(...realtorContextAmounts)
-    if (!realtorUrl) {
-      const source = result.sources.find((s) => s.url.includes("realtor.com"))
-      if (source) realtorUrl = source.url
-    }
-  }
-
-  const estimates: OnlineEstimate[] = []
-
-  // === PROCESS COUNTY DATA FIRST (MOST RELIABLE) ===
-
-  // County market value (if available, usually more accurate than assessed)
-  if (countyMarketAmounts.length > 0) {
-    const filtered = filterOutliers(countyMarketAmounts)
-    const value = Math.round(
-      calculateMedian(filtered.length > 0 ? filtered : countyMarketAmounts)
-    )
-    if (value >= 50_000) {
-      estimates.push({ source: "county", value, sourceUrl: countyUrl })
-      console.log(
-        `[Property Valuation] County Market Value: ${countyMarketAmounts.length} amounts found, median: $${value.toLocaleString()}`
-      )
-    }
-  }
-  // Fall back to assessed value if no market value
-  else if (countyAssessedAmounts.length > 0) {
-    const filtered = filterOutliers(countyAssessedAmounts)
-    const value = Math.round(
-      calculateMedian(filtered.length > 0 ? filtered : countyAssessedAmounts)
-    )
-    if (value >= 50_000) {
-      // Note: Assessed value is often 80-100% of market value depending on state
-      // We'll use it as-is and let the ensemble model weight it appropriately
-      estimates.push({ source: "county", value, sourceUrl: countyUrl })
-      console.log(
-        `[Property Valuation] County Assessed Value: ${countyAssessedAmounts.length} amounts found, median: $${value.toLocaleString()}`
-      )
-    }
-  }
-
-  // === PROCESS ONLINE ESTIMATES ===
-
-  if (zillowAmounts.length > 0) {
-    const filtered = filterOutliers(zillowAmounts)
-    const value = Math.round(
-      calculateMedian(filtered.length > 0 ? filtered : zillowAmounts)
-    )
-    if (value >= 100_000) {
-      estimates.push({ source: "zillow", value, sourceUrl: zillowUrl })
-      console.log(
-        `[Property Valuation] Zillow: ${zillowAmounts.length} amounts found, median: $${value.toLocaleString()}`
-      )
-    }
-  }
-
-  if (redfinAmounts.length > 0) {
-    const filtered = filterOutliers(redfinAmounts)
-    const value = Math.round(
-      calculateMedian(filtered.length > 0 ? filtered : redfinAmounts)
-    )
-    if (value >= 100_000) {
-      estimates.push({ source: "redfin", value, sourceUrl: redfinUrl })
-      console.log(
-        `[Property Valuation] Redfin: ${redfinAmounts.length} amounts found, median: $${value.toLocaleString()}`
-      )
-    }
-  }
-
-  if (realtorAmounts.length > 0) {
-    const filtered = filterOutliers(realtorAmounts)
-    const value = Math.round(
-      calculateMedian(filtered.length > 0 ? filtered : realtorAmounts)
-    )
-    if (value >= 100_000) {
-      estimates.push({ source: "realtor", value, sourceUrl: realtorUrl })
-      console.log(
-        `[Property Valuation] Realtor: ${realtorAmounts.length} amounts found, median: $${value.toLocaleString()}`
-      )
-    }
-  }
-
-  // === CROSS-VALIDATION ===
-
-  // Log summary of all sources found
-  console.log("[Property Valuation] Source summary:", {
-    countyMarket: countyMarketAmounts.length,
-    countyAssessed: countyAssessedAmounts.length,
-    lastSale: lastSaleAmounts.length,
-    zillow: zillowAmounts.length,
-    redfin: redfinAmounts.length,
-    realtor: realtorAmounts.length,
-  })
-
-  // Cross-validate: warn if sources differ significantly
-  if (estimates.length >= 2) {
-    const values = estimates.map((e) => e.value)
-    const cv = calculateCV(values)
-    if (cv > 0.25) {
-      console.warn(
-        `[Property Valuation] Warning: High variance across sources (CV=${(cv * 100).toFixed(1)}%)`
-      )
-      estimates.forEach((e) =>
-        console.warn(`  - ${e.source}: $${e.value.toLocaleString()}`)
-      )
-    }
-  }
-
-  // Special validation: County vs Online estimates
-  const countyEst = estimates.find((e) => e.source === "county")
-  const zillowEst = estimates.find((e) => e.source === "zillow")
-  if (countyEst && zillowEst) {
-    const diff = Math.abs(countyEst.value - zillowEst.value)
-    const avg = (countyEst.value + zillowEst.value) / 2
-    const percentDiff = diff / avg
-    if (percentDiff > 0.3) {
-      console.warn(
-        `[Property Valuation] County ($${countyEst.value.toLocaleString()}) differs from Zillow ($${zillowEst.value.toLocaleString()}) by ${(percentDiff * 100).toFixed(1)}%`
-      )
-    }
-  }
-
-  return estimates
-}
-
-/**
- * Extract comparable sales from search results
- */
-function extractComparableSales(
-  results: SearchResult[],
-  subjectAddress: string
-): ComparableSale[] {
-  const comps: ComparableSale[] = []
-  const seenAddresses = new Set<string>()
-
-  const normalizedSubject = subjectAddress.toLowerCase().replace(/[^a-z0-9]/g, "")
-
-  for (const result of results) {
-    const salePatterns = [
-      /(\d+\s+[\w\s]+(?:st|street|ave|avenue|rd|road|dr|drive|ln|lane|ct|court|blvd|way|pl|place)[^,]*,\s*[\w\s]+,\s*[A-Z]{2}(?:\s+\d{5})?)\s*(?:sold|closed|purchased|bought)\s*(?:for|at)?\s*\$?([\d,]+)/gi,
-      /(?:sold|closed|purchased)\s*(?:for|at)?\s*\$?([\d,]+)[^.]*?(\d+\s+[\w\s]+(?:st|street|ave|avenue|rd|road|dr|drive|ln|lane|ct|court|blvd|way|pl|place)[^,]*)/gi,
-    ]
-
-    for (const pattern of salePatterns) {
-      let match
-      while ((match = pattern.exec(result.answer)) !== null) {
-        let address: string
-        let price: number
-
-        if (match[1].match(/^\d+\s/)) {
-          address = match[1].trim()
-          price = parseInt(match[2].replace(/,/g, ""), 10)
-        } else {
-          price = parseInt(match[1].replace(/,/g, ""), 10)
-          address = match[2].trim()
-        }
-
-        const normalizedComp = address.toLowerCase().replace(/[^a-z0-9]/g, "")
-        if (normalizedComp === normalizedSubject) continue
-        if (seenAddresses.has(normalizedComp)) continue
-        if (price < 50_000 || price > 50_000_000) continue
-
-        seenAddresses.add(normalizedComp)
-
-        const details = extractPropertyDetails(result.answer)
-
-        const dateMatch = result.answer.match(
-          /(?:sold|closed|purchased)\s*(?:on|in)?\s*(\w+\s+\d{1,2},?\s+\d{4}|\d{1,2}\/\d{1,2}\/\d{2,4}|\d{4}-\d{2}-\d{2})/i
-        )
-        let saleDate = new Date().toISOString().split("T")[0]
-        if (dateMatch) {
-          try {
-            const parsed = new Date(dateMatch[1])
-            if (!isNaN(parsed.getTime())) {
-              saleDate = parsed.toISOString().split("T")[0]
-            }
-          } catch {
-            // Keep default
-          }
-        }
-
-        comps.push({
-          address,
-          salePrice: price,
-          saleDate,
-          squareFeet: details.squareFeet,
-          bedrooms: details.bedrooms,
-          bathrooms: details.bathrooms,
-          yearBuilt: details.yearBuilt,
-          source: "web search",
-          sourceUrl: result.sources[0]?.url || "",
-        })
-
-        if (comps.length >= 10) break
-      }
-      if (comps.length >= 10) break
-    }
-    if (comps.length >= 10) break
-  }
-
-  return comps
-}
-
-/**
- * Collect all unique sources from search results
- */
-function collectSources(
-  results: SearchResult[]
-): Array<{ name: string; url: string }> {
-  const sources: Array<{ name: string; url: string }> = []
-  const seenUrls = new Set<string>()
-
-  for (const result of results) {
-    for (const source of result.sources) {
-      if (!seenUrls.has(source.url)) {
-        seenUrls.add(source.url)
-        try {
-          sources.push({
-            name: source.name || new URL(source.url).hostname,
-            url: source.url,
-          })
-        } catch {
-          sources.push({ name: source.name || "Unknown", url: source.url })
-        }
-      }
-    }
-  }
-
-  return sources.slice(0, 20)
-}
+// NOTE: extractOnlineEstimates, extractComparableSales, and collectSources functions
+// were removed as they were used for parsing Linkup search results (no longer available).
+// Property valuation now relies on Redfin API + County Assessor tool.
 
 // ============================================================================
 // Main Search and Extract Function
@@ -1310,103 +880,24 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
   // === STEP 1: Fetch from Redfin API (FREE, structured data) ===
   const redfinResult = await fetchRedfinData(address)
 
-  // === STEP 2: Supplement with Linkup web search (for Zillow + additional county data) ===
-  let linkupResult: {
-    property: Partial<PropertyCharacteristics>
-    onlineEstimates: OnlineEstimate[]
-    comparables: ComparableSale[]
-    sources: Array<{ name: string; url: string }>
-    searchesRun: number
-    searchesFailed: number
-  } = {
-    property: {},
-    onlineEstimates: [],
-    comparables: [],
-    sources: [],
-    searchesRun: 0,
-    searchesFailed: 0,
-  }
-
-  const apiKey = getLinkupApiKeyOptional()
-  if (apiKey && isLinkupEnabled()) {
-    const client = new LinkupClient({ apiKey })
-    const addrParts = parseAddressComponents(address)
-
-    // Reduced search configs - Redfin already provides Redfin estimate and county data
-    // Focus Linkup on Zillow and supplementary sources
-    const searchConfigs: Array<{ query: string; usePropertyDomains: boolean; description: string }> = [
-      // Zillow estimate (Redfin doesn't have this)
-      {
-        query: `"${address}" Zillow Zestimate home value estimate 2024`,
-        usePropertyDomains: true,
-        description: "Zillow Zestimate",
-      },
-      // Additional county/government data (backup to Redfin)
-      {
-        query: `"${addrParts.street}" "${addrParts.city}" county assessor property tax ${addrParts.state}`,
-        usePropertyDomains: false,
-        description: "County Assessor (Backup)",
-      },
-      // Comparable sales from other sources
-      {
-        query: `homes sold near "${addrParts.street}" ${addrParts.city} ${addrParts.state} 2024 sale price`,
-        usePropertyDomains: false,
-        description: "Recent Sales",
-      },
-    ]
-
-    console.log(`[Property Valuation] Running ${searchConfigs.length} Linkup searches...`)
-
-    const searchPromises = searchConfigs.map((config) =>
-      runLinkupSearch(client, config.query, config.usePropertyDomains)
-    )
-
-    const results = await Promise.race([
-      Promise.all(searchPromises),
-      new Promise<(SearchResult | null)[]>((resolve) =>
-        setTimeout(() => resolve(searchConfigs.map(() => null)), TOTAL_TIMEOUT_MS)
-      ),
-    ])
-
-    const validResults: SearchResult[] = results.filter(
-      (r): r is SearchResult => r !== null
-    )
-
-    console.log(`[Property Valuation] Linkup: ${validResults.length}/${searchConfigs.length} successful`)
-
-    const combinedText = validResults.map((r) => r.answer).join("\n\n")
-    linkupResult = {
-      property: extractPropertyDetails(combinedText),
-      onlineEstimates: extractOnlineEstimates(validResults),
-      comparables: extractComparableSales(validResults, address),
-      sources: collectSources(validResults),
-      searchesRun: searchConfigs.length,
-      searchesFailed: searchConfigs.length - validResults.length,
-    }
-  }
-
-  // === STEP 3: Merge data from ALL sources ===
-  // Priority: County Assessor (official) > Redfin > Linkup
+  // === STEP 2: Merge data from both sources ===
+  // Priority: County Assessor (official) > Redfin
 
   const property: Partial<PropertyCharacteristics> = {
     address,
-    // Prefer County Assessor > Redfin > Linkup for property data
-    squareFeet: countyAssessorResult.property.squareFeet || redfinResult.property.squareFeet || linkupResult.property.squareFeet,
-    lotSizeSqFt: redfinResult.property.lotSizeSqFt || linkupResult.property.lotSizeSqFt,
-    bedrooms: redfinResult.property.bedrooms ?? linkupResult.property.bedrooms,
-    bathrooms: redfinResult.property.bathrooms ?? linkupResult.property.bathrooms,
-    yearBuilt: redfinResult.property.yearBuilt || linkupResult.property.yearBuilt,
-    city: redfinResult.property.city || linkupResult.property.city,
-    state: redfinResult.property.state || linkupResult.property.state,
-    zipCode: redfinResult.property.zipCode || linkupResult.property.zipCode,
-    hasPool: linkupResult.property.hasPool,
-    hasBasement: linkupResult.property.hasBasement,
-    hasFireplace: linkupResult.property.hasFireplace,
-    garageSpaces: linkupResult.property.garageSpaces,
+    // Prefer County Assessor > Redfin for property data
+    squareFeet: countyAssessorResult.property.squareFeet || redfinResult.property.squareFeet,
+    lotSizeSqFt: redfinResult.property.lotSizeSqFt,
+    bedrooms: countyAssessorResult.property.bedrooms ?? redfinResult.property.bedrooms,
+    bathrooms: countyAssessorResult.property.bathrooms ?? redfinResult.property.bathrooms,
+    yearBuilt: countyAssessorResult.property.yearBuilt || redfinResult.property.yearBuilt,
+    city: countyAssessorResult.property.city || redfinResult.property.city,
+    state: countyAssessorResult.property.state || redfinResult.property.state,
+    zipCode: countyAssessorResult.property.zipCode || redfinResult.property.zipCode,
   }
 
   // Merge online estimates (deduplicate by source)
-  // Priority: County Assessor (HIGHEST - official government data) > Redfin > Linkup
+  // Priority: County Assessor (HIGHEST - official government data) > Redfin
   const seenSources = new Set<string>()
   const onlineEstimates: OnlineEstimate[] = []
 
@@ -1427,25 +918,13 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
     }
   }
 
-  // Add Linkup estimates (if not already present)
-  for (const est of linkupResult.onlineEstimates) {
-    if (!seenSources.has(est.source)) {
-      seenSources.add(est.source)
-      onlineEstimates.push(est)
-    }
-  }
-
-  // Merge comparables (Redfin first, then Linkup, max 15)
-  const comparables = [
-    ...redfinResult.comparables,
-    ...linkupResult.comparables,
-  ].slice(0, 15)
+  // Get comparables from Redfin (max 15)
+  const comparables = redfinResult.comparables.slice(0, 15)
 
   // Merge sources (County Assessor first for visibility)
   const sources = [
     ...countyAssessorResult.sources,
     ...redfinResult.sources,
-    ...linkupResult.sources,
   ]
 
   const duration = Date.now() - startTime
@@ -1456,7 +935,6 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
   if (countyAssessorResult.success) extractionConfidence += 0.35 // County Assessor is official government data
   if (redfinResult.success) extractionConfidence += 0.2 // Redfin data is structured
   if (onlineEstimates.length >= 2) extractionConfidence += 0.1
-  if (onlineEstimates.length >= 3) extractionConfidence += 0.1
   if (property.squareFeet) extractionConfidence += 0.05
 
   // Reduce confidence if estimates vary wildly
@@ -1483,8 +961,8 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
     comparables,
     sources,
     ownerName: countyAssessorResult.ownerName,
-    searchesRun: linkupResult.searchesRun + (redfinResult.success ? 1 : 0) + (countyAssessorResult.success ? 1 : 0),
-    searchesFailed: linkupResult.searchesFailed + (redfinResult.success ? 0 : 1) + (countyAssessorResult.success ? 0 : 1),
+    searchesRun: (redfinResult.success ? 1 : 0) + (countyAssessorResult.success ? 1 : 0),
+    searchesFailed: (redfinResult.success ? 0 : 1) + (countyAssessorResult.success ? 0 : 1),
     extractionConfidence,
   }
 }
