@@ -245,18 +245,6 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
-        // Handle Lobbying search
-        if (
-          part.toolInvocation.toolName === "lobbying_search" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Lobbying Disclosure",
-            url: s.url,
-            text: "Federal lobbying data",
-          }))
-        }
-
         // Handle CourtListener tools
         if (
           (part.toolInvocation.toolName === "court_search" ||

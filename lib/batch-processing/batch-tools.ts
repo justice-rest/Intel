@@ -37,10 +37,6 @@ import {
   shouldEnableOpenSanctionsTools,
 } from "@/lib/tools/opensanctions"
 import {
-  lobbyingSearchTool,
-  shouldEnableLobbyingTools,
-} from "@/lib/tools/lobbying"
-import {
   courtSearchTool,
   judgeSearchTool,
   shouldEnableCourtListenerTools,
@@ -50,17 +46,9 @@ import {
   shouldEnableBusinessLookupTool,
 } from "@/lib/tools/business-lookup"
 import {
-  propertyValuationTool,
-  shouldEnablePropertyValuationTool,
-} from "@/lib/tools/property-valuation"
-import {
   rentalInvestmentTool,
   shouldEnableRentalInvestmentTool,
 } from "@/lib/tools/rental-investment-tool"
-import {
-  prospectProfileTool,
-  shouldEnableProspectProfileTool,
-} from "@/lib/tools/prospect-profile"
 import {
   gleifSearchTool,
   gleifLookupTool,
@@ -71,14 +59,6 @@ import {
   countyAssessorTool,
   shouldEnableCountyAssessorTool,
 } from "@/lib/tools/county-assessor"
-import {
-  voterRegistrationTool,
-  shouldEnableVoterRegistrationTool,
-} from "@/lib/tools/voter-registration"
-import {
-  foundationGrantsTool,
-  shouldEnableFoundationGrantsTool,
-} from "@/lib/tools/foundation-grants"
 
 /**
  * Build the tools object for batch processing
@@ -145,13 +125,6 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // Lobbying Disclosure (federal LDA filings)
-    ...(shouldEnableLobbyingTools()
-      ? {
-          lobbying_search: lobbyingSearchTool,
-        }
-      : {}),
-
     // CourtListener (federal court records and judges)
     ...(shouldEnableCourtListenerTools()
       ? {
@@ -160,28 +133,11 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // Property Valuation Tool - AVM (Automated Valuation Model) calculations
-    // Uses hedonic pricing, comparable sales, and online estimates
-    ...(shouldEnablePropertyValuationTool()
-      ? {
-          property_valuation: propertyValuationTool,
-        }
-      : {}),
-
     // Rental Investment Tool - rental valuation and investment analysis
     // Returns rent estimate, cap rate, cash flow
     ...(shouldEnableRentalInvestmentTool()
       ? {
           rental_investment: rentalInvestmentTool,
-        }
-      : {}),
-
-    // Prospect Profile Tool - Unified wealth assessment + research report
-    // Combines scoring (capacity, propensity, affinity) with verified evidence
-    // FREE alternative to DonorSearch AI, iWave, DonorSearch Research on Demand
-    ...(shouldEnableProspectProfileTool()
-      ? {
-          prospect_profile: prospectProfileTool,
         }
       : {}),
 
@@ -201,22 +157,6 @@ export function buildBatchTools(): ToolSet {
     ...(shouldEnableCountyAssessorTool()
       ? {
           county_assessor: countyAssessorTool,
-        }
-      : {}),
-
-    // Voter Registration Tool - Party affiliation and registration data
-    // Uses FEC patterns as fallback when direct data unavailable
-    ...(shouldEnableVoterRegistrationTool()
-      ? {
-          voter_registration: voterRegistrationTool,
-        }
-      : {}),
-
-    // Foundation Grants Tool - 990-PF Schedule I grant data
-    // Shows where foundations are giving money
-    ...(shouldEnableFoundationGrantsTool()
-      ? {
-          foundation_grants: foundationGrantsTool,
         }
       : {}),
 
@@ -261,20 +201,11 @@ export function getToolDescriptions(): string {
   if (shouldEnableOpenSanctionsTools()) {
     dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
   }
-  if (shouldEnableLobbyingTools()) {
-    dataTools.push("lobbying_search (federal lobbying disclosures - lobbyists, clients, issues, spending)")
-  }
   if (shouldEnableCourtListenerTools()) {
     dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
   }
-  if (shouldEnablePropertyValuationTool()) {
-    dataTools.push("property_valuation (AVM - Automated Valuation Model for real estate wealth estimation)")
-  }
   if (shouldEnableRentalInvestmentTool()) {
     dataTools.push("rental_investment (rental valuation - rent estimate, cap rate, cash flow analysis)")
-  }
-  if (shouldEnableProspectProfileTool()) {
-    dataTools.push("prospect_profile (unified wealth scoring + verified evidence - FREE DonorSearch/iWave alternative)")
   }
   if (shouldEnableGleifTools()) {
     dataTools.push("gleif_search (search Global LEI database by entity name - 2.5M+ entities, FREE)")
@@ -282,12 +213,6 @@ export function getToolDescriptions(): string {
   }
   if (shouldEnableCountyAssessorTool()) {
     dataTools.push("county_assessor (official property assessment from county Socrata APIs - verified government data)")
-  }
-  if (shouldEnableVoterRegistrationTool()) {
-    dataTools.push("voter_registration (party affiliation, registration date, voting history)")
-  }
-  if (shouldEnableFoundationGrantsTool()) {
-    dataTools.push("foundation_grants (990-PF Schedule I - grants made by foundations)")
   }
 
   let description = ""
@@ -311,12 +236,9 @@ ${dataTools.map((t) => `- ${t}`).join("\n")}
 - wikidata_search/entity: Biographical data (education, employers, net worth)
 - business_lookup: Search companies OR find person's business ownership via state registries
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
-- lobbying_search: Federal lobbying disclosures by lobbyist, client, or firm name
 - court_search: Federal court opinions and dockets by party name or case
 - judge_search: Judge biographical data, positions, appointers, education
-- property_valuation: AVM (Automated Valuation Model) for real estate - uses county records + comparables
 - rental_investment: Rental analysis - rent estimate, cap rate, cash-on-cash return, cash flow
-- prospect_profile: AI wealth/capacity scoring + verified evidence - outputs donor rating (A-D) with source citations
 - gleif_search/lookup: Global LEI database - corporate ownership chains, parent relationships
 
 ### Research Strategy
