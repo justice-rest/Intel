@@ -17,7 +17,7 @@ export const openrouterModels: ModelConfig[] = [
     outputCost: 5.0,
     priceUnit: "per 1M tokens",
     vision: false,
-    tools: true,
+    tools: false, // Perplexity Sonar models don't support tool calling
     audio: false,
     reasoning: true,
     webSearch: true,
@@ -31,9 +31,15 @@ export const openrouterModels: ModelConfig[] = [
     icon: "perplexity",
     isPro: false, // Available for all users
     // Web search is built into the model - no external tools needed
-    apiSdk: (apiKey?: string) =>
+    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+        // Perplexity has built-in web search, but we can still pass the plugin for enhanced results
+        ...(opts?.enableSearch && {
+          extraBody: {
+            plugins: [{ id: "web", max_results: 3 }],
+          },
+        }),
       }).chat("perplexity/sonar-reasoning"),
   },
 ]
