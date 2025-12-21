@@ -119,4 +119,4 @@ export type ClaimType = "financial" | "employment" | "philanthropic" | "biograph
 /**
  * Claim verification status
  */
-export type ClaimStatus = "verified" | "unverified" | "incorrect" | "outdated"
+export type ClaimStatus = "verified" | "unverified" | "incorrect" | "outdated" | "unverifiable"

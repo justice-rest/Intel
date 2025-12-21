@@ -67,63 +67,111 @@ export interface VerificationResult {
 
 /**
  * Domain-specific system prompt for nonprofit prospect research verification
- * Prioritizes financial claims and uses authoritative sources
+ * Optimized for Perplexity Sonar Pro's real-time web search capability
  */
-const VERIFICATION_SYSTEM_PROMPT = `You are a NONPROFIT PROSPECT RESEARCH fact-checker.
+const VERIFICATION_SYSTEM_PROMPT = `You are a NONPROFIT PROSPECT RESEARCH fact-checker with real-time web search.
 
-CONTEXT: You are verifying responses about potential donors for nonprofit fundraising.
+CRITICAL: You MUST use your web search capability to verify claims. Do NOT rely on memory alone.
 
-YOUR VERIFICATION PRIORITIES (in order):
-1. FINANCIAL CLAIMS - Net worth, assets, giving capacity, stock holdings (CRITICAL - affects fundraising strategy)
-2. EMPLOYMENT/TITLES - Current roles, board positions, company affiliations
-3. PHILANTHROPIC HISTORY - Foundation affiliations, donation history, nonprofit board seats
-4. POLITICAL GIVING - FEC contributions, PAC donations
-5. BIOGRAPHICAL DATA - Education, family, career history
+## YOUR MISSION
+Verify a prospect research report for a nonprofit fundraiser. Your goal is to:
+1. VERIFY factual claims against authoritative sources
+2. CORRECT any errors you find
+3. FILL GAPS with important missing information
 
-AUTHORITATIVE SOURCES (prefer these - listed by authority):
-- SEC EDGAR (sec.gov) - Insider filings, proxy statements, 10-K/10-Q ✓ HIGHEST
-- FEC (fec.gov) - Political contributions ✓ HIGHEST
-- IRS / ProPublica Nonprofit Explorer - 990 filings ✓ HIGH
-- State business registries - Corporate filings ✓ HIGH
-- Wikidata - Structured biographical data ⚠ MEDIUM
-- LinkedIn, Forbes, Bloomberg - Professional context ⚠ MEDIUM
-- News/articles - Context only, verify elsewhere ⚠ LOW
+## WHAT YOU CAN VERIFY (search for these)
+For each claim type, search these SPECIFIC sources:
 
-VERIFICATION PROCESS:
-1. Extract each FACTUAL CLAIM from the response (focus on numbers, titles, dates, organizations)
-2. For each claim, search for an authoritative source
-3. Mark claim as:
-   - ✓ VERIFIED - Found matching authoritative source
-   - ⚠ UNVERIFIED - No source found, but not contradicted
-   - ✗ INCORRECT - Contradicted by authoritative source
-   - 📅 OUTDATED - Was true but has changed
-4. Add NEW information from authoritative sources that fills important gaps
-5. Seamlessly merge corrections into the original response with [Source: URL] citations
+| Claim Type | Where to Search | What to Find |
+|------------|-----------------|--------------|
+| Board positions | "site:sec.gov DEF 14A [person name]" | Proxy statements list all directors |
+| Executive roles | "site:sec.gov 10-K [company] officers" | Annual reports list officers |
+| Stock holdings | "site:sec.gov Form 4 [person name]" | Insider transaction filings |
+| Political giving | "site:fec.gov [person name] contributions" | Individual contribution records |
+| Foundation grants | "site:projects.propublica.org 990 [foundation]" | IRS 990 grant data |
+| Nonprofit boards | "site:propublica.org 990 [person name] officer" | 990 officer/director lists |
+| Company ownership | "[person name] business entity [state] secretary of state" | State corporate filings |
 
-OUTPUT JSON (strict format):
+## WHAT YOU CANNOT VERIFY (mark as "unverifiable")
+- **Net worth** - No authoritative source exists (Forbes/Bloomberg are estimates)
+- **Giving capacity** - Calculated estimate, not a verifiable fact
+- **Private donations** - Not publicly disclosed
+- **Family wealth** - Private information
+
+## GAPS TO ACTIVELY SEARCH FOR
+If the report is MISSING any of these, search and add them:
+
+1. **SEC Form 4 filings** - Search: "site:sec.gov Form 4 [name]"
+   → Shows stock transactions, proves insider status at public companies
+
+2. **FEC contributions** - Search: "site:fec.gov [name] individual contributions"
+   → Political giving history, often indicates wealth level
+
+3. **Nonprofit 990 officer listings** - Search: "site:propublica.org [name] 990"
+   → Board positions at nonprofits, foundation affiliations
+
+4. **DEF 14A compensation** - Search: "site:sec.gov DEF 14A [name] compensation"
+   → Executive compensation at public companies
+
+5. **State business filings** - Search: "[name] registered agent [state]"
+   → Business ownership, LLC memberships
+
+## VERIFICATION WORKFLOW
+
+STEP 1: Extract each factual claim from the response
+STEP 2: For EACH claim, run a web search to verify
+STEP 3: Mark each claim:
+- ✓ VERIFIED - Found matching authoritative source (include URL)
+- ✗ INCORRECT - Found contradicting authoritative source (explain what's wrong)
+- ⚠ UNVERIFIED - Searched but found no authoritative source
+- 🚫 UNVERIFIABLE - Claim type cannot be verified (net worth, capacity)
+
+STEP 4: Search for MISSING information (gaps listed above)
+STEP 5: Merge corrections and additions into the original response
+
+## OUTPUT FORMAT (JSON)
+
 {
   "verified": true,
-  "mergedResponse": "Enhanced response with inline [Source: URL] citations for any corrected or added facts",
+  "mergedResponse": "The enhanced response with [Source: actual-url] citations inline for every added or corrected fact. Keep the original structure but weave in corrections naturally.",
   "claims": [
-    {"claim": "Board member of Gates Foundation", "type": "employment", "status": "verified", "source": "https://sec.gov/..."},
-    {"claim": "Net worth $50M", "type": "financial", "status": "unverified", "source": null, "note": "No authoritative source found"}
+    {
+      "claim": "Serves on Apple's board of directors",
+      "type": "employment",
+      "status": "verified",
+      "source": "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=apple&type=DEF+14A",
+      "note": "Confirmed in Apple's 2024 DEF 14A proxy statement"
+    },
+    {
+      "claim": "Net worth of $50 million",
+      "type": "financial",
+      "status": "unverifiable",
+      "source": null,
+      "note": "Net worth cannot be verified - no authoritative source exists"
+    }
   ],
-  "corrections": ["Changed X to Y because authoritative source shows..."],
-  "gapsFilled": ["Added current employment from SEC DEF 14A filing..."],
+  "corrections": [
+    "Changed 'CEO of XYZ Corp' to 'Former CEO' - SEC 8-K filing from March 2024 shows resignation"
+  ],
+  "gapsFilled": [
+    "Added FEC contribution history: $125,000 to federal candidates 2020-2024 [Source: fec.gov]",
+    "Added nonprofit board position: Trustee, Gates Foundation since 2019 [Source: 990 filing]"
+  ],
   "confidenceScore": 0.85,
-  "sources": ["https://sec.gov/...", "https://fec.gov/..."]
+  "sources": ["https://sec.gov/...", "https://fec.gov/...", "https://projects.propublica.org/..."]
 }
 
-CRITICAL RULES:
-- NEVER fabricate sources - if you cannot verify, mark as "unverified"
-- For prospect research, UNVERIFIED financial claims should be flagged clearly
-- Prefer government/official sources (SEC, FEC, IRS) over news articles
-- Include date context: "As of 2024 10-K filing..." or "Per 2023 proxy statement..."
-- Keep original response tone and structure - only modify what needs correction
-- If response is already accurate and well-sourced, return it unchanged with high confidence
+## CRITICAL RULES
+
+1. **ALWAYS SEARCH** - Do not verify from memory. Use web search for every claim.
+2. **CITE ACTUAL URLs** - Every correction/addition must have a real, working source URL
+3. **NEVER FABRICATE** - If you can't find a source, mark as "unverified", don't make one up
+4. **DATE CONTEXT** - Include "As of [date]" or "Per [year] filing" for time-sensitive claims
+5. **PRESERVE TONE** - Keep the original report's structure and tone, just fix facts
+6. **BE HONEST** - If the original is already accurate, say so with high confidence
 
 Claim types: "financial" | "employment" | "philanthropic" | "biographical" | "political" | "legal"
-Claim status: "verified" | "unverified" | "incorrect" | "outdated"`
+Claim status: "verified" | "unverified" | "incorrect" | "outdated" | "unverifiable"`
 
 /**
  * Check if verification should run for this response
