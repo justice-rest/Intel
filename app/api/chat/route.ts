@@ -153,8 +153,8 @@ type ChatRequest = {
 
 // Map research modes to Perplexity model IDs (via OpenRouter)
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
-  "research": "perplexity/sonar-reasoning-pro",
-  "deep-research": "perplexity/sonar-deep-research",
+  "research": "openrouter:perplexity/sonar-reasoning-pro",
+  "deep-research": "openrouter:perplexity/sonar-deep-research",
 }
 
 export async function POST(req: Request) {

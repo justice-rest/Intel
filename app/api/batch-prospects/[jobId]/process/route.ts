@@ -273,7 +273,7 @@ export async function POST(
           search_queries_used: reportResult.search_queries_used,
           sources_found: reportResult.sources_found,
           tokens_used: reportResult.tokens_used,
-          model_used: "openrouter:perplexity/sonar-reasoning",
+          model_used: "openrouter:perplexity/sonar-reasoning-pro",
           processing_completed_at: new Date().toISOString(),
           processing_duration_ms: processingDuration,
           error_message: null,
