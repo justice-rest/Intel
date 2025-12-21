@@ -46,7 +46,9 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   sec_insider_search: "SEC Insider Filings",
   sec_proxy_search: "SEC Proxy Statements",
   fec_contributions: "Political Contributions",
+  state_campaign_finance: "State Campaign Finance",
   us_gov_data: "US Government Data",
+  usaspending_awards: "Federal Awards",
   wikidata_search: "Wikidata Search",
   wikidata_entity: "Wikidata Profile",
   property_valuation: "Property Valuation",
@@ -932,6 +934,206 @@ function SingleToolCard({
           {govResult.results?.length === 0 && !govResult.rawContent && (
             <div className="text-muted-foreground">
               No results found for &quot;{govResult.query}&quot;
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle USAspending Awards results (Federal contracts, grants, loans)
+    if (
+      toolName === "usaspending_awards" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "results" in parsedResult
+    ) {
+      const result = parsedResult as {
+        query: string
+        results: Array<{
+          Award_ID: string
+          Recipient_Name: string
+          Award_Amount: number
+          Total_Outlays: number
+          Description: string
+          Award_Type: string
+          Awarding_Agency: string
+          Awarding_Sub_Agency: string
+          Start_Date: string
+          End_Date: string
+        }>
+        totalCount: number
+        rawContent?: string
+        sources: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (result.error) {
+        return (
+          <div className="text-red-600 dark:text-red-400">
+            {result.error}
+          </div>
+        )
+      }
+
+      // Format currency
+      const formatCurrency = (amount: number) => {
+        if (Math.abs(amount) >= 1e9) return `$${(amount / 1e9).toFixed(1)}B`
+        if (Math.abs(amount) >= 1e6) return `$${(amount / 1e6).toFixed(1)}M`
+        if (Math.abs(amount) >= 1e3) return `$${(amount / 1e3).toFixed(0)}K`
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+
+      // Calculate total award amount
+      const totalAmount = result.results.reduce((sum, a) => sum + (a.Award_Amount || 0), 0)
+
+      // Get unique agencies
+      const agencies = [...new Set(result.results.map(a => a.Awarding_Agency).filter(Boolean))].slice(0, 4)
+
+      // Award type badge colors
+      const awardTypeBadge: Record<string, string> = {
+        contract: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+        grant: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400",
+        loan: "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-400",
+        idv: "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400",
+      }
+
+      const getAwardTypeBadge = (type: string) => {
+        const lowerType = type.toLowerCase()
+        if (lowerType.includes("contract")) return awardTypeBadge.contract
+        if (lowerType.includes("grant")) return awardTypeBadge.grant
+        if (lowerType.includes("loan")) return awardTypeBadge.loan
+        if (lowerType.includes("idv")) return awardTypeBadge.idv
+        return awardTypeBadge.contract
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="text-center">
+            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+              Federal Awards
+            </div>
+            <div className="font-medium text-foreground text-xl">
+              {result.query}
+            </div>
+            <div className="text-muted-foreground text-sm mt-1">
+              Contracts, Grants, Loans from USAspending.gov
+            </div>
+          </div>
+
+          {/* Stats badges */}
+          <div className="flex justify-center gap-2 flex-wrap">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400">
+              <span className="font-mono">{result.totalCount}</span>
+              <span className="opacity-75">Awards</span>
+            </div>
+            {totalAmount > 0 && (
+              <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                <span className="font-mono">{formatCurrency(totalAmount)}</span>
+                <span className="opacity-75">Total Value</span>
+              </div>
+            )}
+          </div>
+
+          {/* Agency badges */}
+          {agencies.length > 0 && (
+            <div className="flex justify-center gap-1 flex-wrap">
+              {agencies.map((agency, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
+                >
+                  {agency.length > 25 ? agency.substring(0, 25) + "..." : agency}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Awards list */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Top Awards
+            </div>
+            <div className="space-y-2">
+              {result.results.slice(0, 6).map((award, index) => (
+                <div
+                  key={index}
+                  className="border-border rounded-lg border p-3 bg-muted/20"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{award.Recipient_Name}</div>
+                      <div className="text-muted-foreground text-xs mt-0.5">
+                        {award.Awarding_Agency}
+                        {award.Awarding_Sub_Agency && ` • ${award.Awarding_Sub_Agency}`}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className={cn(
+                        "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
+                        getAwardTypeBadge(award.Award_Type)
+                      )}>
+                        {award.Award_Type}
+                      </span>
+                      <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                        {formatCurrency(award.Award_Amount)}
+                      </span>
+                    </div>
+                  </div>
+                  {award.Description && (
+                    <div className="text-muted-foreground text-xs line-clamp-2 mb-2">
+                      {award.Description}
+                    </div>
+                  )}
+                  <div className="text-muted-foreground text-xs flex items-center gap-2">
+                    {award.Start_Date && <span>Start: {award.Start_Date}</span>}
+                    {award.End_Date && (
+                      <>
+                        <span className="opacity-50">→</span>
+                        <span>End: {award.End_Date}</span>
+                      </>
+                    )}
+                    {award.Award_ID && (
+                      <>
+                        <span className="opacity-50">|</span>
+                        <span className="font-mono">{award.Award_ID}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {result.results.length > 6 && (
+              <div className="text-muted-foreground text-xs text-center mt-2">
+                +{result.results.length - 6} more awards
+              </div>
+            )}
+          </div>
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {result.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -2663,30 +2865,111 @@ function SingleToolCard({
         rawContent?: string
       }
 
+      // Form type badge colors
+      const formBadgeClass: Record<string, string> = {
+        "3": "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+        "4": "border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-400",
+        "5": "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400",
+      }
+
+      // Group filings by company
+      const filingsByCompany = result.filings.reduce((acc, filing) => {
+        if (!acc[filing.companyName]) {
+          acc[filing.companyName] = []
+        }
+        acc[filing.companyName].push(filing)
+        return acc
+      }, {} as Record<string, typeof result.filings>)
+
+      const companyCount = Object.keys(filingsByCompany).length
+
       return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">{result.personName}</span>
-            <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs">
-              {result.totalFilings} filings
-            </span>
+        <div className="space-y-4">
+          {/* Header with person name */}
+          <div className="text-center">
+            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+              SEC Insider Filings
+            </div>
+            <div className="font-medium text-foreground text-xl">
+              {result.personName}
+            </div>
+            <div className="text-muted-foreground text-sm mt-1">
+              Officer/Director/10% Owner at {companyCount} {companyCount === 1 ? "company" : "companies"}
+            </div>
           </div>
-          <div className="space-y-2">
-            {result.filings.slice(0, 10).map((filing, index) => (
-              <div key={index} className="border-border border-b pb-2 last:border-0">
-                <a
-                  href={filing.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary group flex items-center gap-1 font-medium hover:underline"
-                >
-                  Form {filing.formType} - {filing.companyName}
-                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
-                </a>
-                <div className="text-muted-foreground text-xs">Filed: {filing.filedDate}</div>
+
+          {/* Filing count badge */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+              <span className="font-mono">{result.totalFilings}</span>
+              <span className="opacity-75">Form 3/4/5 Filings</span>
+            </div>
+          </div>
+
+          {/* Filings by company */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Companies & Filings
+            </div>
+            <div className="space-y-3">
+              {Object.entries(filingsByCompany).slice(0, 5).map(([company, filings], idx) => (
+                <div key={idx} className="border-border rounded-lg border p-3 bg-muted/20">
+                  <div className="font-medium text-sm mb-2">{company}</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {filings.slice(0, 5).map((filing, index) => (
+                      <a
+                        key={index}
+                        href={filing.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium hover:opacity-80 transition-opacity",
+                          formBadgeClass[filing.formType] || formBadgeClass["4"]
+                        )}
+                        title={`Filed ${filing.filedDate}`}
+                      >
+                        Form {filing.formType}
+                        <span className="opacity-60">{filing.filedDate.split("-")[0]}</span>
+                      </a>
+                    ))}
+                    {filings.length > 5 && (
+                      <span className="text-muted-foreground text-xs py-0.5">
+                        +{filings.length - 5} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {Object.keys(filingsByCompany).length > 5 && (
+                <div className="text-muted-foreground text-xs text-center">
+                  +{Object.keys(filingsByCompany).length - 5} more companies
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
               </div>
-            ))}
-          </div>
+              <div className="flex flex-wrap gap-2">
+                {result.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )
     }
@@ -2710,32 +2993,107 @@ function SingleToolCard({
         sources?: Array<{ name: string; url: string }>
       }
 
+      // Extract unique years from filings
+      const years = [...new Set(result.filings.map(f => f.filedDate.split("-")[0]))].sort((a, b) => parseInt(b) - parseInt(a))
+
       return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">{result.companyName}</span>
-            <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs">
-              {result.totalFilings} proxy statements
-            </span>
+        <div className="space-y-4">
+          {/* Company Header */}
+          <div className="text-center">
+            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+              SEC Proxy Statements
+            </div>
+            <div className="font-medium text-foreground text-xl">
+              {result.companyName}
+            </div>
+            <div className="text-muted-foreground text-sm mt-1">
+              Board composition, executive compensation, voting matters
+            </div>
           </div>
-          <div className="space-y-2">
-            {result.filings.slice(0, 5).map((filing, index) => (
-              <div key={index} className="border-border border-b pb-2 last:border-0">
+
+          {/* Filing count and years badge */}
+          <div className="flex justify-center gap-2">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-medium text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400">
+              <span className="font-mono">{result.totalFilings}</span>
+              <span className="opacity-75">DEF 14A Filings</span>
+            </div>
+          </div>
+
+          {/* Year badges */}
+          {years.length > 0 && (
+            <div className="flex justify-center gap-1 flex-wrap">
+              {years.slice(0, 6).map((year) => (
+                <span
+                  key={year}
+                  className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
+                >
+                  {year}
+                </span>
+              ))}
+              {years.length > 6 && (
+                <span className="text-muted-foreground text-xs py-0.5">+{years.length - 6} more</span>
+              )}
+            </div>
+          )}
+
+          {/* Filings list */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Recent Filings
+            </div>
+            <div className="space-y-2">
+              {result.filings.slice(0, 5).map((filing, index) => (
                 <a
+                  key={index}
                   href={filing.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                  className="border-border rounded-lg border p-3 bg-muted/20 block hover:bg-muted/40 transition-colors group"
                 >
-                  {filing.formType} - {filing.filedDate}
-                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-400">
+                        {filing.formType}
+                      </span>
+                      <span className="text-sm font-medium">{filing.filedDate}</span>
+                    </div>
+                    <Link className="h-4 w-4 text-muted-foreground opacity-70 transition-opacity group-hover:opacity-100" />
+                  </div>
+                  {filing.description && (
+                    <div className="text-muted-foreground text-xs mt-2 line-clamp-2">{filing.description}</div>
+                  )}
                 </a>
-                {filing.description && (
-                  <div className="text-muted-foreground text-xs line-clamp-2">{filing.description}</div>
-                )}
+              ))}
+            </div>
+            {result.filings.length > 5 && (
+              <div className="text-muted-foreground text-xs text-center mt-2">
+                +{result.filings.length - 5} more filings available
               </div>
-            ))}
+            )}
           </div>
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {result.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )
     }
@@ -2745,59 +3103,387 @@ function SingleToolCard({
       toolName === "opensanctions_screening" &&
       typeof parsedResult === "object" &&
       parsedResult !== null &&
-      "screeningResult" in parsedResult
+      "riskLevel" in parsedResult
     ) {
       const result = parsedResult as {
         query: string
-        screeningResult: "CLEAR" | "POTENTIAL_MATCH" | "CONFIRMED_MATCH"
-        matchCount: number
-        matches?: Array<{
+        totalMatches: number
+        riskLevel: "HIGH" | "MEDIUM" | "LOW" | "CLEAR"
+        matches: Array<{
+          id: string
           name: string
-          score: number
-          datasets: string[]
-          countries?: string[]
-          topics?: string[]
-          url?: string
+          matchScore: number
+          entityType: string
+          topics: string[]
+          sanctions: string[]
+          countries: string[]
+          url: string
         }>
-        sources?: Array<{ name: string; url: string }>
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
       }
 
-      const getBadgeClass = (status: string) => {
-        switch (status) {
+      const getBadgeClass = (level: string) => {
+        switch (level) {
           case "CLEAR":
             return "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400"
-          case "POTENTIAL_MATCH":
+          case "LOW":
+            return "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400"
+          case "MEDIUM":
             return "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400"
-          case "CONFIRMED_MATCH":
+          case "HIGH":
             return "border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400"
           default:
             return "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-700 dark:bg-gray-900/30 dark:text-gray-400"
         }
       }
 
+      const getRiskLabel = (level: string) => {
+        switch (level) {
+          case "CLEAR": return "Clear - No Matches"
+          case "LOW": return "Low Risk"
+          case "MEDIUM": return "Medium Risk"
+          case "HIGH": return "High Risk"
+          default: return level
+        }
+      }
+
       return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-medium">{result.query}</span>
-            <span className={cn("rounded-full border px-2 py-0.5 text-xs font-medium", getBadgeClass(result.screeningResult))}>
-              {result.screeningResult === "CLEAR" ? "Clear" : result.screeningResult === "POTENTIAL_MATCH" ? "Potential Match" : "Match Found"}
+        <div className="space-y-4">
+          {/* Header with risk assessment */}
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="font-medium text-foreground text-lg">{result.query}</div>
+              <div className="text-muted-foreground text-sm">
+                Sanctions & PEP Screening
+              </div>
+            </div>
+            <span className={cn("rounded-full border px-3 py-1 text-sm font-medium", getBadgeClass(result.riskLevel))}>
+              {getRiskLabel(result.riskLevel)}
             </span>
           </div>
+
+          {/* Summary box */}
+          <div className={cn(
+            "rounded-lg border p-4 text-center",
+            result.riskLevel === "CLEAR"
+              ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+              : result.riskLevel === "HIGH"
+              ? "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/20"
+              : "border-border bg-muted/30"
+          )}>
+            <div className="text-2xl font-bold">
+              {result.totalMatches}
+            </div>
+            <div className="text-muted-foreground text-sm">
+              {result.totalMatches === 1 ? "Match Found" : result.totalMatches === 0 ? "No Matches" : "Matches Found"}
+            </div>
+          </div>
+
+          {/* Matches list */}
           {result.matches && result.matches.length > 0 && (
-            <div className="space-y-2">
-              {result.matches.slice(0, 5).map((match, index) => (
-                <div key={index} className="border-border rounded-md border p-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium">{match.name}</span>
-                    <span className="text-muted-foreground text-xs">{Math.round(match.score * 100)}% match</span>
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Potential Matches ({result.matches.length})
+              </div>
+              <div className="space-y-3">
+                {result.matches.slice(0, 5).map((match, index) => (
+                  <div key={index} className="border-border rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <a
+                          href={match.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary font-medium hover:underline flex items-center gap-1"
+                        >
+                          {match.name}
+                          <Link className="h-3 w-3" />
+                        </a>
+                        <div className="text-muted-foreground text-xs mt-0.5">
+                          {match.entityType}
+                        </div>
+                      </div>
+                      <span className="bg-secondary text-secondary-foreground rounded-full px-2 py-0.5 text-xs font-medium shrink-0">
+                        {Math.round(match.matchScore * 100)}% match
+                      </span>
+                    </div>
+                    {match.sanctions.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {match.sanctions.slice(0, 3).map((sanction, i) => (
+                          <span key={i} className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 rounded px-1.5 py-0.5 text-xs">
+                            {sanction}
+                          </span>
+                        ))}
+                        {match.sanctions.length > 3 && (
+                          <span className="text-muted-foreground text-xs">+{match.sanctions.length - 3} more</span>
+                        )}
+                      </div>
+                    )}
+                    {match.topics.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {match.topics.slice(0, 3).map((topic, i) => (
+                          <span key={i} className="bg-secondary rounded px-1.5 py-0.5 text-xs">{topic}</span>
+                        ))}
+                      </div>
+                    )}
+                    {match.countries.length > 0 && (
+                      <div className="text-muted-foreground text-xs mt-1">
+                        Countries: {match.countries.slice(0, 3).join(", ")}
+                        {match.countries.length > 3 && ` +${match.countries.length - 3} more`}
+                      </div>
+                    )}
                   </div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    {match.datasets.map((ds, i) => (
-                      <span key={i} className="bg-secondary rounded px-1.5 py-0.5 text-xs">{ds}</span>
-                    ))}
+                ))}
+                {result.matches.length > 5 && (
+                  <div className="text-muted-foreground text-sm">
+                    ...and {result.matches.length - 5} more matches
                   </div>
-                </div>
-              ))}
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {result.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle State Campaign Finance results
+    if (
+      toolName === "state_campaign_finance" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "personName" in parsedResult &&
+      "summary" in parsedResult
+    ) {
+      const result = parsedResult as {
+        personName: string
+        state: string
+        contributions: Array<{
+          amount: number
+          date: string
+          recipient: string
+          recipientType?: string
+          party?: string
+          office?: string
+        }>
+        summary: {
+          totalAmount: number
+          contributionCount: number
+          dateRange: { earliest: string; latest: string } | null
+          partyBreakdown: {
+            democratic: number
+            republican: number
+            other: number
+          }
+          topRecipients: Array<{ name: string; amount: number }>
+        }
+        rawContent: string
+        sources: Array<{ name: string; url: string }>
+      }
+
+      const formatCurrency = (amount: number) => {
+        return new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0,
+        }).format(amount)
+      }
+
+      const { summary } = result
+      const totalParty = summary.partyBreakdown.democratic + summary.partyBreakdown.republican + summary.partyBreakdown.other
+      const demPct = totalParty > 0 ? Math.round((summary.partyBreakdown.democratic / totalParty) * 100) : 0
+      const repPct = totalParty > 0 ? Math.round((summary.partyBreakdown.republican / totalParty) * 100) : 0
+      const otherPct = totalParty > 0 ? 100 - demPct - repPct : 0
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div>
+            <div className="font-medium text-foreground text-lg">{result.personName}</div>
+            <div className="text-muted-foreground text-sm">
+              State Campaign Contributions • {result.state}
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+              <div className="text-2xl font-bold text-foreground">
+                {formatCurrency(summary.totalAmount)}
+              </div>
+              <div className="text-muted-foreground text-xs">Total Contributions</div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-center">
+              <div className="text-2xl font-bold text-foreground">
+                {summary.contributionCount}
+              </div>
+              <div className="text-muted-foreground text-xs">Contributions</div>
+            </div>
+          </div>
+
+          {/* Party Breakdown */}
+          {totalParty > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Party Breakdown
+              </div>
+              <div className="h-3 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex">
+                {demPct > 0 && (
+                  <div
+                    className="bg-blue-500 h-full"
+                    style={{ width: `${demPct}%` }}
+                    title={`Democratic: ${formatCurrency(summary.partyBreakdown.democratic)}`}
+                  />
+                )}
+                {repPct > 0 && (
+                  <div
+                    className="bg-red-500 h-full"
+                    style={{ width: `${repPct}%` }}
+                    title={`Republican: ${formatCurrency(summary.partyBreakdown.republican)}`}
+                  />
+                )}
+                {otherPct > 0 && (
+                  <div
+                    className="bg-gray-400 h-full"
+                    style={{ width: `${otherPct}%` }}
+                    title={`Other: ${formatCurrency(summary.partyBreakdown.other)}`}
+                  />
+                )}
+              </div>
+              <div className="flex justify-between mt-1 text-xs">
+                <span className="text-blue-600 dark:text-blue-400">
+                  Dem: {formatCurrency(summary.partyBreakdown.democratic)} ({demPct}%)
+                </span>
+                <span className="text-red-600 dark:text-red-400">
+                  Rep: {formatCurrency(summary.partyBreakdown.republican)} ({repPct}%)
+                </span>
+                {summary.partyBreakdown.other > 0 && (
+                  <span className="text-muted-foreground">
+                    Other: {formatCurrency(summary.partyBreakdown.other)}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Top Recipients */}
+          {summary.topRecipients.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Top Recipients
+              </div>
+              <div className="space-y-2">
+                {summary.topRecipients.slice(0, 5).map((recipient, index) => (
+                  <div key={index} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground truncate mr-2">{recipient.name}</span>
+                    <span className="text-muted-foreground font-mono shrink-0">
+                      {formatCurrency(recipient.amount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Recent Contributions */}
+          {result.contributions.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Recent Contributions ({result.contributions.length})
+              </div>
+              <div className="space-y-2">
+                {result.contributions.slice(0, 5).map((contribution, index) => (
+                  <div key={index} className="border-border border-b pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="font-medium text-foreground">
+                          {formatCurrency(contribution.amount)}
+                        </span>
+                        <span className="text-muted-foreground text-sm ml-2">
+                          {contribution.date}
+                        </span>
+                      </div>
+                      {contribution.party && (
+                        <span className={cn(
+                          "rounded px-1.5 py-0.5 text-xs shrink-0",
+                          contribution.party.toLowerCase().includes("dem")
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                            : contribution.party.toLowerCase().includes("rep")
+                            ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                        )}>
+                          {contribution.party}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-muted-foreground text-sm mt-0.5">
+                      {contribution.recipient}
+                      {contribution.office && <span className="text-xs ml-1">({contribution.office})</span>}
+                    </div>
+                  </div>
+                ))}
+                {result.contributions.length > 5 && (
+                  <div className="text-muted-foreground text-sm">
+                    ...and {result.contributions.length - 5} more contributions
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* No contributions message */}
+          {result.contributions.length === 0 && (
+            <div className="rounded-lg border border-border bg-muted/20 p-4 text-center">
+              <div className="text-muted-foreground text-sm">
+                No state campaign contributions found for &quot;{result.personName}&quot; in {result.state}
+              </div>
+            </div>
+          )}
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {result.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -2812,6 +3498,7 @@ function SingleToolCard({
       "filings" in parsedResult
     ) {
       const result = parsedResult as {
+        query?: string
         totalFilings: number
         filings: Array<{
           registrantName: string
@@ -2824,27 +3511,144 @@ function SingleToolCard({
         sources?: Array<{ name: string; url: string }>
       }
 
+      // Calculate total amount spent
+      const totalAmount = result.filings.reduce((sum, f) => sum + (f.amount || 0), 0)
+
+      // Get unique years
+      const years = [...new Set(result.filings.map(f => f.year))].sort((a, b) => b - a)
+
+      // Get all unique issues
+      const allIssues = [...new Set(result.filings.flatMap(f => f.issues || []))].slice(0, 8)
+
       return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{result.totalFilings} lobbying filings</span>
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="text-center">
+            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+              Federal Lobbying Records
+            </div>
+            {result.query && (
+              <div className="font-medium text-foreground text-xl">
+                {result.query}
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            {result.filings.slice(0, 10).map((filing, index) => (
-              <div key={index} className="border-border border-b pb-2 last:border-0">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{filing.registrantName}</span>
-                  {filing.amount && (
-                    <span className="text-muted-foreground text-sm">
-                      ${filing.amount.toLocaleString()}
-                    </span>
+
+          {/* Stats badges */}
+          <div className="flex justify-center gap-2 flex-wrap">
+            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400">
+              <span className="font-mono">{result.totalFilings}</span>
+              <span className="opacity-75">Filings</span>
+            </div>
+            {totalAmount > 0 && (
+              <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3 py-1 text-sm font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                <span className="font-mono">${(totalAmount / 1000000).toFixed(1)}M</span>
+                <span className="opacity-75">Total</span>
+              </div>
+            )}
+          </div>
+
+          {/* Year badges */}
+          {years.length > 0 && (
+            <div className="flex justify-center gap-1 flex-wrap">
+              {years.slice(0, 6).map((year) => (
+                <span
+                  key={year}
+                  className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
+                >
+                  {year}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Issues tags */}
+          {allIssues.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Lobbying Issues
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {allIssues.map((issue, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-400"
+                  >
+                    {issue}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Filings list */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Top Filings
+            </div>
+            <div className="space-y-2">
+              {result.filings.slice(0, 6).map((filing, index) => (
+                <div
+                  key={index}
+                  className="border-border rounded-lg border p-3 bg-muted/20"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-sm">{filing.registrantName}</span>
+                    {filing.amount && (
+                      <span className="inline-flex items-center rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400">
+                        ${filing.amount.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-muted-foreground text-xs flex items-center gap-2">
+                    <span>Client: {filing.clientName}</span>
+                    <span className="opacity-50">|</span>
+                    <span>{filing.year}</span>
+                  </div>
+                  {filing.issues && filing.issues.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {filing.issues.slice(0, 3).map((issue, i) => (
+                        <span
+                          key={i}
+                          className="text-xs text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5"
+                        >
+                          {issue}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
-                <div className="text-sm">Client: {filing.clientName}</div>
-                <div className="text-muted-foreground text-xs">{filing.year}</div>
+              ))}
+            </div>
+            {result.filings.length > 6 && (
+              <div className="text-muted-foreground text-xs text-center mt-2">
+                +{result.filings.length - 6} more filings
               </div>
-            ))}
+            )}
           </div>
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {result.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )
     }
@@ -2857,6 +3661,7 @@ function SingleToolCard({
       "cases" in parsedResult
     ) {
       const result = parsedResult as {
+        query?: string
         totalCases: number
         cases: Array<{
           caseName: string
@@ -2864,36 +3669,147 @@ function SingleToolCard({
           court: string
           dateFiled?: string
           status?: string
+          caseType?: string
           url: string
         }>
         sources?: Array<{ name: string; url: string }>
       }
 
+      // Status badge colors
+      const statusBadgeClass: Record<string, string> = {
+        active: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+        open: "border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+        pending: "border-yellow-200 bg-yellow-50 text-yellow-700 dark:border-yellow-800 dark:bg-yellow-950/30 dark:text-yellow-400",
+        closed: "border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400",
+        dismissed: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400",
+        settled: "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-400",
+      }
+
+      // Get unique courts
+      const courts = [...new Set(result.cases.map(c => c.court))].slice(0, 4)
+
       return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">{result.totalCases} court cases</span>
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="text-center">
+            <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide mb-1">
+              Court Records
+            </div>
+            {result.query && (
+              <div className="font-medium text-foreground text-xl">
+                {result.query}
+              </div>
+            )}
           </div>
-          <div className="space-y-2">
-            {result.cases.slice(0, 10).map((courtCase, index) => (
-              <div key={index} className="border-border border-b pb-2 last:border-0">
+
+          {/* Case count badge */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-sm font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400">
+              <span className="font-mono">{result.totalCases}</span>
+              <span className="opacity-75">Court Cases</span>
+            </div>
+          </div>
+
+          {/* Court jurisdiction badges */}
+          {courts.length > 0 && (
+            <div className="flex justify-center gap-1 flex-wrap">
+              {courts.map((court, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-400"
+                >
+                  {court.length > 30 ? court.substring(0, 30) + "..." : court}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Cases list */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Cases
+            </div>
+            <div className="space-y-2">
+              {result.cases.slice(0, 8).map((courtCase, index) => (
                 <a
+                  key={index}
                   href={courtCase.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                  className="border-border rounded-lg border p-3 bg-muted/20 block hover:bg-muted/40 transition-colors group"
                 >
-                  {courtCase.caseName}
-                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm line-clamp-2 group-hover:text-primary transition-colors">
+                        {courtCase.caseName}
+                      </div>
+                      <div className="text-muted-foreground text-xs mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>{courtCase.court}</span>
+                        {courtCase.docketNumber && (
+                          <>
+                            <span className="opacity-50">|</span>
+                            <span className="font-mono">{courtCase.docketNumber}</span>
+                          </>
+                        )}
+                        {courtCase.dateFiled && (
+                          <>
+                            <span className="opacity-50">|</span>
+                            <span>Filed: {courtCase.dateFiled}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {courtCase.status && (
+                        <span className={cn(
+                          "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize",
+                          statusBadgeClass[courtCase.status.toLowerCase()] || statusBadgeClass["pending"]
+                        )}>
+                          {courtCase.status}
+                        </span>
+                      )}
+                      <Link className="h-4 w-4 text-muted-foreground opacity-70 transition-opacity group-hover:opacity-100" />
+                    </div>
+                  </div>
+                  {courtCase.caseType && (
+                    <div className="mt-2">
+                      <span className="text-xs text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5">
+                        {courtCase.caseType}
+                      </span>
+                    </div>
+                  )}
                 </a>
-                <div className="text-muted-foreground mt-1 text-xs">
-                  {courtCase.court}
-                  {courtCase.docketNumber && <span> | {courtCase.docketNumber}</span>}
-                  {courtCase.dateFiled && <span> | Filed: {courtCase.dateFiled}</span>}
-                </div>
+              ))}
+            </div>
+            {result.cases.length > 8 && (
+              <div className="text-muted-foreground text-xs text-center mt-2">
+                +{result.cases.length - 8} more cases
               </div>
-            ))}
+            )}
           </div>
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {result.sources.map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group inline-flex items-center gap-1 text-xs hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )
     }

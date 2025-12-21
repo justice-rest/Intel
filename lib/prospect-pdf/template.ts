@@ -224,7 +224,7 @@ export function generateProspectReportHtml(data: ProspectReportData): string {
         html, body { font-family: var(--font-body); font-size: var(--base-font-size); font-weight: 400; line-height: var(--base-line-height); color: var(--color-text); font-feature-settings: "liga", "kern"; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
         body { max-width: 8.5in; margin: 0 auto; padding: 0.85in 0.85in 0.9in; background: #fff; }
         .brand-header { margin-bottom: 0.75em; }
-        .brand-header img { max-width: 2in; max-height: 0.5in; width: auto; height: auto; display: block; }
+        .brand-header img { max-width: 2in; max-height: 0.5in; width: auto; height: auto; display: block; object-fit: contain; }
         h1, h2, h3 { font-family: var(--font-head); color: var(--color-heading); }
         h1 { font-size: 16pt; font-weight: 700; margin: 0.15em 0 0.45em; letter-spacing: -0.02em; line-height: 1.2; }
         h2 { font-size: 12.5pt; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.5em; border-bottom: 2px solid var(--color-heading); letter-spacing: -0.01em; line-height: 1.25; padding-bottom: 0.15em; }
