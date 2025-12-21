@@ -457,58 +457,53 @@ wikidata_entity({ entityId: "Q317521" })
 - `/lib/tools/wikidata.ts` - Both search and entity tools
 - `/app/api/chat/route.ts` - Tool registration
 
-### Business Registry Web Scraper
-**Stealth web scraping for business ownership data** - FREE, uses playwright-extra-plugin-stealth:
+### Business Registry (Serverless-Compatible)
+**Business entity search using FREE APIs** - No Playwright/browser required:
 
-| Source | Type | CAPTCHA | Notes |
-|--------|------|---------|-------|
-| OpenCorporates | Web scraper | No | Fallback when no API key |
-| Florida (Sunbiz) | State registry | No | Most reliable |
-| New York (DOS) | State registry + Open Data | No | Has FREE Open Data API |
-| California (bizfile) | State registry | No | React SPA |
-| Delaware (ICIS) | State registry | **Yes** | May require manual search |
+| Source | Type | API | Coverage |
+|--------|------|-----|----------|
+| Colorado | Socrata API | data.colorado.gov | 2M+ entities |
+| New York | Socrata API | data.ny.gov | Active corporations only |
+| Florida | HTTP scraping | search.sunbiz.org | All entities (HTTP, no browser) |
+| Connecticut | Socrata API | data.ct.gov | Best-in-class, nightly updates |
+| Oregon | Socrata API | data.oregon.gov | 500K+ entities |
+| Iowa | Socrata API | data.iowa.gov | Active entities |
+| Washington | Socrata API | data.wa.gov | Corporations search |
 
-**How It Works**:
-- Uses `playwright-extra` with `puppeteer-extra-plugin-stealth` for bot detection bypass
-- Masks WebDriver property, HeadlessChrome user-agent, and other fingerprints
-- Human-like delays between requests
-- Automatic retries with exponential backoff
+**Serverless Architecture**:
+- **Tier 1 (API)**: Socrata Open Data APIs (CO, NY, CT, OR, IA, WA) - FREE, reliable
+- **Tier 2 (HTTP)**: Simple HTTP scraping (FL) - No browser needed
+- **NO Playwright/browser** - All sources work in Vercel/AWS Lambda
 
 **Usage**:
 ```typescript
-import { scrapeBusinessRegistry } from '@/lib/scraper'
+import { searchBusinesses, searchByOfficer } from '@/lib/scraper'
 
-// Search multiple sources in parallel
-const results = await scrapeBusinessRegistry('Apple Inc', {
-  sources: ['opencorporates', 'florida', 'california'],
-  searchType: 'company', // or 'officer'
-  limit: 20
-})
+// Search by company name (uses CO, NY, FL)
+const result = await searchBusinesses('Apple Inc', { states: ['CO', 'NY', 'FL'] })
+
+// Search by officer/agent name (CO only - uses registered agent search)
+const result = await searchByOfficer('Tim Cook', { limit: 25 })
 ```
 
-**AI Tool**: `business_registry_scraper`
-- Searches OpenCorporates web + state registries
-- Use when OpenCorporates API is not configured
-- Falls back gracefully when Playwright not installed
+**AI Tools**:
+- `business_registry_scraper` - Unified search across CO, NY, FL
+- `business_entities` - Socrata API search (CT, NY, CO, OR, IA, WA)
+- `find_business_ownership` - Find person's business affiliations
 
-**Configuration**:
-```bash
-# Enable web scraping (disabled in production by default)
-ENABLE_WEB_SCRAPING=true
-
-# Install Playwright (required)
-npm install playwright-extra puppeteer-extra-plugin-stealth playwright
-```
+**States NOT Supported (Require Browser)**:
+- California: React SPA requires browser
+- Delaware: CAPTCHA blocks automated access
+- Texas: Paid account required ($1/search)
+- For these states, use `searchWeb` tool for web search fallback
 
 **Key Files**:
-- `/lib/scraper/` - Core scraper module
-- `/lib/scraper/stealth-browser.ts` - Playwright with stealth setup
-- `/lib/scraper/scrapers/opencorporates.ts` - OpenCorporates web scraper
-- `/lib/scraper/scrapers/states/` - State-specific scrapers
+- `/lib/scraper/` - Core scraper module (serverless-compatible)
+- `/lib/scraper/apis/` - Socrata API integrations
+- `/lib/scraper/scrapers/states/` - State-specific scrapers (HTTP only)
 - `/lib/tools/business-registry-scraper.ts` - AI tool wrapper
-
-**Note**: For production, prefer OpenCorporates API (FREE for nonprofits) over web scraping.
-Apply at [opencorporates.com/api_accounts/new](https://opencorporates.com/api_accounts/new)
+- `/lib/tools/business-entities.ts` - Socrata API tool
+- `/lib/tools/find-business-ownership.ts` - Person business search
 
 ### CRM Integrations (Bloomerang, Virtuous, Neon CRM)
 **Nonprofit donor CRM integrations** - User-level credentials via Settings UI:
@@ -559,6 +554,103 @@ NEON_CRM_API_KEY=your_api_key
 ```
 
 This enables `neon_crm_search_accounts`, `neon_crm_get_account`, and `neon_crm_search_donations` tools.
+
+### Giving Capacity Calculator (TFG Research Formulas)
+**Calculate prospect giving capacity** using industry-standard TFG Research Formulas:
+
+| Formula | Complexity | Use Case |
+|---------|------------|----------|
+| **GS** (Generosity Screening) | Basic | Quick capacity estimate from property + giving |
+| **EGS** (Enhanced Generosity Screening) | Medium | Adds salary/age for 25% more accuracy |
+| **Snapshot** | Thorough | Full analysis with DIF modifiers |
+
+**Tool**: `giving_capacity_calculator` (`/lib/tools/giving-capacity-calculator.ts`)
+
+**When to Use**:
+- AFTER gathering wealth data from `property_valuation`, `find_business_ownership`, `fec_contributions`
+- To calculate final giving capacity rating (A/B/C/D)
+- To get detailed breakdown of capacity components
+
+**Formula Details**:
+
+```
+GS = (RE Value × RE Factor + Lifetime Giving) × Donation Factor × Business/SEC Factor
+
+Where:
+- RE Factor: 0.05 (1 property), 0.1 (2 properties), 0.15 (3+ properties)
+- Donation Factor: 1.0 (<$100K), 1.1 (≥$100K), 1.15 (≥$1M)
+- Business/SEC Factor: 1.1 (if business OR SEC filings), 1.0 (if none)
+```
+
+```
+EGS = Salary × (Age-22) × 0.01 + RE Value × RE Factor + Business Revenue × 0.05 + Lifetime Giving
+
+Salary Estimation: If unknown, estimated from home value (1M house = 150K salary)
+```
+
+```
+Snapshot = (L1 + L2 + L3) + (L1 + L2 + L3) × DIF + L4
+
+Where:
+- L1: Income × (Age-22) × 0.01
+- L2: Total RE Value × RE Factor
+- L3: Business Revenue × 0.05
+- L4: 100% of last 5 years of gifts to nonprofits
+- DIF: Decrease/Increase Factor (sum of modifiers below)
+```
+
+**DIF Modifiers (Decrease/Increase Factor)**:
+
+| Factor | Value | Condition |
+|--------|-------|-----------|
+| **DECREASE** | -25% | No demonstrated generosity (doesn't give to 3+ orgs) |
+| **DECREASE** | -10% | Less than $1M in real estate OR fewer than 3 properties |
+| **DECREASE** | -10% | Employee (non-entrepreneur) |
+| **INCREASE** | +10% | Multiple business owner (entrepreneur) |
+| **INCREASE** | +10% | Proof of 6-figure gifts ($100K-$999K) |
+| **INCREASE** | +15% | Proof of 7-figure gifts ($1M+) |
+
+**Capacity Ratings**:
+- **A**: $1M+ capacity (major gift prospect)
+- **B**: $100K-$1M capacity (leadership gift prospect)
+- **C**: $25K-$100K capacity (mid-level donor)
+- **D**: Under $25K capacity (annual fund)
+
+**Usage Example**:
+```typescript
+// After gathering data from other tools
+giving_capacity_calculator({
+  totalRealEstateValue: 2500000,  // From property_valuation
+  propertyCount: 2,
+  estimatedSalary: 375000,        // From home value: $2.5M × 0.15 = $375K
+  age: 55,
+  lifetimeGiving: 50000,          // Client provides
+  last5YearsGiving: 30000,        // From giving_history
+  hasBusinessOwnership: true,     // From find_business_ownership
+  businessRevenue: 5000000,       // From business_revenue_estimator
+  isMultipleBusinessOwner: true,
+  hasSecFilings: false,
+  hasDemonstratedGenerosity: true,
+  largestKnownGift: 25000,
+  calculationType: "all"          // Calculate GS, EGS, and Snapshot
+})
+
+// Returns:
+// - GS Capacity: $162,500
+// - EGS Capacity: $374,000
+// - Snapshot Capacity: $461,800 (with +10% DIF for multiple business owner)
+// - Rating: B (leadership gift prospect)
+```
+
+**Key Notes**:
+- EGS averages 25% higher than GS due to salary/age consideration
+- Snapshot is the most thorough (used for major gift prospects)
+- Always use `calculationType: "all"` to see all three formulas
+- Tool provides detailed breakdown of each component
+
+**Key Files**:
+- `/lib/tools/giving-capacity-calculator.ts` - Tool implementation
+- `/app/api/chat/route.ts` - Tool registration (line 962-969)
 
 ## Environment Variables
 

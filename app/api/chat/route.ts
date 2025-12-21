@@ -183,6 +183,10 @@ import {
   shouldEnableFederalLobbyingTool,
 } from "@/lib/tools/federal-lobbying"
 import {
+  givingCapacityCalculatorTool,
+  shouldEnableGivingCapacityCalculatorTool,
+} from "@/lib/tools/giving-capacity-calculator"
+import {
   searchCRMConstituents,
   hasCRMConnections,
 } from "@/lib/tools/crm-search"
@@ -953,6 +957,14 @@ For comprehensive prospect due diligence:
       ...(enableSearch && shouldEnableFederalLobbyingTool()
         ? {
             federal_lobbying: federalLobbyingTool,
+          }
+        : {}),
+      // Add Giving Capacity Calculator - TFG Research Formulas (GS, EGS, Snapshot)
+      // Calculates giving capacity from property, business, salary, and giving data
+      // Use AFTER gathering data from property_valuation, find_business_ownership, etc.
+      ...(enableSearch && shouldEnableGivingCapacityCalculatorTool()
+        ? {
+            giving_capacity_calculator: givingCapacityCalculatorTool,
           }
         : {}),
       // Add CRM Search Tool - Search synced Bloomerang/Virtuous data

@@ -1,14 +1,15 @@
 /**
- * Scraper Engine Index
+ * Scraper Engine Index (Serverless-Compatible)
  *
- * Exports all scraper engines:
- * - API Scraper (Tier 1): States with FREE API/Open Data
- * - HTTP Scraper (Tier 2): States with simple HTML (no JS required)
- * - Browser Scraper (Tier 3): States requiring JavaScript rendering
- * - Detail Page Scraper: Extracts FULL officer lists from entity pages
+ * Exports only serverless-compatible scraper engines:
+ * - API Scraper (Tier 1): States with FREE API/Open Data (CO, NY)
+ * - HTTP Scraper (Tier 2): States with simple HTML (FL - no JS required)
+ *
+ * NOTE: Browser scraper (Tier 3) has been removed for serverless compatibility.
+ * Playwright/Puppeteer is not available in serverless environments.
  */
 
-// API Scraper (Tier 1)
+// API Scraper (Tier 1) - Serverless compatible
 export {
   searchSocrataApi,
   searchRestApi,
@@ -19,7 +20,7 @@ export {
   type SocrataFieldMapping,
 } from "./api-scraper"
 
-// HTTP Scraper (Tier 2)
+// HTTP Scraper (Tier 2) - Serverless compatible
 export {
   scrapeHttpState,
   fetchHtml,
@@ -30,22 +31,6 @@ export {
   extractRows,
   type HtmlParseConfig,
 } from "./http-scraper"
-
-// Browser Scraper (Tier 3)
-export {
-  scrapeBrowserState,
-  scrapeDetailPage as scrapeDetailPageBrowser,
-  scrapeDetailPages,
-} from "./browser-scraper"
-
-// Detail Page Scraper (Full officer extraction)
-export {
-  scrapeDetailPage,
-  mergeEntityDetails,
-  enrichEntitiesWithDetails,
-  type EntityDetails,
-  type ExtractedOfficer,
-} from "./detail-page-scraper"
 
 // Unified Scraper (Routes to appropriate engine)
 export {

@@ -1,17 +1,13 @@
 /**
- * Business Registry Data Module
+ * Business Registry Data Module (Serverless-Compatible)
  *
- * Uses FREE, RELIABLE data sources only:
+ * Uses FREE, RELIABLE data sources only - NO Playwright/browser required.
+ * All sources work in serverless environments (Vercel, AWS Lambda, etc.)
  *
  * Supported sources:
  * - Colorado: data.colorado.gov (Socrata API - FREE)
  * - New York: data.ny.gov (Socrata API - FREE)
- * - Florida: search.sunbiz.org (HTTP scraping - reliable)
- *
- * REMOVED (unreliable):
- * - California: Timeouts
- * - Delaware: CAPTCHA blocks
- * - OpenCorporates: Requires payment
+ * - Florida: search.sunbiz.org (HTTP scraping - no browser needed)
  *
  * Usage:
  * ```typescript
@@ -20,16 +16,15 @@
  * // Search by company name (uses CO, NY, FL)
  * const result = await searchBusinesses('Apple Inc', { states: ['CO', 'NY', 'FL'] })
  *
- * // Search by officer/agent name (CO only)
+ * // Search by officer/agent name (CO only - uses registered agent search)
  * const result = await searchByOfficer('Tim Cook', { limit: 25 })
  * ```
  */
 
 // Core configuration and types
 export * from "./config"
-export * from "./stealth-browser"
 
-// NEW: API-first business search (recommended)
+// API-first business search (recommended)
 // Uses only FREE, reliable sources: CO, NY, FL
 export {
   // Unified search (routes to best source)
@@ -61,7 +56,7 @@ export {
 // State configuration templates
 export * from "./config/index"
 
-// Scraper engines
+// Scraper engines (API and HTTP only - no browser)
 export {
   // API Scraper (Tier 1)
   searchSocrataApi,
@@ -80,26 +75,6 @@ export {
   extractWithSelector,
   extractRows,
   type HtmlParseConfig,
-  // Browser Scraper (Tier 3)
-  scrapeBrowserState,
-  scrapeDetailPageBrowser,
-  scrapeDetailPages,
-  // Detail Page Scraper
-  scrapeDetailPage,
-  mergeEntityDetails,
-  enrichEntitiesWithDetails,
-  type EntityDetails,
-  type ExtractedOfficer,
-  // Unified Scraper (Routes to appropriate engine)
-  scrapeState,
-  searchMultipleStates,
-  searchCompany,
-  getScraperHealth,
-  resetStateCircuitBreaker,
-  getTierStatistics,
-  type UnifiedScraperOptions,
-  type MultiStateSearchOptions,
-  type MultiStateSearchResult,
 } from "./engine"
 
 // Services
@@ -154,35 +129,31 @@ export {
   type EntityType,
 } from "./search"
 
-// State scrapers
+// State scrapers (API and HTTP only)
 export {
   scrapeFloridaBusinesses,
   scrapeFloridaByOfficer,
+  searchFloridaHttp,
   scrapeNewYorkBusinesses,
   searchNewYorkOpenData,
-  scrapeNewYorkWebsite,
-  scrapeCaliforniaBusinesses,
   scrapeColoradoBusinesses,
   searchColoradoOpenData,
 } from "./scrapers/states"
 
 import {
   type ScrapedBusinessEntity,
-  type ScrapedOfficer,
   type ScraperResult,
   type ScraperSource,
-  isScrapingEnabled,
 } from "./config"
 import {
   scrapeFloridaBusinesses,
-  scrapeFloridaByOfficer,
   scrapeNewYorkBusinesses,
-  scrapeCaliforniaBusinesses,
   scrapeColoradoBusinesses,
 } from "./scrapers/states"
 
 /**
  * Unified business registry search across multiple sources
+ * Serverless-compatible - no Playwright/browser required
  */
 export async function scrapeBusinessRegistry(
   query: string,
@@ -193,7 +164,7 @@ export async function scrapeBusinessRegistry(
     parallel?: boolean
   } = {}
 ): Promise<{
-  results: Map<ScraperSource, ScraperResult<ScrapedBusinessEntity | ScrapedOfficer>>
+  results: Map<ScraperSource, ScraperResult<ScrapedBusinessEntity>>
   totalFound: number
   successful: ScraperSource[]
   failed: ScraperSource[]
@@ -205,35 +176,55 @@ export async function scrapeBusinessRegistry(
     parallel = true,
   } = options
 
-  if (!isScrapingEnabled()) {
-    console.warn("[Scraper] Web scraping is disabled in production. Set ENABLE_WEB_SCRAPING=true to enable.")
-  }
-
-  const results = new Map<ScraperSource, ScraperResult<ScrapedBusinessEntity | ScrapedOfficer>>()
+  const results = new Map<ScraperSource, ScraperResult<ScrapedBusinessEntity>>()
   const successful: ScraperSource[] = []
   const failed: ScraperSource[] = []
   let totalFound = 0
 
-  // Define scraper functions for each source
-  const scraperFunctions: Record<ScraperSource, () => Promise<ScraperResult<ScrapedBusinessEntity | ScrapedOfficer>>> = {
+  // Define scraper functions for each source (API/HTTP only - no browser)
+  const scraperFunctions: Partial<Record<ScraperSource, () => Promise<ScraperResult<ScrapedBusinessEntity>>>> = {
     florida: async () => {
+      // Florida uses HTTP scraping (serverless-compatible)
+      // Note: Officer search is not supported in serverless
       if (searchType === "officer") {
-        return scrapeFloridaByOfficer(query, { limit })
+        return {
+          success: false,
+          data: [],
+          totalFound: 0,
+          source: "florida" as const,
+          query,
+          scrapedAt: new Date().toISOString(),
+          duration: 0,
+          error: "Florida officer search requires browser. Use Colorado agent search or SEC EDGAR instead.",
+        }
       }
       return scrapeFloridaBusinesses(query, { limit })
     },
     newYork: async () => {
-      // NY doesn't have officer search via Open Data
+      // NY uses Socrata Open Data API (serverless-compatible)
+      // Note: API only contains active corporations
       return scrapeNewYorkBusinesses(query, { limit })
     },
-    california: async () => {
-      return scrapeCaliforniaBusinesses(query, { limit })
-    },
     colorado: async () => {
+      // Colorado uses Socrata Open Data API (serverless-compatible)
       return scrapeColoradoBusinesses(query, { limit })
     },
+    california: async () => {
+      // California requires browser - not supported in serverless
+      return {
+        success: false,
+        data: [],
+        totalFound: 0,
+        source: "california" as const,
+        query,
+        scrapedAt: new Date().toISOString(),
+        duration: 0,
+        error: "California requires browser scraping, not supported in serverless. " +
+               "Search manually at: https://bizfileonline.sos.ca.gov/search/business",
+      }
+    },
     texas: async () => {
-      // Texas requires account and $1 per search - not implemented
+      // Texas requires paid account
       return {
         success: false,
         data: [],
@@ -242,16 +233,36 @@ export async function scrapeBusinessRegistry(
         query,
         scrapedAt: new Date().toISOString(),
         duration: 0,
-        error: "Texas SOSDirect requires paid account ($1/search). Use phone search (free): 512-463-5555",
+        error: "Texas SOSDirect requires paid account ($1/search). " +
+               "Phone search is free: 512-463-5555",
       }
     },
   }
 
+  // Filter to only supported sources
+  const supportedSources = sources.filter(s => s in scraperFunctions)
+
   // Run scrapers
   if (parallel) {
-    const promises = sources.map(async (source) => {
+    const promises = supportedSources.map(async (source) => {
       try {
-        const result = await scraperFunctions[source]()
+        const scraperFn = scraperFunctions[source]
+        if (!scraperFn) {
+          return {
+            source,
+            result: {
+              success: false,
+              data: [],
+              totalFound: 0,
+              source,
+              query,
+              scrapedAt: new Date().toISOString(),
+              duration: 0,
+              error: `Source ${source} not supported`,
+            } as ScraperResult<ScrapedBusinessEntity>,
+          }
+        }
+        const result = await scraperFn()
         return { source, result }
       } catch (error) {
         return {
@@ -265,7 +276,7 @@ export async function scrapeBusinessRegistry(
             scrapedAt: new Date().toISOString(),
             duration: 0,
             error: error instanceof Error ? error.message : String(error),
-          } as ScraperResult<ScrapedBusinessEntity | ScrapedOfficer>,
+          } as ScraperResult<ScrapedBusinessEntity>,
         }
       }
     })
@@ -283,9 +294,24 @@ export async function scrapeBusinessRegistry(
     }
   } else {
     // Sequential execution
-    for (const source of sources) {
+    for (const source of supportedSources) {
       try {
-        const result = await scraperFunctions[source]()
+        const scraperFn = scraperFunctions[source]
+        if (!scraperFn) {
+          failed.push(source)
+          results.set(source, {
+            success: false,
+            data: [],
+            totalFound: 0,
+            source,
+            query,
+            scrapedAt: new Date().toISOString(),
+            duration: 0,
+            error: `Source ${source} not supported`,
+          })
+          continue
+        }
+        const result = await scraperFn()
         results.set(source, result)
         if (result.success) {
           successful.push(source)

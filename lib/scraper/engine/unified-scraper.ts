@@ -1,15 +1,15 @@
 /**
- * Unified State Scraper Engine
+ * Unified State Scraper Engine (Serverless-Compatible)
  *
  * Routes scraping requests to the appropriate engine based on state tier:
- * - Tier 1: API-based scraping (Socrata, REST)
- * - Tier 2: HTTP-based scraping (fetch + regex)
- * - Tier 3: Browser-based scraping (Playwright)
- * - Tier 4: Browser + CAPTCHA solving
+ * - Tier 1: API-based scraping (Socrata, REST) - CO, NY
+ * - Tier 2: HTTP-based scraping (fetch + regex) - FL
+ *
+ * NOTE: Tier 3 (Browser/Playwright) has been removed for serverless compatibility.
+ * States requiring browser will return an error with manual search link.
  *
  * Features:
  * - Automatic tier detection and routing
- * - Fallback from HTTP to browser on failure
  * - Rate limiting, caching, circuit breaker
  * - Parallel multi-state search
  * - Comprehensive error handling
@@ -22,7 +22,6 @@ import { getRateLimiter } from "../services/rate-limiter"
 import { getCircuitBreaker } from "../services/circuit-breaker"
 import { getScraperCache } from "../services/cache"
 import { scrapeHttpState, type HtmlParseConfig } from "./http-scraper"
-import { scrapeBrowserState } from "./browser-scraper"
 
 /**
  * Scraper options
@@ -293,9 +292,19 @@ async function tryDedicatedScraper(
         const { searchNewYorkOpenData } = await import("../scrapers/states/new-york")
         return searchNewYorkOpenData(query, { limit })
       }
+      // California requires browser - not supported in serverless
+      // Users should search manually at: https://bizfileonline.sos.ca.gov/search/business
       case "ca": {
-        const { scrapeCaliforniaBusinesses } = await import("../scrapers/states/california")
-        return scrapeCaliforniaBusinesses(query, { limit })
+        return {
+          success: false,
+          data: [],
+          totalFound: 0,
+          source: "california" as const,
+          query,
+          scrapedAt: new Date().toISOString(),
+          duration: 0,
+          error: "California requires browser, not supported in serverless. Search manually at: https://bizfileonline.sos.ca.gov/search/business",
+        }
       }
       default:
         return null
@@ -402,35 +411,55 @@ export async function scrapeState(
         break
 
       case 2:
-        // HTTP-based scraping with browser fallback
-        if (!options.forceBrowser && config.scraping) {
+        // HTTP-based scraping (serverless-compatible)
+        if (config.scraping) {
           result = await scrapeHttpState(stateCode, config, query, {
             limit: options.limit,
             parseConfig: configToParseConfig(config),
           })
-          // If HTTP fails (e.g., CAPTCHA), fall back to browser
+          // If HTTP fails (e.g., CAPTCHA), return error with manual search link
           if (!result.success && result.error?.includes("CAPTCHA")) {
-            console.log(`[Unified Scraper] HTTP blocked for ${stateCode}, trying browser...`)
-            result = await scrapeBrowserState(stateCode, config, query, {
-              limit: options.limit,
-              skipCache: true,
-            })
+            console.log(`[Unified Scraper] HTTP blocked for ${stateCode} - browser fallback not available in serverless`)
+            result = {
+              success: false,
+              data: [],
+              totalFound: 0,
+              source: stateCode.toLowerCase() as ScraperResult<ScrapedBusinessEntity>["source"],
+              query,
+              scrapedAt: new Date().toISOString(),
+              duration: 0,
+              error: `${stateCode} blocked HTTP request (CAPTCHA). Browser fallback not available in serverless. Search manually at state registry website.`,
+            }
           }
         } else {
-          result = await scrapeBrowserState(stateCode, config, query, {
-            limit: options.limit,
-            skipCache: options.skipCache,
-          })
+          // No HTTP scraping config - not supported in serverless
+          result = {
+            success: false,
+            data: [],
+            totalFound: 0,
+            source: stateCode.toLowerCase() as ScraperResult<ScrapedBusinessEntity>["source"],
+            query,
+            scrapedAt: new Date().toISOString(),
+            duration: 0,
+            error: `${stateCode} requires browser scraping, not supported in serverless environments.`,
+          }
         }
         break
 
       case 3:
       case 4:
-        // Browser-based scraping (with CAPTCHA for Tier 4)
-        result = await scrapeBrowserState(stateCode, config, query, {
-          limit: options.limit,
-          skipCache: options.skipCache,
-        })
+        // Browser-based scraping NOT supported in serverless
+        console.log(`[Unified Scraper] ${stateCode} requires browser (Tier ${config.tier}) - not available in serverless`)
+        result = {
+          success: false,
+          data: [],
+          totalFound: 0,
+          source: stateCode.toLowerCase() as ScraperResult<ScrapedBusinessEntity>["source"],
+          query,
+          scrapedAt: new Date().toISOString(),
+          duration: 0,
+          error: `${stateCode} requires browser/Playwright (Tier ${config.tier}), not supported in serverless. Search manually at: ${config.baseUrl || "state secretary of state website"}`,
+        }
         break
 
       default:

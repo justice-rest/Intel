@@ -1,64 +1,27 @@
 /**
- * Florida Division of Corporations (Sunbiz) Scraper
+ * Florida Division of Corporations (Sunbiz) HTTP Scraper
  *
- * Scrapes business entity data from search.sunbiz.org
- * This is one of the most scrape-friendly state registries.
+ * Scrapes business entity data from search.sunbiz.org using pure HTTP.
+ * Serverless-compatible - no browser/Playwright required.
  *
  * Features:
- * - HTTP fallback (faster, no browser needed)
+ * - Pure HTTP fetch (works in serverless environments)
  * - Search by entity name
- * - Search by officer/registered agent name
+ * - Pagination support
  * - No CAPTCHA (as of 2025)
  * - Free access
  *
  * URL Patterns:
  * - Search results: https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResults/EntityName/{query}/Page1?searchNameOrder={QUERY}
- * - By officer: https://search.sunbiz.org/Inquiry/CorporationSearch/ByOfficerOrRegisteredAgent
- * - Entity details: https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResultDetail?inquirytype=EntityName&...
+ *
+ * NOTE: Officer search requires browser and is NOT supported in serverless.
+ * Use Colorado Open Data API for agent search, or SEC EDGAR for public company officers.
  */
 
-import type { Page, ElementHandle } from "puppeteer-core"
-import {
-  STATE_REGISTRY_CONFIG,
-  type ScrapedBusinessEntity,
-  type ScrapedOfficer,
-  type ScraperResult,
+import type {
+  ScrapedBusinessEntity,
+  ScraperResult,
 } from "../../config"
-import {
-  getStealthBrowser,
-  createStealthPage,
-  humanType,
-  humanDelay,
-  withRetry,
-  isPuppeteerAvailable,
-  waitForNetworkIdle,
-} from "../../stealth-browser"
-
-/**
- * Helper to get text content from element (Puppeteer API)
- */
-async function getElementText(page: Page, element: ElementHandle): Promise<string | null> {
-  try {
-    const text = await page.evaluate((el) => el.textContent, element)
-    return text?.trim() || null
-  } catch {
-    return null
-  }
-}
-
-/**
- * Helper to get attribute from element (Puppeteer API)
- */
-async function getElementAttribute(page: Page, element: ElementHandle, attr: string): Promise<string | null> {
-  try {
-    const value = await page.evaluate((el, a) => el.getAttribute(a), element, attr)
-    return value || null
-  } catch {
-    return null
-  }
-}
-
-const CONFIG = STATE_REGISTRY_CONFIG.florida
 
 // Browser-like headers for HTTP requests
 const HTTP_HEADERS = {
@@ -168,7 +131,7 @@ function extractTotalPages(html: string): number {
 }
 
 /**
- * Search Florida businesses via HTTP (fast, no browser needed)
+ * Search Florida businesses via HTTP (serverless-compatible)
  * Supports pagination to fetch multiple pages of results
  */
 export async function searchFloridaHttp(
@@ -178,7 +141,7 @@ export async function searchFloridaHttp(
   const startTime = Date.now()
   const { limit = 25, maxPages = 3 } = options
 
-  console.log("[Florida Scraper] HTTP search:", query)
+  console.log("[Florida HTTP] Searching:", query)
 
   try {
     // Build search URL - Sunbiz uses a specific URL pattern for search results
@@ -202,16 +165,16 @@ export async function searchFloridaHttp(
 
     // Check for blocking
     if (html.toLowerCase().includes("captcha") || html.toLowerCase().includes("challenge")) {
-      throw new Error("CAPTCHA detected, falling back to browser")
+      throw new Error("CAPTCHA detected - Florida Sunbiz may be blocking automated requests")
     }
 
     // Parse first page results
     let allBusinesses = parseFloridaResultsFromHtml(html)
-    console.log(`[Florida Scraper] Page 1: ${allBusinesses.length} results`)
+    console.log(`[Florida HTTP] Page 1: ${allBusinesses.length} results`)
 
     // Check if we need more results and have pagination
     const totalPages = extractTotalPages(html)
-    console.log(`[Florida Scraper] Total pages available: ${totalPages}`)
+    console.log(`[Florida HTTP] Total pages available: ${totalPages}`)
 
     // Fetch additional pages if needed (up to maxPages)
     if (allBusinesses.length < limit && totalPages > 1) {
@@ -230,20 +193,20 @@ export async function searchFloridaHttp(
           if (pageResponse.ok) {
             const pageHtml = await pageResponse.text()
             const pageResults = parseFloridaResultsFromHtml(pageHtml)
-            console.log(`[Florida Scraper] Page ${page}: ${pageResults.length} results`)
+            console.log(`[Florida HTTP] Page ${page}: ${pageResults.length} results`)
             allBusinesses = [...allBusinesses, ...pageResults]
           }
 
           // Small delay between page requests to be respectful
           await new Promise(resolve => setTimeout(resolve, 300))
         } catch (pageError) {
-          console.warn(`[Florida Scraper] Failed to fetch page ${page}:`, pageError)
+          console.warn(`[Florida HTTP] Failed to fetch page ${page}:`, pageError)
           break // Stop fetching more pages on error
         }
       }
     }
 
-    console.log(`[Florida Scraper] HTTP total found: ${allBusinesses.length} results`)
+    console.log(`[Florida HTTP] Total found: ${allBusinesses.length} results`)
 
     // Apply limit
     const limitedResults = allBusinesses.slice(0, limit)
@@ -259,7 +222,7 @@ export async function searchFloridaHttp(
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
-    console.log(`[Florida Scraper] HTTP failed: ${errorMessage}`)
+    console.log(`[Florida HTTP] Failed: ${errorMessage}`)
 
     return {
       success: false,
@@ -275,258 +238,57 @@ export async function searchFloridaHttp(
 }
 
 /**
- * Search Florida businesses by name
- * Strategy: Try HTTP first, then fallback to browser if needed
+ * Search Florida businesses by name (HTTP-only, serverless-compatible)
  */
 export async function scrapeFloridaBusinesses(
   query: string,
   options: {
-    searchType?: "name" | "officer"
     limit?: number
   } = {}
 ): Promise<ScraperResult<ScrapedBusinessEntity>> {
-  const startTime = Date.now()
-  const { searchType = "name", limit = 25 } = options
+  const { limit = 25 } = options
 
-  console.log(`[Florida Scraper] Searching ${searchType}:`, query)
+  console.log("[Florida Scraper] Searching:", query)
 
-  // STRATEGY 1: Try HTTP first for entity name search (fast, no browser needed)
-  if (searchType === "name") {
-    const httpResult = await searchFloridaHttp(query, { limit })
-    if (httpResult.success && httpResult.data.length > 0) {
-      console.log(`[Florida Scraper] HTTP succeeded with ${httpResult.data.length} results`)
-      return httpResult
-    }
-    console.log("[Florida Scraper] HTTP failed or no results, trying browser...")
+  // Use HTTP-only search (serverless-compatible)
+  const result = await searchFloridaHttp(query, { limit })
+
+  if (result.success && result.data.length > 0) {
+    console.log(`[Florida Scraper] Found ${result.data.length} results`)
+    return result
   }
 
-  // STRATEGY 2: Browser fallback
-  if (!(await isPuppeteerAvailable())) {
-    return {
-      success: false,
-      data: [],
-      totalFound: 0,
-      source: "florida",
-      query,
-      scrapedAt: new Date().toISOString(),
-      duration: Date.now() - startTime,
-      error: "HTTP fetch failed and Puppeteer not installed",
-      warnings: ["Install Puppeteer for browser fallback: npm install puppeteer-core @sparticuz/chromium"],
-    }
-  }
-
-  const browser = await getStealthBrowser()
-  const { page, cleanup } = await createStealthPage(browser)
-
-  try {
-    const searchUrl = searchType === "officer" ? CONFIG.officerSearchUrl : CONFIG.searchUrl
-
-    // Navigate to search page
-    await withRetry(async () => {
-      await page.goto(searchUrl, { waitUntil: "networkidle2" })
-    })
-
-    await humanDelay()
-
-    // Fill in search form
-    await humanType(page, CONFIG.selectors.searchInput, query)
-    await humanDelay()
-
-    // Submit search
-    await page.click(CONFIG.selectors.searchButton)
-
-    // Wait for results
-    await page.waitForSelector(CONFIG.selectors.resultsTable, { timeout: 15000 }).catch(() => null)
-    await humanDelay()
-
-    // Parse results
-    const resultRows = await page.$$(CONFIG.selectors.resultRows)
-    console.log(`[Florida Scraper] Found ${resultRows.length} results`)
-
-    const businesses: ScrapedBusinessEntity[] = []
-
-    for (const row of resultRows.slice(0, limit)) {
-      try {
-        // Get name and link
-        const nameEl = await row.$(CONFIG.selectors.entityName)
-        const name = nameEl ? await getElementText(page, nameEl) : null
-        const href = nameEl ? await getElementAttribute(page, nameEl, "href") : null
-
-        if (!name) continue
-
-        // Get document number
-        const docNumEl = await row.$(CONFIG.selectors.documentNumber)
-        const documentNumber = docNumEl ? await getElementText(page, docNumEl) : null
-
-        // Get status
-        const statusEl = await row.$(CONFIG.selectors.status)
-        const status = statusEl ? await getElementText(page, statusEl) : null
-
-        // Get filing date
-        const dateEl = await row.$(CONFIG.selectors.filingDate)
-        const filingDate = dateEl ? await getElementText(page, dateEl) : null
-
-        businesses.push({
-          name: name.trim(),
-          entityNumber: documentNumber?.trim() || null,
-          jurisdiction: "us_fl",
-          status: status?.trim() || null,
-          incorporationDate: filingDate?.trim() || null,
-          entityType: null, // Would need to fetch details page
-          registeredAddress: null,
-          registeredAgent: null,
-          sourceUrl: href ? `${CONFIG.baseUrl}${href}` : CONFIG.searchUrl,
-          source: "florida",
-          scrapedAt: new Date().toISOString(),
-        })
-      } catch (error) {
-        console.warn("[Florida Scraper] Failed to parse row:", error)
-      }
-    }
-
-    return {
-      success: true,
-      data: businesses,
-      totalFound: resultRows.length,
-      source: "florida",
-      query,
-      scrapedAt: new Date().toISOString(),
-      duration: Date.now() - startTime,
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("[Florida Scraper] Error:", errorMessage)
-
-    return {
-      success: false,
-      data: [],
-      totalFound: 0,
-      source: "florida",
-      query,
-      scrapedAt: new Date().toISOString(),
-      duration: Date.now() - startTime,
-      error: errorMessage,
-    }
-  } finally {
-    await cleanup()
-  }
+  // If HTTP failed, return the error result
+  return result
 }
 
 /**
- * Search Florida businesses by officer/registered agent name
+ * Officer search is NOT supported in serverless environments
+ * Use these alternatives instead:
+ * - Colorado Open Data API: searchColoradoByAgent() - searches by registered agent
+ * - SEC EDGAR: sec_insider_search tool - for public company officers/directors
+ * - Linkup Web Search: searchWeb tool - for general web search
  */
 export async function scrapeFloridaByOfficer(
   officerName: string,
   options: { limit?: number } = {}
-): Promise<ScraperResult<ScrapedOfficer>> {
+): Promise<ScraperResult<ScrapedBusinessEntity>> {
   const startTime = Date.now()
-  const { limit = 30 } = options
 
-  console.log("[Florida Scraper] Searching by officer:", officerName)
+  console.log("[Florida Scraper] Officer search requested:", officerName)
+  console.log("[Florida Scraper] NOTE: Officer search requires browser, not supported in serverless")
 
-  // Check if Puppeteer is available
-  if (!(await isPuppeteerAvailable())) {
-    return {
-      success: false,
-      data: [],
-      totalFound: 0,
-      source: "florida",
-      query: officerName,
-      scrapedAt: new Date().toISOString(),
-      duration: Date.now() - startTime,
-      error: "Puppeteer not installed",
-    }
-  }
-
-  const browser = await getStealthBrowser()
-  const { page, cleanup } = await createStealthPage(browser)
-
-  try {
-    // Navigate to officer search page
-    await withRetry(async () => {
-      await page.goto(CONFIG.officerSearchUrl!, { waitUntil: "networkidle2" })
-    })
-
-    await humanDelay()
-
-    // Fill in search form - Sunbiz expects "Last Name, First Name" format
-    const searchInput = await page.$("#SearchTerm")
-    if (searchInput) {
-      await humanType(page, "#SearchTerm", officerName)
-    }
-
-    await humanDelay()
-
-    // Submit search
-    await page.click('input[type="submit"]')
-
-    // Wait for results
-    await page.waitForSelector("#search-results", { timeout: 15000 }).catch(() => null)
-    await humanDelay()
-
-    // Parse results
-    const resultRows = await page.$$("#search-results tbody tr")
-    console.log(`[Florida Scraper] Found ${resultRows.length} officer results`)
-
-    const officers: ScrapedOfficer[] = []
-
-    for (const row of resultRows.slice(0, limit)) {
-      try {
-        // Each row contains: Entity Name, Doc Number, Status
-        const cells = await row.$$("td")
-        if (cells.length < 3) continue
-
-        const nameEl = await cells[0].$("a")
-        const companyName = nameEl ? await getElementText(page, nameEl) : null
-        const href = nameEl ? await getElementAttribute(page, nameEl, "href") : null
-
-        if (!companyName) continue
-
-        const docNumber = await getElementText(page, cells[1])
-        const status = await getElementText(page, cells[2])
-
-        officers.push({
-          name: officerName, // The searched name
-          position: "Officer/Registered Agent", // Sunbiz doesn't distinguish in search results
-          companyName: companyName.trim(),
-          companyNumber: docNumber?.trim() || null,
-          jurisdiction: "us_fl",
-          startDate: null,
-          endDate: null,
-          current: status?.toLowerCase().includes("active") ?? true,
-          sourceUrl: href ? `${CONFIG.baseUrl}${href}` : CONFIG.officerSearchUrl!,
-          source: "florida",
-          scrapedAt: new Date().toISOString(),
-        })
-      } catch (error) {
-        console.warn("[Florida Scraper] Failed to parse officer row:", error)
-      }
-    }
-
-    return {
-      success: true,
-      data: officers,
-      totalFound: resultRows.length,
-      source: "florida",
-      query: officerName,
-      scrapedAt: new Date().toISOString(),
-      duration: Date.now() - startTime,
-    }
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error("[Florida Scraper] Officer search error:", errorMessage)
-
-    return {
-      success: false,
-      data: [],
-      totalFound: 0,
-      source: "florida",
-      query: officerName,
-      scrapedAt: new Date().toISOString(),
-      duration: Date.now() - startTime,
-      error: errorMessage,
-    }
-  } finally {
-    await cleanup()
+  return {
+    success: false,
+    data: [],
+    totalFound: 0,
+    source: "florida",
+    query: officerName,
+    scrapedAt: new Date().toISOString(),
+    duration: Date.now() - startTime,
+    error: "Florida officer search requires browser and is not supported in serverless. " +
+           "Use alternatives: (1) Colorado Open Data API for agent search, " +
+           "(2) SEC EDGAR (sec_insider_search) for public company officers, " +
+           "(3) Linkup Web Search (searchWeb) for general search.",
   }
 }

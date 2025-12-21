@@ -31,7 +31,9 @@ import {
   getLikelihoodLabel,
   getLikelihoodColor,
 } from "@/lib/scraper"
-import { isPlaywrightAvailable, isScrapingEnabled } from "@/lib/scraper"
+
+// Serverless-compatible: Scraping is always enabled (uses HTTP/API only, no browser)
+// Playwright is never available in serverless environments
 
 // ============================================================================
 // TYPES
@@ -344,37 +346,8 @@ export const findBusinessOwnershipTool = tool({
       }
     }
 
-    // Check if Playwright is available (optional - some searches work without it)
-    const playwrightAvailable = await isPlaywrightAvailable()
-    if (!playwrightAvailable) {
-      console.log("[Find Business Ownership] Playwright not available - limited functionality")
-    }
-
-    // Check if scraping is enabled
-    if (!isScrapingEnabled()) {
-      return {
-        answer: "Web scraping is disabled. Set `ENABLE_WEB_SCRAPING=true` in environment to enable.",
-        sources: [
-          { name: "Florida Sunbiz", url: "https://search.sunbiz.org/Inquiry/CorporationSearch/ByOfficerOrRegisteredAgent", snippet: "Manual officer search" },
-          { name: "SEC EDGAR", url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${encodeURIComponent(personName)}&type=4&owner=only`, snippet: "SEC insider filings" },
-        ],
-        personName,
-        businesses: [],
-        summary: {
-          confirmed: 0,
-          highLikelihood: 0,
-          mediumLikelihood: 0,
-          lowLikelihood: 0,
-          total: 0,
-          uniqueStates: [],
-        },
-        statesSearched: [],
-        statesSucceeded: [],
-        statesFailed: [],
-        searchDuration: Date.now() - startTime,
-        error: "Scraping disabled",
-      }
-    }
+    // Serverless-compatible: Uses HTTP/API only (no Playwright/browser needed)
+    console.log("[Find Business Ownership] Using serverless-compatible search (CO API, NY API, FL HTTP)")
 
     try {
       let result: PersonSearchResult
