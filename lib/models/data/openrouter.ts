@@ -30,16 +30,11 @@ export const openrouterModels: ModelConfig[] = [
     releasedAt: "2025-02-01",
     icon: "perplexity",
     isPro: false, // Available for all users
-    // Web search is built into the model - no external tools needed
-    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) =>
+    // Web search is BUILT-IN to Perplexity models - no plugins needed
+    // Perplexity uses web_search_options, NOT plugins (plugins causes Bad Request)
+    apiSdk: (apiKey?: string) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-        // Perplexity has built-in web search, but we can still pass the plugin for enhanced results
-        ...(opts?.enableSearch && {
-          extraBody: {
-            plugins: [{ id: "web", max_results: 3 }],
-          },
-        }),
       }).chat("perplexity/sonar-reasoning"),
   },
 ]
