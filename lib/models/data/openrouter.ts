@@ -3,20 +3,20 @@ import { ModelConfig } from "../types"
 
 export const openrouterModels: ModelConfig[] = [
   {
-    id: "openrouter:perplexity/sonar-reasoning",
-    name: "Perplexity Sonar Reasoning",
+    id: "openrouter:perplexity/sonar-reasoning-pro",
+    name: "Perplexity Sonar Reasoning Pro",
     provider: "OpenRouter",
     providerId: "openrouter",
     modelFamily: "Sonar",
     baseProviderId: "perplexity",
     description:
-      "An enhanced version of Sonar optimized for deeper reasoning and more complex tasks, while retaining fast response times.",
-    tags: ["reasoning", "fast", "QA", "affordable"],
-    contextWindow: 127072,
-    inputCost: 1,
-    outputCost: 5,
+      "Premier reasoning model powered by DeepSeek R1 with Chain of Thought. Supports in-depth, multi-step queries with built-in web search.",
+    tags: ["reasoning", "pro", "advanced", "QA", "research"],
+    contextWindow: 128000,
+    inputCost: 2,
+    outputCost: 8,
     priceUnit: "per 1M tokens",
-    vision: false,
+    vision: true, // Now supports images
     tools: false,
     audio: false,
     reasoning: true,
@@ -26,8 +26,8 @@ export const openrouterModels: ModelConfig[] = [
     intelligence: "High",
     website: "https://openrouter.ai",
     apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/perplexity/sonar-reasoning",
-    releasedAt: "2025-01-29",
+    modelPage: "https://openrouter.ai/perplexity/sonar-reasoning-pro",
+    releasedAt: "2025-03-07",
     icon: "perplexity",
     isPro: false,
     apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) =>
@@ -38,6 +38,6 @@ export const openrouterModels: ModelConfig[] = [
             plugins: [{ id: "web", max_results: 3 }],
           },
         }),
-      }).chat("perplexity/sonar-reasoning"),
+      }).chat("perplexity/sonar-reasoning-pro"),
   },
 ]

@@ -10,9 +10,11 @@ const STATIC_MODELS: ModelConfig[] = [...openrouterModels]
  * Maps old/deprecated model IDs to their current versions
  */
 const MODEL_ID_MIGRATIONS: Record<string, string> = {
-  // Grok → Perplexity Sonar Reasoning (model overhaul)
-  "openrouter:x-ai/grok-4-fast": "openrouter:perplexity/sonar-reasoning",
-  "openrouter:x-ai/grok-4.1-fast": "openrouter:perplexity/sonar-reasoning",
+  // Grok → Perplexity Sonar Reasoning Pro (model overhaul)
+  "openrouter:x-ai/grok-4-fast": "openrouter:perplexity/sonar-reasoning-pro",
+  "openrouter:x-ai/grok-4.1-fast": "openrouter:perplexity/sonar-reasoning-pro",
+  // Old deprecated model → new model
+  "openrouter:perplexity/sonar-reasoning": "openrouter:perplexity/sonar-reasoning-pro",
 }
 
 /**
