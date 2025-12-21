@@ -29,11 +29,9 @@ export const DEFAULT_RATE_LIMITS: Record<string, RateLimitConfig> = {
   florida: { requestsPerMinute: 30 },
   newYork: { requestsPerMinute: 20 },
   california: { requestsPerMinute: 15 },
-  delaware: { requestsPerMinute: 10 }, // Be careful with CAPTCHA states
   texas: { requestsPerMinute: 10 },
 
   // External sources
-  opencorporates: { requestsPerMinute: 10 },
   sec_edgar: { requestsPerMinute: 10 },
 
   // Default for unknown sources

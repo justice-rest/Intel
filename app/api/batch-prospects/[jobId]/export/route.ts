@@ -1,13 +1,24 @@
 /**
  * Batch Export API
- * GET: Export batch job results as CSV
+ * GET: Export batch job results as CSV, JSON, or PDF
+ *
+ * Query params:
+ * - format: "csv" | "json" | "pdf" (default: csv)
+ * - include_reports: "true" to include full report content (csv/json only)
+ * - item_index: index of specific item for PDF export (required for pdf format)
  */
 
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import type { BatchProspectJob, BatchProspectItem } from "@/lib/batch-processing"
+import {
+  generateProspectPdf,
+  batchItemToReportData,
+  isPdfGenerationAvailable,
+} from "@/lib/prospect-pdf"
 
 export const runtime = "nodejs"
+export const maxDuration = 60 // Allow up to 60s for PDF generation
 
 export async function GET(
   request: Request,
@@ -191,8 +202,74 @@ export async function GET(
       })
     }
 
+    // PDF format - exports single prospect as PDF
+    if (format === "pdf") {
+      // Check if PDF generation is available
+      const pdfAvailable = await isPdfGenerationAvailable()
+      if (!pdfAvailable) {
+        return NextResponse.json(
+          {
+            error: "PDF generation not available",
+            message: "Puppeteer/Chromium not installed on server",
+          },
+          { status: 503 }
+        )
+      }
+
+      // Get item index from query params
+      const itemIndexStr = searchParams.get("item_index")
+      if (!itemIndexStr) {
+        return NextResponse.json(
+          {
+            error: "item_index required for PDF export",
+            message: "Specify ?format=pdf&item_index=0 to export a specific prospect",
+          },
+          { status: 400 }
+        )
+      }
+
+      const itemIndex = parseInt(itemIndexStr, 10)
+      const targetItem = items.find((item) => item.item_index === itemIndex)
+
+      if (!targetItem) {
+        return NextResponse.json(
+          {
+            error: `Item not found at index ${itemIndex}`,
+            available_indices: items.map((i) => i.item_index),
+          },
+          { status: 404 }
+        )
+      }
+
+      // Convert batch item to PDF report data
+      const reportData = batchItemToReportData(targetItem, job.name)
+
+      // Generate PDF
+      console.log(`[BatchExport] Generating PDF for: ${targetItem.input_data?.name}`)
+      const startTime = Date.now()
+
+      const { buffer, filename } = await generateProspectPdf({
+        data: reportData,
+        format: "Letter",
+        printBackground: true,
+      })
+
+      const duration = Date.now() - startTime
+      console.log(`[BatchExport] PDF generated in ${duration}ms, size: ${buffer.length} bytes`)
+
+      return new NextResponse(buffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Content-Length": buffer.length.toString(),
+          "Cache-Control": "no-store",
+        },
+      })
+    }
+
     return NextResponse.json(
-      { error: "Unsupported format. Use 'csv' or 'json'" },
+      { error: "Unsupported format. Use 'csv', 'json', or 'pdf'" },
       { status: 400 }
     )
   } catch (error) {

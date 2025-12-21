@@ -6,13 +6,12 @@
  *
  * Supported sources:
  * - US State Secretary of State registries:
- *   - Delaware (icis.corp.delaware.gov) - Note: Has CAPTCHA
- *   - New York (apps.dos.ny.gov) - Open data available
- *   - California (bizfileonline.sos.ca.gov)
- *   - Florida (search.sunbiz.org) - Most scrape-friendly
- *   - Colorado (sos.state.co.us) - Open data available
+ *   - Colorado (sos.state.co.us) - FREE Open Data API
+ *   - New York (apps.dos.ny.gov) - FREE Open Data API
+ *   - Florida (search.sunbiz.org) - HTTP scraping (reliable)
+ *   - California (bizfileonline.sos.ca.gov) - HTTP scraping (less reliable)
  *
- * Uses playwright-extra with puppeteer-extra-plugin-stealth for bot detection bypass
+ * Uses puppeteer-core with @sparticuz/chromium for serverless compatibility
  */
 
 /**
@@ -46,25 +45,6 @@ export const SCRAPER_CONFIG = {
  * State registry URLs and selectors
  */
 export const STATE_REGISTRY_CONFIG = {
-  delaware: {
-    name: "Delaware Division of Corporations",
-    baseUrl: "https://icis.corp.delaware.gov",
-    searchUrl: "https://icis.corp.delaware.gov/ecorp/entitysearch/namesearch.aspx",
-    hasCaptcha: true,
-    selectors: {
-      // ASP.NET naming convention - verified 2025-01
-      searchInput: "#ctl00_ContentPlaceHolder1_frmEntityName",
-      fileNumberInput: "#ctl00_ContentPlaceHolder1_frmFileNumber",
-      searchButton: "#ctl00_ContentPlaceHolder1_btnSubmit",
-      resultsTable: "#ctl00_ContentPlaceHolder1_pnlResults table, table[id*='Results'], .results-table",
-      resultRows: "#ctl00_ContentPlaceHolder1_pnlResults table tr, table[id*='Results'] tr",
-      entityName: "td:first-child a, td a",
-      fileNumber: "td:nth-child(2)",
-      status: "td:nth-child(7), td:last-child",
-      incorporationDate: "td:nth-child(3)",
-      entityType: "td:nth-child(5)",
-    },
-  },
   newYork: {
     name: "New York Department of State",
     baseUrl: "https://apps.dos.ny.gov",
@@ -151,8 +131,9 @@ export const STATE_REGISTRY_CONFIG = {
 
 /**
  * Supported scraper sources
+ * Note: Only CO, NY, FL are reliable. CA has timeout issues.
  */
-export type ScraperSource = "delaware" | "newYork" | "california" | "florida" | "texas" | "colorado"
+export type ScraperSource = "newYork" | "california" | "florida" | "texas" | "colorado"
 
 /**
  * Business entity result from any scraper

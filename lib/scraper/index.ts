@@ -1,36 +1,48 @@
 /**
- * Business Registry Scraper Module
+ * Business Registry Data Module
  *
- * HTTP-based web scraping for business registry data.
- * Works on Vercel serverless - no Playwright/browser required.
- *
- * Architecture:
- * - Tier 1 (API): States with FREE API/Open Data (CO, NY)
- * - Tier 2 (HTTP): States with simple HTML scraping (47 states including DE)
+ * Uses FREE, RELIABLE data sources only:
  *
  * Supported sources:
- * - US State Secretary of State registries (49 states)
- *   - Florida (Sunbiz) - Most reliable
- *   - New York (DOS) - Has Open Data API
- *   - California (bizfile)
- *   - Delaware (ICIS)
- *   - And 45 more states...
+ * - Colorado: data.colorado.gov (Socrata API - FREE)
+ * - New York: data.ny.gov (Socrata API - FREE)
+ * - Florida: search.sunbiz.org (HTTP scraping - reliable)
+ *
+ * REMOVED (unreliable):
+ * - California: Timeouts
+ * - Delaware: CAPTCHA blocks
+ * - OpenCorporates: Requires payment
  *
  * Usage:
  * ```typescript
- * import { scrapeState, searchMultipleStates } from '@/lib/scraper'
+ * import { searchBusinesses, searchByOfficer } from '@/lib/scraper'
  *
- * // Search a single state
- * const result = await scrapeState('fl', 'Apple Inc')
+ * // Search by company name (uses CO, NY, FL)
+ * const result = await searchBusinesses('Apple Inc', { states: ['CO', 'NY', 'FL'] })
  *
- * // Search multiple states
- * const results = await searchMultipleStates('Apple Inc', { states: ['fl', 'de', 'ny'] })
+ * // Search by officer/agent name (CO only)
+ * const result = await searchByOfficer('Tim Cook', { limit: 25 })
  * ```
  */
 
 // Core configuration and types
 export * from "./config"
 export * from "./stealth-browser"
+
+// NEW: API-first business search (recommended)
+// Uses only FREE, reliable sources: CO, NY, FL
+export {
+  // Unified search (routes to best source)
+  searchBusinesses,
+  searchByOfficer,
+  getDataSourcesStatus,
+  getReliableStates,
+  // State Open Data APIs
+  searchColoradoBusinesses,
+  searchColoradoByAgent,
+  hasStateOpenDataAPI,
+  getStatesWithOpenDataAPI,
+} from "./apis"
 
 // Validation utilities
 export {
@@ -150,7 +162,6 @@ export {
   searchNewYorkOpenData,
   scrapeNewYorkWebsite,
   scrapeCaliforniaBusinesses,
-  scrapeDelawareBusinesses,
   scrapeColoradoBusinesses,
   searchColoradoOpenData,
 } from "./scrapers/states"
@@ -167,7 +178,6 @@ import {
   scrapeFloridaByOfficer,
   scrapeNewYorkBusinesses,
   scrapeCaliforniaBusinesses,
-  scrapeDelawareBusinesses,
   scrapeColoradoBusinesses,
 } from "./scrapers/states"
 
@@ -189,7 +199,7 @@ export async function scrapeBusinessRegistry(
   failed: ScraperSource[]
 }> {
   const {
-    sources = ["florida", "newYork", "delaware"],
+    sources = ["florida", "newYork", "colorado"],
     searchType = "company",
     limit = 20,
     parallel = true,
@@ -218,9 +228,6 @@ export async function scrapeBusinessRegistry(
     },
     california: async () => {
       return scrapeCaliforniaBusinesses(query, { limit })
-    },
-    delaware: async () => {
-      return scrapeDelawareBusinesses(query, { limit })
     },
     colorado: async () => {
       return scrapeColoradoBusinesses(query, { limit })

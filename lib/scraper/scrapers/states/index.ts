@@ -7,5 +7,4 @@
 export { scrapeFloridaBusinesses, scrapeFloridaByOfficer } from "./florida"
 export { scrapeNewYorkBusinesses, searchNewYorkOpenData, scrapeNewYorkWebsite } from "./new-york"
 export { scrapeCaliforniaBusinesses } from "./california"
-export { scrapeDelawareBusinesses } from "./delaware"
 export { scrapeColoradoBusinesses, searchColoradoOpenData } from "./colorado"

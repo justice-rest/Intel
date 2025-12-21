@@ -1,14 +1,15 @@
 /**
  * State Registry Configurations Index
  *
- * 49-state coverage for business registry scraping.
- * (Texas excluded - requires $1/search via SOSDirect, use web search instead)
+ * 48-state coverage for business registry scraping.
+ * Excluded:
+ * - Texas: requires $1/search via SOSDirect
+ * - Delaware: CAPTCHA blocks automated access
  *
  * Tiers:
  * - Tier 1 (2 states): API/Open Data - CO, NY
  * - Tier 2 (40 states): HTTP scraping
  * - Tier 3 (6 states): Playwright required - MI, IN, VA, WI, WA, IA
- * - Tier 4 (1 state): CAPTCHA - DE
  */
 
 import type { StateRegistryConfig, USStateCode } from "../state-template"
@@ -22,7 +23,6 @@ import { WASHINGTON_CONFIG } from "./wa"
 import { FLORIDA_CONFIG } from "./fl"
 import { NEW_YORK_CONFIG, NY_SOCRATA_FIELD_MAPPING } from "./ny"
 import { CALIFORNIA_CONFIG, CA_ENTITY_TYPES } from "./ca"
-import { DELAWARE_CONFIG, DE_ENTITY_TYPES } from "./de"
 
 // Tier 2: HTTP Scrape - Individual
 import { PENNSYLVANIA_CONFIG } from "./pa"
@@ -54,7 +54,6 @@ export const STATE_CONFIGS: Partial<Record<USStateCode, StateRegistryConfig>> = 
   fl: FLORIDA_CONFIG,
   ny: NEW_YORK_CONFIG,
   ca: CALIFORNIA_CONFIG,
-  de: DELAWARE_CONFIG,
 
   // Tier 2: HTTP Scrape - Major states
   pa: PENNSYLVANIA_CONFIG,
@@ -156,7 +155,6 @@ export {
   FLORIDA_CONFIG,
   NEW_YORK_CONFIG,
   CALIFORNIA_CONFIG,
-  DELAWARE_CONFIG,
   COLORADO_CONFIG,
   IOWA_CONFIG,
   WASHINGTON_CONFIG,
@@ -177,7 +175,6 @@ export { BULK_TIER2_CONFIGS, TIER3_CONFIGS }
 export {
   NY_SOCRATA_FIELD_MAPPING,
   CA_ENTITY_TYPES,
-  DE_ENTITY_TYPES,
   CO_SOCRATA_FIELDS,
 }
 

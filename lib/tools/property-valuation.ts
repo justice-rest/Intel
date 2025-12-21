@@ -40,6 +40,7 @@ import {
 } from "@/lib/linkup/config"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { getRedfinClient } from "@/lib/redfin/client"
+import { countyAssessorTool, shouldEnableCountyAssessorTool } from "./county-assessor"
 
 // ============================================================================
 // Constants
@@ -364,6 +365,7 @@ interface ExtractedData {
   onlineEstimates: OnlineEstimate[]
   comparables: ComparableSale[]
   sources: Array<{ name: string; url: string }>
+  ownerName?: string // Property owner from county assessor
   searchesRun: number
   searchesFailed: number
   extractionConfidence: number // 0-1 scale
@@ -1053,6 +1055,127 @@ function parseAddressComponents(address: string): {
 }
 
 /**
+ * Fetch property data from County Assessor via Socrata APIs
+ * Returns OFFICIAL government data - highest confidence level
+ */
+async function fetchCountyAssessorData(address: string): Promise<{
+  property: Partial<PropertyCharacteristics>
+  onlineEstimates: OnlineEstimate[]
+  sources: Array<{ name: string; url: string }>
+  ownerName?: string
+  success: boolean
+}> {
+  const emptyResult = {
+    property: { address },
+    onlineEstimates: [],
+    sources: [],
+    ownerName: undefined,
+    success: false,
+  }
+
+  if (!shouldEnableCountyAssessorTool()) {
+    return emptyResult
+  }
+
+  try {
+    console.log("[Property Valuation] Fetching from County Assessor API (Socrata)...")
+
+    // Parse address to get state and city for county assessor lookup
+    const stateMatch = address.match(/\b([A-Z]{2})\b(?:\s+\d{5})?/i)
+    const state = stateMatch ? stateMatch[1].toUpperCase() : undefined
+
+    // Extract city from address
+    const cityMatch = address.match(/,\s*([^,]+),\s*[A-Z]{2}/i)
+    const city = cityMatch ? cityMatch[1].trim() : undefined
+
+    // Call the county assessor tool directly
+    // The AI SDK tool.execute requires options with toolCallId and messages
+    const assessorResult = await countyAssessorTool.execute(
+      {
+        address,
+        state,
+        city,
+        limit: 5,
+      },
+      {
+        toolCallId: `property-valuation-${Date.now()}`,
+        messages: [],
+        abortSignal: AbortSignal.timeout(30000),
+      }
+    )
+
+    if (!assessorResult || assessorResult.properties.length === 0) {
+      console.log("[Property Valuation] County Assessor returned no data")
+      return emptyResult
+    }
+
+    // Use the first property (best match)
+    const propertyData = assessorResult.properties[0]
+
+    // Build property characteristics from county data
+    const property: Partial<PropertyCharacteristics> = {
+      address: propertyData.address || address,
+      city: propertyData.city,
+      state: propertyData.state,
+      zipCode: propertyData.zip,
+      yearBuilt: propertyData.yearBuilt,
+      bedrooms: propertyData.bedrooms,
+      bathrooms: propertyData.bathrooms,
+      squareFeet: propertyData.sqft,
+    }
+
+    // Build online estimates from county assessor data (VERIFIED - HIGH confidence)
+    const onlineEstimates: OnlineEstimate[] = []
+
+    // Get source URL from sources array
+    const sourceUrl = assessorResult.sources?.[0]?.url || ""
+    const sourceName = assessorResult.sources?.[0]?.name || assessorResult.county
+
+    // Market value is preferred over assessed value for actual market comparisons
+    if (propertyData.marketValue && propertyData.marketValue > 0) {
+      onlineEstimates.push({
+        source: "county" as EstimateSource,
+        value: propertyData.marketValue,
+        sourceUrl,
+      })
+      console.log(
+        `[Property Valuation] County Market Value: $${propertyData.marketValue.toLocaleString()} [VERIFIED - ${sourceName}]`
+      )
+    } else if (propertyData.assessedValue && propertyData.assessedValue > 0) {
+      // Fall back to assessed value
+      onlineEstimates.push({
+        source: "county" as EstimateSource,
+        value: propertyData.assessedValue,
+        sourceUrl,
+      })
+      console.log(
+        `[Property Valuation] County Assessed Value: $${propertyData.assessedValue.toLocaleString()} [VERIFIED - ${sourceName}]`
+      )
+    }
+
+    // Build sources from the assessor result
+    const sources: Array<{ name: string; url: string }> = (assessorResult.sources || []).map(s => ({
+      name: `${s.name} (Official)`,
+      url: s.url,
+    }))
+
+    // Extract owner name from county assessor data
+    const ownerName = propertyData.ownerName || undefined
+
+    return {
+      property,
+      onlineEstimates,
+      sources,
+      ownerName,
+      success: onlineEstimates.length > 0,
+    }
+  } catch (error) {
+    console.error("[Property Valuation] County Assessor API error:", error)
+    return emptyResult
+  }
+}
+
+/**
  * Fetch property data from Redfin's internal API
  * Returns structured data including estimate, tax records, and comparables
  */
@@ -1180,6 +1303,10 @@ async function fetchRedfinData(address: string): Promise<{
 async function searchAndExtractPropertyData(address: string): Promise<ExtractedData> {
   const startTime = Date.now()
 
+  // === STEP 0: Try County Assessor Socrata API first (OFFICIAL GOVERNMENT DATA) ===
+  // This is the highest confidence source - direct from county APIs
+  const countyAssessorResult = await fetchCountyAssessorData(address)
+
   // === STEP 1: Fetch from Redfin API (FREE, structured data) ===
   const redfinResult = await fetchRedfinData(address)
 
@@ -1258,13 +1385,13 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
     }
   }
 
-  // === STEP 3: Merge data from both sources ===
-  // Priority: Redfin structured data > Linkup extracted data
+  // === STEP 3: Merge data from ALL sources ===
+  // Priority: County Assessor (official) > Redfin > Linkup
 
   const property: Partial<PropertyCharacteristics> = {
     address,
-    // Prefer Redfin data, fall back to Linkup
-    squareFeet: redfinResult.property.squareFeet || linkupResult.property.squareFeet,
+    // Prefer County Assessor > Redfin > Linkup for property data
+    squareFeet: countyAssessorResult.property.squareFeet || redfinResult.property.squareFeet || linkupResult.property.squareFeet,
     lotSizeSqFt: redfinResult.property.lotSizeSqFt || linkupResult.property.lotSizeSqFt,
     bedrooms: redfinResult.property.bedrooms ?? linkupResult.property.bedrooms,
     bathrooms: redfinResult.property.bathrooms ?? linkupResult.property.bathrooms,
@@ -1279,10 +1406,20 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
   }
 
   // Merge online estimates (deduplicate by source)
+  // Priority: County Assessor (HIGHEST - official government data) > Redfin > Linkup
   const seenSources = new Set<string>()
   const onlineEstimates: OnlineEstimate[] = []
 
-  // Add Redfin estimates first (higher priority)
+  // Add County Assessor estimates FIRST (HIGHEST priority - official government data)
+  for (const est of countyAssessorResult.onlineEstimates) {
+    if (!seenSources.has(est.source)) {
+      seenSources.add(est.source)
+      onlineEstimates.push(est)
+      console.log(`[Property Valuation] Using County Assessor value: $${est.value.toLocaleString()} [VERIFIED - OFFICIAL]`)
+    }
+  }
+
+  // Add Redfin estimates (second priority)
   for (const est of redfinResult.onlineEstimates) {
     if (!seenSources.has(est.source)) {
       seenSources.add(est.source)
@@ -1304,28 +1441,35 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
     ...linkupResult.comparables,
   ].slice(0, 15)
 
-  // Merge sources
-  const sources = [...redfinResult.sources, ...linkupResult.sources]
+  // Merge sources (County Assessor first for visibility)
+  const sources = [
+    ...countyAssessorResult.sources,
+    ...redfinResult.sources,
+    ...linkupResult.sources,
+  ]
 
   const duration = Date.now() - startTime
 
   // Calculate extraction confidence
+  // County Assessor data is HIGHEST confidence (official government)
   let extractionConfidence = 0.3 // Base
-  if (redfinResult.success) extractionConfidence += 0.3 // Redfin data is structured
-  if (onlineEstimates.length >= 2) extractionConfidence += 0.2
+  if (countyAssessorResult.success) extractionConfidence += 0.35 // County Assessor is official government data
+  if (redfinResult.success) extractionConfidence += 0.2 // Redfin data is structured
+  if (onlineEstimates.length >= 2) extractionConfidence += 0.1
   if (onlineEstimates.length >= 3) extractionConfidence += 0.1
-  if (property.squareFeet) extractionConfidence += 0.1
+  if (property.squareFeet) extractionConfidence += 0.05
 
   // Reduce confidence if estimates vary wildly
   if (onlineEstimates.length >= 2) {
     const values = onlineEstimates.map((e) => e.value)
     const cv = calculateCV(values)
-    if (cv > 0.3) extractionConfidence -= 0.15
+    if (cv > 0.3) extractionConfidence -= 0.1
   }
 
   extractionConfidence = Math.max(0.1, Math.min(1.0, extractionConfidence))
 
   console.log(`[Property Valuation] Data extraction completed in ${duration}ms:`, {
+    countyAssessorSuccess: countyAssessorResult.success,
     redfinSuccess: redfinResult.success,
     sqft: property.squareFeet,
     estimates: onlineEstimates.map((e) => `${e.source}: $${e.value.toLocaleString()}`),
@@ -1338,8 +1482,9 @@ async function searchAndExtractPropertyData(address: string): Promise<ExtractedD
     onlineEstimates,
     comparables,
     sources,
-    searchesRun: linkupResult.searchesRun + (redfinResult.success ? 1 : 0),
-    searchesFailed: linkupResult.searchesFailed + (redfinResult.success ? 0 : 1),
+    ownerName: countyAssessorResult.ownerName,
+    searchesRun: linkupResult.searchesRun + (redfinResult.success ? 1 : 0) + (countyAssessorResult.success ? 1 : 0),
+    searchesFailed: linkupResult.searchesFailed + (redfinResult.success ? 0 : 1) + (countyAssessorResult.success ? 0 : 1),
     extractionConfidence,
   }
 }
@@ -1489,6 +1634,7 @@ export const propertyValuationTool = tool({
 
       const finalResult: AVMResult = {
         ...result,
+        ownerName: extractedData.ownerName,
         sources: uniqueSources,
       }
 

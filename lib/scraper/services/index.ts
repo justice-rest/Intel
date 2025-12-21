@@ -49,14 +49,5 @@ export {
   type Proxy,
 } from "./proxy-rotator"
 
-// Browser Stealth
-export {
-  createStealthContext,
-  applyStealthToPage,
-  humanDelay,
-  humanClick,
-  humanScroll,
-  humanType,
-  checkBotDetection,
-  getRandomBrowserConfig,
-} from "./browser-stealth"
+// NOTE: Browser stealth functions are now in ../stealth-browser.ts
+// The browser-stealth.ts service file is deprecated and not used.

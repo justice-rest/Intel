@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Donor Profile</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-head: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-round: "SF Pro Rounded", "SF Pro Display", -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --color-heading: #545F63;
+            --color-accent: #00A5E4;
+            --color-text: #000;
+            --color-muted: #666;
+            --base-font-size: 10.75pt;
+            --base-line-height: 1.45;
+        }
+        html, body { font-family: var(--font-body); font-size: var(--base-font-size); font-weight: 400; line-height: var(--base-line-height); color: var(--color-text); font-feature-settings: "liga", "kern"; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+        body { max-width: 8.5in; margin: 0 auto; padding: 0.85in 0.85in 0.9in; background: #fff; }
+        .brand-header { margin-bottom: 0.75em; }
+        .brand-header img { max-width: 2in; max-height: 0.5in; width: auto; height: auto; display: block; }
+        h1, h2, h3 { font-family: var(--font-head); color: var(--color-heading); }
+        h1 { font-size: 16pt; font-weight: 700; margin: 0.15em 0 0.45em; letter-spacing: -0.02em; line-height: 1.2; }
+        h2 { font-size: 12.5pt; font-weight: 700; margin-top: 1.2em; margin-bottom: 0.5em; border-bottom: 2px solid var(--color-heading); letter-spacing: -0.01em; line-height: 1.25; padding-bottom: 0.15em; }
+        h3 { font-size: 10.75pt; font-weight: 600; margin-top: 0.9em; margin-bottom: 0.25em; }
+        p { margin: 0 0 0.65em; text-align: left; }
+        strong { font-weight: 600; color: var(--color-heading); }
+        em { font-style: italic; }
+        ul { margin: 0.25em 0 0.9em 1.25em; padding: 0; }
+        li { margin: 0.25em 0; }
+        .at-a-glance { display: grid; grid-template-columns: 1.2fr 1fr; gap: 0.75em 1em; padding: 0.8em; border: 1px solid rgba(84,95,99,0.25); border-left: 4px solid var(--color-accent); background: rgba(0, 165, 228, 0.06); margin: 0.75em 0 1.0em; }
+        .at-a-glance .k { font-family: var(--font-body); font-weight: 600; color: var(--color-heading); font-size: 9.6pt; margin-bottom: 0.1em; }
+        .at-a-glance .v { font-size: 10.5pt; margin: 0; }
+        .executive-summary { background: rgba(0, 165, 228, 0.10); padding: 0.9em; margin: 0.85em 0 1.1em; border-left: 4px solid var(--color-accent); }
+        .callout { border: 1px solid rgba(84,95,99,0.25); border-left: 4px solid var(--color-accent); padding: 0.75em 0.85em; margin: 0.9em 0 0.8em; background: rgba(0, 165, 228, 0.04); }
+        .callout .label { font-family: var(--font-round); font-weight: 600; letter-spacing: 0.01em; text-transform: uppercase; font-size: 9.25pt; color: var(--color-heading); margin-bottom: 0.25em; }
+        .callout .big { font-family: var(--font-head); font-weight: 700; font-size: 13pt; margin: 0.1em 0 0.25em; color: var(--color-heading); }
+        .callout .notes { margin: 0; color: var(--color-text); font-size: 10.25pt; }
+        .subsection { margin-left: 0; background: rgba(0, 165, 228, 0.045); padding: 0.75em 0.85em; border-radius: 6px; margin-bottom: 0.9em; border: 1px solid rgba(0, 165, 228, 0.22); }
+        .footer { margin-top: 2.25em; padding-top: 0.75em; border-top: 2px solid var(--color-heading); font-size: 9.75pt; }
+        .page-break-before { break-before: page; page-break-before: always; }
+        @media print {
+            body { padding: 0.7in; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            h1, h2, h3, .executive-summary, .subsection, .callout, .at-a-glance, ul { break-inside: avoid; page-break-inside: avoid; }
+            h2, h3 { break-after: avoid; page-after: avoid; }
+            p { orphans: 3; widows: 3; }
+            .page-break-before { break-before: page; page-break-before: always; }
+            a[href]:after { content: ""; }
+            img { break-inside: avoid; page-break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+    <div class="brand-header">
+        <img src="https://drive.google.com/uc?export=view&id=1oF-yTI4msUfuxXxZu3WOimqtowsxKzjc" alt="Romy logo">
+    </div>
+
+    <h1>Donor Profile</h1>
+    <p><strong>Prospect Name:</strong> [Donor Name] | <strong>Location:</strong> [City, State]</p>
+
+    <!-- SECTION 1: EXECUTIVE SUMMARY -->
+    <h2>Executive Summary</h2>
+    
+    <div class="executive-summary">
+        <p>[Provide a compelling 2-3 paragraph overview of the prospect, including: age/life stage, key professional accomplishments, current ventures, net worth estimation range, philanthropic positioning, and strategic value to organization. Include tone, personality insights, and primary engagement approach.]</p>
+    </div>
+
+    <!-- SECTION 2: PERSONAL BACKGROUND AND CONTACT INFORMATION -->
+    <h2>Personal Background and Contact Information</h2>
+    
+    <div class="at-a-glance">
+        <div><div class="k">Name</div><p class="v">[Full Legal Name]</p></div>
+        <div><div class="k">Current Location</div><p class="v">[City, State]</p></div>
+        <div><div class="k">Age / Birth Year</div><p class="v">[Age or Birth Year]</p></div>
+        <div><div class="k">Contact Information</div><p class="v">[Phone/Email if available]</p></div>
+        <div><div class="k">Family Status</div><p class="v">[Married/Single, Years Together, Children/Grandchildren]</p></div>
+        <div><div class="k">Primary Residence</div><p class="v">[Address or Description]</p></div>
+    </div>
+
+    <h3>Personal Background</h3>
+    <p>[Include education, upbringing, family background, key life transitions, personal interests and hobbies, community involvement/memberships, travel patterns, lifestyle indicators that reveal values and priorities.]</p>
+
+    <h3>Spouse / Life Partner Information</h3>
+    <p>[If applicable: Name, age, background, career/interests, role in household financial/philanthropic decisions, alignment with prospect's values.]</p>
+
+    <!-- SECTION 3: PROFESSIONAL BACKGROUND -->
+    <h2>Professional Background</h2>
+
+    <h3>Donor/Prospect – Comprehensive Career Profile</h3>
+    
+    <p><strong>Current Position(s):</strong> [Title(s), Company/Organization, Start Date]</p>
+    
+    <p><strong>Career Trajectory:</strong> [Chronological overview of key positions, accomplishments, and career evolution. Include revenue generated, teams managed, organizational impact, recognition/awards.]</p>
+    
+    <p><strong>Education:</strong> [Degrees, institutions, graduation years, relevant certifications or continuing education.]</p>
+    
+    <p><strong>Expertise & Credentials:</strong> [Core competencies, industry recognition, thought leadership, board memberships, advisory roles.]</p>
+    
+    <p><strong>Professional Network:</strong> [Key relationships, industry connections, association memberships, influential circles, network size and quality.]</p>
+    
+    <p><strong>Current Strategic Interests:</strong> [Focus areas, emerging ventures, problem-solving interests, innovation initiatives.]</p>
+
+    <h3>Spouse – Comprehensive Background</h3>
+    
+    <p><strong>Current Role/Career:</strong> [Title, organization, field, status (employed/self-employed/retired).]</p>
+    
+    <p><strong>Professional Background:</strong> [Career history, accomplishments, expertise, network.]</p>
+    
+    <p><strong>Education:</strong> [Degrees, institutions, continuing education.]</p>
+    
+    <p><strong>Community Involvement:</strong> [Volunteer roles, board memberships, organizational affiliations, local community ties.]</p>
+    
+    <p><strong>Role in Household Philanthropy:</strong> [Decision-making authority, interests, values alignment, engagement level in giving discussions.]</p>
+
+    <!-- SECTION 4: WEALTH INDICATORS AND ASSET PROFILE -->
+    <h2>Wealth Indicators and Asset Profile</h2>
+
+    <h3>Real Estate Holdings</h3>
+    
+    <p><strong>Primary Residence:</strong> [Address, ownership/rental status, property value estimate, mortgage/rental costs, HOA fees if applicable. Include equity position.]</p>
+    
+    <p><strong>Additional Properties:</strong> [Vacation homes, investment properties, land holdings. Include purchase price, current value estimate, ownership structure, rental income if applicable.]</p>
+    
+    <p><strong>Historical Real Estate:</strong> [Previous major properties, sale prices/dates, implications for wealth accumulation patterns.]</p>
+
+    <h3>Business Interests and Income</h3>
+    
+    <p><strong>Current Business Equity:</strong> [Company name(s), ownership percentage, estimated valuation, liquidity status, role in business.]</p>
+    
+    <p><strong>Business Income:</strong> [Annual salary/draws, performance bonuses, dividend income, stock options.]</p>
+    
+    <p><strong>Startup/Growth Stage Ventures:</strong> [Pre-revenue or early-stage companies with ownership stakes, estimated timeline to profitability/exit, illiquidity factors.]</p>
+
+    <h3>Other Assets and Income Sources</h3>
+    
+    <p><strong>Investment Accounts:</strong> [Estimated retirement savings (401k/403b/IRA), taxable brokerage accounts, estimated allocation and value.]</p>
+    
+    <p><strong>Additional Income Streams:</strong> [Consulting, board honorariums, rental income, side ventures, spouse's income.]</p>
+    
+    <p><strong>Debt and Liabilities:</strong> [Mortgages, business loans, credit obligations. Monthly/annual obligations.]</p>
+
+    <h3>Lifestyle Indicators</h3>
+    
+    <p><strong>Spending Patterns:</strong> [Notable purchases, memberships, club affiliations, subscription services, travel frequency, vehicle type.]</p>
+    
+    <p><strong>Monthly/Annual Living Costs:</strong> [Housing, insurance, healthcare, discretionary spending estimates. Indicates liquid capacity.]</p>
+    
+    <p><strong>Overall Net Worth Assessment:</strong> [Conservative estimate of total assets minus liabilities. Note: heavily weighted toward [retirement/illiquid/real estate], limiting immediate liquid capacity.]</p>
+
+    <!-- SECTION 5: PHILANTHROPIC HISTORY, INTERESTS, AND GIVING CAPACITY -->
+    <h2>Philanthropic History, Interests, and Giving Capacity</h2>
+
+    <h3>Giving Vehicle(s)</h3>
+    
+    <p><strong>Primary Giving Method:</strong> [Direct personal giving, donor-advised fund (DAF), private foundation, corporate giving program, other.]</p>
+    
+    <p><strong>Tax Planning Strategy:</strong> [Evidence of tax-efficient giving, appreciated asset donations, strategic timing, advisor involvement.]</p>
+
+    <h3>Annual Giving Volume</h3>
+    
+    <p><strong>Documented Giving:</strong> [Public records of gifts, grant-making, donor wall appearances, news mentions. IRS Form 990 search results if applicable.]</p>
+    
+    <p><strong>Estimated Annual Volume:</strong> [Inferred giving based on available data, comparison to peer group, lifestyle analysis.]</p>
+
+    <h3>Documented Philanthropic Interests</h3>
+    
+    <p><strong>Primary Focus Areas:</strong> [Organizations supported, causes championed, geographic focus, population served.]</p>
+    
+    <p><strong>Giving Patterns:</strong> [Size of typical gifts, multi-year commitments, board service, campaign involvement.]</p>
+
+    <h3>Potential Additional Interests</h3>
+    
+    <p>[Based on professional background, lived experience, family values, and inferred values: what causes/organizations might resonate even without documented giving history?]</p>
+
+    <h3>Giving Philosophy and Approach</h3>
+    
+    <p><strong>Motivations:</strong> [Primary drivers: legacy, social impact, religious conviction, peer influence, tax benefits, professional alignment, gratitude for services received.]</p>
+    
+    <p><strong>Preferences:</strong> [Recognition (public vs. anonymous), involvement level (passive donor vs. engaged steward), giving timeline (immediate vs. planned).]</p>
+    
+    <p><strong>Values-Based Alignment:</strong> [What mission characteristics or organizational values would be most compelling to this prospect?]</p>
+
+    <h3>Giving Capacity Assessment</h3>
+    
+    <div class="callout">
+        <div class="label">Major Gift Capacity</div>
+        <div class="big">[Recommended Ask Range]</div>
+        <p class="notes"><strong>Single Gift:</strong> $[X-$Y] | <strong>5-Year Pledge:</strong> $[X-$Y] | <strong>Annual Capacity:</strong> [X-Y]% of household income</p>
+        <p class="notes" style="margin-top: 0.4em;"><strong>Basis:</strong> [Explain methodology: net worth analysis, income-to-capacity ratios, peer comparisons, historical giving patterns.]</p>
+    </div>
+
+    <!-- SECTION 6: ENGAGEMENT AND SOLICITATION STRATEGY -->
+    <h2>Engagement and Solicitation Strategy</h2>
+
+    <h3>Key Positioning Points</h3>
+    
+    <ul>
+        <li><strong>[Positioning Point 1]:</strong> [Brief description of how to position organization and ask in context of prospect's values, expertise, or interests.]</li>
+        <li><strong>[Positioning Point 2]:</strong> [How can we frame this opportunity as aligned with their professional mission or personal values?]</li>
+        <li><strong>[Positioning Point 3]:</strong> [What role could they play beyond financial contribution?]</li>
+    </ul>
+
+    <h3>Recommended Engagement Approach (Phases 1–3)</h3>
+    
+    <div class="subsection">
+        <p><strong>Phase 1: Discovery & Relationship Building (Months 1–3)</strong></p>
+        <ul>
+            <li><strong>Goal:</strong> Build authentic relationship, understand priorities, assess engagement interest</li>
+            <li><strong>Activities:</strong> Initial contact, exploratory meeting, site visit, informal relationship building</li>
+            <li><strong>Key Messages:</strong> [What should be communicated to build trust and relevance?]</li>
+            <li><strong>Ownership:</strong> [Who from organization should lead engagement]</li>
+        </ul>
+        <p style="margin-top: 0.6em;"><strong>Phase 2: Positioning & Pre-Ask (Months 4–6)</strong></p>
+        <ul>
+            <li><strong>Goal:</strong> Deepen commitment, introduce campaign/initiative, gauge readiness for solicitation</li>
+            <li><strong>Activities:</strong> Additional site visits, introduce board leadership, share strategic vision, test interest in leadership roles</li>
+            <li><strong>Key Messages:</strong> [How do we transition from relationship to opportunity?]</li>
+            <li><strong>Ownership:</strong> [Who should deliver key messages]</li>
+        </ul>
+        <p style="margin-top: 0.6em;"><strong>Phase 3: Solicitation & Commitment (Months 7–9)</strong></p>
+        <ul>
+            <li><strong>Goal:</strong> Secure leadership gift and/or strategic partnership</li>
+            <li><strong>Activities:</strong> Formal solicitation meeting, proposal presentation, pledge discussion, commitment agreement</li>
+            <li><strong>The Ask:</strong> [Specific solicitation language and structure. e.g., "$X over Y years + committee role"]</li>
+            <li><strong>Ownership:</strong> [ED + Board Chair or similar pairing]</li>
+        </ul>
+    </div>
+
+    <h3>Connection Points and Affinity</h3>
+    
+    <ul>
+        <li><strong>Lived Experience Alignment:</strong> [What personal or professional experiences create natural affinity with mission?]</li>
+        <li><strong>Network Access:</strong> [What secondary prospects or funding sources can this donor introduce or facilitate?]</li>
+        <li><strong>Expertise Leverage:</strong> [How can their professional skills serve the organization beyond financial gifts?]</li>
+        <li><strong>Peer Group Positioning:</strong> [Which other donors or thought leaders should this prospect engage with?]</li>
+    </ul>
+
+    <h3>Solicitation Guardrails (What NOT to Do)</h3>
+    
+    <ul>
+        <li><strong>❌ Avoid:</strong> [What should NOT be said or done in solicitation conversations?]</li>
+        <li><strong>❌ Avoid:</strong> [What misalignment with their values or preferences would damage relationship?]</li>
+        <li><strong>❌ Avoid:</strong> [What timing, channel, or approach would be ineffective or off-putting?]</li>
+        <li><strong>❌ Avoid:</strong> [What assumptions should we NOT make about giving motivations?]</li>
+    </ul>
+
+    <h3>Success Indicators & Red Flags</h3>
+    
+    <p><strong>Green Lights (Proceed with Solicitation):</strong></p>
+    <ul>
+        <li>[Indicator of genuine interest and readiness for ask]</li>
+        <li>[Indicator that prospect sees strategic value in partnership]</li>
+        <li>[Indicator of alignment and fit]</li>
+    </ul>
+
+    <p><strong>Red Flags (Pause or Recalibrate):</strong></p>
+    <ul>
+        <li>[Signal that prospect is not ready or misaligned]</li>
+        <li>[Sign that messaging or approach needs adjustment]</li>
+        <li>[Warning of potential relationship damage if solicitation proceeds]</li>
+    </ul>
+
+    <!-- SECTION 7: SUMMARY - MAJOR GIVING ASSESSMENT -->
+    <h2>Summary: Major Giving Assessment</h2>
+    
+    <div class="callout">
+        <p><strong>Prospect Grade:</strong> [A/B/C rating based on capacity + interest + alignment]</p>
+        <p><strong>Priority Level:</strong> [Immediate/High/Medium/Low Priority]</p>
+        <p><strong>Timeline to Solicitation:</strong> [Recommended timeframe]</p>
+        <p><strong>Expected ROI:</strong> [Personal gift + estimated network value or secondary prospect capacity]</p>
+        <p><strong>Strategic Value:</strong> [Why this prospect matters beyond immediate gift: board potential, network access, thought leadership, long-term partnership, planned giving opportunity, etc.]</p>
+    </div>
+
+    <!-- SECTION 8: SOURCES AND RESEARCH METHODOLOGY -->
+    <h2>Sources and Research Methodology</h2>
+    
+    <p><strong>Data Sources:</strong> [List databases, public records, news sources, interviews, website analysis used in research.]</p>
+    
+    <ul>
+        <li>Public records: [Real estate, business filings, Form 990, SEC documents, etc.]</li>
+        <li>Digital presence: [LinkedIn, company websites, news articles, social media]</li>
+        <li>Professional databases: [Wealth screening tools, philanthropic databases, industry resources]</li>
+        <li>Personal interviews: [Key relationships, referral sources]</li>
+        <li>Other sources: [Internal institutional knowledge, prior cultivation notes]</li>
+    </ul>
+    
+    <p><strong>Research Limitations:</strong> [What data gaps exist? What should be verified through direct conversation?]</p>
+
+    <!-- SECTION 9: CONCLUSION -->
+    <h2>Conclusion</h2>
+    
+    <p>[Synthesize key findings. Provide actionable next steps. Recommend primary contact and approach. Summarize why this prospect is/is not a priority opportunity and what conditions would upgrade priority level.]</p>
+
+    <!-- FOOTER -->
+    <div class="footer">
+        <p><strong>Report Prepared:</strong> [Date] | <strong>Research Completed By:</strong> [Name] | <strong>Last Updated:</strong> [Date]</p>
+        <p style="font-size: 9pt; margin-top: 0.5em; color: var(--color-muted);">This report contains confidential proprietary research intended for internal use by fundraising professionals. All estimates are based on available public information and professional analysis. Recommendations should be refined through direct conversation with prospect.</p>
+    </div>
+
+</body>
+</html>

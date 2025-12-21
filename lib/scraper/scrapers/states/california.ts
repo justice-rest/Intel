@@ -19,6 +19,7 @@
  * Bulk data: California offers bulk data for $100 (Master Unload files)
  */
 
+import type { Page, ElementHandle } from "puppeteer-core"
 import {
   STATE_REGISTRY_CONFIG,
   type ScrapedBusinessEntity,
@@ -30,9 +31,33 @@ import {
   humanType,
   humanDelay,
   withRetry,
-  closePage,
-  isPlaywrightAvailable,
+  isPuppeteerAvailable,
+  waitForNetworkIdle,
 } from "../../stealth-browser"
+
+/**
+ * Helper to get text content from element (Puppeteer API)
+ */
+async function getElementText(page: Page, element: ElementHandle): Promise<string | null> {
+  try {
+    const text = await page.evaluate((el) => el.textContent, element)
+    return text?.trim() || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Helper to get attribute from element (Puppeteer API)
+ */
+async function getElementAttribute(page: Page, element: ElementHandle, attr: string): Promise<string | null> {
+  try {
+    const value = await page.evaluate((el, a) => el.getAttribute(a), element, attr)
+    return value || null
+  } catch {
+    return null
+  }
+}
 
 const CONFIG = STATE_REGISTRY_CONFIG.california
 
@@ -90,8 +115,8 @@ export async function scrapeCaliforniaBusinesses(
 
   console.log(`[California Scraper] Searching ${searchType}:`, query)
 
-  // Check if Playwright is available
-  if (!(await isPlaywrightAvailable())) {
+  // Check if Puppeteer is available
+  if (!(await isPuppeteerAvailable())) {
     return {
       success: false,
       data: [],
@@ -100,17 +125,17 @@ export async function scrapeCaliforniaBusinesses(
       query,
       scrapedAt: new Date().toISOString(),
       duration: Date.now() - startTime,
-      error: "Playwright not installed. Run: npm install playwright-extra puppeteer-extra-plugin-stealth playwright",
+      error: "Puppeteer not installed. Run: npm install puppeteer-core @sparticuz/chromium",
     }
   }
 
   const browser = await getStealthBrowser()
-  const { page, context } = await createStealthPage(browser)
+  const { page, cleanup } = await createStealthPage(browser)
 
   try {
     // Navigate to search page
     await withRetry(async () => {
-      await page.goto(CONFIG.searchUrl, { waitUntil: "networkidle" })
+      await page.goto(CONFIG.searchUrl, { waitUntil: "networkidle2" })
     })
 
     await humanDelay()
@@ -174,7 +199,7 @@ export async function scrapeCaliforniaBusinesses(
     await page.waitForSelector(resultsSelectors.join(", "), { timeout: CA_RESULTS_TIMEOUT }).catch(() => null)
 
     // Extra wait for React to finish rendering
-    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => null)
+    await waitForNetworkIdle(page, { timeout: 5000 })
     await humanDelay()
 
     // Check for no results
@@ -208,27 +233,27 @@ export async function scrapeCaliforniaBusinesses(
 
         // Try entity-name class
         const nameEl = await item.$(".entity-name, td:first-child a, a[href*='business']")
-        name = nameEl ? await nameEl.textContent() : null
+        name = nameEl ? await getElementText(page, nameEl) : null
 
         // Try entity-number
         const numberEl = await item.$(".entity-number, td:nth-child(2), [class*='number']")
-        entityNumber = numberEl ? await numberEl.textContent() : null
+        entityNumber = numberEl ? await getElementText(page, numberEl) : null
 
         // Try status
         const statusEl = await item.$(".entity-status, td:nth-child(3), [class*='status']")
-        status = statusEl ? await statusEl.textContent() : null
+        status = statusEl ? await getElementText(page, statusEl) : null
 
         // Try formation date
         const dateEl = await item.$(".formation-date, td:nth-child(4), [class*='date']")
-        formationDate = dateEl ? await dateEl.textContent() : null
+        formationDate = dateEl ? await getElementText(page, dateEl) : null
 
         // Try entity type
         const typeEl = await item.$(".entity-type, td:nth-child(5), [class*='type']")
-        entityType = typeEl ? await typeEl.textContent() : null
+        entityType = typeEl ? await getElementText(page, typeEl) : null
 
         // Get link to details
         const linkEl = await item.$("a[href*='business']")
-        const href = linkEl ? await linkEl.getAttribute("href") : null
+        const href = linkEl ? await getElementAttribute(page, linkEl, "href") : null
 
         if (!name || !name.trim()) continue
 
@@ -284,6 +309,6 @@ export async function scrapeCaliforniaBusinesses(
       warnings: ["California's bizfile website is a React SPA and may require additional handling"],
     }
   } finally {
-    await closePage(context)
+    await cleanup()
   }
 }

@@ -19,7 +19,7 @@ import type { ScrapedBusinessEntity } from "../config"
 import { getRateLimiter } from "../services/rate-limiter"
 import { getCircuitBreaker } from "../services/circuit-breaker"
 import { fetchHtml, decodeHtmlEntities, extractWithSelector } from "./http-scraper"
-import { isPlaywrightAvailable, getStealthBrowser, createStealthPage, closePage, humanDelay } from "../stealth-browser"
+import { isPuppeteerAvailable, getStealthBrowser, createStealthPage, humanDelay } from "../stealth-browser"
 
 /**
  * Officer/Director extracted from detail page
@@ -235,18 +235,18 @@ async function extractDetailBrowser(
   selectors: DetailPageSelectors,
   stateCode: string
 ): Promise<EntityDetails> {
-  if (!(await isPlaywrightAvailable())) {
-    throw new Error("Playwright not available for browser-based detail scraping")
+  if (!(await isPuppeteerAvailable())) {
+    throw new Error("Puppeteer not available for browser-based detail scraping")
   }
 
   const rateLimiter = getRateLimiter()
   await rateLimiter.acquire(stateCode)
 
   const browser = await getStealthBrowser()
-  const { page, context } = await createStealthPage(browser)
+  const { page, cleanup } = await createStealthPage(browser)
 
   try {
-    await page.goto(url, { waitUntil: "networkidle" })
+    await page.goto(url, { waitUntil: "networkidle2" })
     await humanDelay()
 
     // Extract core info
@@ -337,7 +337,7 @@ async function extractDetailBrowser(
       scrapedAt: new Date().toISOString(),
     }
   } finally {
-    await closePage(context)
+    await cleanup()
   }
 }
 

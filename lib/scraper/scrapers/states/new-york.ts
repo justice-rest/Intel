@@ -19,6 +19,7 @@
  * For historical data, web scraping fallback may find more results but is less reliable.
  */
 
+import type { Page, ElementHandle } from "puppeteer-core"
 import {
   STATE_REGISTRY_CONFIG,
   type ScrapedBusinessEntity,
@@ -30,9 +31,20 @@ import {
   humanType,
   humanDelay,
   withRetry,
-  closePage,
-  isPlaywrightAvailable,
+  isPuppeteerAvailable,
 } from "../../stealth-browser"
+
+/**
+ * Helper to get text content from element (Puppeteer API)
+ */
+async function getElementText(page: Page, element: ElementHandle): Promise<string | null> {
+  try {
+    const text = await page.evaluate((el) => el.textContent, element)
+    return text?.trim() || null
+  } catch {
+    return null
+  }
+}
 
 const CONFIG = STATE_REGISTRY_CONFIG.newYork
 
@@ -189,8 +201,8 @@ export async function scrapeNewYorkWebsite(
 
   console.log("[New York Scraper] Web scraping:", query)
 
-  // Check if Playwright is available
-  if (!(await isPlaywrightAvailable())) {
+  // Check if Puppeteer is available
+  if (!(await isPuppeteerAvailable())) {
     return {
       success: false,
       data: [],
@@ -199,17 +211,17 @@ export async function scrapeNewYorkWebsite(
       query,
       scrapedAt: new Date().toISOString(),
       duration: Date.now() - startTime,
-      error: "Playwright not installed and Open Data API failed",
+      error: "Puppeteer not installed and Open Data API failed",
     }
   }
 
   const browser = await getStealthBrowser()
-  const { page, context } = await createStealthPage(browser)
+  const { page, cleanup } = await createStealthPage(browser)
 
   try {
     // Navigate to search page
     await withRetry(async () => {
-      await page.goto(CONFIG.searchUrl, { waitUntil: "networkidle" })
+      await page.goto(CONFIG.searchUrl, { waitUntil: "networkidle2" })
     })
 
     await humanDelay()
@@ -234,18 +246,18 @@ export async function scrapeNewYorkWebsite(
     for (const row of resultRows.slice(0, limit)) {
       try {
         const nameEl = await row.$(CONFIG.selectors.entityName)
-        const name = nameEl ? await nameEl.textContent() : null
+        const name = nameEl ? await getElementText(page, nameEl) : null
 
         if (!name) continue
 
         const dosIdEl = await row.$(CONFIG.selectors.dosId)
-        const dosId = dosIdEl ? await dosIdEl.textContent() : null
+        const dosId = dosIdEl ? await getElementText(page, dosIdEl) : null
 
         const statusEl = await row.$(CONFIG.selectors.status)
-        const status = statusEl ? await statusEl.textContent() : null
+        const status = statusEl ? await getElementText(page, statusEl) : null
 
         const jurisdictionEl = await row.$(CONFIG.selectors.jurisdiction)
-        const jurisdiction = jurisdictionEl ? await jurisdictionEl.textContent() : null
+        const jurisdiction = jurisdictionEl ? await getElementText(page, jurisdictionEl) : null
 
         businesses.push({
           name: name.trim(),
@@ -291,7 +303,7 @@ export async function scrapeNewYorkWebsite(
       error: errorMessage,
     }
   } finally {
-    await closePage(context)
+    await cleanup()
   }
 }
 

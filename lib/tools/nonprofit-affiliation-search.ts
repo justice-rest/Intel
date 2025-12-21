@@ -120,9 +120,93 @@ function formatEin(ein: string | number): string {
   return `${einStr.slice(0, 2)}-${einStr.slice(2)}`
 }
 
+// ============================================================================
+// ORGANIZATION EXTRACTION VALIDATION
+// ============================================================================
+
+/**
+ * Patterns that indicate a NEGATIVE statement about affiliation
+ * These should cause the match to be skipped
+ */
+const NEGATIVE_STATEMENT_PATTERNS = [
+  /\b(?:is not|isn't|was not|wasn't|has not|hasn't|has never|never|no longer|not a|not listed|not on|not the|not an?)\b/i,
+  /\b(?:denied|refuted|rejected|quit|resigned from|left|departed|stepped down|removed|fired)\b/i,
+  /\b(?:false|incorrect|wrong|untrue|disputed|unconfirmed|alleged|rumored)\b/i,
+  /\b(?:no (?:evidence|record|indication|connection|affiliation|relationship))\b/i,
+]
+
+/**
+ * Valid nonprofit organization suffixes
+ */
+const VALID_ORG_SUFFIXES = [
+  "foundation", "fund", "trust", "endowment", "institute", "initiative",
+  "organization", "association", "society", "alliance", "council", "center",
+  "centre", "charity", "charities", "relief", "aid", "mission", "ministry",
+  "church", "hospital", "university", "school", "library", "museum",
+]
+
+/**
+ * Patterns that indicate garbage text (not an organization name)
+ */
+const GARBAGE_INDICATORS = [
+  /^(the|a|an|he|she|they|it|is|was|has|have|had|will|would|can|could|this|that|any|some|no)\s/i,
+  /\b(listed|member|director|founder|executive|trustee|chair)\s*(of|at|as|on)?\s*$/i,
+  /[.!?;]/, // Sentences are not org names
+  /\b(not|never|isn't|wasn't|hasn't|doesn't|don't|didn't)\b/i,
+  /^\d/, // Starts with number
+  /\b(he|she|they|him|her|them|his|hers|their)\b/i, // Contains pronouns
+]
+
+/**
+ * Check if text around a match contains a negative statement
+ */
+function containsNegativeStatement(text: string, matchIndex: number): boolean {
+  // Look at 100 chars before the match for context
+  const start = Math.max(0, matchIndex - 100)
+  const end = Math.min(text.length, matchIndex + 30)
+  const context = text.substring(start, end)
+
+  return NEGATIVE_STATEMENT_PATTERNS.some(pattern => pattern.test(context))
+}
+
+/**
+ * Validate that extracted text is actually an organization name
+ */
+function isValidOrganizationName(text: string): boolean {
+  // Length check
+  if (text.length < 5 || text.length > 100) return false
+
+  // Must start with capital letter
+  if (!/^[A-Z]/.test(text)) return false
+
+  // Check for garbage indicators
+  if (GARBAGE_INDICATORS.some(pattern => pattern.test(text))) return false
+
+  // Should have at least 2 words for credibility (unless it's just "Foundation" etc)
+  const words = text.trim().split(/\s+/)
+  if (words.length < 2) {
+    // Single word is only valid if it's a known nonprofit term
+    return VALID_ORG_SUFFIXES.some(suffix => text.toLowerCase() === suffix)
+  }
+
+  return true
+}
+
+/**
+ * Check if text ends with a valid nonprofit suffix
+ */
+function hasValidNonprofitSuffix(text: string): boolean {
+  const lowerText = text.toLowerCase().trim()
+  return VALID_ORG_SUFFIXES.some(suffix => lowerText.endsWith(suffix))
+}
+
 /**
  * Extract organization names from Linkup search results
  * Uses pattern matching to find nonprofit/foundation mentions
+ *
+ * IMPORTANT: Validates extractions to avoid garbage like:
+ * - "He is not listed as a board member..."
+ * - "a specific nonprofit charity or foundation"
  */
 function extractOrganizationsFromText(text: string, personName: string): DiscoveredOrg[] {
   const orgs: DiscoveredOrg[] = []
@@ -142,62 +226,127 @@ function extractOrganizationsFromText(text: string, personName: string): Discove
     /([A-Z][a-zA-Z]+(?:\s+(?:&|and)\s+[A-Z][a-zA-Z]+)?\s+(?:Family\s+)?Foundation)/g,
   ]
 
-  // Role context patterns
+  // Role context patterns - IMPROVED: require nonprofit suffix in capture group
+  // This prevents capturing garbage like "He is not listed as a board member..."
   const rolePatterns = [
-    { pattern: /(?:founder|founded|established)\s+(?:of\s+)?(?:the\s+)?([^.,]+(?:Foundation|Fund|Trust|Endowment))/gi, role: "Founder" },
-    { pattern: /board\s+(?:member|director)\s+(?:of|at)\s+(?:the\s+)?([^.,]+)/gi, role: "Board Member" },
-    { pattern: /(?:chair|chairman|chairwoman|chairperson)\s+(?:of|at)\s+(?:the\s+)?([^.,]+)/gi, role: "Chair" },
-    { pattern: /(?:trustee)\s+(?:of|at)\s+(?:the\s+)?([^.,]+)/gi, role: "Trustee" },
-    { pattern: /(?:president|ceo|executive director)\s+(?:of|at)\s+(?:the\s+)?([^.,]+)/gi, role: "Executive" },
-    { pattern: /(?:donated|gave|contributed|pledged)\s+(?:\$[\d.,]+\s+(?:million|billion)?\s+)?(?:to\s+)?(?:the\s+)?([^.,]+)/gi, role: "Donor" },
+    {
+      pattern: /(?:founder|founded|established)\s+(?:of\s+)?(?:the\s+)?([A-Z][a-zA-Z\s&'-]{2,60}(?:Foundation|Fund|Trust|Endowment|Institute|Initiative))/gi,
+      role: "Founder",
+      requireSuffix: true,
+    },
+    {
+      pattern: /board\s+(?:member|director)\s+(?:of|at)\s+(?:the\s+)?([A-Z][a-zA-Z\s&'-]{2,60}(?:Foundation|Fund|Trust|Organization|Association|Institute|Center|Charity|Society))/gi,
+      role: "Board Member",
+      requireSuffix: true,
+    },
+    {
+      pattern: /(?:chair|chairman|chairwoman|chairperson)\s+(?:of|at)\s+(?:the\s+)?([A-Z][a-zA-Z\s&'-]{2,60}(?:Foundation|Fund|Trust|Organization|Association|Institute|Board))/gi,
+      role: "Chair",
+      requireSuffix: true,
+    },
+    {
+      pattern: /(?:trustee)\s+(?:of|at)\s+(?:the\s+)?([A-Z][a-zA-Z\s&'-]{2,60}(?:Foundation|Fund|Trust|Endowment))/gi,
+      role: "Trustee",
+      requireSuffix: true,
+    },
+    {
+      pattern: /(?:president|ceo|executive director)\s+(?:of|at)\s+(?:the\s+)?([A-Z][a-zA-Z\s&'-]{2,60}(?:Foundation|Fund|Trust|Organization|Association|Institute|Center|Charity))/gi,
+      role: "Executive",
+      requireSuffix: true,
+    },
+    {
+      pattern: /(?:donated|gave|contributed|pledged)\s+(?:\$[\d.,]+\s*(?:million|billion)?\s+)?(?:to\s+)?(?:the\s+)?([A-Z][a-zA-Z\s&'-]{2,60}(?:Foundation|Fund|Trust|Charity|Organization))/gi,
+      role: "Donor",
+      requireSuffix: true,
+    },
   ]
 
   // Extract role-based mentions first (higher confidence)
   for (const { pattern, role } of rolePatterns) {
     let match
+    // Reset regex state for each pattern
+    pattern.lastIndex = 0
+
     while ((match = pattern.exec(text)) !== null) {
+      const matchIndex = match.index
       const orgName = match[1].trim()
       const normalizedName = orgName.toLowerCase()
 
-      // Skip if too short, already seen, or doesn't look like an org
+      // Skip if too short or already seen
       if (orgName.length < 5 || seen.has(normalizedName)) continue
 
-      // Skip generic terms
-      if (/^(the|a|an|their|his|her|its|this|that)\s*$/i.test(orgName)) continue
-
-      // Higher confidence if it contains the person's name or common nonprofit terms
-      const hasPersonName = normalizedName.includes(personLastName) || normalizedName.includes(personFirstName)
-      const hasNonprofitTerm = /foundation|fund|trust|endowment|institute|charity|organization/i.test(orgName)
-
-      if (hasPersonName || hasNonprofitTerm) {
-        seen.add(normalizedName)
-        orgs.push({
-          name: orgName,
-          context: role,
-          confidence: hasPersonName ? "high" : "medium",
-        })
+      // CRITICAL: Check for negative statements in context
+      if (containsNegativeStatement(text, matchIndex)) {
+        console.log("[Nonprofit Extraction] Skipping negative statement context:", orgName.substring(0, 50))
+        continue
       }
+
+      // Validate the organization name
+      if (!isValidOrganizationName(orgName)) {
+        console.log("[Nonprofit Extraction] Invalid org name:", orgName.substring(0, 50))
+        continue
+      }
+
+      // Must have a valid nonprofit suffix
+      if (!hasValidNonprofitSuffix(orgName)) {
+        console.log("[Nonprofit Extraction] Missing nonprofit suffix:", orgName.substring(0, 50))
+        continue
+      }
+
+      // Higher confidence if it contains the person's name
+      const hasPersonName = normalizedName.includes(personLastName) || normalizedName.includes(personFirstName)
+
+      seen.add(normalizedName)
+      orgs.push({
+        name: orgName,
+        context: role,
+        confidence: hasPersonName ? "high" : "medium",
+      })
     }
   }
 
   // Then extract from generic patterns (lower confidence)
   for (const pattern of patterns) {
     let match
+    // Reset regex state
+    pattern.lastIndex = 0
+
     while ((match = pattern.exec(text)) !== null) {
+      const matchIndex = match.index
       const orgName = match[1].trim()
       const normalizedName = orgName.toLowerCase()
 
       if (orgName.length < 8 || seen.has(normalizedName)) continue
 
-      // Check if it's likely related to the person
-      const hasPersonName = normalizedName.includes(personLastName) || normalizedName.includes(personFirstName)
+      // CRITICAL: Check for negative statements in context
+      if (containsNegativeStatement(text, matchIndex)) {
+        continue
+      }
 
-      if (hasPersonName || /foundation|fund|trust|charity/i.test(orgName)) {
+      // Validate the organization name
+      if (!isValidOrganizationName(orgName)) {
+        continue
+      }
+
+      // Check if it's likely related to the person OR has nonprofit term
+      const hasPersonName = normalizedName.includes(personLastName) || normalizedName.includes(personFirstName)
+      const hasNonprofitSuffix = hasValidNonprofitSuffix(orgName)
+
+      // For generic patterns, require BOTH person name association AND valid suffix
+      // OR just a valid nonprofit suffix (but lower confidence)
+      if (hasPersonName && hasNonprofitSuffix) {
         seen.add(normalizedName)
         orgs.push({
           name: orgName,
           context: "Affiliated",
-          confidence: hasPersonName ? "high" : "low",
+          confidence: "high",
+        })
+      } else if (hasNonprofitSuffix) {
+        seen.add(normalizedName)
+        orgs.push({
+          name: orgName,
+          context: "Affiliated",
+          confidence: "low",
         })
       }
     }

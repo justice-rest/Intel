@@ -1,7 +1,12 @@
 /**
  * Response Verification Service
  *
- * Uses Perplexity Sonar to verify and enhance Grok responses
+ * Enterprise-grade Perplexity Sonar verification for Grok responses
+ * Optimized for nonprofit prospect research with:
+ * - Domain-specific fact-checking priorities
+ * - Structured claim extraction and verification
+ * - Source authority scoring
+ * - Audit trail preservation
  */
 
 import { generateText } from "ai"
@@ -14,6 +19,10 @@ import {
   VERIFICATION_MAX_TOKENS,
   VERIFICATION_TIMEOUT,
   MODELS_REQUIRING_VERIFICATION,
+  getSourceAuthority,
+  CONFIDENCE_THRESHOLDS,
+  type ClaimType,
+  type ClaimStatus,
 } from "./config"
 
 export interface VerificationRequest {
@@ -21,6 +30,20 @@ export interface VerificationRequest {
   userQuery: string
   chatContext?: string
   modelId: string
+  /** Optional: tools that were used to generate the response (for context) */
+  toolsUsed?: string[]
+}
+
+/**
+ * Individual claim with verification status
+ */
+export interface VerifiedClaim {
+  claim: string
+  type: ClaimType
+  status: ClaimStatus
+  source?: string
+  sourceAuthority?: number
+  note?: string
 }
 
 export interface VerificationResult {
@@ -29,39 +52,75 @@ export interface VerificationResult {
   corrections: string[]
   gapsFilled: string[]
   confidenceScore: number
+  /** Average authority score of sources used */
+  sourceAuthorityScore: number
+  /** Individual claims with verification status */
+  claims: VerifiedClaim[]
   sources?: string[]
   verificationTimestamp: string
+  /** Confidence badge for UI: "verified" | "partial" | "unverified" | "low" */
+  confidenceBadge: "verified" | "partial" | "unverified" | "low"
 }
 
-const VERIFICATION_SYSTEM_PROMPT = `You are a fact-checking and research verification assistant. Your job is to:
+/**
+ * Domain-specific system prompt for nonprofit prospect research verification
+ * Prioritizes financial claims and uses authoritative sources
+ */
+const VERIFICATION_SYSTEM_PROMPT = `You are a NONPROFIT PROSPECT RESEARCH fact-checker.
 
-1. VERIFY the factual accuracy of the provided response using web search
-2. CORRECT any factual errors you find
-3. FILL IN any important gaps or missing information
-4. MERGE your corrections and additions seamlessly into the original response
+CONTEXT: You are verifying responses about potential donors for nonprofit fundraising.
 
-IMPORTANT RULES:
-- Keep the original response structure and tone
-- Only modify what needs correction or enhancement
-- Add citations/sources for corrections using [Source: URL] format
-- If the original response is accurate and complete, return it unchanged
-- Focus on factual claims, not opinions or recommendations
-- Be concise and efficient
+YOUR VERIFICATION PRIORITIES (in order):
+1. FINANCIAL CLAIMS - Net worth, assets, giving capacity, stock holdings (CRITICAL - affects fundraising strategy)
+2. EMPLOYMENT/TITLES - Current roles, board positions, company affiliations
+3. PHILANTHROPIC HISTORY - Foundation affiliations, donation history, nonprofit board seats
+4. POLITICAL GIVING - FEC contributions, PAC donations
+5. BIOGRAPHICAL DATA - Education, family, career history
 
-OUTPUT FORMAT:
-Return a JSON object with this exact structure:
+AUTHORITATIVE SOURCES (prefer these - listed by authority):
+- SEC EDGAR (sec.gov) - Insider filings, proxy statements, 10-K/10-Q ✓ HIGHEST
+- FEC (fec.gov) - Political contributions ✓ HIGHEST
+- IRS / ProPublica Nonprofit Explorer - 990 filings ✓ HIGH
+- State business registries - Corporate filings ✓ HIGH
+- Wikidata - Structured biographical data ⚠ MEDIUM
+- LinkedIn, Forbes, Bloomberg - Professional context ⚠ MEDIUM
+- News/articles - Context only, verify elsewhere ⚠ LOW
+
+VERIFICATION PROCESS:
+1. Extract each FACTUAL CLAIM from the response (focus on numbers, titles, dates, organizations)
+2. For each claim, search for an authoritative source
+3. Mark claim as:
+   - ✓ VERIFIED - Found matching authoritative source
+   - ⚠ UNVERIFIED - No source found, but not contradicted
+   - ✗ INCORRECT - Contradicted by authoritative source
+   - 📅 OUTDATED - Was true but has changed
+4. Add NEW information from authoritative sources that fills important gaps
+5. Seamlessly merge corrections into the original response with [Source: URL] citations
+
+OUTPUT JSON (strict format):
 {
   "verified": true,
-  "mergedResponse": "The corrected and enhanced response text here",
-  "corrections": ["List of corrections made, or empty array if none"],
-  "gapsFilled": ["List of gaps filled with new information, or empty array if none"],
-  "confidenceScore": 0.95,
-  "sources": ["URLs used for verification, or empty array if none"]
+  "mergedResponse": "Enhanced response with inline [Source: URL] citations for any corrected or added facts",
+  "claims": [
+    {"claim": "Board member of Gates Foundation", "type": "employment", "status": "verified", "source": "https://sec.gov/..."},
+    {"claim": "Net worth $50M", "type": "financial", "status": "unverified", "source": null, "note": "No authoritative source found"}
+  ],
+  "corrections": ["Changed X to Y because authoritative source shows..."],
+  "gapsFilled": ["Added current employment from SEC DEF 14A filing..."],
+  "confidenceScore": 0.85,
+  "sources": ["https://sec.gov/...", "https://fec.gov/..."]
 }
 
-verified: true if the response is mostly accurate (even if minor corrections made)
-confidenceScore: 0.0-1.0 indicating overall accuracy confidence
-mergedResponse: The final corrected/enhanced response text`
+CRITICAL RULES:
+- NEVER fabricate sources - if you cannot verify, mark as "unverified"
+- For prospect research, UNVERIFIED financial claims should be flagged clearly
+- Prefer government/official sources (SEC, FEC, IRS) over news articles
+- Include date context: "As of 2024 10-K filing..." or "Per 2023 proxy statement..."
+- Keep original response tone and structure - only modify what needs correction
+- If response is already accurate and well-sourced, return it unchanged with high confidence
+
+Claim types: "financial" | "employment" | "philanthropic" | "biographical" | "political" | "legal"
+Claim status: "verified" | "unverified" | "incorrect" | "outdated"`
 
 /**
  * Check if verification should run for this response
@@ -90,14 +149,52 @@ export function shouldVerifyResponse(
 }
 
 /**
+ * Calculate confidence badge based on score
+ */
+function getConfidenceBadge(score: number): "verified" | "partial" | "unverified" | "low" {
+  if (score >= CONFIDENCE_THRESHOLDS.HIGH) return "verified"
+  if (score >= CONFIDENCE_THRESHOLDS.MEDIUM) return "partial"
+  if (score >= CONFIDENCE_THRESHOLDS.LOW) return "unverified"
+  return "low"
+}
+
+/**
+ * Calculate average source authority from claims and sources
+ */
+function calculateSourceAuthorityScore(
+  claims: VerifiedClaim[],
+  sources: string[]
+): number {
+  const scores: number[] = []
+
+  // Get scores from claims with sources
+  for (const claim of claims) {
+    if (claim.source && claim.status === "verified") {
+      const score = claim.sourceAuthority ?? getSourceAuthority(claim.source)
+      scores.push(score)
+    }
+  }
+
+  // Get scores from standalone sources
+  for (const source of sources) {
+    scores.push(getSourceAuthority(source))
+  }
+
+  if (scores.length === 0) return 0.3 // No sources = low authority
+  return scores.reduce((a, b) => a + b, 0) / scores.length
+}
+
+/**
  * Verify and enhance a response using Perplexity Sonar
+ * Enterprise-grade verification with claim extraction and source authority scoring
  */
 export async function verifyResponse(
   request: VerificationRequest,
   apiKey: string
 ): Promise<VerificationResult | null> {
   try {
-    console.log("[Verification] Starting verification for response...")
+    console.log("[Verification] Starting enterprise verification...")
+    console.log("[Verification] Query:", request.userQuery.substring(0, 100) + "...")
 
     // Validate API key
     if (!apiKey) {
@@ -117,13 +214,21 @@ export async function verifyResponse(
           ) + "\n\n[Response truncated for verification]"
         : request.originalResponse
 
-    const prompt = `USER QUERY:
+    // Build context-aware prompt
+    let prompt = `USER QUERY:
 ${request.userQuery}
 
 ORIGINAL RESPONSE TO VERIFY:
-${responseToVerify}
+${responseToVerify}`
 
-Please verify this response for factual accuracy, correct any errors, and fill in important gaps. Return your analysis as JSON.`
+    // Add tool context if available (helps verification understand data sources)
+    if (request.toolsUsed && request.toolsUsed.length > 0) {
+      prompt += `\n\nTOOLS USED TO GENERATE RESPONSE:
+${request.toolsUsed.join(", ")}
+(This context helps you understand which data sources were already queried)`
+    }
+
+    prompt += `\n\nPlease verify this response for factual accuracy using your web search capability. Extract key claims, verify each against authoritative sources, correct any errors, and fill in important gaps. Return your analysis as JSON.`
 
     // Create AbortController for timeout
     const abortController = new AbortController()
@@ -153,16 +258,13 @@ Please verify this response for factual accuracy, correct any errors, and fill i
     }
 
     try {
-      const result = JSON.parse(jsonMatch[0]) as Omit<
-        VerificationResult,
-        "verificationTimestamp"
-      >
+      const parsed = JSON.parse(jsonMatch[0])
 
       // Validate mergedResponse - must be non-empty and reasonable length
       if (
-        !result.mergedResponse ||
-        typeof result.mergedResponse !== "string" ||
-        result.mergedResponse.trim().length < 50
+        !parsed.mergedResponse ||
+        typeof parsed.mergedResponse !== "string" ||
+        parsed.mergedResponse.trim().length < 50
       ) {
         console.warn(
           "[Verification] Invalid mergedResponse - too short or missing"
@@ -170,32 +272,74 @@ Please verify this response for factual accuracy, correct any errors, and fill i
         return null
       }
 
-      // Validate confidenceScore
+      // Validate and normalize confidenceScore
       const confidenceScore =
-        typeof result.confidenceScore === "number" &&
-        result.confidenceScore >= 0 &&
-        result.confidenceScore <= 1
-          ? result.confidenceScore
+        typeof parsed.confidenceScore === "number" &&
+        parsed.confidenceScore >= 0 &&
+        parsed.confidenceScore <= 1
+          ? parsed.confidenceScore
           : 0.5
 
-      console.log("[Verification] Completed with confidence:", confidenceScore)
-      console.log(
-        "[Verification] Corrections:",
-        result.corrections?.length || 0
-      )
-      console.log("[Verification] Gaps filled:", result.gapsFilled?.length || 0)
+      // Parse and validate claims array
+      const claims: VerifiedClaim[] = []
+      if (Array.isArray(parsed.claims)) {
+        for (const claim of parsed.claims) {
+          if (claim && typeof claim.claim === "string") {
+            claims.push({
+              claim: claim.claim,
+              type: claim.type || "biographical",
+              status: claim.status || "unverified",
+              source: claim.source || undefined,
+              sourceAuthority: claim.source ? getSourceAuthority(claim.source) : undefined,
+              note: claim.note || undefined,
+            })
+          }
+        }
+      }
+
+      // Extract sources
+      const sources = Array.isArray(parsed.sources) ? parsed.sources : []
+
+      // Calculate source authority score
+      const sourceAuthorityScore = calculateSourceAuthorityScore(claims, sources)
+
+      // Adjust confidence based on source authority
+      // High authority sources increase confidence, low authority decreases it
+      const adjustedConfidence = Math.min(1, Math.max(0,
+        confidenceScore * 0.6 + sourceAuthorityScore * 0.4
+      ))
+
+      // Get confidence badge
+      const confidenceBadge = getConfidenceBadge(adjustedConfidence)
+
+      // Log verification summary
+      console.log("[Verification] Completed successfully:")
+      console.log(`  - Raw confidence: ${(confidenceScore * 100).toFixed(0)}%`)
+      console.log(`  - Source authority: ${(sourceAuthorityScore * 100).toFixed(0)}%`)
+      console.log(`  - Adjusted confidence: ${(adjustedConfidence * 100).toFixed(0)}%`)
+      console.log(`  - Badge: ${confidenceBadge}`)
+      console.log(`  - Claims extracted: ${claims.length}`)
+      console.log(`  - Verified claims: ${claims.filter(c => c.status === "verified").length}`)
+      console.log(`  - Unverified claims: ${claims.filter(c => c.status === "unverified").length}`)
+      console.log(`  - Incorrect claims: ${claims.filter(c => c.status === "incorrect").length}`)
+      console.log(`  - Corrections: ${parsed.corrections?.length || 0}`)
+      console.log(`  - Gaps filled: ${parsed.gapsFilled?.length || 0}`)
 
       return {
-        verified: result.verified !== false, // Default to true if not explicitly false
-        mergedResponse: result.mergedResponse,
-        corrections: Array.isArray(result.corrections) ? result.corrections : [],
-        gapsFilled: Array.isArray(result.gapsFilled) ? result.gapsFilled : [],
-        confidenceScore,
-        sources: Array.isArray(result.sources) ? result.sources : [],
+        verified: parsed.verified !== false,
+        mergedResponse: parsed.mergedResponse,
+        corrections: Array.isArray(parsed.corrections) ? parsed.corrections : [],
+        gapsFilled: Array.isArray(parsed.gapsFilled) ? parsed.gapsFilled : [],
+        confidenceScore: adjustedConfidence,
+        sourceAuthorityScore,
+        claims,
+        sources,
         verificationTimestamp: new Date().toISOString(),
+        confidenceBadge,
       }
     } catch (parseError) {
       console.error("[Verification] Failed to parse JSON response:", parseError)
+      console.error("[Verification] Raw response:", text.substring(0, 500))
       return null
     }
   } catch (error) {

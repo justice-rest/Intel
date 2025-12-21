@@ -17,6 +17,7 @@
  * - Entity details: https://search.sunbiz.org/Inquiry/CorporationSearch/SearchResultDetail?inquirytype=EntityName&...
  */
 
+import type { Page, ElementHandle } from "puppeteer-core"
 import {
   STATE_REGISTRY_CONFIG,
   type ScrapedBusinessEntity,
@@ -29,9 +30,33 @@ import {
   humanType,
   humanDelay,
   withRetry,
-  closePage,
-  isPlaywrightAvailable,
+  isPuppeteerAvailable,
+  waitForNetworkIdle,
 } from "../../stealth-browser"
+
+/**
+ * Helper to get text content from element (Puppeteer API)
+ */
+async function getElementText(page: Page, element: ElementHandle): Promise<string | null> {
+  try {
+    const text = await page.evaluate((el) => el.textContent, element)
+    return text?.trim() || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Helper to get attribute from element (Puppeteer API)
+ */
+async function getElementAttribute(page: Page, element: ElementHandle, attr: string): Promise<string | null> {
+  try {
+    const value = await page.evaluate((el, a) => el.getAttribute(a), element, attr)
+    return value || null
+  } catch {
+    return null
+  }
+}
 
 const CONFIG = STATE_REGISTRY_CONFIG.florida
 
@@ -276,7 +301,7 @@ export async function scrapeFloridaBusinesses(
   }
 
   // STRATEGY 2: Browser fallback
-  if (!(await isPlaywrightAvailable())) {
+  if (!(await isPuppeteerAvailable())) {
     return {
       success: false,
       data: [],
@@ -285,20 +310,20 @@ export async function scrapeFloridaBusinesses(
       query,
       scrapedAt: new Date().toISOString(),
       duration: Date.now() - startTime,
-      error: "HTTP fetch failed and Playwright not installed",
-      warnings: ["Install Playwright for browser fallback: npm install playwright-extra puppeteer-extra-plugin-stealth playwright"],
+      error: "HTTP fetch failed and Puppeteer not installed",
+      warnings: ["Install Puppeteer for browser fallback: npm install puppeteer-core @sparticuz/chromium"],
     }
   }
 
   const browser = await getStealthBrowser()
-  const { page, context } = await createStealthPage(browser)
+  const { page, cleanup } = await createStealthPage(browser)
 
   try {
     const searchUrl = searchType === "officer" ? CONFIG.officerSearchUrl : CONFIG.searchUrl
 
     // Navigate to search page
     await withRetry(async () => {
-      await page.goto(searchUrl, { waitUntil: "networkidle" })
+      await page.goto(searchUrl, { waitUntil: "networkidle2" })
     })
 
     await humanDelay()
@@ -324,22 +349,22 @@ export async function scrapeFloridaBusinesses(
       try {
         // Get name and link
         const nameEl = await row.$(CONFIG.selectors.entityName)
-        const name = nameEl ? await nameEl.textContent() : null
-        const href = nameEl ? await nameEl.getAttribute("href") : null
+        const name = nameEl ? await getElementText(page, nameEl) : null
+        const href = nameEl ? await getElementAttribute(page, nameEl, "href") : null
 
         if (!name) continue
 
         // Get document number
         const docNumEl = await row.$(CONFIG.selectors.documentNumber)
-        const documentNumber = docNumEl ? await docNumEl.textContent() : null
+        const documentNumber = docNumEl ? await getElementText(page, docNumEl) : null
 
         // Get status
         const statusEl = await row.$(CONFIG.selectors.status)
-        const status = statusEl ? await statusEl.textContent() : null
+        const status = statusEl ? await getElementText(page, statusEl) : null
 
         // Get filing date
         const dateEl = await row.$(CONFIG.selectors.filingDate)
-        const filingDate = dateEl ? await dateEl.textContent() : null
+        const filingDate = dateEl ? await getElementText(page, dateEl) : null
 
         businesses.push({
           name: name.trim(),
@@ -383,7 +408,7 @@ export async function scrapeFloridaBusinesses(
       error: errorMessage,
     }
   } finally {
-    await closePage(context)
+    await cleanup()
   }
 }
 
@@ -399,8 +424,8 @@ export async function scrapeFloridaByOfficer(
 
   console.log("[Florida Scraper] Searching by officer:", officerName)
 
-  // Check if Playwright is available
-  if (!(await isPlaywrightAvailable())) {
+  // Check if Puppeteer is available
+  if (!(await isPuppeteerAvailable())) {
     return {
       success: false,
       data: [],
@@ -409,17 +434,17 @@ export async function scrapeFloridaByOfficer(
       query: officerName,
       scrapedAt: new Date().toISOString(),
       duration: Date.now() - startTime,
-      error: "Playwright not installed",
+      error: "Puppeteer not installed",
     }
   }
 
   const browser = await getStealthBrowser()
-  const { page, context } = await createStealthPage(browser)
+  const { page, cleanup } = await createStealthPage(browser)
 
   try {
     // Navigate to officer search page
     await withRetry(async () => {
-      await page.goto(CONFIG.officerSearchUrl!, { waitUntil: "networkidle" })
+      await page.goto(CONFIG.officerSearchUrl!, { waitUntil: "networkidle2" })
     })
 
     await humanDelay()
@@ -452,13 +477,13 @@ export async function scrapeFloridaByOfficer(
         if (cells.length < 3) continue
 
         const nameEl = await cells[0].$("a")
-        const companyName = nameEl ? await nameEl.textContent() : null
-        const href = nameEl ? await nameEl.getAttribute("href") : null
+        const companyName = nameEl ? await getElementText(page, nameEl) : null
+        const href = nameEl ? await getElementAttribute(page, nameEl, "href") : null
 
         if (!companyName) continue
 
-        const docNumber = await cells[1].textContent()
-        const status = await cells[2].textContent()
+        const docNumber = await getElementText(page, cells[1])
+        const status = await getElementText(page, cells[2])
 
         officers.push({
           name: officerName, // The searched name
@@ -502,6 +527,6 @@ export async function scrapeFloridaByOfficer(
       error: errorMessage,
     }
   } finally {
-    await closePage(context)
+    await cleanup()
   }
 }

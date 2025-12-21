@@ -1,62 +1,59 @@
 /**
- * Business Registry Scraper Tool
+ * Business Registry Search Tool
  *
- * AI tool for searching business registries using web scraping.
- * Uses playwright-extra with stealth plugin to bypass bot detection.
+ * AI tool for searching business registries using the BEST available source.
+ *
+ * Priority order:
+ * 1. State Open Data APIs (FREE, reliable)
+ *    - Colorado: data.colorado.gov
+ *    - New York: data.ny.gov
+ * 2. OpenCorporates API (comprehensive, FREE for nonprofits)
+ *    - All 50 US states + 140+ international jurisdictions
+ * 3. Web scraping (fallback)
+ *    - Florida, California (fallback only)
  *
  * Features:
- * - State Secretary of State registries:
- *   - Florida (Sunbiz) - Most reliable
- *   - New York (DOS) - Uses Open Data API (FREE)
- *   - California (bizfile)
- *   - Delaware (ICIS) - Has CAPTCHA warning
- *   - Colorado (Open Data API)
- *
- * UI Integration:
- * - Returns sources array in Linkup-compatible format for SourcesList component
- * - Provides rawContent for AI consumption
- * - Includes answer field for synthesized results
+ * - Automatic source selection based on availability
+ * - Company name search
+ * - Officer/director search (find person's business affiliations)
+ * - Returns sources array for SourcesList UI component
  */
 
 import { tool } from "ai"
 import { z } from "zod"
 import {
-  scrapeBusinessRegistry,
+  searchBusinesses,
+  searchByOfficer,
+  getDataSourcesStatus,
+  getReliableStates,
   type ScrapedBusinessEntity,
-  type ScrapedOfficer,
-  type ScraperSource,
-  isScrapingEnabled,
-  isPlaywrightAvailable,
 } from "@/lib/scraper"
 
 // ============================================================================
-// TYPES (matching Linkup format for UI compatibility)
+// TYPES
 // ============================================================================
 
-interface ScraperToolSource {
+interface ToolSource {
   name: string
   url: string
   snippet: string
 }
 
 export interface BusinessRegistrySearchResult {
-  // Main answer text (for AI and streaming)
   answer: string
-  // Sources for SourcesList UI component (Linkup-compatible format)
-  sources: ScraperToolSource[]
-  // Original query
+  sources: ToolSource[]
   query: string
-  // Search type
   searchType: "company" | "officer"
-  // Detailed results for AI
-  results: Array<ScrapedBusinessEntity | ScrapedOfficer>
-  // Source metadata
-  sourcesSearched: ScraperSource[]
-  sourcesSuccessful: ScraperSource[]
-  sourcesFailed: ScraperSource[]
-  // Stats
+  results: ScrapedBusinessEntity[]
+  sourcesUsed: Array<{
+    state: string
+    source: string
+    success: boolean
+    count: number
+    error?: string
+  }>
   totalFound: number
-  // Error info
+  duration: number
   error?: string
   warnings?: string[]
 }
@@ -70,7 +67,7 @@ const businessRegistrySearchSchema = z.object({
     .string()
     .describe(
       "Company name OR person name to search. " +
-      "For companies: Use full legal name (e.g., 'Apple Inc', 'Blackstone Group LP'). " +
+      "For companies: Use full legal name (e.g., 'Apple Inc', 'Blackstone Group'). " +
       "For officers: Use 'First Last' format (e.g., 'Tim Cook', 'John Smith')."
     ),
   searchType: z
@@ -78,29 +75,21 @@ const businessRegistrySearchSchema = z.object({
     .optional()
     .default("company")
     .describe(
-      "Search type: 'company' finds business entities, 'officer' finds person's corporate positions. " +
-      "Use 'officer' to discover someone's business affiliations and board seats."
+      "Search type: 'company' finds business entities, 'officer' finds person's corporate positions."
     ),
-  sources: z
-    .array(z.enum(["florida", "newYork", "california", "delaware", "colorado"]))
+  states: z
+    .array(z.string())
     .optional()
     .describe(
-      "Specific registries to search. Default: newYork + florida + delaware. " +
-      "Add 'delaware' for Fortune 500 companies (65% are registered there). " +
-      "Add 'california' for tech companies. Add 'colorado' for additional coverage."
-    ),
-  jurisdiction: z
-    .string()
-    .optional()
-    .describe(
-      "Limit to specific state: 'us_de' (Delaware), 'us_fl' (Florida), 'us_ny' (New York), " +
-      "'us_ca' (California). Leave empty to search all."
+      "Specific US states to search (e.g., ['CA', 'DE', 'NY']). " +
+      "Leave empty to search all available sources. " +
+      "Add 'DE' for Fortune 500 companies (65% are registered there)."
     ),
   limit: z
     .number()
     .optional()
-    .default(15)
-    .describe("Maximum results per source (default: 15, max: 30)"),
+    .default(20)
+    .describe("Maximum results to return (default: 20, max: 50)"),
 })
 
 // ============================================================================
@@ -108,9 +97,9 @@ const businessRegistrySearchSchema = z.object({
 // ============================================================================
 
 /**
- * Convert scraped business to source format for UI
+ * Convert business entity to source for UI
  */
-function businessToSource(business: ScrapedBusinessEntity): ScraperToolSource {
+function businessToSource(business: ScrapedBusinessEntity): ToolSource {
   const statusText = business.status
     ? `${business.status}${business.incorporationDate ? ` since ${business.incorporationDate}` : ""}`
     : business.incorporationDate
@@ -118,62 +107,65 @@ function businessToSource(business: ScrapedBusinessEntity): ScraperToolSource {
       : "Status unknown"
 
   return {
-    name: `${business.name} (${business.jurisdiction.toUpperCase()})`,
+    name: `${business.name} (${business.jurisdiction.toUpperCase().replace("US_", "")})`,
     url: business.sourceUrl,
-    snippet: `${statusText}. ${business.entityType || "Business entity"}${business.registeredAddress ? ` at ${business.registeredAddress}` : ""}`,
+    snippet: `${statusText}. ${business.entityType || "Business entity"}${business.registeredAddress ? ` • ${business.registeredAddress}` : ""}`,
   }
 }
 
 /**
- * Convert scraped officer to source format for UI
- */
-function officerToSource(officer: ScrapedOfficer): ScraperToolSource {
-  const statusText = officer.current ? "Current" : "Former"
-  const dateText = officer.startDate ? ` (since ${officer.startDate})` : ""
-
-  return {
-    name: `${officer.companyName} - ${officer.position}`,
-    url: officer.sourceUrl,
-    snippet: `${statusText} ${officer.position} at ${officer.companyName}${dateText}. Jurisdiction: ${officer.jurisdiction.toUpperCase()}`,
-  }
-}
-
-/**
- * Format company results for AI
+ * Format company search answer for AI
  */
 function formatCompanyAnswer(
   query: string,
   results: ScrapedBusinessEntity[],
-  sources: { searched: ScraperSource[]; successful: ScraperSource[]; failed: ScraperSource[] }
+  sourcesUsed: Array<{ state: string; source: string; success: boolean; count: number; error?: string }>
 ): string {
+  const successfulSources = sourcesUsed.filter((s) => s.success)
+  const failedSources = sourcesUsed.filter((s) => !s.success)
+
   if (results.length === 0) {
-    return `No companies found matching "${query}" in ${sources.searched.join(", ")}.\n\n` +
-      "**Suggestions:**\n" +
-      "- Try different search terms or spelling variations\n" +
-      "- Search additional states (add 'delaware' or 'california')\n" +
-      "- Use searchWeb tool for broader results"
+    const lines: string[] = []
+    lines.push(`## No Results Found for "${query}"\n`)
+
+    if (failedSources.length > 0) {
+      lines.push("**Sources checked:**")
+      failedSources.forEach((s) => {
+        lines.push(`- ${s.state}: ${s.error || "No results"}`)
+      })
+      lines.push("")
+    }
+
+    lines.push("**Suggestions:**")
+    lines.push("- Try different search terms or spelling variations")
+    lines.push("- Only CO, NY, FL state registries are supported (free APIs)")
+    lines.push("- Use `searchWeb` tool for broader web search results")
+
+    return lines.join("\n")
   }
 
   const lines: string[] = []
   lines.push(`## Business Registry Results for "${query}"\n`)
-  lines.push(`**Sources:** ${sources.successful.length > 0 ? sources.successful.join(", ") : "None successful"}`)
+  lines.push(`**Sources:** ${successfulSources.map((s) => s.source).join(", ")}`)
   lines.push(`**Total Found:** ${results.length} companies\n`)
 
   // Group by status
   const active = results.filter((b) =>
     b.status?.toLowerCase().includes("active") ||
+    b.status?.toLowerCase().includes("good standing") ||
     !b.status?.toLowerCase().includes("inactive")
   )
   const inactive = results.filter((b) =>
     b.status?.toLowerCase().includes("inactive") ||
-    b.status?.toLowerCase().includes("dissolved")
+    b.status?.toLowerCase().includes("dissolved") ||
+    b.status?.toLowerCase().includes("delinquent")
   )
 
   if (active.length > 0) {
     lines.push("### Active Companies\n")
     active.slice(0, 10).forEach((b, i) => {
       lines.push(`${i + 1}. **${b.name}**`)
-      lines.push(`   - Jurisdiction: ${b.jurisdiction.toUpperCase()}`)
+      lines.push(`   - Jurisdiction: ${b.jurisdiction.toUpperCase().replace("US_", "")}`)
       if (b.entityNumber) lines.push(`   - Entity #: ${b.entityNumber}`)
       if (b.status) lines.push(`   - Status: ${b.status}`)
       if (b.incorporationDate) lines.push(`   - Formed: ${b.incorporationDate}`)
@@ -181,7 +173,7 @@ function formatCompanyAnswer(
       if (b.registeredAddress) lines.push(`   - Address: ${b.registeredAddress}`)
       if (b.registeredAgent) lines.push(`   - Agent: ${b.registeredAgent}`)
       if (b.officers && b.officers.length > 0) {
-        lines.push(`   - Officers: ${b.officers.map((o) => `${o.name} (${o.position})`).join(", ")}`)
+        lines.push(`   - Officers: ${b.officers.slice(0, 3).map((o) => `${o.name} (${o.position})`).join(", ")}${b.officers.length > 3 ? ` +${b.officers.length - 3} more` : ""}`)
       }
       lines.push("")
     })
@@ -191,15 +183,24 @@ function formatCompanyAnswer(
     lines.push("### Inactive/Dissolved Companies\n")
     inactive.slice(0, 5).forEach((b, i) => {
       lines.push(`${i + 1}. **${b.name}** - ${b.status || "Inactive"}`)
-      lines.push(`   - Jurisdiction: ${b.jurisdiction.toUpperCase()}`)
+      lines.push(`   - Jurisdiction: ${b.jurisdiction.toUpperCase().replace("US_", "")}`)
       if (b.incorporationDate) lines.push(`   - Formed: ${b.incorporationDate}`)
       lines.push("")
     })
   }
 
-  // Prospect research insights
+  // Add source status
+  if (failedSources.length > 0) {
+    lines.push("### Sources with Issues\n")
+    failedSources.forEach((s) => {
+      lines.push(`- ${s.state}: ${s.error}`)
+    })
+    lines.push("")
+  }
+
+  // Wealth indicators
   lines.push("### Wealth Indicators\n")
-  const jurisdictions = new Set(results.map((b) => b.jurisdiction))
+  const jurisdictions = new Set(results.map((b) => b.jurisdiction.toLowerCase()))
 
   if (active.length >= 5) {
     lines.push("- **HIGH** - Multiple active business registrations suggest significant entrepreneurial activity")
@@ -212,101 +213,58 @@ function formatCompanyAnswer(
   if (jurisdictions.has("us_de")) {
     lines.push("- Delaware registration suggests sophisticated legal/tax planning")
   }
-  if (jurisdictions.has("us_nv")) {
-    lines.push("- Nevada registration may indicate privacy preferences")
-  }
 
   return lines.join("\n")
 }
 
 /**
- * Format officer results for AI
+ * Format officer search answer for AI
  */
 function formatOfficerAnswer(
   query: string,
-  results: ScrapedOfficer[],
-  sources: { searched: ScraperSource[]; successful: ScraperSource[]; failed: ScraperSource[] }
+  results: ScrapedBusinessEntity[],
+  sourcesUsed: Array<{ state: string; source: string; success: boolean; count: number; error?: string }>
 ): string {
+  const successfulSources = sourcesUsed.filter((s) => s.success)
+
   if (results.length === 0) {
-    return `No officer/director positions found for "${query}" in ${sources.searched.join(", ")}.\n\n` +
-      "**Suggestions:**\n" +
-      "- Try full name variations (with/without middle name)\n" +
-      "- Use sec_insider_search for public company positions\n" +
-      "- Use searchWeb for broader results"
+    const lines: string[] = []
+    lines.push(`## No Officer Positions Found for "${query}"\n`)
+    lines.push("**Suggestions:**")
+    lines.push("- Try full name variations (with/without middle name)")
+    lines.push("- Use `sec_insider_search` for public company officer positions")
+    lines.push("- Only Colorado agent search is available (CO Open Data API)")
+    lines.push("- Use `searchWeb` for broader web search results")
+    return lines.join("\n")
   }
 
   const lines: string[] = []
   lines.push(`## Corporate Positions for "${query}"\n`)
-  lines.push(`**Sources:** ${sources.successful.length > 0 ? sources.successful.join(", ") : "None successful"}`)
-  lines.push(`**Total Positions Found:** ${results.length}\n`)
+  lines.push(`**Sources:** ${successfulSources.map((s) => s.source).join(", ")}`)
+  lines.push(`**Companies Found:** ${results.length}\n`)
 
-  // Group by current/former
-  const current = results.filter((o) => o.current)
-  const former = results.filter((o) => !o.current)
-
-  // Group current by company
-  const currentByCompany = new Map<string, ScrapedOfficer[]>()
-  current.forEach((o) => {
-    const key = o.companyName
-    if (!currentByCompany.has(key)) currentByCompany.set(key, [])
-    currentByCompany.get(key)!.push(o)
+  // List companies with officer info
+  results.slice(0, 15).forEach((b, i) => {
+    lines.push(`${i + 1}. **${b.name}** (${b.jurisdiction.toUpperCase().replace("US_", "")})`)
+    if (b.status) lines.push(`   - Status: ${b.status}`)
+    if (b.officers && b.officers.length > 0) {
+      b.officers.forEach((o) => {
+        lines.push(`   - ${o.position}${o.startDate ? ` (since ${o.startDate})` : ""}`)
+      })
+    }
+    lines.push("")
   })
 
-  if (currentByCompany.size > 0) {
-    lines.push("### Current Positions\n")
-    let i = 1
-    for (const [company, positions] of currentByCompany) {
-      lines.push(`${i}. **${company}** (${positions[0].jurisdiction.toUpperCase()})`)
-      positions.forEach((p) => {
-        lines.push(`   - ${p.position}${p.startDate ? ` since ${p.startDate}` : ""}`)
-      })
-      lines.push("")
-      i++
-      if (i > 10) break
-    }
-  }
-
-  if (former.length > 0 && current.length < 5) {
-    lines.push("### Former Positions\n")
-    const formerByCompany = new Map<string, ScrapedOfficer[]>()
-    former.forEach((o) => {
-      const key = o.companyName
-      if (!formerByCompany.has(key)) formerByCompany.set(key, [])
-      formerByCompany.get(key)!.push(o)
-    })
-
-    let i = 1
-    for (const [company, positions] of formerByCompany) {
-      lines.push(`${i}. **${company}** - ${positions.map((p) => p.position).join(", ")}`)
-      lines.push("")
-      i++
-      if (i > 5) break
-    }
-  }
-
-  // Prospect research insights
+  // Wealth indicators
   lines.push("### Wealth Indicators\n")
-  const uniqueCompanies = new Set(results.map((o) => o.companyName))
+  const uniqueCompanies = results.length
 
-  if (current.length >= 5) {
-    lines.push("- **HIGH** - Multiple current corporate leadership positions indicate significant influence and likely wealth")
-  } else if (current.length >= 2) {
-    lines.push("- **MODERATE** - Multiple active positions suggest established business leader")
-  } else if (current.length === 1) {
-    lines.push("- **POTENTIAL** - One current corporate position found")
-  }
-
-  if (uniqueCompanies.size >= 5) {
-    lines.push(`- Portfolio includes ${uniqueCompanies.size}+ companies (current and former)`)
-  }
-
-  // Look for director vs officer roles
-  const directorRoles = results.filter((o) =>
-    o.position.toLowerCase().includes("director") ||
-    o.position.toLowerCase().includes("board")
-  )
-  if (directorRoles.length >= 2) {
-    lines.push("- Multiple board/director positions suggest high-level executive profile")
+  if (uniqueCompanies >= 5) {
+    lines.push("- **HIGH** - Multiple corporate affiliations suggest significant business involvement")
+  } else if (uniqueCompanies >= 2) {
+    lines.push("- **MODERATE** - Multiple business relationships found")
+  } else if (uniqueCompanies === 1) {
+    lines.push("- **POTENTIAL** - One business affiliation found")
   }
 
   return lines.join("\n")
@@ -319,20 +277,21 @@ function formatOfficerAnswer(
 export const businessRegistryScraperTool = tool({
   description:
     "Search business registries for company ownership and corporate officer positions. " +
-    "Uses State Secretary of State databases (FL, NY, CA, DE, CO). " +
-    "**RECOMMENDED:** NY Open Data API (FREE, reliable) and Florida Sunbiz (most accessible). " +
-    "**COMPANY SEARCH:** Find business entities, registration status, incorporation dates, officers. " +
-    "**OFFICER SEARCH:** Find a person's corporate positions, board seats, business affiliations. " +
-    "Returns results from multiple registries in parallel. Delaware hosts 65% of Fortune 500 companies.",
+    "**BEST SOURCES (in order):** " +
+    "1) Colorado & New York Open Data APIs (FREE, reliable). " +
+    "2) OpenCorporates API - all 50 US states (FREE for nonprofits). " +
+    "3) Web scraping for FL, CA, DE (fallback). " +
+    "**COMPANY SEARCH:** Find business entities, registration status, officers. " +
+    "**OFFICER SEARCH:** Find a person's corporate positions and affiliations. " +
+    "Delaware hosts 65% of Fortune 500 companies.",
   parameters: businessRegistrySearchSchema,
   execute: async ({
     query,
     searchType = "company",
-    sources,
-    jurisdiction,
-    limit = 15,
+    states,
+    limit = 20,
   }): Promise<BusinessRegistrySearchResult> => {
-    console.log("[Business Registry Scraper] Starting search:", { query, searchType, sources, jurisdiction })
+    console.log("[Business Registry] Starting search:", { query, searchType, states })
     const startTime = Date.now()
 
     // Validate query
@@ -343,175 +302,82 @@ export const businessRegistryScraperTool = tool({
         query,
         searchType,
         results: [],
-        sourcesSearched: [],
-        sourcesSuccessful: [],
-        sourcesFailed: [],
+        sourcesUsed: [],
         totalFound: 0,
+        duration: Date.now() - startTime,
         error: "Invalid query",
       }
     }
 
-    // Check Playwright availability
-    const playwrightAvailable = await isPlaywrightAvailable()
+    try {
+      let result: Awaited<ReturnType<typeof searchBusinesses>>
 
-    if (!playwrightAvailable) {
-      const manualLinks = [
+      if (searchType === "officer") {
+        result = await searchByOfficer(query, {
+          states,
+          limit: Math.min(limit, 50),
+        })
+      } else {
+        result = await searchBusinesses(query, {
+          states,
+          limit: Math.min(limit, 50),
+        })
+      }
+
+      // Convert results to UI sources
+      const uiSources = result.results.slice(0, 20).map(businessToSource)
+
+      // Generate answer
+      const answer = searchType === "officer"
+        ? formatOfficerAnswer(query, result.results, result.sources)
+        : formatCompanyAnswer(query, result.results, result.sources)
+
+      // Collect warnings
+      const warnings: string[] = []
+      const failedSources = result.sources.filter((s) => !s.success && s.error)
+      if (failedSources.length > 0) {
+        failedSources.forEach((s) => {
+          if (s.error && !s.error.includes("API key not configured")) {
+            warnings.push(`${s.state}: ${s.error}`)
+          }
+        })
+      }
+
+      console.log(`[Business Registry] Completed in ${result.duration}ms. Found ${result.totalFound} results.`)
+
+      return {
+        answer,
+        sources: uiSources,
+        query,
+        searchType,
+        results: result.results,
+        sourcesUsed: result.sources,
+        totalFound: result.totalFound,
+        duration: result.duration,
+        warnings: warnings.length > 0 ? warnings : undefined,
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error("[Business Registry] Error:", errorMessage)
+
+      // Provide manual search links as fallback
+      const manualLinks: ToolSource[] = [
         { name: "Florida Sunbiz", url: "https://search.sunbiz.org/Inquiry/CorporationSearch/ByName", snippet: "Florida Division of Corporations" },
         { name: "New York DOS", url: "https://apps.dos.ny.gov/publicInquiry/", snippet: "New York Department of State" },
+        { name: "Delaware ICIS", url: "https://icis.corp.delaware.gov/ecorp/entitysearch/namesearch.aspx", snippet: "Delaware (65% of Fortune 500)" },
         { name: "California bizfile", url: "https://bizfileonline.sos.ca.gov/search/business", snippet: "California Secretary of State" },
-        { name: "Delaware ICIS", url: "https://icis.corp.delaware.gov/ecorp/entitysearch/namesearch.aspx", snippet: "Delaware Division of Corporations (65% of Fortune 500)" },
         { name: "Colorado SOS", url: "https://www.sos.state.co.us/biz/BusinessEntityCriteriaExt.do", snippet: "Colorado Secretary of State" },
       ]
 
       return {
-        answer: `## Playwright Not Installed\n\nWeb scraping requires Playwright. Install with:\n\`\`\`bash\nnpm install playwright-extra puppeteer-extra-plugin-stealth playwright\n\`\`\`\n\n**Manual Search Links:**\nUse the sources below to search manually.`,
+        answer: `## Search Error\n\n${errorMessage}\n\n**Manual Search:**\nUse the sources below to search directly.`,
         sources: manualLinks,
         query,
         searchType,
         results: [],
-        sourcesSearched: [],
-        sourcesSuccessful: [],
-        sourcesFailed: [],
+        sourcesUsed: [],
         totalFound: 0,
-        error: "Playwright not installed",
-      }
-    }
-
-    // Check if scraping is enabled
-    if (!isScrapingEnabled()) {
-      return {
-        answer: "Web scraping is disabled. Set `ENABLE_WEB_SCRAPING=true` in environment to enable.",
-        sources: [
-          { name: "Florida Sunbiz", url: "https://search.sunbiz.org/Inquiry/CorporationSearch/ByName", snippet: "Manual search available" },
-          { name: "New York DOS", url: "https://apps.dos.ny.gov/publicInquiry/", snippet: "Manual search available" },
-        ],
-        query,
-        searchType,
-        results: [],
-        sourcesSearched: [],
-        sourcesSuccessful: [],
-        sourcesFailed: [],
-        totalFound: 0,
-        error: "Scraping disabled",
-      }
-    }
-
-    try {
-      // Determine sources to search
-      // Prioritize NY Open Data (FREE API) and Florida (most scrape-friendly)
-      let sourcesToSearch: ScraperSource[] = sources || ["newYork", "florida", "delaware"]
-
-      // Add Delaware if searching for large corporations or if specified
-      if (!sources && query.toLowerCase().includes("inc") || query.toLowerCase().includes("corp")) {
-        if (!sourcesToSearch.includes("delaware")) {
-          sourcesToSearch.push("delaware")
-        }
-      }
-
-      // Filter by jurisdiction if specified
-      if (jurisdiction) {
-        const stateMap: Record<string, ScraperSource> = {
-          us_fl: "florida",
-          us_ny: "newYork",
-          us_ca: "california",
-          us_de: "delaware",
-        }
-        const matchedState = stateMap[jurisdiction.toLowerCase()]
-        if (matchedState) {
-          sourcesToSearch = sourcesToSearch.includes(matchedState)
-            ? [matchedState]
-            : [matchedState, ...sourcesToSearch.filter((s) => s !== matchedState)]
-        }
-      }
-
-      console.log("[Business Registry Scraper] Searching sources:", sourcesToSearch)
-
-      // Run scraper
-      const { results, totalFound, successful, failed } = await scrapeBusinessRegistry(query, {
-        sources: sourcesToSearch,
-        searchType,
-        limit: Math.min(limit, 30),
-        parallel: true,
-      })
-
-      // Collect all results and warnings
-      const allResults: Array<ScrapedBusinessEntity | ScrapedOfficer> = []
-      const allWarnings: string[] = []
-      const allSources: ScraperToolSource[] = []
-
-      for (const [source, result] of results) {
-        if (result.success && result.data.length > 0) {
-          allResults.push(...result.data)
-
-          // Convert results to sources for UI
-          result.data.forEach((item) => {
-            if (searchType === "company") {
-              allSources.push(businessToSource(item as ScrapedBusinessEntity))
-            } else {
-              allSources.push(officerToSource(item as ScrapedOfficer))
-            }
-          })
-        }
-
-        if (result.warnings) {
-          allWarnings.push(...result.warnings.map((w) => `${source}: ${w}`))
-        }
-        if (result.error && !result.success) {
-          allWarnings.push(`${source}: ${result.error}`)
-        }
-      }
-
-      // Dedupe sources by URL
-      const seenUrls = new Set<string>()
-      const dedupedSources = allSources.filter((s) => {
-        if (seenUrls.has(s.url)) return false
-        seenUrls.add(s.url)
-        return true
-      }).slice(0, 20) // Limit to 20 sources for UI
-
-      // Generate answer
-      const sourceInfo = {
-        searched: sourcesToSearch,
-        successful,
-        failed,
-      }
-
-      const answer = searchType === "company"
-        ? formatCompanyAnswer(query, allResults as ScrapedBusinessEntity[], sourceInfo)
-        : formatOfficerAnswer(query, allResults as ScrapedOfficer[], sourceInfo)
-
-      const duration = Date.now() - startTime
-      console.log(`[Business Registry Scraper] Completed in ${duration}ms. Found ${allResults.length} results from ${successful.length} sources.`)
-
-      return {
-        answer,
-        sources: dedupedSources,
-        query,
-        searchType,
-        results: allResults,
-        sourcesSearched: sourcesToSearch,
-        sourcesSuccessful: successful,
-        sourcesFailed: failed,
-        totalFound: allResults.length,
-        warnings: allWarnings.length > 0 ? allWarnings : undefined,
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      console.error("[Business Registry Scraper] Error:", errorMessage)
-
-      return {
-        answer: `## Search Error\n\n${errorMessage}\n\n**Manual Search:**\nUse the sources below to search manually.`,
-        sources: [
-          { name: "Florida Sunbiz", url: "https://search.sunbiz.org/Inquiry/CorporationSearch/ByName", snippet: "Florida businesses" },
-          { name: "New York DOS", url: "https://apps.dos.ny.gov/publicInquiry/", snippet: "New York businesses" },
-        ],
-        query,
-        searchType,
-        results: [],
-        sourcesSearched: sources || [],
-        sourcesSuccessful: [],
-        sourcesFailed: sources || [],
-        totalFound: 0,
+        duration: Date.now() - startTime,
         error: errorMessage,
       }
     }
@@ -519,16 +385,24 @@ export const businessRegistryScraperTool = tool({
 })
 
 /**
- * Check if business registry scraper tool should be enabled
- * ALWAYS enabled - provides helpful fallback even when Playwright not installed
+ * Get status of available data sources
+ */
+export function getBusinessRegistryStatus(): ReturnType<typeof getDataSourcesStatus> {
+  return getDataSourcesStatus()
+}
+
+/**
+ * Check if business registry tool should be enabled
+ * Always enabled - provides fallback links even when APIs unavailable
  */
 export function shouldEnableBusinessRegistryScraperTool(): boolean {
   return true
 }
 
 /**
- * Check if web scraping is actually available (for internal use)
+ * Check if full functionality is available
+ * Returns true since we use free state APIs (CO, NY, FL)
  */
-export function isBusinessRegistryScraperAvailable(): boolean {
-  return isScrapingEnabled()
+export function isBusinessRegistryFullyAvailable(): boolean {
+  return getReliableStates().length > 0
 }

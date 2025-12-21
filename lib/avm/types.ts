@@ -48,6 +48,9 @@ export interface PropertyCharacteristics {
   zipCode?: string
   county?: string
 
+  // Owner information (from county assessor)
+  ownerName?: string
+
   // Physical characteristics (continuous)
   squareFeet?: number
   lotSizeSqFt?: number
@@ -310,6 +313,7 @@ export interface ConfidenceResult {
 export interface AVMResult {
   // Property identification
   address: string
+  ownerName?: string // Property owner from county assessor records
 
   // Primary valuation
   estimatedValue: number

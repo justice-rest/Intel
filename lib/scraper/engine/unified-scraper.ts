@@ -297,10 +297,6 @@ async function tryDedicatedScraper(
         const { scrapeCaliforniaBusinesses } = await import("../scrapers/states/california")
         return scrapeCaliforniaBusinesses(query, { limit })
       }
-      case "de": {
-        const { scrapeDelawareBusinesses } = await import("../scrapers/states/delaware")
-        return scrapeDelawareBusinesses(query, { limit })
-      }
       default:
         return null
     }

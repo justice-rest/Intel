@@ -1,27 +1,46 @@
 /**
- * Prospect Scoring Tool
+ * Prospect Profile Tool (Merged from Prospect Scoring + Report)
  *
- * AI-powered prospect scoring that competitors like DonorSearch AI charge $4,000+/year for.
- * This tool aggregates data from multiple sources and generates:
- * - Giving Capacity Score (0-100): Estimated ability to give based on wealth indicators
- * - Propensity Score (0-100): Likelihood to give based on giving history and affinity
- * - Overall Prospect Rating (A-D): Combined assessment for prioritization
+ * AI-powered prospect profiling that competitors charge $4,000+/year for.
+ * This unified tool provides BOTH:
+ * - Numeric scores for quick prioritization (capacity, propensity, affinity, A-D rating)
+ * - Evidence sections with source links for verification
  *
- * Wealth indicators used:
- * - Real estate holdings (property valuation tool)
- * - SEC stock holdings and insider status
- * - FEC political contributions (proxy for discretionary wealth)
- * - Foundation affiliations and giving history
- * - Business ownership and executive positions
+ * Data sources (all FREE):
+ * - SEC EDGAR: Insider filings (Form 3, 4, 5) - HIGHEST confidence
+ * - FEC: Political contributions - HIGHEST confidence
+ * - ProPublica 990s: Foundation affiliations - HIGH confidence
+ * - Wikidata: Biographical data - MEDIUM confidence
  *
  * Free alternative to:
  * - DonorSearch AI ($4,000+/yr)
  * - iWave ($4,150+/yr)
  * - WealthEngine (enterprise pricing)
+ * - DonorSearch Research on Demand ($125-$300/profile)
  */
 
 import { tool } from "ai"
 import { z } from "zod"
+import {
+  countyAssessorTool,
+  shouldEnableCountyAssessorTool,
+  type CountyAssessorResult,
+} from "./county-assessor"
+import {
+  voterRegistrationTool,
+  shouldEnableVoterRegistrationTool,
+  type VoterRegistrationResult,
+} from "./voter-registration"
+import {
+  familyDiscoveryTool,
+  shouldEnableFamilyDiscoveryTool,
+  type FamilyDiscoveryResult,
+} from "./family-discovery"
+import {
+  businessRevenueEstimatorTool,
+  shouldEnableBusinessRevenueEstimatorTool,
+  type RevenueEstimate,
+} from "./business-revenue-estimator"
 
 // ============================================================================
 // CONSTANTS
@@ -66,6 +85,21 @@ interface WealthIndicator {
   url?: string
 }
 
+/**
+ * Evidence section with source verification
+ */
+interface EvidenceSection {
+  title: string
+  status: "verified" | "unverified" | "not_found"
+  confidence: "high" | "medium" | "low"
+  items: Array<{
+    claim: string
+    value: string
+    source?: { name: string; url: string }
+  }>
+  sourceUrl?: string
+}
+
 interface ProspectScore {
   capacityScore: number // 0-100: Ability to give
   propensityScore: number // 0-100: Likelihood to give
@@ -82,14 +116,18 @@ interface ProspectScore {
   recommendations: string[]
 }
 
-export interface ProspectScoringResult {
+export interface ProspectProfileResult {
   personName: string
   score: ProspectScore
+  evidence: EvidenceSection[] // NEW: Evidence sections with sources
   rawContent: string
   sources: Array<{ name: string; url: string }>
   error?: string
   dataQuality: "complete" | "partial" | "limited"
 }
+
+// Keep old type alias for backwards compatibility
+export type ProspectScoringResult = ProspectProfileResult
 
 // ============================================================================
 // HELPERS
@@ -418,6 +456,173 @@ async function checkWikidata(personName: string): Promise<WealthIndicator | null
 }
 
 /**
+ * Check county assessor for property data (if address provided)
+ */
+async function checkCountyAssessor(
+  personName: string,
+  address?: string,
+  city?: string,
+  state?: string
+): Promise<{ indicator: WealthIndicator | null; result: CountyAssessorResult | null }> {
+  if (!shouldEnableCountyAssessorTool()) {
+    return { indicator: null, result: null }
+  }
+
+  try {
+    // Try to search by owner name if no address
+    const result = await countyAssessorTool.execute(
+      {
+        ownerName: personName,
+        address,
+        city,
+        state,
+        limit: 5,
+      },
+      {
+        toolCallId: `prospect-profile-county-${Date.now()}`,
+        messages: [],
+        abortSignal: AbortSignal.timeout(30000),
+      }
+    )
+
+    if (!result || result.properties.length === 0) {
+      return { indicator: null, result: null }
+    }
+
+    // Sum up property values
+    let totalValue = 0
+    let propertyCount = 0
+    for (const prop of result.properties) {
+      const value = prop.marketValue || prop.assessedValue || 0
+      if (value > 0) {
+        totalValue += value
+        propertyCount++
+      }
+    }
+
+    if (propertyCount > 0) {
+      // Property value is a strong wealth indicator
+      let score = 0
+      if (totalValue >= 5000000) score = 95
+      else if (totalValue >= 2000000) score = 85
+      else if (totalValue >= 1000000) score = 75
+      else if (totalValue >= 500000) score = 60
+      else if (totalValue >= 250000) score = 45
+      else score = 30
+
+      return {
+        indicator: {
+          source: `County Assessor (${result.county})`,
+          indicator: `${propertyCount} propert${propertyCount === 1 ? "y" : "ies"} owned`,
+          value: formatCurrency(totalValue),
+          score,
+          confidence: "high", // Official government data
+          url: result.sources?.[0]?.url,
+        },
+        result,
+      }
+    }
+
+    return { indicator: null, result: null }
+  } catch (error) {
+    console.error("[ProspectProfile] County assessor check failed:", error)
+    return { indicator: null, result: null }
+  }
+}
+
+/**
+ * Check voter registration for party affiliation
+ */
+async function checkVoterRegistration(
+  personName: string,
+  state?: string
+): Promise<{ indicator: WealthIndicator | null; result: VoterRegistrationResult | null }> {
+  if (!shouldEnableVoterRegistrationTool() || !state) {
+    return { indicator: null, result: null }
+  }
+
+  try {
+    const result = await voterRegistrationTool.execute(
+      {
+        personName,
+        state,
+      },
+      {
+        toolCallId: `prospect-profile-voter-${Date.now()}`,
+        messages: [],
+        abortSignal: AbortSignal.timeout(30000),
+      }
+    )
+
+    if (!result || !result.voterRecord) {
+      return { indicator: null, result: null }
+    }
+
+    const { voterRecord } = result
+
+    // Voter registration doesn't directly indicate wealth, but provides useful context
+    // for engagement strategy (party affiliation, voting history)
+    // Map "inferred" confidence to "low" for compatibility with EvidenceSection type
+    const mappedConfidence: "high" | "medium" | "low" =
+      result.confidence === "inferred" ? "low" : result.confidence
+
+    return {
+      indicator: {
+        source: "Voter Registration",
+        indicator: `${voterRecord.partyAffiliation || "Unknown"} voter`,
+        value: voterRecord.status === "active" ? "Active voter" : voterRecord.status,
+        score: 10, // Low score - doesn't indicate wealth directly
+        confidence: mappedConfidence,
+        url: result.sources?.[0]?.url,
+      },
+      result,
+    }
+  } catch (error) {
+    console.error("[ProspectProfile] Voter registration check failed:", error)
+    return { indicator: null, result: null }
+  }
+}
+
+/**
+ * Check family discovery for spouse and household
+ */
+async function checkFamilyDiscovery(
+  personName: string,
+  address?: string,
+  city?: string,
+  state?: string
+): Promise<{ result: FamilyDiscoveryResult | null }> {
+  if (!shouldEnableFamilyDiscoveryTool()) {
+    return { result: null }
+  }
+
+  try {
+    const result = await familyDiscoveryTool.execute(
+      {
+        personName,
+        address,
+        city,
+        state,
+      },
+      {
+        toolCallId: `prospect-profile-family-${Date.now()}`,
+        messages: [],
+        abortSignal: AbortSignal.timeout(30000),
+      }
+    )
+
+    if (!result || result.householdMembers.length === 0) {
+      return { result: null }
+    }
+
+    return { result }
+  } catch (error) {
+    console.error("[ProspectProfile] Family discovery check failed:", error)
+    return { result: null }
+  }
+}
+
+/**
  * Format prospect score for AI consumption
  */
 function formatScoreForAI(personName: string, score: ProspectScore): string {
@@ -498,32 +703,31 @@ function getRatingLabel(score: number): string {
 // TOOL
 // ============================================================================
 
-export const prospectScoringTool = tool({
+export const prospectProfileTool = tool({
   description:
-    "AI-POWERED PROSPECT SCORING - Generate comprehensive donor capacity scores. " +
-    "This is a FREE alternative to DonorSearch AI ($4,000+/yr), iWave ($4,150+/yr), and WealthEngine. " +
-    "Aggregates data from SEC, FEC, ProPublica 990s, and Wikidata to calculate: " +
-    "(1) Giving Capacity Score (0-100), (2) Propensity Score (0-100), (3) Overall A-D Rating. " +
-    "Returns estimated giving capacity range and actionable recommendations. " +
-    "Use this to prioritize prospects and estimate major gift capacity.",
+    "COMPREHENSIVE PROSPECT PROFILE - Generates donor capacity scores WITH verified evidence. " +
+    "This is a FREE alternative to DonorSearch ($4,000+/yr), iWave ($4,150+/yr), and WealthEngine. " +
+    "Returns: (1) A-D Rating with capacity/propensity/affinity scores, " +
+    "(2) Evidence sections with SOURCE LINKS for verification (SEC, FEC, ProPublica, Wikidata). " +
+    "Each claim marked as ✓ Verified (official source) or ⚠ Unverified. " +
+    "Use this for major gift prospects - replaces both prospect_score and prospect_report.",
   parameters: prospectScoringSchema,
   execute: async ({
     personName,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     city,
     state,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     employer,
-  }): Promise<ProspectScoringResult> => {
-    console.log("[ProspectScoring] Scoring prospect:", personName)
+  }): Promise<ProspectProfileResult> => {
+    console.log("[ProspectProfile] Generating profile for:", personName)
     const startTime = Date.now()
 
     const sources: Array<{ name: string; url: string }> = []
     const wealthIndicators: WealthIndicator[] = []
     const givingHistory: ProspectScore["givingHistory"] = []
+    const evidence: EvidenceSection[] = []
 
     try {
-      // Run all data checks in parallel
+      // Run all data checks in parallel - original sources
       const [secResult, fecResult, foundationResult, wikidataResult] = await Promise.all([
         checkSecInsider(personName),
         checkFecContributions(personName, state),
@@ -531,14 +735,53 @@ export const prospectScoringTool = tool({
         checkWikidata(personName),
       ])
 
-      // Collect results
+      // Run new enhanced data checks in parallel
+      const [countyResult, voterResult, familyResult] = await Promise.all([
+        checkCountyAssessor(personName, undefined, city, state),
+        checkVoterRegistration(personName, state),
+        checkFamilyDiscovery(personName, undefined, city, state),
+      ])
+
+      // If we found a business from SEC or Wikidata, we could estimate revenue
+      // For now, this is placeholder - would need to extract company names first
+      void employer // Acknowledge employer param for future use
+
+      // Collect results AND build evidence sections
+
+      // SEC Evidence Section
       if (secResult) {
         wealthIndicators.push(secResult)
         if (secResult.url) {
           sources.push({ name: "SEC EDGAR Filings", url: secResult.url })
         }
+        evidence.push({
+          title: "SEC Insider Filings",
+          status: "verified",
+          confidence: "high",
+          items: [{
+            claim: "SEC Insider Status",
+            value: secResult.indicator,
+            source: secResult.url ? { name: "SEC EDGAR", url: secResult.url } : undefined,
+          }, {
+            claim: "Companies",
+            value: String(secResult.value),
+            source: secResult.url ? { name: "SEC EDGAR", url: secResult.url } : undefined,
+          }],
+          sourceUrl: secResult.url,
+        })
+      } else {
+        evidence.push({
+          title: "SEC Insider Filings",
+          status: "not_found",
+          confidence: "high",
+          items: [{
+            claim: "SEC Insider Status",
+            value: "No Form 3/4/5 filings found - not an insider at public companies",
+          }],
+        })
       }
 
+      // FEC Evidence Section
       if (fecResult) {
         wealthIndicators.push(fecResult)
         if (fecResult.url) {
@@ -552,20 +795,207 @@ export const prospectScoringTool = tool({
             (String(fecResult.value).includes("M") ? 1000000 :
              String(fecResult.value).includes("K") ? 1000 : 1),
         })
+        evidence.push({
+          title: "Political Contributions (FEC)",
+          status: "verified",
+          confidence: "high",
+          items: [{
+            claim: "Total Political Giving",
+            value: String(fecResult.value),
+            source: fecResult.url ? { name: "FEC.gov", url: fecResult.url } : undefined,
+          }, {
+            claim: "Number of Contributions",
+            value: fecResult.indicator,
+            source: fecResult.url ? { name: "FEC.gov", url: fecResult.url } : undefined,
+          }],
+          sourceUrl: fecResult.url,
+        })
+      } else {
+        evidence.push({
+          title: "Political Contributions (FEC)",
+          status: "not_found",
+          confidence: "high",
+          items: [{
+            claim: "Political Giving",
+            value: "No FEC records found (contributions under $200 are not reported)",
+          }],
+        })
       }
 
+      // Foundation Evidence Section
       if (foundationResult) {
         wealthIndicators.push(foundationResult)
         if (foundationResult.url) {
           sources.push({ name: "ProPublica Nonprofit Explorer", url: foundationResult.url })
         }
+        evidence.push({
+          title: "Foundation Affiliations (990 Data)",
+          status: "verified",
+          confidence: "high",
+          items: [{
+            claim: "Foundation Affiliation",
+            value: foundationResult.indicator,
+            source: foundationResult.url ? { name: "ProPublica 990", url: foundationResult.url } : undefined,
+          }, {
+            claim: "Foundation Assets",
+            value: String(foundationResult.value),
+            source: foundationResult.url ? { name: "ProPublica 990", url: foundationResult.url } : undefined,
+          }],
+          sourceUrl: foundationResult.url,
+        })
+      } else {
+        evidence.push({
+          title: "Foundation Affiliations (990 Data)",
+          status: "not_found",
+          confidence: "high",
+          items: [{
+            claim: "Foundation Affiliations",
+            value: "No matching foundations found in ProPublica 990 database",
+          }],
+        })
       }
 
+      // Wikidata Evidence Section
       if (wikidataResult) {
         wealthIndicators.push(wikidataResult)
         if (wikidataResult.url) {
           sources.push({ name: "Wikidata", url: wikidataResult.url })
         }
+        evidence.push({
+          title: "Biographical Data (Wikidata)",
+          status: "verified",
+          confidence: "medium", // Wikidata is community-edited
+          items: [{
+            claim: wikidataResult.indicator,
+            value: String(wikidataResult.value),
+            source: wikidataResult.url ? { name: "Wikidata", url: wikidataResult.url } : undefined,
+          }],
+          sourceUrl: wikidataResult.url,
+        })
+      } else {
+        evidence.push({
+          title: "Biographical Data (Wikidata)",
+          status: "not_found",
+          confidence: "medium",
+          items: [{
+            claim: "Wikidata Profile",
+            value: "No matching profile found - may not be a notable public figure",
+          }],
+        })
+      }
+
+      // County Assessor Evidence Section (NEW)
+      if (countyResult.indicator) {
+        wealthIndicators.push(countyResult.indicator)
+        if (countyResult.indicator.url) {
+          sources.push({ name: `County Assessor (${countyResult.result?.county})`, url: countyResult.indicator.url })
+        }
+        evidence.push({
+          title: "Real Estate Holdings (County Assessor)",
+          status: "verified",
+          confidence: "high", // Official government data
+          items: [{
+            claim: "Properties Owned",
+            value: countyResult.indicator.indicator,
+            source: countyResult.indicator.url ? { name: "County Assessor", url: countyResult.indicator.url } : undefined,
+          }, {
+            claim: "Total Property Value",
+            value: String(countyResult.indicator.value),
+            source: countyResult.indicator.url ? { name: "County Assessor", url: countyResult.indicator.url } : undefined,
+          }],
+          sourceUrl: countyResult.indicator.url,
+        })
+      } else {
+        evidence.push({
+          title: "Real Estate Holdings (County Assessor)",
+          status: "not_found",
+          confidence: "high",
+          items: [{
+            claim: "Property Records",
+            value: "No properties found under this name in supported counties",
+          }],
+        })
+      }
+
+      // Voter Registration Evidence Section (NEW)
+      if (voterResult.indicator && voterResult.result?.voterRecord) {
+        // Don't add to wealthIndicators - voter data doesn't indicate wealth
+        if (voterResult.indicator.url) {
+          sources.push({ name: "Voter Registration", url: voterResult.indicator.url })
+        }
+        const voterRecord = voterResult.result.voterRecord
+        // Map confidence level and determine status
+        const voterConfidence: "high" | "medium" | "low" =
+          voterResult.result.confidence === "inferred" ? "low" : voterResult.result.confidence
+        const voterStatus: "verified" | "unverified" =
+          voterResult.result.confidence === "high" ? "verified" : "unverified"
+
+        evidence.push({
+          title: "Voter Registration",
+          status: voterStatus,
+          confidence: voterConfidence,
+          items: [{
+            claim: "Party Affiliation",
+            value: voterRecord.partyAffiliation || "Unknown",
+            source: voterResult.indicator.url ? { name: "Voter Registration", url: voterResult.indicator.url } : undefined,
+          }, {
+            claim: "Registration Status",
+            value: voterRecord.status === "active" ? "Active" : voterRecord.status === "inactive" ? "Inactive" : "Unknown",
+            source: voterResult.indicator.url ? { name: "Voter Registration", url: voterResult.indicator.url } : undefined,
+          }],
+          sourceUrl: voterResult.indicator.url,
+        })
+      } else {
+        evidence.push({
+          title: "Voter Registration",
+          status: "not_found",
+          confidence: "medium",
+          items: [{
+            claim: "Voter Record",
+            value: state ? `No voter record found in ${state}` : "State not provided - cannot search voter records",
+          }],
+        })
+      }
+
+      // Family/Household Evidence Section (NEW)
+      if (familyResult.result && familyResult.result.householdMembers.length > 0) {
+        const spouse = familyResult.result.householdMembers.find(m => m.relationship === "spouse")
+        evidence.push({
+          title: "Family & Household",
+          status: spouse?.confidence === "high" ? "verified" : "unverified",
+          confidence: spouse?.confidence || "low",
+          items: [
+            {
+              claim: "Marital Status",
+              value: familyResult.result.maritalStatus === "married" ? "Married" : familyResult.result.maritalStatus === "single" ? "Single" : "Unknown",
+            },
+            ...(spouse ? [{
+              claim: "Spouse",
+              value: spouse.name,
+            }] : []),
+            {
+              claim: "Household Size",
+              value: `${familyResult.result.householdSize} member${familyResult.result.householdSize !== 1 ? "s" : ""}`,
+            },
+          ],
+        })
+
+        // Add sources from family discovery
+        for (const src of familyResult.result.sources || []) {
+          if (!sources.some(s => s.url === src.url)) {
+            sources.push(src)
+          }
+        }
+      } else {
+        evidence.push({
+          title: "Family & Household",
+          status: "not_found",
+          confidence: "medium",
+          items: [{
+            claim: "Household Information",
+            value: "No family/household data found in public records",
+          }],
+        })
       }
 
       // Calculate scores
@@ -653,7 +1083,7 @@ export const prospectScoringTool = tool({
       }
 
       const duration = Date.now() - startTime
-      console.log("[ProspectScoring] Completed in", duration, "ms")
+      console.log("[ProspectProfile] Completed in", duration, "ms")
 
       const rawContent = formatScoreForAI(personName, score)
 
@@ -670,13 +1100,14 @@ export const prospectScoringTool = tool({
       return {
         personName,
         score,
+        evidence,
         rawContent,
         sources,
         dataQuality,
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error"
-      console.error("[ProspectScoring] Scoring failed:", errorMessage)
+      console.error("[ProspectProfile] Scoring failed:", errorMessage)
 
       return {
         personName,
@@ -690,7 +1121,8 @@ export const prospectScoringTool = tool({
           givingHistory: [],
           recommendations: ["Error occurred - try again or research manually"],
         },
-        rawContent: `# Prospect Score: ${personName}\n\n**Error:** ${errorMessage}`,
+        evidence: [],
+        rawContent: `# Prospect Profile: ${personName}\n\n**Error:** ${errorMessage}`,
         sources: [],
         error: errorMessage,
         dataQuality: "limited",
@@ -700,9 +1132,13 @@ export const prospectScoringTool = tool({
 })
 
 /**
- * Check if prospect scoring should be enabled
+ * Check if prospect profile should be enabled
  * Works without FEC key (just won't include political contributions)
  */
-export function shouldEnableProspectScoringTool(): boolean {
+export function shouldEnableProspectProfileTool(): boolean {
   return true // Always available, degrades gracefully
 }
+
+// Backwards compatibility aliases
+export const prospectScoringTool = prospectProfileTool
+export const shouldEnableProspectScoringTool = shouldEnableProspectProfileTool

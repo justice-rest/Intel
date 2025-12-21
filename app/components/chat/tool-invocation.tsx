@@ -55,6 +55,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   giving_history: "Giving History",
   prospect_report: "Prospect Report",
   prospect_score: "Prospect Score",
+  prospect_profile: "Prospect Profile",
   opensanctions_screening: "Sanctions Screening",
   lobbying_search: "Lobbying Records",
   court_search: "Court Cases",
@@ -2363,9 +2364,10 @@ function SingleToolCard({
       )
     }
 
-    // Handle Prospect Scoring results
+    // Handle Prospect Profile results (combined scoring + evidence)
+    // Also handles legacy prospect_score for backwards compatibility
     if (
-      toolName === "prospect_score" &&
+      (toolName === "prospect_profile" || toolName === "prospect_score") &&
       typeof parsedResult === "object" &&
       parsedResult !== null &&
       "personName" in parsedResult &&
@@ -2395,6 +2397,18 @@ function SingleToolCard({
           }>
           recommendations: string[]
         }
+        // Evidence sections with verification status (new in prospect_profile)
+        evidence?: Array<{
+          title: string
+          status: "verified" | "unverified" | "not_found"
+          confidence: "high" | "medium" | "low"
+          items: Array<{
+            claim: string
+            value: string
+            source?: { name: string; url: string }
+          }>
+          sourceUrl?: string
+        }>
         rawContent: string
         sources: Array<{ name: string; url: string }>
         dataQuality: string
@@ -2537,6 +2551,69 @@ function SingleToolCard({
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Evidence Sections (from prospect_profile) */}
+          {scoringResult.evidence && scoringResult.evidence.length > 0 && (
+            <div className="space-y-3">
+              <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                Evidence
+              </div>
+              {scoringResult.evidence.map((section, sectionIndex) => (
+                <div key={sectionIndex} className="rounded border border-border p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="font-medium text-sm">{section.title}</div>
+                    <div className={cn(
+                      "rounded-full px-2 py-0.5 text-xs font-medium flex items-center gap-1",
+                      section.status === "verified" && "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400",
+                      section.status === "unverified" && "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400",
+                      section.status === "not_found" && "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+                    )}>
+                      {section.status === "verified" && "✓"}
+                      {section.status === "unverified" && "⚠"}
+                      {section.status === "not_found" && "—"}
+                      <span className="capitalize">{section.status.replace("_", " ")}</span>
+                    </div>
+                  </div>
+                  {section.items.length > 0 ? (
+                    <div className="space-y-2">
+                      {section.items.map((item, itemIndex) => (
+                        <div key={itemIndex} className="flex items-start justify-between text-sm border-b border-border pb-2 last:border-0 last:pb-0">
+                          <div className="text-muted-foreground">{item.claim}</div>
+                          <div className="text-right">
+                            <div className="font-medium">{item.value}</div>
+                            {item.source && (
+                              <a
+                                href={item.source.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary text-xs hover:underline"
+                              >
+                                {item.source.name}
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground text-sm italic">No data found</div>
+                  )}
+                  {section.sourceUrl && (
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <a
+                        href={section.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary text-xs hover:underline flex items-center gap-1"
+                      >
+                        View source <Link className="h-3 w-3" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
@@ -2890,6 +2967,500 @@ function SingleToolCard({
               </div>
             ))}
           </div>
+        </div>
+      )
+    }
+
+    // Handle Nonprofit Affiliation Search results
+    if (
+      toolName === "nonprofit_affiliation_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "affiliations" in parsedResult
+    ) {
+      const result = parsedResult as {
+        personName: string
+        totalAffiliations: number
+        affiliations: Array<{
+          organizationName: string
+          ein?: string
+          role: string
+          proPublicaMatch: boolean
+          financials?: {
+            revenue?: number
+            assets?: number
+            mostRecentYear?: number
+          }
+          sources: Array<{ name: string; url: string }>
+        }>
+        matchedInProPublica: number
+        sources?: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (result.error) {
+        return <div className="text-muted-foreground">{result.error}</div>
+      }
+
+      // Format currency helper
+      const formatCurrency = (value: number | undefined) => {
+        if (!value) return "N/A"
+        if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`
+        if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`
+        if (value >= 1e3) return `$${(value / 1e3).toFixed(0)}K`
+        return `$${value.toLocaleString()}`
+      }
+
+      // Get role badge color
+      const getRoleBadgeClass = (role: string) => {
+        const roleLower = role.toLowerCase()
+        if (roleLower.includes("founder") || roleLower.includes("chair")) {
+          return "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400"
+        }
+        if (roleLower.includes("board") || roleLower.includes("director") || roleLower.includes("trustee")) {
+          return "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400"
+        }
+        if (roleLower.includes("officer") || roleLower.includes("executive")) {
+          return "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-400"
+        }
+        return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="font-medium text-foreground text-lg">
+                {result.personName}
+              </div>
+              <div className="text-muted-foreground text-xs">
+                {result.totalAffiliations} affiliations found
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {result.matchedInProPublica > 0 && (
+                <span className="bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400 rounded-full px-2 py-0.5 text-xs">
+                  {result.matchedInProPublica} with 990 data
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Affiliations */}
+          <div className="space-y-3">
+            {result.affiliations.slice(0, 10).map((affiliation, index) => (
+              <div key={index} className="rounded border border-border p-3">
+                <div className="flex items-start justify-between">
+                  <div className="font-medium">{affiliation.organizationName}</div>
+                  <div className="flex items-center gap-1">
+                    <span className={cn("rounded px-1.5 py-0.5 text-xs", getRoleBadgeClass(affiliation.role))}>
+                      {affiliation.role}
+                    </span>
+                    {affiliation.proPublicaMatch && (
+                      <span className="bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400 rounded px-1.5 py-0.5 text-xs">
+                        990 Data
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {affiliation.ein && (
+                  <div className="text-muted-foreground text-xs mt-1 font-mono">EIN: {affiliation.ein}</div>
+                )}
+                {affiliation.financials && (
+                  <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                    {affiliation.financials.revenue !== undefined && (
+                      <div>
+                        <span className="text-muted-foreground">Revenue:</span>{" "}
+                        <span className="font-medium">{formatCurrency(affiliation.financials.revenue)}</span>
+                      </div>
+                    )}
+                    {affiliation.financials.assets !== undefined && (
+                      <div>
+                        <span className="text-muted-foreground">Assets:</span>{" "}
+                        <span className="font-medium">{formatCurrency(affiliation.financials.assets)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {affiliation.sources.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <a
+                      href={affiliation.sources[0].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary text-xs hover:underline flex items-center gap-1"
+                    >
+                      {affiliation.sources[0].name} <Link className="h-3 w-3" />
+                    </a>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {result.sources.slice(0, 3).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Household Search results
+    if (
+      toolName === "household_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "primaryPerson" in parsedResult
+    ) {
+      const result = parsedResult as {
+        primaryPerson: string
+        spouses: Array<{
+          name: string
+          wikidataId?: string
+          relationship: string
+          startDate?: string
+          endDate?: string
+          current: boolean
+          sharedCompanies: string[]
+          combinedPoliticalGiving?: number
+        }>
+        householdWealth: {
+          estimatedCombined: string
+          wealthIndicators: string[]
+          confidenceLevel: string
+        }
+        sharedAffiliations: Array<{
+          type: string
+          name: string
+          roles: string[]
+        }>
+        sources?: Array<{ name: string; url: string }>
+        error?: string
+      }
+
+      if (result.error) {
+        return <div className="text-muted-foreground">{result.error}</div>
+      }
+
+      // Confidence badge styling
+      const getConfidenceBadgeClass = (level: string) => {
+        switch (level.toLowerCase()) {
+          case "high":
+            return "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+          case "medium":
+            return "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400"
+          default:
+            return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+        }
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="font-medium text-foreground text-lg">
+                {result.primaryPerson}
+              </div>
+              <div className="text-muted-foreground text-xs">
+                Household: {result.spouses.length + 1} member{result.spouses.length > 0 ? "s" : ""}
+              </div>
+            </div>
+            <span className={cn("rounded-full px-2 py-0.5 text-xs", getConfidenceBadgeClass(result.householdWealth.confidenceLevel))}>
+              {result.householdWealth.confidenceLevel} Confidence
+            </span>
+          </div>
+
+          {/* Household Capacity */}
+          <div className="rounded border border-border bg-muted/30 px-3 py-2 text-center">
+            <div className="text-muted-foreground text-xs uppercase tracking-wide">Combined Household Capacity</div>
+            <div className="font-medium text-foreground">{result.householdWealth.estimatedCombined}</div>
+          </div>
+
+          {/* Spouses */}
+          {result.spouses.length > 0 ? (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Spouse / Partner
+              </div>
+              <div className="space-y-3">
+                {result.spouses.map((spouse, index) => (
+                  <div key={index} className="rounded border border-border p-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-medium">{spouse.name}</div>
+                        <div className="text-muted-foreground text-xs">{spouse.relationship}</div>
+                      </div>
+                      <span className={cn(
+                        "rounded px-1.5 py-0.5 text-xs",
+                        spouse.current
+                          ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                          : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                      )}>
+                        {spouse.current ? "Current" : "Former"}
+                      </span>
+                    </div>
+                    {(spouse.startDate || spouse.endDate) && (
+                      <div className="text-muted-foreground text-xs mt-1">
+                        {spouse.startDate && `From ${spouse.startDate}`}
+                        {spouse.endDate && ` to ${spouse.endDate}`}
+                      </div>
+                    )}
+                    {spouse.sharedCompanies.length > 0 && (
+                      <div className="text-xs mt-2">
+                        <span className="text-muted-foreground">Shared companies:</span>{" "}
+                        {spouse.sharedCompanies.slice(0, 3).join(", ")}
+                      </div>
+                    )}
+                    {spouse.combinedPoliticalGiving && (
+                      <div className="text-xs mt-1">
+                        <span className="text-muted-foreground">Combined political giving:</span>{" "}
+                        <span className="font-medium">${spouse.combinedPoliticalGiving.toLocaleString()}</span>
+                      </div>
+                    )}
+                    {spouse.wikidataId && (
+                      <a
+                        href={`https://www.wikidata.org/wiki/${spouse.wikidataId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary text-xs hover:underline flex items-center gap-1 mt-2"
+                      >
+                        Wikidata <Link className="h-3 w-3" />
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="rounded border border-border bg-muted/20 p-4 text-center">
+              <div className="text-muted-foreground text-sm">No spouse/partner found</div>
+              <div className="text-muted-foreground text-xs mt-1">
+                Try using searchWeb for broader research
+              </div>
+            </div>
+          )}
+
+          {/* Wealth Indicators */}
+          {result.householdWealth.wealthIndicators.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Wealth Indicators
+              </div>
+              <ul className="space-y-1 text-sm">
+                {result.householdWealth.wealthIndicators.map((indicator, index) => (
+                  <li key={index} className="flex items-start gap-2">
+                    <span className="text-muted-foreground">•</span>
+                    <span>{indicator}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Sources */}
+          {result.sources && result.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources
+              </div>
+              <div className="space-y-1">
+                {result.sources.slice(0, 3).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Find Business Ownership results
+    if (
+      toolName === "find_business_ownership" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "businesses" in parsedResult &&
+      "summary" in parsedResult
+    ) {
+      const result = parsedResult as {
+        personName: string
+        businesses: Array<{
+          companyName: string
+          entityNumber: string | null
+          state: string
+          jurisdiction: string
+          entityType: string | null
+          status: string | null
+          roles: string[]
+          ownershipLikelihood: "confirmed" | "high" | "medium" | "low" | "unknown"
+          ownershipReason: string
+          sourceUrl: string
+        }>
+        summary: {
+          confirmed: number
+          highLikelihood: number
+          mediumLikelihood: number
+          lowLikelihood: number
+          total: number
+          uniqueStates: string[]
+        }
+        statesSearched: string[]
+        statesSucceeded: string[]
+        statesFailed: string[]
+        sources?: Array<{ name: string; url: string }>
+        error?: string
+        warnings?: string[]
+      }
+
+      if (result.error) {
+        return <div className="text-muted-foreground">{result.error}</div>
+      }
+
+      // Ownership likelihood badge styling
+      const getLikelihoodBadgeClass = (likelihood: string) => {
+        switch (likelihood) {
+          case "confirmed":
+            return "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+          case "high":
+            return "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400"
+          case "medium":
+            return "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-400"
+          case "low":
+            return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+          default:
+            return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+        }
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="font-medium text-foreground text-lg">
+                {result.personName}
+              </div>
+              <div className="text-muted-foreground text-xs">
+                {result.summary.total} businesses found in {result.statesSucceeded.length} states
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Stats */}
+          <div className="grid grid-cols-4 gap-2 text-center text-sm">
+            {result.summary.confirmed > 0 && (
+              <div className="rounded border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 px-2 py-1">
+                <div className="text-green-700 dark:text-green-400 font-bold">{result.summary.confirmed}</div>
+                <div className="text-muted-foreground text-xs">Confirmed</div>
+              </div>
+            )}
+            {result.summary.highLikelihood > 0 && (
+              <div className="rounded border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30 px-2 py-1">
+                <div className="text-blue-700 dark:text-blue-400 font-bold">{result.summary.highLikelihood}</div>
+                <div className="text-muted-foreground text-xs">High</div>
+              </div>
+            )}
+            {result.summary.mediumLikelihood > 0 && (
+              <div className="rounded border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/30 px-2 py-1">
+                <div className="text-yellow-700 dark:text-yellow-400 font-bold">{result.summary.mediumLikelihood}</div>
+                <div className="text-muted-foreground text-xs">Medium</div>
+              </div>
+            )}
+            {result.summary.lowLikelihood > 0 && (
+              <div className="rounded border border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-900/30 px-2 py-1">
+                <div className="text-gray-700 dark:text-gray-400 font-bold">{result.summary.lowLikelihood}</div>
+                <div className="text-muted-foreground text-xs">Low</div>
+              </div>
+            )}
+          </div>
+
+          {/* Businesses */}
+          <div className="space-y-3">
+            {result.businesses.slice(0, 10).map((business, index) => (
+              <div key={index} className="rounded border border-border p-3">
+                <div className="flex items-start justify-between">
+                  <a
+                    href={business.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group font-medium hover:underline flex items-center gap-1"
+                  >
+                    {business.companyName}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                  <span className={cn("rounded px-1.5 py-0.5 text-xs capitalize", getLikelihoodBadgeClass(business.ownershipLikelihood))}>
+                    {business.ownershipLikelihood === "confirmed" ? "Owner" : `${business.ownershipLikelihood} likelihood`}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-1 text-xs">
+                  <span className="bg-secondary rounded px-1.5 py-0.5">{business.state}</span>
+                  {business.status && (
+                    <span className={cn(
+                      "rounded px-1.5 py-0.5",
+                      business.status.toLowerCase().includes("active")
+                        ? "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    )}>
+                      {business.status}
+                    </span>
+                  )}
+                  {business.roles.length > 0 && (
+                    <span className="text-muted-foreground">{business.roles.join(", ")}</span>
+                  )}
+                </div>
+                {business.ownershipReason && (
+                  <div className="text-muted-foreground text-xs mt-1 italic">{business.ownershipReason}</div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Warnings */}
+          {result.warnings && result.warnings.length > 0 && (
+            <div className="rounded border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950/20 p-3">
+              <div className="text-yellow-700 dark:text-yellow-400 text-xs font-medium mb-1">Warnings</div>
+              {result.warnings.map((warning, index) => (
+                <div key={index} className="text-muted-foreground text-xs">{warning}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Failed States */}
+          {result.statesFailed.length > 0 && (
+            <div className="text-muted-foreground text-xs">
+              Could not search: {result.statesFailed.join(", ")}
+            </div>
+          )}
         </div>
       )
     }

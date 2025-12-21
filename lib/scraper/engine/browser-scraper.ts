@@ -2,7 +2,7 @@
  * Browser Scraper Engine (Tier 3)
  *
  * Handles states that require JavaScript rendering.
- * Uses Playwright with stealth plugin for bot detection bypass.
+ * Uses Puppeteer with stealth techniques for bot detection bypass.
  *
  * Tier 3 States (4 states):
  * - Michigan (MI)
@@ -13,7 +13,7 @@
  * Also used as fallback for Tier 2 states when HTTP scraping fails.
  */
 
-import type { Page, Frame } from "playwright"
+import type { Page, ElementHandle } from "puppeteer-core"
 import type { StateRegistryConfig, SelectorStrategy } from "../config/state-template"
 import type { ScrapedBusinessEntity, ScraperResult } from "../config"
 import { getRateLimiter } from "../services/rate-limiter"
@@ -25,33 +25,58 @@ import {
   humanType,
   humanDelay,
   withRetry,
-  closePage,
-  isPlaywrightAvailable,
+  isPuppeteerAvailable,
+  waitForNetworkIdle,
 } from "../stealth-browser"
+
+/**
+ * Get text content from element (Puppeteer API)
+ */
+async function getElementText(page: Page, element: ElementHandle): Promise<string | null> {
+  try {
+    const text = await page.evaluate((el) => el.textContent, element)
+    return text?.trim() || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Get attribute from element (Puppeteer API)
+ */
+async function getElementAttribute(page: Page, element: ElementHandle, attr: string): Promise<string | null> {
+  try {
+    const value = await page.evaluate((el, a) => el.getAttribute(a), element, attr)
+    return value || null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Extract text from element using selector strategy
  */
 async function extractFromPage(
-  page: Page | Frame,
+  page: Page,
+  parentElement: ElementHandle | Page,
   selector: SelectorStrategy
 ): Promise<string | null> {
   try {
-    const element = await page.$(selector.selector)
+    const element = await parentElement.$(selector.selector)
     if (!element) {
       // Try fallbacks
       if (selector.fallbacks) {
         for (const fallback of selector.fallbacks) {
-          const fallbackEl = await page.$(fallback)
+          const fallbackEl = await parentElement.$(fallback)
           if (fallbackEl) {
-            return extractText(fallbackEl, selector)
+            return extractText(page, fallbackEl, selector)
           }
         }
       }
       return null
     }
 
-    return extractText(element, selector)
+    return extractText(page, element, selector)
   } catch {
     return null
   }
@@ -61,16 +86,16 @@ async function extractFromPage(
  * Extract text from element handle
  */
 async function extractText(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  element: any,
+  page: Page,
+  element: ElementHandle,
   selector: SelectorStrategy
 ): Promise<string | null> {
   let value: string | null = null
 
   if (selector.attribute) {
-    value = await element.getAttribute(selector.attribute)
+    value = await getElementAttribute(page, element, selector.attribute)
   } else {
-    value = await element.textContent()
+    value = await getElementText(page, element)
   }
 
   if (!value) return null
@@ -94,7 +119,7 @@ async function extractText(
  */
 async function waitForPageReady(page: Page, config: StateRegistryConfig): Promise<void> {
   // Wait for network to be idle
-  await page.waitForLoadState("networkidle").catch(() => null)
+  await waitForNetworkIdle(page, { timeout: 30000 })
 
   // Wait for specific selector if configured
   if (config.scraping?.waitForSelector) {
@@ -136,12 +161,14 @@ async function submitSearch(
           await humanType(page, field.selector, value)
           break
         case "select":
-          await page.selectOption(field.selector, value)
+          // Puppeteer uses page.select instead of page.selectOption
+          await page.select(field.selector, value)
           break
         case "checkbox":
         case "radio":
           if (value === "true" || value === "1") {
-            await page.check(field.selector)
+            // Puppeteer uses click on checkboxes
+            await page.click(field.selector)
           }
           break
       }
@@ -152,7 +179,9 @@ async function submitSearch(
     // Default: find search input and fill it
     const searchInput = await page.$('input[type="text"], input[type="search"], input[name*="search"]')
     if (searchInput) {
-      await searchInput.fill("")
+      // Clear the input first using triple-click and type
+      await searchInput.click({ clickCount: 3 })
+      await page.keyboard.press("Backspace")
       await humanType(page, 'input[type="text"], input[type="search"], input[name*="search"]', query)
     }
   }
@@ -163,19 +192,35 @@ async function submitSearch(
       await page.keyboard.press("Enter")
       break
     case "form":
-      await page.$eval("form", (form: HTMLFormElement) => form.submit())
+      await page.evaluate(() => {
+        const form = document.querySelector("form")
+        if (form) form.submit()
+      })
       break
     case "click":
     default:
-      // Find and click submit button
+      // Find and click submit button - Puppeteer doesn't have :has-text() selector
       const submitButton = await page.$(
-        'button[type="submit"], input[type="submit"], button:has-text("Search"), button:has-text("Find")'
+        'button[type="submit"], input[type="submit"]'
       )
       if (submitButton) {
         await submitButton.click()
       } else {
-        // Fallback to Enter key
-        await page.keyboard.press("Enter")
+        // Try to find by text content
+        const buttons = await page.$$("button")
+        let found = false
+        for (const button of buttons) {
+          const text = await page.evaluate((el) => el.textContent, button)
+          if (text && (text.toLowerCase().includes("search") || text.toLowerCase().includes("find"))) {
+            await button.click()
+            found = true
+            break
+          }
+        }
+        if (!found) {
+          // Fallback to Enter key
+          await page.keyboard.press("Enter")
+        }
       }
       break
   }
@@ -207,35 +252,35 @@ async function parseResults(
   for (const row of rows.slice(0, limit)) {
     try {
       // Extract name (required)
-      const name = await extractFromPage(row as unknown as Frame, searchSelectors.entityName)
+      const name = await extractFromPage(page, row, searchSelectors.entityName)
       if (!name) continue
 
       // Extract other fields
       const entityNumber = searchSelectors.entityNumber
-        ? await extractFromPage(row as unknown as Frame, searchSelectors.entityNumber)
+        ? await extractFromPage(page, row, searchSelectors.entityNumber)
         : null
 
       const status = searchSelectors.status
-        ? await extractFromPage(row as unknown as Frame, searchSelectors.status)
+        ? await extractFromPage(page, row, searchSelectors.status)
         : null
 
       const filingDate = searchSelectors.filingDate
-        ? await extractFromPage(row as unknown as Frame, searchSelectors.filingDate)
+        ? await extractFromPage(page, row, searchSelectors.filingDate)
         : null
 
       const entityType = searchSelectors.entityType
-        ? await extractFromPage(row as unknown as Frame, searchSelectors.entityType)
+        ? await extractFromPage(page, row, searchSelectors.entityType)
         : null
 
       // Get detail link
       let sourceUrl = config.baseUrl
       if (searchSelectors.detailLink) {
-        const link = await extractFromPage(row as unknown as Frame, searchSelectors.detailLink)
+        const link = await extractFromPage(page, row, searchSelectors.detailLink)
         if (link) {
           sourceUrl = link.startsWith("http") ? link : `${config.baseUrl}${link}`
         }
       } else if (searchSelectors.entityName.attribute === "href") {
-        const link = await extractFromPage(row as unknown as Frame, searchSelectors.entityName)
+        const link = await extractFromPage(page, row, searchSelectors.entityName)
         if (link) {
           sourceUrl = link.startsWith("http") ? link : `${config.baseUrl}${link}`
         }
@@ -290,8 +335,8 @@ export async function scrapeBrowserState(
     }
   }
 
-  // Check if Playwright is available
-  if (!(await isPlaywrightAvailable())) {
+  // Check if Puppeteer is available
+  if (!(await isPuppeteerAvailable())) {
     return {
       success: false,
       data: [],
@@ -300,7 +345,7 @@ export async function scrapeBrowserState(
       query,
       scrapedAt: new Date().toISOString(),
       duration: Date.now() - startTime,
-      error: "Playwright not installed. Run: npm install playwright-extra puppeteer-extra-plugin-stealth playwright",
+      error: "Puppeteer not installed. Run: npm install puppeteer-core @sparticuz/chromium",
     }
   }
 
@@ -340,7 +385,7 @@ export async function scrapeBrowserState(
   }
 
   const browser = await getStealthBrowser()
-  const { page, context } = await createStealthPage(browser)
+  const { page, cleanup } = await createStealthPage(browser)
 
   try {
     // Rate limit
@@ -348,7 +393,7 @@ export async function scrapeBrowserState(
 
     // Navigate to search page
     await withRetry(async () => {
-      await page.goto(config.scraping!.searchUrl, { waitUntil: "networkidle" })
+      await page.goto(config.scraping!.searchUrl, { waitUntil: "networkidle2" })
     })
 
     await waitForPageReady(page, config)
@@ -389,7 +434,7 @@ export async function scrapeBrowserState(
       error: errorMessage,
     }
   } finally {
-    await closePage(context)
+    await cleanup()
   }
 }
 
@@ -407,54 +452,54 @@ export async function scrapeDetailPage(
 
   const shouldClosePage = !existingPage
   let page: Page
-  let context: { close: () => Promise<void> } | null = null
+  let cleanup: (() => Promise<void>) | null = null
 
   if (existingPage) {
     page = existingPage
   } else {
-    if (!(await isPlaywrightAvailable())) {
-      throw new Error("Playwright not available")
+    if (!(await isPuppeteerAvailable())) {
+      throw new Error("Puppeteer not available")
     }
 
     const browser = await getStealthBrowser()
     const result = await createStealthPage(browser)
     page = result.page
-    context = result.context
+    cleanup = result.cleanup
   }
 
   try {
-    await page.goto(url, { waitUntil: "networkidle" })
+    await page.goto(url, { waitUntil: "networkidle2" })
     await humanDelay()
 
     const { detailSelectors } = config.scraping
 
     // Extract entity details
     const entityType = detailSelectors.entityType
-      ? await extractFromPage(page, detailSelectors.entityType)
+      ? await extractFromPage(page, page, detailSelectors.entityType)
       : null
 
     const entityName = detailSelectors.entityName
-      ? await extractFromPage(page, detailSelectors.entityName)
+      ? await extractFromPage(page, page, detailSelectors.entityName)
       : null
 
     const status = detailSelectors.status
-      ? await extractFromPage(page, detailSelectors.status)
+      ? await extractFromPage(page, page, detailSelectors.status)
       : null
 
     const incorporationDate = detailSelectors.incorporationDate
-      ? await extractFromPage(page, detailSelectors.incorporationDate)
+      ? await extractFromPage(page, page, detailSelectors.incorporationDate)
       : null
 
     const registeredAgent = detailSelectors.registeredAgent
-      ? await extractFromPage(page, detailSelectors.registeredAgent)
+      ? await extractFromPage(page, page, detailSelectors.registeredAgent)
       : null
 
     const registeredAddress = detailSelectors.registeredAgentAddress
-      ? await extractFromPage(page, detailSelectors.registeredAgentAddress)
+      ? await extractFromPage(page, page, detailSelectors.registeredAgentAddress)
       : null
 
     const principalAddress = detailSelectors.principalAddress
-      ? await extractFromPage(page, detailSelectors.principalAddress)
+      ? await extractFromPage(page, page, detailSelectors.principalAddress)
       : null
 
     // Extract officers
@@ -467,11 +512,11 @@ export async function scrapeDetailPage(
 
       for (const row of officerRows) {
         const name = detailSelectors.officerName
-          ? await extractFromPage(row as unknown as Frame, detailSelectors.officerName)
+          ? await extractFromPage(page, row, detailSelectors.officerName)
           : null
 
         const position = detailSelectors.officerTitle
-          ? await extractFromPage(row as unknown as Frame, detailSelectors.officerTitle)
+          ? await extractFromPage(page, row, detailSelectors.officerTitle)
           : null
 
         if (name) {
@@ -479,7 +524,7 @@ export async function scrapeDetailPage(
             name,
             position: position || "Officer",
             startDate: detailSelectors.officerStartDate
-              ? await extractFromPage(row as unknown as Frame, detailSelectors.officerStartDate)
+              ? await extractFromPage(page, row, detailSelectors.officerStartDate)
               : null,
           })
         }
@@ -497,8 +542,8 @@ export async function scrapeDetailPage(
       sourceUrl: url,
     }
   } finally {
-    if (shouldClosePage && context) {
-      await closePage(context)
+    if (shouldClosePage && cleanup) {
+      await cleanup()
     }
   }
 }

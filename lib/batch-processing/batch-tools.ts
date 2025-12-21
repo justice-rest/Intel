@@ -70,13 +70,9 @@ import {
   shouldEnableRentalInvestmentTool,
 } from "@/lib/tools/rental-investment-tool"
 import {
-  prospectScoringTool,
-  shouldEnableProspectScoringTool,
-} from "@/lib/tools/prospect-scoring"
-import {
-  prospectReportTool,
-  shouldEnableProspectReportTool,
-} from "@/lib/tools/prospect-report"
+  prospectProfileTool,
+  shouldEnableProspectProfileTool,
+} from "@/lib/tools/prospect-profile"
 import {
   nonprofitBoardSearchTool,
   shouldEnableNonprofitBoardSearchTool,
@@ -94,6 +90,26 @@ import {
   findBusinessOwnershipTool,
   shouldEnableFindBusinessOwnershipTool,
 } from "@/lib/tools/find-business-ownership"
+import {
+  countyAssessorTool,
+  shouldEnableCountyAssessorTool,
+} from "@/lib/tools/county-assessor"
+import {
+  voterRegistrationTool,
+  shouldEnableVoterRegistrationTool,
+} from "@/lib/tools/voter-registration"
+import {
+  foundationGrantsTool,
+  shouldEnableFoundationGrantsTool,
+} from "@/lib/tools/foundation-grants"
+import {
+  familyDiscoveryTool,
+  shouldEnableFamilyDiscoveryTool,
+} from "@/lib/tools/family-discovery"
+import {
+  businessRevenueEstimatorTool,
+  shouldEnableBusinessRevenueEstimatorTool,
+} from "@/lib/tools/business-revenue-estimator"
 
 /**
  * Build the tools object for batch processing
@@ -216,19 +232,12 @@ export function buildBatchTools(): ToolSet {
         }
       : {}),
 
-    // Prospect Scoring Tool - AI-powered wealth/capacity assessment
-    // FREE alternative to DonorSearch AI, iWave
-    ...(shouldEnableProspectScoringTool()
+    // Prospect Profile Tool - Unified wealth assessment + research report
+    // Combines scoring (capacity, propensity, affinity) with verified evidence
+    // FREE alternative to DonorSearch AI, iWave, DonorSearch Research on Demand
+    ...(shouldEnableProspectProfileTool()
       ? {
-          prospect_score: prospectScoringTool,
-        }
-      : {}),
-
-    // Prospect Report Tool - Comprehensive research reports
-    // FREE alternative to DonorSearch Research on Demand
-    ...(shouldEnableProspectReportTool()
-      ? {
-          prospect_report: prospectReportTool,
+          prospect_profile: prospectProfileTool,
         }
       : {}),
 
@@ -262,6 +271,46 @@ export function buildBatchTools(): ToolSet {
     ...(shouldEnableFindBusinessOwnershipTool()
       ? {
           find_business_ownership: findBusinessOwnershipTool,
+        }
+      : {}),
+
+    // County Assessor Tool - Official property assessment data from county Socrata APIs
+    // FREE, no API key required - verified government data
+    ...(shouldEnableCountyAssessorTool()
+      ? {
+          county_assessor: countyAssessorTool,
+        }
+      : {}),
+
+    // Voter Registration Tool - Party affiliation and registration data
+    // Uses FEC patterns as fallback when direct data unavailable
+    ...(shouldEnableVoterRegistrationTool()
+      ? {
+          voter_registration: voterRegistrationTool,
+        }
+      : {}),
+
+    // Foundation Grants Tool - 990-PF Schedule I grant data
+    // Shows where foundations are giving money
+    ...(shouldEnableFoundationGrantsTool()
+      ? {
+          foundation_grants: foundationGrantsTool,
+        }
+      : {}),
+
+    // Family Discovery Tool - Discover spouse/children from public records
+    // Uses property records, voter data, web search
+    ...(shouldEnableFamilyDiscoveryTool()
+      ? {
+          family_discovery: familyDiscoveryTool,
+        }
+      : {}),
+
+    // Business Revenue Estimator - Estimate private company revenue
+    // Uses employee count × industry benchmarks (BLS data)
+    ...(shouldEnableBusinessRevenueEstimatorTool()
+      ? {
+          business_revenue_estimate: businessRevenueEstimatorTool,
         }
       : {}),
   }
@@ -327,11 +376,8 @@ export function getToolDescriptions(): string {
   if (shouldEnableRentalInvestmentTool()) {
     dataTools.push("rental_investment (rental valuation - rent estimate, cap rate, cash flow analysis)")
   }
-  if (shouldEnableProspectScoringTool()) {
-    dataTools.push("prospect_score (AI-powered wealth/capacity scoring - FREE DonorSearch/iWave alternative)")
-  }
-  if (shouldEnableProspectReportTool()) {
-    dataTools.push("prospect_report (comprehensive research reports - FREE DonorSearch ROD alternative)")
+  if (shouldEnableProspectProfileTool()) {
+    dataTools.push("prospect_profile (unified wealth scoring + verified evidence - FREE DonorSearch/iWave alternative)")
   }
   if (shouldEnableNonprofitBoardSearchTool()) {
     dataTools.push("nonprofit_board_search (find ALL board positions held by a person)")
@@ -342,6 +388,21 @@ export function getToolDescriptions(): string {
   if (shouldEnableGleifTools()) {
     dataTools.push("gleif_search (search Global LEI database by entity name - 2.5M+ entities, FREE)")
     dataTools.push("gleif_lookup (LEI lookup with ownership chain - direct/ultimate parent relationships)")
+  }
+  if (shouldEnableCountyAssessorTool()) {
+    dataTools.push("county_assessor (official property assessment from county Socrata APIs - verified government data)")
+  }
+  if (shouldEnableVoterRegistrationTool()) {
+    dataTools.push("voter_registration (party affiliation, registration date, voting history)")
+  }
+  if (shouldEnableFoundationGrantsTool()) {
+    dataTools.push("foundation_grants (990-PF Schedule I - grants made by foundations)")
+  }
+  if (shouldEnableFamilyDiscoveryTool()) {
+    dataTools.push("family_discovery (discover spouse, children from property records, voter data, web search)")
+  }
+  if (shouldEnableBusinessRevenueEstimatorTool()) {
+    dataTools.push("business_revenue_estimate (estimate private company revenue from employee count × industry benchmarks)")
   }
 
   const hasLinkup = shouldEnableLinkupTool()
@@ -381,8 +442,7 @@ Run 6-10 searchWeb queries per prospect with different angles:
 - nonprofit_affiliation_search: AUTOMATIC person-to-nonprofit workflow - web search + ProPublica lookup
 - property_valuation: AVM (Automated Valuation Model) for real estate - uses hedonic pricing + comparables
 - rental_investment: Rental analysis - rent estimate, cap rate, cash-on-cash return, cash flow
-- prospect_score: AI wealth/capacity scoring - outputs donor rating (A-D) with confidence
-- prospect_report: Full research report generation - comprehensive prospect profiles
+- prospect_profile: AI wealth/capacity scoring + verified evidence - outputs donor rating (A-D) with source citations
 - nonprofit_board_search: Find ALL nonprofit board positions for a person
 - giving_history: Aggregate giving history from FEC, foundations, public records
 - gleif_search/lookup: Global LEI database - corporate ownership chains, parent relationships\n\n`
