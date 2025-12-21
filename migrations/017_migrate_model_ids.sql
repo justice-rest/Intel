@@ -17,20 +17,20 @@ WHERE model IN (
   'openrouter:x-ai/grok-4.1-fast'
 );
 
--- Update users table favorite_models (JSONB array)
+-- Update users table favorite_models (text[] array)
 UPDATE users
 SET favorite_models = (
-  SELECT jsonb_agg(
+  SELECT array_agg(
     CASE
-      WHEN value::text IN ('"openrouter:x-ai/grok-4-fast"', '"openrouter:x-ai/grok-4.1-fast"')
-      THEN '"openrouter:perplexity/sonar-reasoning"'::jsonb
-      ELSE value
+      WHEN elem IN ('openrouter:x-ai/grok-4-fast', 'openrouter:x-ai/grok-4.1-fast')
+      THEN 'openrouter:perplexity/sonar-reasoning'
+      ELSE elem
     END
   )
-  FROM jsonb_array_elements(favorite_models)
+  FROM unnest(favorite_models) AS elem
 )
 WHERE favorite_models IS NOT NULL
-  AND favorite_models::text LIKE '%grok%';
+  AND array_to_string(favorite_models, ',') LIKE '%grok%';
 
 -- Update batch_prospect_items table (if it has a model_used column)
 UPDATE batch_prospect_items
