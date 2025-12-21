@@ -2,7 +2,7 @@ import type { Provider, SupportedModel } from "./types"
 
 // map each model ID to its provider
 const MODEL_PROVIDER_MAP: Record<string, Provider> = {
-  "openrouter:x-ai/grok-4.1-fast": "openrouter",
+  "openrouter:perplexity/sonar-reasoning": "openrouter",
 }
 
 export function getProviderForModel(modelId: string | SupportedModel): Provider {

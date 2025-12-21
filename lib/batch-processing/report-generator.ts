@@ -1254,7 +1254,7 @@ After researching, produce the comprehensive report with all sections filled in 
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
     })
-    const model = openrouter.chat("x-ai/grok-4.1-fast")
+    const model = openrouter.chat("perplexity/sonar-reasoning")
 
     const result = await streamText({
       model,
@@ -1397,7 +1397,7 @@ After researching, produce the concise prospect summary with ALL sections filled
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
     })
-    const model = openrouter.chat("x-ai/grok-4.1-fast")
+    const model = openrouter.chat("perplexity/sonar-reasoning")
 
     const result = await streamText({
       model,

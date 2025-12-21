@@ -1,4 +1,4 @@
-export type OpenRouterModel = "openrouter:x-ai/grok-4.1-fast"
+export type OpenRouterModel = "openrouter:perplexity/sonar-reasoning"
 
 export type Provider = "openrouter"
 

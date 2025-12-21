@@ -4,11 +4,11 @@ export const REMAINING_QUERY_ALERT_THRESHOLD = 2
 export const DAILY_FILE_UPLOAD_LIMIT = 5
 export const DAILY_LIMIT_PRO_MODELS = 500
 
-export const NON_AUTH_ALLOWED_MODELS = ["openrouter:x-ai/grok-4.1-fast"]
+export const NON_AUTH_ALLOWED_MODELS = ["openrouter:perplexity/sonar-reasoning"]
 
-export const FREE_MODELS_IDS = ["openrouter:x-ai/grok-4.1-fast"]
+export const FREE_MODELS_IDS = ["openrouter:perplexity/sonar-reasoning"]
 
-export const MODEL_DEFAULT = "openrouter:x-ai/grok-4.1-fast"
+export const MODEL_DEFAULT = "openrouter:perplexity/sonar-reasoning"
 
 export const APP_NAME = "Rōmy"
 export const APP_DOMAIN = "https://intel.getromy.app"
