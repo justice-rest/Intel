@@ -132,7 +132,7 @@ function buildExecutiveSummary(
   }
 
   // Property
-  if (data.propertyValuation?.result || data.countyAssessor?.result) {
+  if (data.countyAssessor?.result) {
     findings.push("Property ownership data available for wealth assessment.")
   }
 
@@ -217,28 +217,6 @@ function buildPersonalBackground(
       .join(", ")
     lines.push(fullAddress)
 
-    // Add property details if available
-    if (data.propertyValuation?.result) {
-      const propResult = data.propertyValuation.result as {
-        estimatedValue?: number
-        squareFeet?: number
-        bedrooms?: number
-        bathrooms?: number
-        confidenceLevel?: string
-      }
-      if (propResult.estimatedValue) {
-        lines.push(
-          `- Current estimated market value: $${propResult.estimatedValue.toLocaleString()} [Source: AVM Estimate]`
-        )
-        tracker.addEstimatedClaim(
-          "Personal Background",
-          "Property Value",
-          propResult.estimatedValue,
-          "Automated Valuation Model based on comparable sales and online estimates"
-        )
-      }
-    }
-
     // Add county assessor data if available (official)
     if (data.countyAssessor?.result) {
       const assessorResult = data.countyAssessor.result as {
@@ -269,79 +247,9 @@ function buildPersonalBackground(
     lines.push("")
   }
 
-  // Marital Status
-  lines.push("### Marital Status")
-  if (data.familyDiscovery?.result) {
-    const familyResult = data.familyDiscovery.result as {
-      maritalStatus?: string
-      householdMembers?: Array<{ name: string; relationship: string }>
-    }
-    if (familyResult.maritalStatus && familyResult.maritalStatus !== "unknown") {
-      lines.push(
-        `${familyResult.maritalStatus.charAt(0).toUpperCase() + familyResult.maritalStatus.slice(1)} [Source: Property/Voter Records]`
-      )
-    } else {
-      lines.push("Not found in public records")
-    }
-  } else {
-    lines.push("Not found in public records")
-  }
-  lines.push("")
-
-  // Family
-  lines.push("### Family")
-  if (data.familyDiscovery?.result) {
-    const familyResult = data.familyDiscovery.result as {
-      householdMembers?: Array<{
-        name: string
-        relationship: string
-        estimatedAge?: number
-        confidence: string
-      }>
-    }
-    if (familyResult.householdMembers && familyResult.householdMembers.length > 0) {
-      for (const member of familyResult.householdMembers) {
-        const ageNote = member.estimatedAge ? ` (age ~${member.estimatedAge})` : ""
-        const confidence = member.confidence === "high" ? "[Verified]" : "[Corroborated]"
-        lines.push(
-          `- ${member.name} (${member.relationship})${ageNote} ${confidence}`
-        )
-      }
-    } else {
-      lines.push("No family members found in public records")
-    }
-  } else {
-    lines.push("No family members found in public records")
-  }
-  lines.push("")
-
-  // Political Affiliation
+  // Political Affiliation (inferred from FEC)
   lines.push("### Political Affiliation")
-  if (data.voterRegistration?.result) {
-    const voterResult = data.voterRegistration.result as {
-      voterRecord?: {
-        partyAffiliation?: string
-      }
-      confidence?: string
-      methodology?: string
-    }
-    if (voterResult.voterRecord?.partyAffiliation) {
-      const confidence = voterResult.confidence || "medium"
-      const marker =
-        confidence === "high"
-          ? "[Verified - Voter Registration]"
-          : confidence === "inferred"
-            ? "[Inferred from FEC patterns]"
-            : "[Source: Public Records]"
-      lines.push(`${voterResult.voterRecord.partyAffiliation} ${marker}`)
-      if (voterResult.methodology) {
-        lines.push(`  - Methodology: ${voterResult.methodology}`)
-      }
-    } else {
-      lines.push("Not found in public records")
-    }
-  } else if (data.fecContributions?.result) {
-    // Infer from FEC contributions
+  if (data.fecContributions?.result) {
     lines.push(
       "Party affiliation may be inferred from FEC contribution patterns (see Political Giving section)"
     )
@@ -353,16 +261,9 @@ function buildPersonalBackground(
     title: "Personal Background",
     content: lines.join("\n"),
     sources: [
-      ...(data.voterRegistration ? [{ name: "Voter Registration", url: "" }] : []),
-      ...(data.familyDiscovery ? [{ name: "Property Records", url: "" }] : []),
       ...(data.wikidata ? [{ name: "Wikidata", url: "https://www.wikidata.org/" }] : []),
     ],
-    confidence:
-      data.countyAssessor || data.voterRegistration
-        ? "HIGH"
-        : data.familyDiscovery
-          ? "MEDIUM"
-          : "LOW",
+    confidence: data.countyAssessor ? "HIGH" : "MEDIUM",
   }
 }
 
@@ -550,61 +451,9 @@ function buildRealEstateHoldings(
     }
   }
 
-  // Property valuation data (AVM estimate)
-  if (!hasProperties && data.propertyValuation?.result) {
-    const propResult = data.propertyValuation.result as {
-      address?: string
-      estimatedValue?: number
-      valueLow?: number
-      valueHigh?: number
-      squareFeet?: number
-      bedrooms?: number
-      bathrooms?: number
-      yearBuilt?: number
-      confidenceLevel?: string
-    }
-
-    if (propResult.estimatedValue) {
-      hasProperties = true
-      totalValue = propResult.estimatedValue
-
-      lines.push("| Property | Details | Estimated Value | Source |")
-      lines.push("|----------|---------|-----------------|--------|")
-
-      const details = [
-        propResult.bedrooms ? `${propResult.bedrooms} bed` : null,
-        propResult.bathrooms ? `${propResult.bathrooms} bath` : null,
-        propResult.squareFeet ? `${propResult.squareFeet.toLocaleString()} sq ft` : null,
-        propResult.yearBuilt ? `Built ${propResult.yearBuilt}` : null,
-      ]
-        .filter(Boolean)
-        .join(", ")
-
-      lines.push(
-        `| ${propResult.address || data.prospect.address || "Primary Residence"} | ${details || "N/A"} | $${propResult.estimatedValue.toLocaleString()} | AVM [Estimated] |`
-      )
-
-      if (propResult.valueLow && propResult.valueHigh) {
-        lines.push("")
-        lines.push(
-          `*Value Range: $${propResult.valueLow.toLocaleString()} - $${propResult.valueHigh.toLocaleString()} (${propResult.confidenceLevel} confidence)*`
-        )
-      }
-
-      tracker.addEstimatedClaim(
-        "Real Estate",
-        "Property Value",
-        propResult.estimatedValue,
-        "AVM based on comparable sales and online estimates (Zillow, Redfin)",
-        [Sources.zillow(""), Sources.redfin("")]
-      )
-      lines.push("")
-    }
-  }
-
   if (hasProperties) {
     lines.push(
-      `**Total Real Estate:** $${totalValue.toLocaleString()} [${data.countyAssessor ? "Verified" : "Estimated"}]`
+      `**Total Real Estate:** $${totalValue.toLocaleString()} [Verified]`
     )
   } else {
     lines.push("No real estate holdings found in public records.")
@@ -617,9 +466,8 @@ function buildRealEstateHoldings(
     content: lines.join("\n"),
     sources: [
       ...(data.countyAssessor ? [{ name: "County Assessor", url: "" }] : []),
-      ...(data.propertyValuation ? [{ name: "AVM Estimate", url: "" }] : []),
     ],
-    confidence: data.countyAssessor ? "HIGH" : data.propertyValuation ? "MEDIUM" : "LOW",
+    confidence: data.countyAssessor ? "HIGH" : "LOW",
   }
 }
 
@@ -783,22 +631,6 @@ export async function generateStructuredReport(
   // Combine into markdown
   const markdown = sections.map((s) => s.content).join("\n\n---\n\n")
 
-  // Calculate net worth range from property data
-  let netWorthRange: { low: number; high: number } | undefined
-  if (data.propertyValuation?.result) {
-    const propResult = data.propertyValuation.result as {
-      estimatedValue?: number
-      valueLow?: number
-      valueHigh?: number
-    }
-    if (propResult.valueLow && propResult.valueHigh) {
-      netWorthRange = {
-        low: propResult.valueLow,
-        high: propResult.valueHigh,
-      }
-    }
-  }
-
   // Get data quality summary
   const qualitySummary = tracker.getDataQualitySummary()
 
@@ -808,13 +640,8 @@ export async function generateStructuredReport(
     sourceTracker: tracker,
     dataQuality: qualitySummary.quality,
     romyScore: data.romyScore || undefined,
-    netWorthRange,
-    givingCapacityRange: netWorthRange
-      ? {
-          low: Math.round(netWorthRange.low * 0.01), // 1% of low estimate
-          high: Math.round(netWorthRange.high * 0.05), // 5% of high estimate
-        }
-      : undefined,
+    netWorthRange: undefined,
+    givingCapacityRange: undefined,
   }
 }
 

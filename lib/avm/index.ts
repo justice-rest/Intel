@@ -191,10 +191,7 @@ export {
   isAVMEnabled,
 } from "./config"
 
-export {
-  getCoefficientsForAddress,
-  describeCoefficientsSource,
-} from "./coefficients"
+// Note: Database-backed coefficients removed - using national defaults from config.ts
 
 export type {
   PropertyType,

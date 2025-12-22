@@ -44,10 +44,6 @@ import {
   shouldEnableCourtListenerTools,
 } from "@/lib/tools/courtlistener"
 import {
-  businessLookupTool,
-  shouldEnableBusinessLookupTool,
-} from "@/lib/tools/business-lookup"
-import {
   gleifSearchTool,
   gleifLookupTool,
   shouldEnableGleifTools,
@@ -70,7 +66,6 @@ import {
   stateContractsTool,
   shouldEnableStateContractsTool,
 } from "@/lib/tools/state-contracts"
-// business-entities merged into business-lookup
 import {
   faaAircraftTool,
   shouldEnableFAAAircraftTool,
@@ -117,7 +112,7 @@ import {
 } from "@/lib/tools/crm-search"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
-import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
+import { optimizeMessagePayload, optimizeForPerplexity, estimateTokens } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
 import { Message as MessageAISDK, streamText, generateText, smoothStream, ToolSet, tool, createDataStreamResponse, createDataStream } from "ai"
 import { z } from "zod"
@@ -382,7 +377,6 @@ You have access to **search_memory** to recall past conversations and user conte
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
       if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
-      if (shouldEnableBusinessLookupTool()) dataTools.push("business_lookup (UNIFIED: search companies OR find person's business ownership - CO, CT, NY, OR, IA, WA, FL)")
       if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
       if (shouldEnableNeonCRMTools()) dataTools.push("neon_crm_* (Neon CRM integration: search accounts/donors, get donor details, search donations - requires API key)")
       if (shouldEnableOpenSanctionsTools()) dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
@@ -413,7 +407,6 @@ ${dataTools.join("\n")}
 - usaspending_awards: Federal contracts/grants by company/org name
 - wikidata_search/entity: Biographical data (education, employers, net worth)
 - rental_investment: Rental analysis - estimates monthly rent and investment returns
-- business_lookup: **USE THIS** for "what businesses does [person] own?" OR "find info about [company]" - searches CO, CT, NY, OR, IA, WA, FL state registries
 - gleif_search: Search Global LEI database for corporate entities (2.5M+ entities)
 - gleif_lookup: Get LEI details with ownership chain (direct/ultimate parent)
 - opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
@@ -440,29 +433,6 @@ ${dataTools.join("\n")}
 6. **professional verification**: Run **npi_registry** (doctors) or **finra_brokercheck** (finance)
 7. Run tools in parallel when possible. Be thorough.
 
-### Business & Ownership Research (IMPORTANT)
-**Choose the right tool based on your goal:**
-
-| Goal | Tool | When to Use |
-|------|------|-------------|
-| "What businesses does [person] own?" | **business_lookup** (searchType="person") | Person→Business search. Searches state registries with ownership inference. |
-| "Is [person] a director/officer at any PUBLIC companies?" | Use **sec_insider_search** + **sec_proxy_search** | SEC EDGAR filings. Best for public company roles. |
-| "Find info about [company name]" | **business_lookup** (searchType="company") | Company→Details search. Gets registration, officers, status. |
-
-**Supported States (Free APIs):**
-- **Colorado (CO)**: Open Data API - entity + agent search
-- **Connecticut (CT)**: Open Data API - best-in-class, updated nightly
-- **New York (NY)**: Open Data API - fastest and most reliable
-- **Oregon (OR)**, **Iowa (IA)**, **Washington (WA)**: Open Data APIs
-- **Florida (FL)**: HTTP scraper (no browser needed) - good officer data
-
-**Other States:** Use built-in web search for states not supported by direct APIs.
-
-**Ownership Inference (business_lookup):**
-- LLC Managing Member = likely owner
-- S-Corp President/CEO/Secretary = often sole owner (wears multiple hats)
-- General Partner = ownership stake in partnership
-
 ### Board & Officer Validation (PUBLIC COMPANIES)
 When asked to verify if someone is on a board, is a director, officer, or executive:
 1. **sec_insider_search("[person name]")** - Searches Form 3/4/5 insider filings. If results found, they ARE an insider.
@@ -482,7 +452,6 @@ These tools reveal high-value prospects. Run them during comprehensive research:
 - **federal_lobbying** - Federal lobbyists. High-income profession with disclosed compensation.
 
 **Business & IP Research:**
-- **business_lookup** - Unified business search (CO, CT, NY, OR, IA, WA, FL). Search by company OR person name.
 - **uspto_search** - Patents/trademarks. Inventors and IP holders = wealth indicator.
 
 ### Professional Verification Workflow
@@ -495,13 +464,12 @@ When researching someone's profession:
 ### Due Diligence Workflow
 For comprehensive prospect due diligence:
 1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **business_lookup** - Find business affiliations via state registries
-3. **sec_insider_search** + **sec_proxy_search** - Find public company roles via SEC
-4. **court_search** - Check for litigation history
-5. **federal_lobbying** - Discover lobbying connections
-6. **fec_contributions** - Political giving history
-7. **faa_aircraft** + **uscg_vessels** - Luxury asset screening (aircraft, yachts)
-8. **npi_registry** / **finra_brokercheck** - Professional credential verification if applicable`
+2. **sec_insider_search** + **sec_proxy_search** - Find public company roles via SEC
+3. **court_search** - Check for litigation history
+4. **federal_lobbying** - Discover lobbying connections
+5. **fec_contributions** - Political giving history
+6. **faa_aircraft** + **uscg_vessels** - Luxury asset screening (aircraft, yachts)
+7. **npi_registry** / **finra_brokercheck** - Professional credential verification if applicable`
       }
     }
 
@@ -612,15 +580,6 @@ For comprehensive prospect due diligence:
             rental_investment: rentalInvestmentTool,
           }
         : {}),
-      // Add Business Registry Scraper - Stealth web scraping fallback
-      // Unified Business Lookup - combines company search + person ownership search
-      // Reliable states: CO, CT, NY, OR, IA, WA, FL (free Socrata APIs)
-      // Other states: automatic Linkup web search fallback
-      ...(enableSearch && shouldEnableBusinessLookupTool()
-        ? {
-            business_lookup: businessLookupTool,
-          }
-        : {}),
       // Add OpenSanctions tool for PEP and sanctions screening
       // COMPLETELY FREE - open source sanctions database
       ...(enableSearch && shouldEnableOpenSanctionsTools()
@@ -674,7 +633,6 @@ For comprehensive prospect due diligence:
             state_contracts: stateContractsTool,
           }
         : {}),
-      // business_entities merged into business_lookup
       // Add FAA Aircraft Registry Tool - Aircraft ownership lookup
       // Ultra-high wealth indicator ($500K-$70M+ for jets)
       ...(enableSearch && shouldEnableFAAAircraftTool()
@@ -740,7 +698,7 @@ For comprehensive prospect due diligence:
         : {}),
       // Add Giving Capacity Calculator - TFG Research Formulas (GS, EGS, Snapshot)
       // Calculates giving capacity from property, business, salary, and giving data
-      // Use AFTER gathering data from property_valuation, business_lookup, etc.
+      // Use AFTER gathering wealth data from other tools
       ...(enableSearch && shouldEnableGivingCapacityCalculatorTool()
         ? {
             giving_capacity_calculator: givingCapacityCalculatorTool,
@@ -1019,12 +977,27 @@ At the START of your response, briefly acknowledge this (e.g., "Based on your do
 before proceeding with your research.`
           }
 
+          // =====================================================================
+          // CRITICAL: Perplexity has 128K context limit
+          // Optimize messages to fit within context window
+          // =====================================================================
+          const systemPromptTokens = estimateTokens(perplexitySystemPrompt)
+          const perplexityOptimized = optimizeForPerplexity(cleanedMessages, systemPromptTokens)
+
+          console.log("[Chat API] Perplexity context optimization:", {
+            originalMessages: cleanedMessages.length,
+            optimizedMessages: perplexityOptimized.messages.length,
+            inputTokens: perplexityOptimized.inputTokens,
+            maxOutputTokens: perplexityOptimized.maxOutputTokens,
+            systemPromptTokens,
+          })
+
           const result = streamText({
             model: modelConfig.apiSdk!(apiKey, { enableSearch }),
             system: perplexitySystemPrompt,
-            messages: cleanedMessages,
+            messages: perplexityOptimized.messages,
             maxSteps: 1,
-            maxTokens: AI_MAX_OUTPUT_TOKENS,
+            maxTokens: perplexityOptimized.maxOutputTokens,
             maxRetries: 8,
             experimental_telemetry: { isEnabled: false },
             experimental_transform: smoothStream(),

@@ -231,23 +231,13 @@ export async function updateProspectToolResult(
     fec_contributions: "fecContributions",
     propublica: "propublica990",
     propublica_nonprofit_search: "propublica990",
-    property: "propertyValuation",
-    property_valuation: "propertyValuation",
     countyAssessor: "countyAssessor",
     county_assessor: "countyAssessor",
     businessRegistry: "businessRegistry",
     business_registry_scraper: "businessRegistry",
-    voter: "voterRegistration",
-    voter_registration: "voterRegistration",
-    family: "familyDiscovery",
-    family_discovery: "familyDiscovery",
     wikidata: "wikidata",
     wikidata_search: "wikidata",
     wikidata_entity: "wikidata",
-    linkup: "linkupSearches",
-    searchWeb: "linkupSearches",
-    revenueEstimate: "revenueEstimate",
-    business_revenue_estimate: "revenueEstimate",
   }
 
   const field = fieldMap[toolName]
@@ -303,17 +293,15 @@ export function getDataSummary(data: ProspectDataCache): {
   hasPropertyData: boolean
   hasBusinessData: boolean
   hasWikidataData: boolean
-  hasFamilyData: boolean
   totalSources: number
   dataQuality: string
 } {
   return {
     hasSecData: data.secInsider !== undefined,
     hasFecData: data.fecContributions !== undefined,
-    hasPropertyData: data.propertyValuation !== undefined || data.countyAssessor !== undefined,
+    hasPropertyData: data.countyAssessor !== undefined,
     hasBusinessData: data.businessRegistry !== undefined,
     hasWikidataData: data.wikidata !== undefined,
-    hasFamilyData: data.familyDiscovery !== undefined,
     totalSources: data.sourcesUsed?.length || 0,
     dataQuality: data.dataQuality,
   }

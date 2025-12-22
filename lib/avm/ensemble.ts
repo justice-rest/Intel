@@ -22,8 +22,18 @@ import type {
 import { calculateHedonicValue } from "./hedonic-model"
 import { calculateCompValue } from "./comparable-sales"
 import { calculateConfidence, calculateValueRange } from "./confidence-score"
-import { getCoefficientsForAddress, describeCoefficientsSource } from "./coefficients"
-import { MODEL_WEIGHTS, formatCurrency, formatPercent } from "./config"
+import { MODEL_WEIGHTS, formatCurrency, formatPercent, NATIONAL_HEDONIC_COEFFICIENTS } from "./config"
+
+// ============================================================================
+// Coefficients Source Description
+// ============================================================================
+
+/**
+ * Describe the source of coefficients (national defaults since database lookup removed)
+ */
+function describeCoefficientsSource(_coefficients: HedonicCoefficients): string {
+  return "National average coefficients"
+}
 
 // ============================================================================
 // Online Estimate Aggregation
@@ -85,20 +95,9 @@ export async function calculateEnsembleValue(
 ): Promise<AVMResult> {
   const { property, comparables, onlineEstimates } = input
 
-  // Get market-specific coefficients (or national fallback)
-  let coefficients = input.coefficients
-  let coefficientsSource = "provided"
-
-  if (!coefficients) {
-    const result = await getCoefficientsForAddress(
-      property.address || "",
-      property.city,
-      property.state,
-      property.zipCode
-    )
-    coefficients = result.coefficients
-    coefficientsSource = result.source
-  }
+  // Use provided coefficients or national defaults
+  const coefficients: HedonicCoefficients = input.coefficients || NATIONAL_HEDONIC_COEFFICIENTS
+  const coefficientsSource = input.coefficients ? "provided" : "national_defaults"
 
   // Calculate individual model values
   const hedonicResult = calculateHedonicValue(property, coefficients)

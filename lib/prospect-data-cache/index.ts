@@ -44,14 +44,9 @@ export interface ProspectDataCache {
   secInsider?: CachedDataSource
   fecContributions?: CachedDataSource
   propublica990?: CachedDataSource
-  propertyValuation?: CachedDataSource
   countyAssessor?: CachedDataSource
   businessRegistry?: CachedDataSource
-  voterRegistration?: CachedDataSource
-  familyDiscovery?: CachedDataSource
   wikidata?: CachedDataSource
-  linkupSearches?: CachedDataSource<unknown[]>
-  revenueEstimate?: CachedDataSource
 
   // Computed data
   romyScore?: number
@@ -84,21 +79,8 @@ export const CACHE_TTL = {
   // Business registrations - 14 days
   businessRegistry: 14 * 24 * 60 * 60 * 1000,
 
-  // Property valuations - 7 days
-  propertyValuation: 7 * 24 * 60 * 60 * 1000,
-
-  // Voter data - 14 days
-  voterRegistration: 14 * 24 * 60 * 60 * 1000,
-
   // Biographical data - 14 days
   wikidata: 14 * 24 * 60 * 60 * 1000,
-  familyDiscovery: 14 * 24 * 60 * 60 * 1000,
-
-  // Web search - 24 hours
-  linkupSearches: 24 * 60 * 60 * 1000,
-
-  // Revenue estimates - 7 days
-  revenueEstimate: 7 * 24 * 60 * 60 * 1000,
 
   // Full cache - 30 days
   fullCache: 30 * 24 * 60 * 60 * 1000,
@@ -166,7 +148,7 @@ function calculateDataQuality(cache: Partial<ProspectDataCache>): "complete" | "
     cache.propublica990,
     cache.countyAssessor,
     cache.businessRegistry,
-    cache.voterRegistration,
+    cache.wikidata,
   ].filter(Boolean).length
 
   if (verifiedSources >= 3) return "complete"
@@ -399,11 +381,6 @@ function mapDatabaseToCache(data: any): ProspectDataCache {
       cachedAt: data.propublica_cached_at,
       expiresAt: new Date(new Date(data.propublica_cached_at).getTime() + CACHE_TTL.propublica990).toISOString(),
     } : undefined,
-    propertyValuation: data.property_data ? {
-      result: data.property_data,
-      cachedAt: data.property_cached_at,
-      expiresAt: new Date(new Date(data.property_cached_at).getTime() + CACHE_TTL.propertyValuation).toISOString(),
-    } : undefined,
     countyAssessor: data.county_assessor_data ? {
       result: data.county_assessor_data,
       cachedAt: data.county_assessor_cached_at,
@@ -414,30 +391,10 @@ function mapDatabaseToCache(data: any): ProspectDataCache {
       cachedAt: data.business_registry_cached_at,
       expiresAt: new Date(new Date(data.business_registry_cached_at).getTime() + CACHE_TTL.businessRegistry).toISOString(),
     } : undefined,
-    voterRegistration: data.voter_data ? {
-      result: data.voter_data,
-      cachedAt: data.voter_cached_at,
-      expiresAt: new Date(new Date(data.voter_cached_at).getTime() + CACHE_TTL.voterRegistration).toISOString(),
-    } : undefined,
-    familyDiscovery: data.family_data ? {
-      result: data.family_data,
-      cachedAt: data.family_cached_at,
-      expiresAt: new Date(new Date(data.family_cached_at).getTime() + CACHE_TTL.familyDiscovery).toISOString(),
-    } : undefined,
     wikidata: data.wikidata_data ? {
       result: data.wikidata_data,
       cachedAt: data.wikidata_cached_at,
       expiresAt: new Date(new Date(data.wikidata_cached_at).getTime() + CACHE_TTL.wikidata).toISOString(),
-    } : undefined,
-    linkupSearches: data.linkup_data ? {
-      result: data.linkup_data,
-      cachedAt: data.linkup_cached_at,
-      expiresAt: new Date(new Date(data.linkup_cached_at).getTime() + CACHE_TTL.linkupSearches).toISOString(),
-    } : undefined,
-    revenueEstimate: data.revenue_estimate_data ? {
-      result: data.revenue_estimate_data,
-      cachedAt: data.revenue_estimate_cached_at,
-      expiresAt: new Date(new Date(data.revenue_estimate_cached_at).getTime() + CACHE_TTL.revenueEstimate).toISOString(),
     } : undefined,
     romyScore: data.romy_score,
     romyScoreBreakdown: data.romy_score_breakdown,
@@ -474,29 +431,14 @@ function mapCacheToDatabase(cache: ProspectDataCache): any {
     propublica_data: (cache.propublica990 as CachedDataSource)?.result,
     propublica_cached_at: (cache.propublica990 as CachedDataSource)?.cachedAt,
 
-    property_data: (cache.propertyValuation as CachedDataSource)?.result,
-    property_cached_at: (cache.propertyValuation as CachedDataSource)?.cachedAt,
-
     county_assessor_data: (cache.countyAssessor as CachedDataSource)?.result,
     county_assessor_cached_at: (cache.countyAssessor as CachedDataSource)?.cachedAt,
 
     business_registry_data: (cache.businessRegistry as CachedDataSource)?.result,
     business_registry_cached_at: (cache.businessRegistry as CachedDataSource)?.cachedAt,
 
-    voter_data: (cache.voterRegistration as CachedDataSource)?.result,
-    voter_cached_at: (cache.voterRegistration as CachedDataSource)?.cachedAt,
-
-    family_data: (cache.familyDiscovery as CachedDataSource)?.result,
-    family_cached_at: (cache.familyDiscovery as CachedDataSource)?.cachedAt,
-
     wikidata_data: (cache.wikidata as CachedDataSource)?.result,
     wikidata_cached_at: (cache.wikidata as CachedDataSource)?.cachedAt,
-
-    linkup_data: (cache.linkupSearches as CachedDataSource)?.result,
-    linkup_cached_at: (cache.linkupSearches as CachedDataSource)?.cachedAt,
-
-    revenue_estimate_data: (cache.revenueEstimate as CachedDataSource)?.result,
-    revenue_estimate_cached_at: (cache.revenueEstimate as CachedDataSource)?.cachedAt,
 
     romy_score: cache.romyScore,
     romy_score_breakdown: cache.romyScoreBreakdown,
