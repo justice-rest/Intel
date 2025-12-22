@@ -33,11 +33,12 @@ export const openrouterModels: ModelConfig[] = [
     apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-        ...(opts?.enableSearch && {
-          extraBody: {
+        extraBody: {
+          transforms: ["middle-out"], // Auto-compress if context exceeds 128K limit
+          ...(opts?.enableSearch && {
             plugins: [{ id: "web", max_results: 3 }],
-          },
-        }),
+          }),
+        },
       }).chat("perplexity/sonar-reasoning-pro"),
   },
   {
@@ -71,11 +72,12 @@ export const openrouterModels: ModelConfig[] = [
     apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-        ...(opts?.enableSearch && {
-          extraBody: {
+        extraBody: {
+          transforms: ["middle-out"], // Auto-compress if context exceeds 128K limit
+          ...(opts?.enableSearch && {
             plugins: [{ id: "web", max_results: 5 }],
-          },
-        }),
+          }),
+        },
       }).chat("perplexity/sonar-deep-research"),
   },
   // GPT-5-Nano - Used internally for two-stage architecture (tool execution)
