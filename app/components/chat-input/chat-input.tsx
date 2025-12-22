@@ -14,8 +14,8 @@ import { ButtonFileUpload } from "./button-file-upload"
 import { FileList } from "./file-list"
 import { PopoverContentUpgradeRequired } from "./popover-content-upgrade-required"
 import { PopoverContentWelcome } from "./popover-content-welcome"
-import { ResearchModeSelector, type ResearchMode } from "./research-mode-selector"
-import { ModelSelector } from "@/components/common/model-selector/base"
+import { type ResearchMode } from "./research-mode-selector"
+import { ResearchSelector } from "@/components/common/model-selector/base"
 
 type ChatInputProps = {
   value: string
@@ -226,17 +226,11 @@ export function ChatInput({
                     isUserAuthenticated={isUserAuthenticated}
                     model={selectedModel}
                   />
-                  <ModelSelector
-                    selectedModelId={selectedModel}
-                    setSelectedModelId={onSelectModel}
-                    isUserAuthenticated={isUserAuthenticated}
-                    className="h-9 rounded-full"
-                  />
-                  <ResearchModeSelector
+                  <ResearchSelector
                     selectedMode={researchMode}
                     onModeChange={setResearchMode}
-                    isAuthenticated={isUserAuthenticated}
-                    className="rounded-full"
+                    isUserAuthenticated={isUserAuthenticated}
+                    className="h-9 rounded-full"
                   />
                 </div>
                 <PromptInputAction

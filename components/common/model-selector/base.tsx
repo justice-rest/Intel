@@ -17,62 +17,81 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { useModel } from "@/lib/model-store/provider"
-import { filterAndSortModels } from "@/lib/model-store/utils"
-import { ModelConfig } from "@/lib/models/types"
-import { PROVIDERS } from "@/lib/providers"
-import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { cn } from "@/lib/utils"
 import {
   CaretDownIcon,
   MagnifyingGlassIcon,
-  StarIcon,
+  LightningIcon,
+  BrainIcon,
+  GlobeIcon,
+  ListChecksIcon,
 } from "@phosphor-icons/react"
-import { useRef, useState } from "react"
-import { ProModelDialog } from "./pro-dialog"
-import { SubMenu } from "./sub-menu"
+import { useState } from "react"
 
-type ModelSelectorProps = {
-  selectedModelId: string
-  setSelectedModelId: (modelId: string) => void
+export type ResearchMode = "research" | "deep-research"
+
+type ResearchOption = {
+  id: ResearchMode
+  name: string
+  description: string
+  features: {
+    webSearch: boolean
+    reasoning: boolean
+    multiStep: boolean
+  }
+}
+
+const RESEARCH_OPTIONS: ResearchOption[] = [
+  {
+    id: "research",
+    name: "Research",
+    description: "Fast web search with intelligent analysis. Best for quick lookups, current information, and straightforward research queries.",
+    features: {
+      webSearch: true,
+      reasoning: false,
+      multiStep: false,
+    },
+  },
+  {
+    id: "deep-research",
+    name: "Deep Research",
+    description: "Advanced reasoning with multi-step analysis. Best for complex prospect research, wealth screening, and comprehensive donor profiles.",
+    features: {
+      webSearch: true,
+      reasoning: true,
+      multiStep: true,
+    },
+  },
+]
+
+type ResearchSelectorProps = {
+  selectedMode: ResearchMode | null
+  onModeChange: (mode: ResearchMode | null) => void
   className?: string
   isUserAuthenticated?: boolean
 }
 
-export function ModelSelector({
-  selectedModelId,
-  setSelectedModelId,
+export function ResearchSelector({
+  selectedMode,
+  onModeChange,
   className,
   isUserAuthenticated = true,
-}: ModelSelectorProps) {
-  const { models, isLoading: isLoadingModels, favoriteModels } = useModel()
-  const { isModelHidden } = useUserPreferences()
-
-  const currentModel = models.find((model) => model.id === selectedModelId)
-  const currentProvider = PROVIDERS.find(
-    (provider) => provider.id === currentModel?.icon
-  )
+}: ResearchSelectorProps) {
   const isMobile = useBreakpoint(768)
-
-  const [hoveredModel, setHoveredModel] = useState<string | null>(null)
+  const [hoveredMode, setHoveredMode] = useState<ResearchMode | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [isProDialogOpen, setIsProDialogOpen] = useState(false)
-  const [selectedProModel, setSelectedProModel] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
 
-  // Ref for input to maintain focus
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const currentOption = RESEARCH_OPTIONS.find((opt) => opt.id === selectedMode)
 
   useKeyShortcut(
-    (e) => (e.key === "p" || e.key === "P") && e.metaKey && e.shiftKey,
+    (e) => (e.key === "r" || e.key === "R") && e.metaKey && e.shiftKey,
     () => {
       if (isMobile) {
         setIsDrawerOpen((prev) => !prev)
@@ -82,77 +101,18 @@ export function ModelSelector({
     }
   )
 
-  const renderModelItem = (model: ModelConfig) => {
-    const isLocked = !model.accessible
-    const provider = PROVIDERS.find((provider) => provider.id === model.icon)
-
-    return (
-      <div
-        key={model.id}
-        className={cn(
-          "flex w-full items-center justify-between px-3 py-2",
-          selectedModelId === model.id && "bg-accent"
-        )}
-        onClick={() => {
-          if (isLocked) {
-            setSelectedProModel(model.id)
-            setIsProDialogOpen(true)
-            return
-          }
-
-          setSelectedModelId(model.id)
-          if (isMobile) {
-            setIsDrawerOpen(false)
-          } else {
-            setIsDropdownOpen(false)
-          }
-        }}
-      >
-        <div className="flex items-center gap-3">
-          {provider?.icon && <provider.icon className="size-5" />}
-          <div className="flex flex-col gap-0">
-            <span className="text-sm">{model.name}</span>
-          </div>
-        </div>
-        {isLocked && (
-          <div className="border-input bg-accent text-muted-foreground flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium">
-            <StarIcon className="size-2" />
-            <span>Locked</span>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // Get the hovered model data
-  const hoveredModelData = models.find((model) => model.id === hoveredModel)
-
-  const filteredModels = filterAndSortModels(
-    models,
-    favoriteModels || [],
-    searchQuery,
-    isModelHidden
-  )
-
   const trigger = (
     <Button
       variant="outline"
-      className={cn("dark:bg-secondary justify-between", className)}
-      disabled={isLoadingModels}
+      className={cn("dark:bg-secondary justify-between gap-2", className)}
     >
       <div className="flex items-center gap-2">
-        {currentProvider?.icon && <currentProvider.icon className="size-5" />}
-        <span>{currentModel?.name || "Select model"}</span>
+        <MagnifyingGlassIcon className="size-4" />
+        <span>{currentOption?.name || "Research"}</span>
       </div>
       <CaretDownIcon className="size-4 opacity-50" />
     </Button>
   )
-
-  // Handle input change without losing focus
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.stopPropagation()
-    setSearchQuery(e.target.value)
-  }
 
   // If user is not authenticated, show the auth popover
   if (!isUserAuthenticated) {
@@ -165,191 +125,185 @@ export function ModelSelector({
                 size="sm"
                 variant="secondary"
                 className={cn(
-                  "border-border dark:bg-secondary text-accent-foreground h-9 w-auto border bg-transparent",
+                  "border-border dark:bg-secondary text-accent-foreground h-9 w-auto border bg-transparent gap-2",
                   className
                 )}
                 type="button"
               >
-                {currentProvider?.icon && (
-                  <currentProvider.icon className="size-5" />
-                )}
-                {currentModel?.name}
+                <MagnifyingGlassIcon className="size-4" />
+                {currentOption?.name || "Research"}
                 <CaretDownIcon className="size-4" />
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>
-          <TooltipContent>Select a model</TooltipContent>
+          <TooltipContent>Select research mode</TooltipContent>
         </Tooltip>
         <PopoverContentAuth />
       </Popover>
     )
   }
 
+  // Get the hovered option data for submenu
+  const hoveredOption = RESEARCH_OPTIONS.find((opt) => opt.id === hoveredMode)
+
+  // Submenu component
+  const renderSubMenu = (option: ResearchOption) => (
+    <div className="bg-popover border-border w-[260px] rounded-md border p-3 shadow-md">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <MagnifyingGlassIcon className="size-4" />
+          <h3 className="font-medium">{option.name}</h3>
+        </div>
+
+        <p className="text-muted-foreground text-sm">
+          {option.description}
+        </p>
+
+        <div className="mt-2 flex flex-wrap gap-2">
+          {option.features.webSearch && (
+            <div className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-800 dark:text-blue-100">
+              <GlobeIcon className="size-3" />
+              <span>Web Search</span>
+            </div>
+          )}
+          {option.features.reasoning && (
+            <div className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-800 dark:text-amber-100">
+              <BrainIcon className="size-3" />
+              <span>Reasoning</span>
+            </div>
+          )}
+          {option.features.multiStep && (
+            <div className="flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700 dark:bg-purple-800 dark:text-purple-100">
+              <ListChecksIcon className="size-3" />
+              <span>Multi-Step</span>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+          <LightningIcon className="size-3" />
+          <span>
+            {option.id === "research" ? "Fast responses" : "Thorough analysis"}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+
   if (isMobile) {
     return (
-      <>
-        <ProModelDialog
-          isOpen={isProDialogOpen}
-          setIsOpen={setIsProDialogOpen}
-          currentModel={selectedProModel || ""}
-        />
-        <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
-          <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-          <DrawerContent>
-            <DrawerHeader>
-              <DrawerTitle>Select Model</DrawerTitle>
-            </DrawerHeader>
-            <div className="px-4 pb-2">
-              <div className="relative">
-                <MagnifyingGlassIcon className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
-                <Input
-                  ref={searchInputRef}
-                  placeholder="Search models..."
-                  className="pl-8"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  onClick={(e) => e.stopPropagation()}
-                />
+      <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
+        <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+        <DrawerContent>
+          <DrawerHeader>
+            <DrawerTitle>Select Research Mode</DrawerTitle>
+          </DrawerHeader>
+          <div className="flex h-full flex-col space-y-2 overflow-y-auto px-4 pb-6">
+            {RESEARCH_OPTIONS.map((option) => (
+              <div
+                key={option.id}
+                className={cn(
+                  "flex w-full flex-col gap-2 rounded-lg border p-4 cursor-pointer transition-colors",
+                  selectedMode === option.id
+                    ? "bg-accent border-primary"
+                    : "hover:bg-accent/50"
+                )}
+                onClick={() => {
+                  onModeChange(option.id)
+                  setIsDrawerOpen(false)
+                }}
+              >
+                <div className="flex items-center gap-2">
+                  <MagnifyingGlassIcon className="size-4" />
+                  <span className="font-medium">{option.name}</span>
+                </div>
+                <p className="text-muted-foreground text-sm">
+                  {option.description}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {option.features.webSearch && (
+                    <div className="flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-800 dark:text-blue-100">
+                      <GlobeIcon className="size-3" />
+                      <span>Web Search</span>
+                    </div>
+                  )}
+                  {option.features.reasoning && (
+                    <div className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700 dark:bg-amber-800 dark:text-amber-100">
+                      <BrainIcon className="size-3" />
+                      <span>Reasoning</span>
+                    </div>
+                  )}
+                  {option.features.multiStep && (
+                    <div className="flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs text-purple-700 dark:bg-purple-800 dark:text-purple-100">
+                      <ListChecksIcon className="size-3" />
+                      <span>Multi-Step</span>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex h-full flex-col space-y-0 overflow-y-auto px-4 pb-6">
-              {isLoadingModels ? (
-                <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-                  <p className="text-muted-foreground mb-2 text-sm">
-                    Loading models...
-                  </p>
-                </div>
-              ) : filteredModels.length > 0 ? (
-                filteredModels.map((model) => renderModelItem(model))
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-                  <p className="text-muted-foreground mb-2 text-sm">
-                    No results found.
-                  </p>
-                </div>
-              )}
-            </div>
-          </DrawerContent>
-        </Drawer>
-      </>
+            ))}
+          </div>
+        </DrawerContent>
+      </Drawer>
     )
   }
 
   return (
     <div>
-      <ProModelDialog
-        isOpen={isProDialogOpen}
-        setIsOpen={setIsProDialogOpen}
-        currentModel={selectedProModel || ""}
-      />
       <Tooltip>
         <DropdownMenu
           open={isDropdownOpen}
           onOpenChange={(open) => {
             setIsDropdownOpen(open)
             if (!open) {
-              setHoveredModel(null)
-              setSearchQuery("")
+              setHoveredMode(null)
             } else {
-              if (selectedModelId) setHoveredModel(selectedModelId)
+              if (selectedMode) setHoveredMode(selectedMode)
             }
           }}
         >
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent>Switch model ⌘⇧P</TooltipContent>
+          <TooltipContent>Switch research mode ⌘⇧R</TooltipContent>
           <DropdownMenuContent
-            className="flex h-[320px] w-[300px] flex-col space-y-0.5 overflow-visible p-0"
+            className="flex w-[200px] flex-col space-y-0.5 overflow-visible p-1"
             align="start"
             sideOffset={4}
             forceMount
             side="top"
           >
-            <div className="bg-background sticky top-0 z-10 rounded-t-md border-b px-0 pt-0 pb-0">
-              <div className="relative">
-                <MagnifyingGlassIcon className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
-                <Input
-                  ref={searchInputRef}
-                  placeholder="Search models..."
-                  className="dark:bg-popover rounded-b-none border border-none pl-8 shadow-none focus-visible:ring-0"
-                  value={searchQuery}
-                  onChange={handleSearchChange}
-                  onClick={(e) => e.stopPropagation()}
-                  onFocus={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                />
-              </div>
-            </div>
-            <div className="flex h-full flex-col space-y-0 overflow-y-auto px-1 pt-0 pb-0">
-              {isLoadingModels ? (
-                <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-                  <p className="text-muted-foreground mb-2 text-sm">
-                    Loading models...
-                  </p>
-                </div>
-              ) : filteredModels.length > 0 ? (
-                filteredModels.map((model) => {
-                  const isLocked = !model.accessible
-                  const provider = PROVIDERS.find(
-                    (provider) => provider.id === model.icon
-                  )
-
-                  return (
-                    <DropdownMenuItem
-                      key={model.id}
-                      className={cn(
-                        "flex w-full items-center justify-between px-3 py-2",
-                        selectedModelId === model.id && "bg-accent"
-                      )}
-                      onSelect={() => {
-                        if (isLocked) {
-                          setSelectedProModel(model.id)
-                          setIsProDialogOpen(true)
-                          return
-                        }
-
-                        setSelectedModelId(model.id)
-                        setIsDropdownOpen(false)
-                      }}
-                      onFocus={() => {
-                        if (isDropdownOpen) {
-                          setHoveredModel(model.id)
-                        }
-                      }}
-                      onMouseEnter={() => {
-                        if (isDropdownOpen) {
-                          setHoveredModel(model.id)
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        {provider?.icon && <provider.icon className="size-5" />}
-                        <div className="flex flex-col gap-0">
-                          <span className="text-sm">{model.name}</span>
-                        </div>
-                      </div>
-                      {isLocked && (
-                        <div className="border-input bg-accent text-muted-foreground flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-medium">
-                          <span>Locked</span>
-                        </div>
-                      )}
-                    </DropdownMenuItem>
-                  )
-                })
-              ) : (
-                <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-                  <p className="text-muted-foreground mb-1 text-sm">
-                    No results found.
-                  </p>
-                </div>
-              )}
-            </div>
+            {RESEARCH_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.id}
+                className={cn(
+                  "flex w-full items-center gap-3 px-3 py-2 cursor-pointer",
+                  selectedMode === option.id && "bg-accent"
+                )}
+                onSelect={() => {
+                  onModeChange(option.id)
+                  setIsDropdownOpen(false)
+                }}
+                onFocus={() => {
+                  if (isDropdownOpen) {
+                    setHoveredMode(option.id)
+                  }
+                }}
+                onMouseEnter={() => {
+                  if (isDropdownOpen) {
+                    setHoveredMode(option.id)
+                  }
+                }}
+              >
+                <MagnifyingGlassIcon className="size-4" />
+                <span className="text-sm">{option.name}</span>
+              </DropdownMenuItem>
+            ))}
 
             {/* Submenu positioned absolutely */}
-            {hoveredModelData && (
+            {hoveredOption && (
               <div className="absolute top-0 left-[calc(100%+8px)]">
-                <SubMenu hoveredModelData={hoveredModelData} />
+                {renderSubMenu(hoveredOption)}
               </div>
             )}
           </DropdownMenuContent>
