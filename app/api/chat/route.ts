@@ -352,6 +352,20 @@ You have access to the user's connected CRM systems (Bloomerang/Virtuous).
 This provides existing giving history and contact details before running external prospect research.`
     }
 
+    // Add memory tool guidance for authenticated users
+    if (isAuthenticated) {
+      finalSystemPrompt += `\n\n## Memory Tool Usage
+You have access to **search_memory** to recall past conversations and user context.
+
+**PROACTIVELY call search_memory when:**
+- User says "do you remember...", "we discussed...", "I told you about..."
+- User references past conversations or previous research
+- Researching a prospect you may have researched before
+- User mentions their preferences or constraints
+
+**Call search_memory FIRST** before external research to avoid duplicating work.`
+    }
+
     // Add search guidance when search is enabled
     // SKIP for Perplexity models - they use SYSTEM_PROMPT_PERPLEXITY via two-stage architecture
     // Perplexity has built-in web search and doesn't need tool documentation
@@ -813,40 +827,55 @@ For comprehensive prospect due diligence:
       ? lastUserMessage.content.toLowerCase()
       : ""
 
-    // Patterns that indicate need for personal data
+    // Patterns that indicate need for personal data (documents, CRM, memory)
+    // IMPORTANT: Patterns are designed to minimize false positives (matching questions ABOUT these topics)
+    // while catching genuine requests for personal data access
     const needsPersonalData = (query: string): boolean => {
       const patterns = [
-        // Direct references to personal data
+        // Direct references to personal data with possessive/action context
         /\bmy\s+(document|file|pdf|doc|report|data|crm|constituent|donor|memor|record|spreadsheet|xlsx)/i,
         /\bcheck\s+(my|the)\s+(crm|document|file|record|donor|constituent)/i,
         /\bfrom\s+(my|the)\s+(document|file|crm|database|record)/i,
         /\bin\s+my\s+(document|file|crm|record|data)/i,
         /\bsearch\s+(my|the)\s+(document|file|crm|memor)/i,
-        /\blook\s*(up|for|at)\s+(my|in\s+my|the\s+donor|the\s+constituent)/i,
-        /\bfind\s+(in\s+)?(my|the)\s+(document|file|crm|record)/i,
-        // File references
+        /\blook\s*(up|for|at)\s+(my|in\s+my)/i,
+        /\bfind\s+(in\s+)?(my)\s+(document|file|crm|record)/i,
+        /\bshow\s+me\s+(my|the)\s+(document|file|record|donor|constituent)/i,
+        /\bpull\s+(up|from)\s+(my|the)\s+(crm|document|record)/i,
+        /\bget\s+(me\s+)?(my|the)\s+(donor|constituent|record)/i,
+
+        // File references with extensions (strong signal)
         /\.(pdf|xlsx?|docx?|csv|txt)\b/i,
-        /\bupload/i,
-        // CRM-specific
-        /\bcrm\b/i,
-        /\bconstituent/i,
-        /\bdonor\s+(record|history|info|data|profile)/i,
-        /\bbloomerang\b/i,
-        /\bvirtuous\b/i,
-        /\bneon\s*crm\b/i,
-        /\bdonorperfect\b/i,
-        /\bgiving\s+history\b/i,
-        // Memory-specific
-        /\bremember\s+(when|that|what|if)/i,
-        /\blast\s+time\s+(we|i|you)/i,
-        /\bpreviously\s+(we|i|you|discussed|mentioned|said)/i,
+        /\buploaded?\s+(file|document)/i,
+
+        // CRM action context (avoid matching "what is a CRM?")
+        /\b(check|search|look\s*up|find|get|pull|show)\s+(the\s+)?crm\b/i,
+        /\bcrm\s+(search|lookup|data|record|info)/i,
+        /\b(donor|constituent)\s+(record|history|info|data|profile|lookup)/i,
+        /\b(bloomerang|virtuous|neoncrm|donorperfect)\s+(record|data|search)/i,
+        /\b(search|check|find|look)\s+(in\s+)?(bloomerang|virtuous|neoncrm|donorperfect)/i,
+        /\bgiving\s+history\s+(for|of)\b/i,
+
+        // Memory-specific with context
+        /\bremember\s+(when|that|what|if|the|my)/i,
+        /\b(you|we)\s+discussed\b/i,
+        /\blast\s+time\s+(we|i|you)\b/i,
+        /\bpreviously\s+(we|i|you|discussed|mentioned|said|told)/i,
         /\bearlier\s+(you|we|i)\s+(said|mentioned|discussed|told)/i,
         /\bwhat\s+did\s+(i|we)\s+(tell|say|discuss|mention)/i,
         /\bdo\s+you\s+remember\b/i,
         /\bour\s+(previous|past|last)\s+(conversation|discussion|chat)/i,
+        /\btold\s+you\s+(about|that|my)/i,
+        /\bmentioned\s+(earlier|before|previously)/i,
+        /\bwe\s+talked\s+about\b/i,
+
         // Prospect/batch research
         /\bprevious\s+research\b/i,
         /\bbatch\s+(research|report|result)/i,
+        /\bresearch\s+(i|we)\s+(did|ran|completed)/i,
+
+        // Personal context indicators (more specific)
+        /\b(tell|show)\s+me\s+(about|more\s+about)\s+[A-Z][a-z]+/i, // "Tell me about Brad" - proper noun
       ]
       return patterns.some(pattern => pattern.test(query))
     }
@@ -854,7 +883,11 @@ For comprehensive prospect due diligence:
     const queryNeedsTools = needsPersonalData(queryText)
     const hasUserTools = isAuthenticated || hasCRM
 
-    if (isPerplexityModel && enableSearch) {
+    // Two-stage architecture triggers when:
+    // 1. Web search is enabled (Perplexity's built-in search) OR
+    // 2. Query needs personal data AND user has tools available
+    // This ensures CRM/RAG/Memory work even when web search is OFF
+    if (isPerplexityModel && (enableSearch || (queryNeedsTools && hasUserTools))) {
       console.log("[Chat API] Two-stage architecture: Perplexity", {
         queryNeedsTools,
         hasUserTools,
@@ -917,18 +950,25 @@ For comprehensive prospect due diligence:
                   model: toolModel,
                   system: `You are a data retrieval assistant. The user needs information from their personal data.
 
-TOOLS AVAILABLE:
-- rag_search: Search uploaded documents (PDFs, spreadsheets)
-- search_memory: Search saved memories/past conversations
-- search_prospects: Search previous prospect research
-${hasCRM ? "- crm_search: Search CRM donor/constituent records" : ""}
+AVAILABLE TOOLS:
+- list_documents: List user's uploaded documents with names and metadata
+- rag_search: Search INSIDE uploaded documents (PDFs, spreadsheets, etc.) - use specific search terms
+- search_memory: Search saved memories and past conversations
+- search_prospects: Search previous prospect research reports
+${hasCRM ? "- crm_search: Search CRM for donor/constituent records (name, email, giving history)" : ""}
 
-INSTRUCTIONS:
-1. Identify what the user is looking for
-2. Call the most relevant tool(s) with appropriate search terms
-3. Return a brief summary of findings
+STRATEGY:
+1. Analyze what the user is asking for
+2. Select the most relevant tool(s):
+   - For "what documents do I have?" → list_documents
+   - For "what does my report say about X?" → rag_search with keyword
+   - For "remember when we discussed X?" → search_memory
+   - For "my previous research on X" → search_prospects
+   - For "donor record for X" → crm_search
+3. Execute the tool(s) with appropriate search terms
+4. Summarize findings concisely
 
-Be efficient - call only tools that directly address the query.`,
+Be efficient - only call tools that directly answer the user's question.`,
                   messages: cleanedMessages,
                   tools: essentialTools,
                   maxSteps: 5,
@@ -958,7 +998,17 @@ Be efficient - call only tools that directly address the query.`,
           // STAGE 2: Synthesize with Perplexity
           console.log("[Chat API] Stage 2: Synthesizing with Perplexity", normalizedModel)
 
-          let perplexitySystemPrompt = SYSTEM_PROMPT_PERPLEXITY + gatheredContext
+          // Include auto-injected memories and batch reports from parallel loading
+          // These are ALWAYS included (from semantic search), separate from Stage 1 tool results
+          let perplexitySystemPrompt = SYSTEM_PROMPT_PERPLEXITY
+          if (memoryResult) {
+            perplexitySystemPrompt += `\n\n${memoryResult}`
+          }
+          if (batchReportsResult) {
+            perplexitySystemPrompt += `\n\n${batchReportsResult}`
+          }
+          // Add Stage 1 tool-gathered context (CRM, docs, explicit memory searches)
+          perplexitySystemPrompt += gatheredContext
 
           if (gatheredContext.trim() !== "") {
             perplexitySystemPrompt += `

@@ -1,6 +1,8 @@
+import { addUTM } from "@/app/components/chat/utils"
 import { ModelConfig } from "@/lib/models/types"
 import { PROVIDERS } from "@/lib/providers"
 import {
+  ArrowSquareOutIcon,
   BrainIcon,
   GlobeIcon,
   ImageIcon,
@@ -57,6 +59,75 @@ export function SubMenu({ hoveredModelData }: SubMenuProps) {
                 <span>Web Search</span>
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span className="font-medium">Context</span>
+            <span>
+              {Intl.NumberFormat("en-US", {
+                style: "decimal",
+              }).format(hoveredModelData.contextWindow ?? 0)}{" "}
+              tokens
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="font-medium">Input Pricing</span>
+              <span>
+                {Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                }).format(hoveredModelData.inputCost ?? 0)}{" "}
+                / 1M tokens
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="font-medium">Output Pricing</span>
+              <span>
+                {Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                }).format(hoveredModelData.outputCost ?? 0)}{" "}
+                / 1M tokens
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span className="font-medium">Provider</span>
+            <span>{hoveredModelData.provider}</span>
+          </div>
+
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span className="flex-1 font-medium">Id</span>
+            <span className="text-muted-foreground truncate text-xs">
+              {String(hoveredModelData.id)}
+            </span>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-2 text-xs">
+            <a
+              href={addUTM(hoveredModelData.apiDocs ?? "")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-0.5"
+            >
+              <span className="">API Docs</span>
+              <ArrowSquareOutIcon className="size-3" />
+            </a>
+            <a
+              href={addUTM(hoveredModelData.modelPage ?? "")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-0.5"
+            >
+              <span className="">Model Page</span>
+              <ArrowSquareOutIcon className="size-3" />
+            </a>
           </div>
         </div>
       </div>

@@ -106,7 +106,9 @@ export function MessageUser({
     const UUIDLength = 36
 
     try {
-      if (isSupabaseEnabled && id && id.length !== UUIDLength) {
+      // Skip UUID validation for optimistic messages (they haven't synced yet)
+      const isOptimisticId = id?.startsWith("optimistic-")
+      if (isSupabaseEnabled && id && !isOptimisticId && id.length !== UUIDLength) {
         // Message IDs failed to sync
         toast({
           title: "Oops, something went wrong",

@@ -270,11 +270,8 @@ export function Chat({
   )
 
   // Determine if we should show the loader overlay
-  // Show when: submitted OR streaming but waiting for actual text response
+  // Show throughout submitted and streaming phases (including tool execution)
   const lastMessage = messages[messages.length - 1]
-  const hasTextContent = lastMessage?.role === "assistant" &&
-    lastMessage.content?.trim() &&
-    lastMessage.content.trim().length > 0
 
   // Check if tools are still being invoked (parts contain tool-invocation without result)
   const hasActiveToolCalls = lastMessage?.role === "assistant" &&
@@ -284,11 +281,8 @@ export function Chat({
       part.toolInvocation?.state !== "result"
     )
 
-  const isWaitingForResponse =
-    status === "submitted" ||
-    (status === "streaming" &&
-      messages.length > 0 &&
-      (lastMessage?.role === "user" || !hasTextContent || hasActiveToolCalls))
+  // Keep loader visible throughout entire streaming process (including tool execution)
+  const isWaitingForResponse = status === "submitted" || status === "streaming"
 
   // Memoize the chat input props
   const chatInputProps = useMemo(
@@ -439,6 +433,7 @@ export function Chat({
           isActive={isWaitingForResponse}
           enableSearch={enableSearch}
           startTime={responseStartTime ?? null}
+          isExecutingTools={hasActiveToolCalls}
         />
         <ChatInput {...chatInputProps} />
       </motion.div>

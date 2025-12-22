@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/tooltip"
 import { useModel } from "@/lib/model-store/provider"
 import { filterAndSortModels } from "@/lib/model-store/utils"
-import { getModelNameById } from "@/lib/models"
 import { ModelConfig } from "@/lib/models/types"
 import { PROVIDERS } from "@/lib/providers"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
@@ -135,9 +134,6 @@ export function ModelSelector({
     isModelHidden
   )
 
-  // Get model name immediately from static models if available
-  const displayName = currentModel?.name || getModelNameById(selectedModelId) || "Select model"
-
   const trigger = (
     <Button
       variant="outline"
@@ -146,7 +142,7 @@ export function ModelSelector({
     >
       <div className="flex items-center gap-2">
         {currentProvider?.icon && <currentProvider.icon className="size-5" />}
-        <span>{displayName}</span>
+        <span>{currentModel?.name || "Select model"}</span>
       </div>
       <CaretDownIcon className="size-4 opacity-50" />
     </Button>
@@ -230,14 +226,6 @@ export function ModelSelector({
                   <p className="text-muted-foreground mb-2 text-sm">
                     No results found.
                   </p>
-                  <a
-                    href="https://github.com/ibelick/romy/issues/new?title=Model%20Request%3A%20"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground text-sm underline"
-                  >
-                    Request a new model
-                  </a>
                 </div>
               )}
             </div>
@@ -354,14 +342,6 @@ export function ModelSelector({
                   <p className="text-muted-foreground mb-1 text-sm">
                     No results found.
                   </p>
-                  <a
-                    href="https://github.com/ibelick/romy/issues/new?title=Model%20Request%3A%20"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-muted-foreground text-sm underline"
-                  >
-                    Request a new model
-                  </a>
                 </div>
               )}
             </div>

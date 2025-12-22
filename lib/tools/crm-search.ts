@@ -34,10 +34,13 @@ const crmSearchSchema = z.object({
 
 export const crmSearchTool = tool({
   description:
-    "Search your connected CRM systems (Bloomerang, Virtuous, Neon CRM, DonorPerfect) for constituent/donor information. " +
-    "Returns name, contact info, address, and giving history. " +
-    "Use this to look up existing donors by name or email before running external prospect research. " +
-    "This searches data that has been synced from the user's CRM, not live CRM data.",
+    "ALWAYS call this tool FIRST when researching a named donor or prospect. " +
+    "Execute BEFORE any external research (yahoo_finance, sec_edgar, propublica, etc). " +
+    "Searches connected CRMs (Bloomerang, Virtuous, Neon CRM, DonorPerfect) for: " +
+    "(1) existing donor records, (2) giving history & lifetime value, (3) contact info & address. " +
+    "Use when: user asks about a specific person/donor, user says 'look up [name]', " +
+    "or when you need to check if prospect is already in the donor database. " +
+    "This prevents duplicate research on existing donors.",
   parameters: crmSearchSchema,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   execute: async (_params, _context) => {

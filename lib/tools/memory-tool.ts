@@ -16,7 +16,13 @@ import { searchMemories } from "@/lib/memory/retrieval"
 export const createMemorySearchTool = (userId: string) =>
   tool({
     description:
-      "Search the user's personal memory to recall important facts, preferences, and context from past conversations. Use this when you need to remember specific details about the user that aren't in the current conversation, such as their name, preferences, ongoing projects, personal details, or anything they've explicitly asked you to remember.",
+      "PROACTIVELY search user memories for context. Execute this tool IMMEDIATELY when: " +
+      "(1) user says 'do you remember', 'we discussed', 'I told you', or references past conversations, " +
+      "(2) user mentions their preferences, constraints, or personal details, " +
+      "(3) researching a prospect you've researched before in this session, " +
+      "(4) user asks about anything they explicitly asked you to remember. " +
+      "Returns facts, preferences, previous research, and personal context. " +
+      "ALWAYS call this FIRST before external research to avoid duplicate work.",
     parameters: z.object({
       query: z
         .string()

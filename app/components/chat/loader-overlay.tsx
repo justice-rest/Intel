@@ -12,12 +12,14 @@ interface LoaderOverlayProps {
   isActive: boolean
   enableSearch: boolean
   startTime: number | null
+  isExecutingTools?: boolean
 }
 
 export function LoaderOverlay({
   isActive,
   enableSearch,
   startTime,
+  isExecutingTools = false,
 }: LoaderOverlayProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   // Track our own start time if none provided
@@ -81,9 +83,11 @@ export function LoaderOverlay({
           <div className="flex items-center gap-2 px-3 py-2 bg-background/95 backdrop-blur-sm border border-border/50 rounded-full shadow-lg">
             <ClockIcon size={14} className="text-muted-foreground" animate />
             <span className="text-sm text-muted-foreground whitespace-nowrap">
-              {isOverEstimate
-                ? "Almost done..."
-                : `Est. ${formatTimeEstimate(remainingSeconds)} remaining`}
+              {isExecutingTools
+                ? "Using tools..."
+                : isOverEstimate
+                  ? "Almost done..."
+                  : `Est. ${formatTimeEstimate(remainingSeconds)} remaining`}
             </span>
           </div>
         </motion.div>
