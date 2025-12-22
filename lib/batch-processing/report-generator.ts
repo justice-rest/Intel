@@ -1,17 +1,21 @@
 /**
  * Batch Prospect Report Generator
- * Generates comprehensive prospect research reports using AI + web search
+ * Generates comprehensive prospect research reports using Perplexity's built-in web search
  *
  * Two modes:
- * - Standard: Fast 2-search approach for quick prioritization
- * - Comprehensive: Full agentic research using all available tools (search, ProPublica, SEC, FEC, Wikidata, etc.)
+ * - Standard: Fast research for quick prioritization (~600-800 word summaries)
+ * - Comprehensive: Thorough multi-source research (~15-section reports)
+ *
+ * Note: Tools disabled - Perplexity Sonar Reasoning Pro has built-in web search
+ * and does NOT support function calling. All research is done via Perplexity's
+ * native search capabilities.
  */
 
 import { streamText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { ProspectInputData, BatchProspectItem, BatchSearchMode } from "./types"
 import { buildProspectQueryString } from "./parser"
-import { buildBatchTools, getToolDescriptions, extractSourcesFromToolResults } from "./batch-tools"
+// Note: Tools disabled - Perplexity has built-in web search and doesn't support function calling
 import {
   getRomyScore,
   RomyScoreDataPoints,
@@ -1031,155 +1035,26 @@ function extractMetricsFromReport(content: string): {
 }
 
 // ============================================================================
-// ROMYSCORE DATA EXTRACTION FROM TOOL RESULTS
+// ROMYSCORE CALCULATION FROM AI-EXTRACTED METRICS
 // ============================================================================
 
 /**
- * Extract RomyScore data points from tool results
- * This creates structured data for deterministic scoring
+ * Calculate RomyScore from AI-extracted metrics
+ * Since we no longer have tool results, we estimate based on net worth
  */
-function extractDataPointsFromToolResults(
-  toolResults: Array<{ toolName: string; result: unknown }>
-): Partial<RomyScoreDataPoints> {
-  const dataPoints: Partial<RomyScoreDataPoints> = {}
-
-  for (const { toolName, result } of toolResults) {
-    if (!result || typeof result !== "object") continue
-    const resultObj = result as Record<string, unknown>
-
-    // Extract from property_valuation tool
-    if (toolName === "property_valuation") {
-      if (typeof resultObj.estimatedValue === "number" && resultObj.estimatedValue > 0) {
-        dataPoints.propertyValue = resultObj.estimatedValue
-      }
-    }
-
-    // Extract from opencorporates_officer_search
-    if (toolName === "opencorporates_officer_search") {
-      const officers = resultObj.officers as Array<{
-        name: string
-        position: string
-        companyName: string
-        current: boolean
-      }> | undefined
-
-      if (officers && officers.length > 0) {
-        dataPoints.businessRoles = officers
-          .filter((o) => o.current)
-          .map((o) => ({
-            role: o.position,
-            companyName: o.companyName,
-            isPublicCompany: false, // OpenCorporates doesn't indicate this
-          }))
-      }
-    }
-
-    // Extract from sec_insider_search (indicates public company affiliation)
-    if (toolName === "sec_insider_search") {
-      const filings = resultObj.filings as Array<{
-        companyName: string
-        position?: string
-      }> | undefined
-
-      if (filings && filings.length > 0) {
-        const existingRoles = dataPoints.businessRoles || []
-        const secRoles = filings.map((f) => ({
-          role: f.position || "Insider",
-          companyName: f.companyName,
-          isPublicCompany: true, // SEC filings = public company
-        }))
-
-        // Merge with existing, mark as public company
-        dataPoints.businessRoles = [...existingRoles, ...secRoles]
-      }
-    }
-
-    // Extract from yahoo_finance_profile
-    if (toolName === "yahoo_finance_profile") {
-      const executives = resultObj.executives as Array<{
-        name: string
-        title: string
-      }> | undefined
-      const companyName = resultObj.companyName as string | undefined
-
-      if (executives && companyName) {
-        const existingRoles = dataPoints.businessRoles || []
-        const yahooRoles = executives.map((e) => ({
-          role: e.title,
-          companyName: companyName,
-          isPublicCompany: true, // Yahoo Finance = public company
-        }))
-        dataPoints.businessRoles = [...existingRoles, ...yahooRoles]
-      }
-    }
-
-    // Extract from fec_contributions
-    if (toolName === "fec_contributions") {
-      const totalAmount = resultObj.totalAmount as number | undefined
-      if (typeof totalAmount === "number" && totalAmount > 0) {
-        dataPoints.totalPoliticalGiving = totalAmount
-      }
-    }
-
-    // Extract from propublica_nonprofit_search or nonprofit_affiliation_search
-    if (toolName === "propublica_nonprofit_search" || toolName === "nonprofit_affiliation_search") {
-      const organizations = resultObj.organizations as Array<{ name: string }> | undefined
-      const affiliations = resultObj.affiliations as Array<{ organizationName: string }> | undefined
-
-      if (organizations && organizations.length > 0) {
-        dataPoints.foundationAffiliations = organizations.map((o) => o.name)
-      } else if (affiliations && affiliations.length > 0) {
-        dataPoints.foundationAffiliations = affiliations.map((a) => a.organizationName)
-      }
-    }
-
-    // Extract from wikidata_entity
-    if (toolName === "wikidata_entity") {
-      const netWorth = resultObj.netWorth as number | undefined
-      if (typeof netWorth === "number" && netWorth > 0) {
-        dataPoints.publicNetWorth = netWorth
-      }
-    }
-
-    // Extract from opensanctions_screening
-    if (toolName === "opensanctions_screening") {
-      const riskLevel = resultObj.riskLevel as "HIGH" | "MEDIUM" | "LOW" | "CLEAR" | undefined
-      if (riskLevel) {
-        dataPoints.sanctionsStatus = riskLevel
-      }
-    }
-  }
-
-  return dataPoints
-}
-
-/**
- * Calculate consistent RomyScore from tool results and cache it
- */
-async function calculateConsistentRomyScore(
+async function calculateRomyScoreFromMetrics(
   prospect: ProspectInputData,
-  toolResults: Array<{ toolName: string; result: unknown }>,
   aiExtractedMetrics: {
     estimated_net_worth?: number
     estimated_gift_capacity?: number
   }
 ): Promise<RomyScoreBreakdown> {
-  // Extract structured data from tool results
-  const extractedDataPoints = extractDataPointsFromToolResults(toolResults)
+  const dataPoints: Partial<RomyScoreDataPoints> = {}
 
-  // Also include AI-extracted metrics as fallback data points
-  const dataPoints: Partial<RomyScoreDataPoints> = {
-    ...extractedDataPoints,
-  }
-
-  // If we have AI-extracted net worth but no public net worth from tools
-  if (aiExtractedMetrics.estimated_net_worth && !dataPoints.publicNetWorth) {
-    // Don't use AI estimate for publicNetWorth - that's for verified public data only
-    // But we can estimate property value if missing
-    if (!dataPoints.propertyValue && aiExtractedMetrics.estimated_net_worth > 0) {
-      // Rough estimate: property is often 20-40% of net worth for HNW individuals
-      dataPoints.propertyValue = Math.round(aiExtractedMetrics.estimated_net_worth * 0.3)
-    }
+  // If we have AI-extracted net worth, estimate property value
+  if (aiExtractedMetrics.estimated_net_worth && aiExtractedMetrics.estimated_net_worth > 0) {
+    // Rough estimate: property is often 20-40% of net worth for HNW individuals
+    dataPoints.propertyValue = Math.round(aiExtractedMetrics.estimated_net_worth * 0.3)
   }
 
   // Get cached score, merging with new data
@@ -1191,7 +1066,7 @@ async function calculateConsistentRomyScore(
   )
 
   console.log(
-    `[BatchProcessor] Consistent RomyScore for ${prospect.name}: ${breakdown.totalScore}/41 ` +
+    `[BatchProcessor] RomyScore for ${prospect.name}: ${breakdown.totalScore}/41 ` +
     `(${breakdown.tier.name}) - Confidence: ${breakdown.dataQuality.confidenceLevel}`
   )
 
@@ -1214,10 +1089,6 @@ async function generateComprehensiveReportWithTools(
   const startTime = Date.now()
 
   try {
-    // Build the tools object - same tools as chat API
-    const tools = buildBatchTools()
-    const hasTools = Object.keys(tools).length > 0
-
     // Build prospect info for the prompt
     const prospectInfo = buildProspectQueryString(prospect)
     const additionalInfo = Object.entries(prospect)
@@ -1226,11 +1097,8 @@ async function generateComprehensiveReportWithTools(
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n")
 
-    // Build system prompt with tool descriptions
-    let systemPrompt = COMPREHENSIVE_MODE_SYSTEM_PROMPT
-    if (hasTools) {
-      systemPrompt += "\n\n" + getToolDescriptions()
-    }
+    // Perplexity has built-in web search - no tools needed
+    const systemPrompt = COMPREHENSIVE_MODE_SYSTEM_PROMPT
 
     // User message for comprehensive research
     const userMessage = `Research this prospect and generate a comprehensive prospect research report:
@@ -1238,19 +1106,18 @@ async function generateComprehensiveReportWithTools(
 **Prospect:** ${prospectInfo}
 ${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
 
-Use your research tools to gather data about this person:
-1. Start with web search to find their professional background and affiliations
-2. If you discover they're affiliated with foundations/nonprofits, search ProPublica for 990 data
-3. If they're a public company executive, check SEC EDGAR for financial data
-4. Check FEC for political contribution history
-5. Use Wikidata for biographical details
+Use your built-in web search to gather data about this person:
+1. Search for their professional background and affiliations
+2. Look for foundation/nonprofit connections (check IRS 990 data on ProPublica Nonprofit Explorer)
+3. If they're a public company executive, search SEC EDGAR for financial data
+4. Check FEC.gov for political contribution history
+5. Search for biographical details and net worth estimates
 
 After researching, produce the comprehensive report with all sections filled in based on your findings.`
 
-    console.log(`[BatchProcessor] Starting comprehensive agentic research for: ${prospect.name}`)
-    console.log(`[BatchProcessor] Available tools: ${Object.keys(tools).join(", ")}`)
+    console.log(`[BatchProcessor] Starting comprehensive research for: ${prospect.name}`)
 
-    // Generate report using AI with tools
+    // Generate report using AI (Perplexity has built-in web search)
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
     })
@@ -1260,53 +1127,28 @@ After researching, produce the comprehensive report with all sections filled in 
       model,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-      tools: hasTools ? tools : undefined,
-      maxSteps: hasTools ? 25 : 1, // Allow 25 steps for thorough agentic research (8-12 searchWeb + data tools)
+      // No tools - Perplexity has built-in web search
+      maxSteps: 1,
       maxTokens: 16000,
       temperature: 0.3,
     })
 
-    // Collect the full response and track tool results
+    // Collect the full response
     let reportContent = ""
-    const toolResults: Array<{ toolName: string; result: unknown }> = []
-
     for await (const chunk of result.textStream) {
       reportContent += chunk
     }
-
-    // Get the full response to extract tool results for sources
-    // Tool results are in steps from the AI SDK
-    const steps = await result.steps
-    for (const step of steps) {
-      // Type-safe access to tool results - use type assertion since ToolSet is generic
-      const stepToolResults = step.toolResults as Array<{
-        toolName: string
-        result: unknown
-      }> | undefined
-      if (stepToolResults && Array.isArray(stepToolResults)) {
-        for (const toolResult of stepToolResults) {
-          toolResults.push({
-            toolName: toolResult.toolName,
-            result: toolResult.result,
-          })
-        }
-      }
-    }
-
-    // Extract sources from tool results
-    const allSources = extractSourcesFromToolResults(toolResults)
 
     // Get usage stats
     const usage = await result.usage
     const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
 
-    // Extract AI-generated metrics from the report (for reference/fallback)
+    // Extract AI-generated metrics from the report
     const aiMetrics = extractMetricsFromReport(reportContent)
 
-    // Calculate CONSISTENT RomyScore from tool results (deterministic)
-    const romyBreakdown = await calculateConsistentRomyScore(
+    // Calculate RomyScore from AI-extracted metrics
+    const romyBreakdown = await calculateRomyScoreFromMetrics(
       prospect,
-      toolResults,
       {
         estimated_net_worth: aiMetrics.estimated_net_worth,
         estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
@@ -1316,23 +1158,20 @@ After researching, produce the comprehensive report with all sections filled in 
     const processingTime = Date.now() - startTime
     console.log(
       `[BatchProcessor] Comprehensive report generated for ${prospect.name} in ${processingTime}ms, ` +
-        `tokens: ${tokensUsed}, tool calls: ${toolResults.length}, ` +
-        `Consistent RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
+        `tokens: ${tokensUsed}, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
     )
 
     return {
       success: true,
       report_content: reportContent,
-      // Use CONSISTENT scores from RomyScore system (not AI-extracted)
       romy_score: romyBreakdown.totalScore,
       romy_score_tier: romyBreakdown.tier.name,
       capacity_rating: romyBreakdown.tier.capacity,
-      // Keep AI-extracted financial estimates (these are subjective anyway)
       estimated_net_worth: aiMetrics.estimated_net_worth,
       estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
       recommended_ask: aiMetrics.recommended_ask,
-      search_queries_used: toolResults.map((t) => `Tool: ${t.toolName}`),
-      sources_found: allSources,
+      search_queries_used: ["Perplexity built-in web search"],
+      sources_found: [], // Sources are inline in Perplexity responses
       tokens_used: tokensUsed,
     }
   } catch (error) {
@@ -1346,9 +1185,8 @@ After researching, produce the comprehensive report with all sections filled in 
 }
 
 /**
- * Generate a standard report using tools + web search.
- * Uses all available research tools for comprehensive data gathering,
- * but produces a concise output format.
+ * Generate a standard report using Perplexity's built-in web search.
+ * Produces a concise output format optimized for quick prioritization.
  */
 async function generateStandardReport(
   options: GenerateReportOptions
@@ -1357,10 +1195,6 @@ async function generateStandardReport(
   const startTime = Date.now()
 
   try {
-    // Build the tools object - same tools as comprehensive mode
-    const tools = buildBatchTools()
-    const hasTools = Object.keys(tools).length > 0
-
     // Build prospect info for the prompt
     const prospectInfo = buildProspectQueryString(prospect)
     const additionalInfo = Object.entries(prospect)
@@ -1369,31 +1203,26 @@ async function generateStandardReport(
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n")
 
-    // Build system prompt with tool descriptions
-    // Use PROFESSIONAL_SUMMARY_PROMPT for better extraction compatibility
-    let systemPrompt = PROFESSIONAL_SUMMARY_PROMPT
-    if (hasTools) {
-      systemPrompt += "\n\n" + getToolDescriptions()
-    }
+    // Perplexity has built-in web search - no tools needed
+    const systemPrompt = PROFESSIONAL_SUMMARY_PROMPT
 
     const userMessage = `Research this prospect and generate a Professional Summary:
 
 **Prospect:** ${prospectInfo}
 ${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
 
-Use your research tools to gather data:
-1. Use searchWeb for property values, business ownership, and general background
-2. Use propublica_nonprofit_search if you find foundation affiliations
-3. Use fec_contributions for political giving history
-4. Use yahoo_finance tools if they're a public company executive
-5. Use sec_insider_search to verify board/officer positions at public companies
+Use your built-in web search to gather data:
+1. Search for property values and real estate holdings
+2. Look for business ownership and professional background
+3. Check ProPublica Nonprofit Explorer for foundation affiliations
+4. Search FEC.gov for political giving history
+5. Look for SEC filings if they're a public company executive
 
 After researching, produce the concise prospect summary with ALL sections filled in. Include specific dollar amounts.`
 
-    console.log(`[BatchProcessor] Starting standard research with tools for: ${prospect.name}`)
-    console.log(`[BatchProcessor] Available tools: ${Object.keys(tools).join(", ")}`)
+    console.log(`[BatchProcessor] Starting standard research for: ${prospect.name}`)
 
-    // Generate report using AI with tools
+    // Generate report using AI (Perplexity has built-in web search)
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
     })
@@ -1403,39 +1232,17 @@ After researching, produce the concise prospect summary with ALL sections filled
       model,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-      tools: hasTools ? tools : undefined,
-      maxSteps: hasTools ? 15 : 1, // Allow 15 steps for tool calls (fewer than comprehensive's 25)
+      // No tools - Perplexity has built-in web search
+      maxSteps: 1,
       maxTokens: 4000,
       temperature: 0.3,
     })
 
-    // Collect the full response and track tool results
+    // Collect the full response
     let reportContent = ""
-    const toolResults: Array<{ toolName: string; result: unknown }> = []
-
     for await (const chunk of result.textStream) {
       reportContent += chunk
     }
-
-    // Get tool results from steps
-    const steps = await result.steps
-    for (const step of steps) {
-      const stepToolResults = step.toolResults as Array<{
-        toolName: string
-        result: unknown
-      }> | undefined
-      if (stepToolResults && Array.isArray(stepToolResults)) {
-        for (const toolResult of stepToolResults) {
-          toolResults.push({
-            toolName: toolResult.toolName,
-            result: toolResult.result,
-          })
-        }
-      }
-    }
-
-    // Extract sources from tool results
-    const allSources = extractSourcesFromToolResults(toolResults)
 
     // Get usage stats
     const usage = await result.usage
@@ -1450,10 +1257,9 @@ After researching, produce the concise prospect summary with ALL sections filled
       recommended_ask: aiMetrics.recommended_ask ?? "NOT FOUND",
     })
 
-    // Calculate CONSISTENT RomyScore from tool results
-    const romyBreakdown = await calculateConsistentRomyScore(
+    // Calculate RomyScore from AI-extracted metrics
+    const romyBreakdown = await calculateRomyScoreFromMetrics(
       prospect,
-      toolResults,
       {
         estimated_net_worth: aiMetrics.estimated_net_worth,
         estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
@@ -1463,23 +1269,20 @@ After researching, produce the concise prospect summary with ALL sections filled
     const processingTime = Date.now() - startTime
     console.log(
       `[BatchProcessor] Standard report generated for ${prospect.name} in ${processingTime}ms, ` +
-        `tokens: ${tokensUsed}, tool calls: ${toolResults.length}, ` +
-        `RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
+        `tokens: ${tokensUsed}, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
     )
 
     return {
       success: true,
       report_content: reportContent,
-      // Use CONSISTENT scores from RomyScore system
       romy_score: romyBreakdown.totalScore,
       romy_score_tier: romyBreakdown.tier.name,
       capacity_rating: romyBreakdown.tier.capacity,
-      // Keep AI-extracted financial estimates
       estimated_net_worth: aiMetrics.estimated_net_worth,
       estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
       recommended_ask: aiMetrics.recommended_ask,
-      search_queries_used: toolResults.map((t) => `Tool: ${t.toolName}`),
-      sources_found: allSources,
+      search_queries_used: ["Perplexity built-in web search"],
+      sources_found: [], // Sources are inline in Perplexity responses
       tokens_used: tokensUsed,
     }
   } catch (error) {

@@ -78,4 +78,40 @@ export const openrouterModels: ModelConfig[] = [
         }),
       }).chat("perplexity/sonar-deep-research"),
   },
+  // Gemini 3 Flash - Used internally for two-stage architecture (tool execution)
+  // Fast, cheap model with tool support for gathering context before Perplexity synthesis
+  {
+    id: "openrouter:google/gemini-3-flash-preview",
+    name: "Gemini 3 Flash",
+    provider: "OpenRouter",
+    providerId: "openrouter",
+    modelFamily: "Gemini",
+    baseProviderId: "google",
+    description:
+      "High speed, high value thinking model designed for agentic workflows. Supports function calling for tool execution.",
+    tags: ["fast", "tools", "reasoning", "multimodal", "agentic"],
+    contextWindow: 1048576,
+    inputCost: 0.5,
+    outputCost: 3.0,
+    priceUnit: "per 1M tokens",
+    vision: true,
+    tools: true,
+    audio: true,
+    reasoning: true,
+    webSearch: false,
+    openSource: false,
+    speed: "Fast",
+    intelligence: "High",
+    website: "https://openrouter.ai",
+    apiDocs: "https://openrouter.ai/docs",
+    modelPage: "https://openrouter.ai/google/gemini-3-flash-preview",
+    releasedAt: "2025-12-01",
+    icon: "google",
+    isPro: false,
+    hidden: true, // Internal use only - for two-stage architecture
+    apiSdk: (apiKey?: string) =>
+      createOpenRouter({
+        apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+      }).chat("google/gemini-3-flash-preview"),
+  },
 ]

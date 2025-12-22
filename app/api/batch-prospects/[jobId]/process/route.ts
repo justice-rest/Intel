@@ -252,6 +252,7 @@ export async function POST(
       prospect: nextItem.input_data,
       enableWebSearch: job.settings?.enable_web_search ?? true,
       generateRomyScore: job.settings?.generate_romy_score ?? true,
+      searchMode: job.settings?.search_mode || "standard",
       apiKey,
     })
 
