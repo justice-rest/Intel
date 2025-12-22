@@ -78,41 +78,40 @@ export const openrouterModels: ModelConfig[] = [
         }),
       }).chat("perplexity/sonar-deep-research"),
   },
-  // Gemini 2.0 Flash - Used internally for two-stage architecture (tool execution)
-  // Fast, cheap model with reliable tool support for gathering context before Perplexity synthesis
-  // Note: Gemini 3 Flash requires thought signatures which don't work well with tool calling
+  // GPT-5-mini - Used internally for two-stage architecture (tool execution)
+  // Fast, reliable model with excellent function calling support
   {
-    id: "openrouter:google/gemini-2.0-flash-001",
-    name: "Gemini 2.0 Flash",
+    id: "openrouter:openai/gpt-5-mini",
+    name: "GPT-5 Mini",
     provider: "OpenRouter",
     providerId: "openrouter",
-    modelFamily: "Gemini",
-    baseProviderId: "google",
+    modelFamily: "GPT-5",
+    baseProviderId: "openai",
     description:
-      "Fast, efficient model with reliable function calling. Used for tool execution in two-stage architecture.",
-    tags: ["fast", "tools", "multimodal"],
-    contextWindow: 1048576,
-    inputCost: 0.1,
-    outputCost: 0.4,
+      "Fast, efficient OpenAI model with excellent function calling. Used for tool execution in two-stage architecture.",
+    tags: ["fast", "tools", "reliable"],
+    contextWindow: 1000000,
+    inputCost: 1.1,
+    outputCost: 4.4,
     priceUnit: "per 1M tokens",
     vision: true,
     tools: true,
-    audio: true,
+    audio: false,
     reasoning: false,
     webSearch: false,
     openSource: false,
     speed: "Fast",
-    intelligence: "Medium",
+    intelligence: "High",
     website: "https://openrouter.ai",
     apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/google/gemini-2.0-flash-001",
-    releasedAt: "2024-12-11",
-    icon: "google",
+    modelPage: "https://openrouter.ai/openai/gpt-5-mini",
+    releasedAt: "2025-04-01",
+    icon: "openai",
     isPro: false,
     hidden: true, // Internal use only - for two-stage architecture
     apiSdk: (apiKey?: string) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-      }).chat("google/gemini-2.0-flash-001"),
+      }).chat("openai/gpt-5-mini"),
   },
 ]

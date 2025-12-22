@@ -816,12 +816,11 @@ For comprehensive prospect due diligence:
       // Use createDataStreamResponse to send status annotations before the main response
       return createDataStreamResponse({
         execute: async (dataStream) => {
-          // STAGE 1: Execute essential tools with Gemini 2.0 Flash
-          // Note: Gemini 3 Flash requires thought signatures which complicate tool calling
-          // Gemini 2.0 Flash is reliable, fast, and cheap for tool execution
-          const geminiModel = createOpenRouter({
+          // STAGE 1: Execute essential tools with GPT-5-mini
+          // Fast, reliable model with excellent function calling support
+          const toolModel = createOpenRouter({
             apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-          }).chat("google/gemini-2.0-flash-001")
+          }).chat("openai/gpt-5-mini")
 
           // Only include essential user-context tools (RAG, CRM, Memory)
           const essentialTools: ToolSet = {
@@ -862,11 +861,11 @@ For comprehensive prospect due diligence:
               message: "Searching your documents, CRM, and memory...",
             })
 
-            console.log("[Chat API] Stage 1: Executing essential tools with Gemini Flash")
+            console.log("[Chat API] Stage 1: Executing essential tools with GPT-5-mini")
 
             try {
               const toolGatheringResult = await generateText({
-                model: geminiModel,
+                model: toolModel,
                 system: `You are a research assistant. Search the available tools to gather relevant context:
 - Use rag_search for user's documents
 - Use search_memory for previous conversations
