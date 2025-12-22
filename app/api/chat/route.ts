@@ -799,102 +799,160 @@ For comprehensive prospect due diligence:
     // Perplexity models (Sonar Pro, Deep Research) have built-in web search but
     // do NOT support function calling. To enable RAG, CRM, and Memory tools:
     //
-    // Stage 1: Gemini 2.5 Flash executes essential user-context tools
+    // Stage 1: GPT-5-Nano executes essential user-context tools (ONLY when needed)
     // Stage 2: Perplexity synthesizes with gathered context + built-in search
+    //
+    // OPTIMIZATION: Intent detection skips Stage 1 for queries that don't need
+    // personal data (e.g., "What's the capital of France?")
     // =========================================================================
     const isPerplexityModel = normalizedModel.includes("perplexity/sonar")
 
-    // Two-stage architecture triggers when:
-    // 1. User has essential tools (authenticated = RAG/Memory, hasCRM = CRM search)
-    // 2. OR web search is enabled (Perplexity's built-in search)
-    // This ensures CRM/RAG/Memory work even when web search is OFF
-    const hasEssentialTools = isAuthenticated || hasCRM
+    // Intent detection: Check if query needs personal data (documents, CRM, memory)
+    const lastUserMessage = cleanedMessages.filter(m => m.role === "user").pop()
+    const queryText = typeof lastUserMessage?.content === "string"
+      ? lastUserMessage.content.toLowerCase()
+      : ""
 
-    if (isPerplexityModel && (enableSearch || hasEssentialTools)) {
-      console.log("[Chat API] Two-stage architecture: Perplexity model", { enableSearch, hasEssentialTools, hasCRM })
+    // Patterns that indicate need for personal data
+    const needsPersonalData = (query: string): boolean => {
+      const patterns = [
+        // Direct references to personal data
+        /\bmy\s+(document|file|pdf|doc|report|data|crm|constituent|donor|memor|record|spreadsheet|xlsx)/i,
+        /\bcheck\s+(my|the)\s+(crm|document|file|record|donor|constituent)/i,
+        /\bfrom\s+(my|the)\s+(document|file|crm|database|record)/i,
+        /\bin\s+my\s+(document|file|crm|record|data)/i,
+        /\bsearch\s+(my|the)\s+(document|file|crm|memor)/i,
+        /\blook\s*(up|for|at)\s+(my|in\s+my|the\s+donor|the\s+constituent)/i,
+        /\bfind\s+(in\s+)?(my|the)\s+(document|file|crm|record)/i,
+        // File references
+        /\.(pdf|xlsx?|docx?|csv|txt)\b/i,
+        /\bupload/i,
+        // CRM-specific
+        /\bcrm\b/i,
+        /\bconstituent/i,
+        /\bdonor\s+(record|history|info|data|profile)/i,
+        /\bbloomerang\b/i,
+        /\bvirtuous\b/i,
+        /\bneon\s*crm\b/i,
+        /\bdonorperfect\b/i,
+        /\bgiving\s+history\b/i,
+        // Memory-specific
+        /\bremember\s+(when|that|what|if)/i,
+        /\blast\s+time\s+(we|i|you)/i,
+        /\bpreviously\s+(we|i|you|discussed|mentioned|said)/i,
+        /\bearlier\s+(you|we|i)\s+(said|mentioned|discussed|told)/i,
+        /\bwhat\s+did\s+(i|we)\s+(tell|say|discuss|mention)/i,
+        /\bdo\s+you\s+remember\b/i,
+        /\bour\s+(previous|past|last)\s+(conversation|discussion|chat)/i,
+        // Prospect/batch research
+        /\bprevious\s+research\b/i,
+        /\bbatch\s+(research|report|result)/i,
+      ]
+      return patterns.some(pattern => pattern.test(query))
+    }
 
-      // Use createDataStreamResponse to send status annotations before the main response
+    const queryNeedsTools = needsPersonalData(queryText)
+    const hasUserTools = isAuthenticated || hasCRM
+
+    if (isPerplexityModel && enableSearch) {
+      console.log("[Chat API] Two-stage architecture: Perplexity", {
+        queryNeedsTools,
+        hasUserTools,
+        hasCRM,
+        queryPreview: queryText.substring(0, 80)
+      })
+
       return createDataStreamResponse({
         execute: async (dataStream) => {
-          // STAGE 1: Execute essential tools with GPT-5-mini
-          // Fast, reliable model with excellent function calling support
-          const toolModel = createOpenRouter({
-            apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-          }).chat("openai/gpt-5-mini")
-
-          // Only include essential user-context tools (RAG, CRM, Memory)
-          const essentialTools: ToolSet = {
-            ...(isAuthenticated
-              ? {
-                  list_documents: createListDocumentsTool(userId),
-                  rag_search: createRagSearchTool(userId),
-                  search_memory: createMemorySearchTool(userId),
-                  search_prospects: createBatchReportsSearchTool(userId),
-                }
-              : {}),
-            ...(isAuthenticated && hasCRM
-              ? {
-                  crm_search: tool({
-                    description:
-                      "Search connected CRM systems (Bloomerang, Virtuous, Neon CRM, DonorPerfect) for constituent/donor information.",
-                    parameters: z.object({
-                      query: z.string().describe("Search term - name, email, or keyword"),
-                      provider: z.enum(["bloomerang", "virtuous", "neoncrm", "donorperfect", "all"]).optional().default("all"),
-                      limit: z.number().optional().default(10),
-                    }),
-                    execute: async ({ query, provider, limit }) => {
-                      return await searchCRMConstituents(userId, query, provider, limit)
-                    },
-                  }),
-                }
-              : {}),
-          }
-
-          const hasEssentialTools = Object.keys(essentialTools).length > 0
           let gatheredContext = ""
 
-          if (hasEssentialTools) {
-            // Send status annotation: gathering context
-            dataStream.writeMessageAnnotation({
-              type: "status",
-              status: "gathering-context",
-              message: "Searching your documents, CRM, and memory...",
-            })
+          // STAGE 1: Only execute if query explicitly needs personal data
+          if (queryNeedsTools && hasUserTools) {
+            // GPT-5-Nano: Ultra-fast ($0.05/$0.40 per 1M tokens), excellent tool calling
+            const toolModel = createOpenRouter({
+              apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+            }).chat("openai/gpt-5-nano")
 
-            console.log("[Chat API] Stage 1: Executing essential tools with GPT-5-mini")
+            const essentialTools: ToolSet = {
+              ...(isAuthenticated
+                ? {
+                    list_documents: createListDocumentsTool(userId),
+                    rag_search: createRagSearchTool(userId),
+                    search_memory: createMemorySearchTool(userId),
+                    search_prospects: createBatchReportsSearchTool(userId),
+                  }
+                : {}),
+              ...(isAuthenticated && hasCRM
+                ? {
+                    crm_search: tool({
+                      description:
+                        "Search CRM for donor/constituent records by name, email, or keyword.",
+                      parameters: z.object({
+                        query: z.string().describe("Search term"),
+                        provider: z.enum(["bloomerang", "virtuous", "neoncrm", "donorperfect", "all"]).optional().default("all"),
+                        limit: z.number().optional().default(10),
+                      }),
+                      execute: async ({ query, provider, limit }) => {
+                        return await searchCRMConstituents(userId, query, provider, limit)
+                      },
+                    }),
+                  }
+                : {}),
+            }
 
-            try {
-              const toolGatheringResult = await generateText({
-                model: toolModel,
-                system: `You are a research assistant. Search the available tools to gather relevant context:
-- Use rag_search for user's documents
-- Use search_memory for previous conversations
-- Use search_prospects for previous research
-- Use crm_search for CRM data
+            const toolCount = Object.keys(essentialTools).length
 
-Provide a brief summary of findings.`,
-                messages: cleanedMessages,
-                tools: essentialTools,
-                maxSteps: 10,
-                maxTokens: 4000,
+            if (toolCount > 0) {
+              // Status: searching personal data
+              dataStream.writeMessageAnnotation({
+                type: "status",
+                status: "gathering-context",
+                message: hasCRM ? "Searching your CRM..." : "Searching your documents...",
               })
 
-              if (toolGatheringResult.text && toolGatheringResult.text.trim() !== "") {
-                gatheredContext = `\n\n## Context from User's Data\n\n${toolGatheringResult.text}`
-                console.log("[Chat API] Stage 1 complete: Gathered", gatheredContext.length, "chars")
+              console.log("[Chat API] Stage 1: GPT-5-Nano executing tools", { toolCount })
 
-                // Send status annotation: context found
-                dataStream.writeMessageAnnotation({
-                  type: "status",
-                  status: "context-found",
-                  message: "Found relevant context. Now researching...",
+              try {
+                const toolGatheringResult = await generateText({
+                  model: toolModel,
+                  system: `You are a data retrieval assistant. The user needs information from their personal data.
+
+TOOLS AVAILABLE:
+- rag_search: Search uploaded documents (PDFs, spreadsheets)
+- search_memory: Search saved memories/past conversations
+- search_prospects: Search previous prospect research
+${hasCRM ? "- crm_search: Search CRM donor/constituent records" : ""}
+
+INSTRUCTIONS:
+1. Identify what the user is looking for
+2. Call the most relevant tool(s) with appropriate search terms
+3. Return a brief summary of findings
+
+Be efficient - call only tools that directly address the query.`,
+                  messages: cleanedMessages,
+                  tools: essentialTools,
+                  maxSteps: 5,
+                  maxTokens: 2000,
                 })
-              } else {
-                console.log("[Chat API] Stage 1 complete: No relevant context found")
+
+                if (toolGatheringResult.text?.trim()) {
+                  gatheredContext = `\n\n## Your Data\n\n${toolGatheringResult.text}`
+                  console.log("[Chat API] Stage 1 complete:", gatheredContext.length, "chars")
+
+                  dataStream.writeMessageAnnotation({
+                    type: "status",
+                    status: "context-found",
+                    message: "Found data. Analyzing...",
+                  })
+                } else {
+                  console.log("[Chat API] Stage 1: No relevant data found")
+                }
+              } catch (error) {
+                console.error("[Chat API] Stage 1 error:", error)
               }
-            } catch (error) {
-              console.error("[Chat API] Stage 1 error:", error)
             }
+          } else {
+            console.log("[Chat API] Skipping Stage 1 - query doesn't need personal data")
           }
 
           // STAGE 2: Synthesize with Perplexity

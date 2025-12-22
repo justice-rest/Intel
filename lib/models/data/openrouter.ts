@@ -78,33 +78,33 @@ export const openrouterModels: ModelConfig[] = [
         }),
       }).chat("perplexity/sonar-deep-research"),
   },
-  // GPT-5-mini - Used internally for two-stage architecture (tool execution)
-  // Fast, reliable model with excellent function calling support
+  // GPT-5-Nano - Used internally for two-stage architecture (tool execution)
+  // Ultra-fast, ultra-cheap model optimized for low latency tool calling
   {
-    id: "openrouter:openai/gpt-5-mini",
-    name: "GPT-5 Mini",
+    id: "openrouter:openai/gpt-5-nano",
+    name: "GPT-5 Nano",
     provider: "OpenRouter",
     providerId: "openrouter",
     modelFamily: "GPT-5",
     baseProviderId: "openai",
     description:
-      "Fast, efficient OpenAI model with excellent function calling. Used for tool execution in two-stage architecture.",
-    tags: ["fast", "tools", "reliable"],
-    contextWindow: 1000000,
-    inputCost: 1.1,
-    outputCost: 4.4,
+      "Smallest, fastest GPT-5 variant. Ultra-low latency, optimized for tool execution and rapid interactions.",
+    tags: ["ultra-fast", "tools", "low-latency"],
+    contextWindow: 400000,
+    inputCost: 0.05,
+    outputCost: 0.4,
     priceUnit: "per 1M tokens",
     vision: true,
     tools: true,
     audio: false,
-    reasoning: false,
+    reasoning: true,
     webSearch: false,
     openSource: false,
     speed: "Fast",
-    intelligence: "High",
+    intelligence: "Medium",
     website: "https://openrouter.ai",
     apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/openai/gpt-5-mini",
+    modelPage: "https://openrouter.ai/openai/gpt-5-nano",
     releasedAt: "2025-04-01",
     icon: "openai",
     isPro: false,
@@ -112,6 +112,6 @@ export const openrouterModels: ModelConfig[] = [
     apiSdk: (apiKey?: string) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-      }).chat("openai/gpt-5-mini"),
+      }).chat("openai/gpt-5-nano"),
   },
 ]
