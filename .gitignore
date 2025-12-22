@@ -62,3 +62,6 @@ bun.lock
 # chaterface directory
 /chaterface
 zola/
+hcaptcha-challenger/
+openai-fm/
+models.dev/
