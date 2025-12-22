@@ -804,16 +804,24 @@ For comprehensive prospect due diligence:
     // =========================================================================
     const isPerplexityModel = normalizedModel.includes("perplexity/sonar")
 
-    if (isPerplexityModel && enableSearch) {
-      console.log("[Chat API] Two-stage architecture: Perplexity model with search enabled")
+    // Two-stage architecture triggers when:
+    // 1. User has essential tools (authenticated = RAG/Memory, hasCRM = CRM search)
+    // 2. OR web search is enabled (Perplexity's built-in search)
+    // This ensures CRM/RAG/Memory work even when web search is OFF
+    const hasEssentialTools = isAuthenticated || hasCRM
+
+    if (isPerplexityModel && (enableSearch || hasEssentialTools)) {
+      console.log("[Chat API] Two-stage architecture: Perplexity model", { enableSearch, hasEssentialTools, hasCRM })
 
       // Use createDataStreamResponse to send status annotations before the main response
       return createDataStreamResponse({
         execute: async (dataStream) => {
-          // STAGE 1: Execute essential tools with Gemini Flash
+          // STAGE 1: Execute essential tools with Gemini 2.0 Flash
+          // Note: Gemini 3 Flash requires thought signatures which complicate tool calling
+          // Gemini 2.0 Flash is reliable, fast, and cheap for tool execution
           const geminiModel = createOpenRouter({
             apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-          }).chat("google/gemini-3-flash-preview")
+          }).chat("google/gemini-2.0-flash-001")
 
           // Only include essential user-context tools (RAG, CRM, Memory)
           const essentialTools: ToolSet = {
@@ -829,10 +837,10 @@ For comprehensive prospect due diligence:
               ? {
                   crm_search: tool({
                     description:
-                      "Search connected CRM systems for constituent/donor information.",
+                      "Search connected CRM systems (Bloomerang, Virtuous, Neon CRM, DonorPerfect) for constituent/donor information.",
                     parameters: z.object({
                       query: z.string().describe("Search term - name, email, or keyword"),
-                      provider: z.enum(["bloomerang", "virtuous", "all"]).optional().default("all"),
+                      provider: z.enum(["bloomerang", "virtuous", "neoncrm", "donorperfect", "all"]).optional().default("all"),
                       limit: z.number().optional().default(10),
                     }),
                     execute: async ({ query, provider, limit }) => {
