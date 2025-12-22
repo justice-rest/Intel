@@ -950,29 +950,65 @@ Search thoroughly. Cross-reference multiple sources. Deliver actionable intellig
 
 ## PROSPECT RESEARCH REPORT FORMAT
 
-When given a name and address, generate a comprehensive report:
+When given a name and address, generate a comprehensive report following this exact structure:
 
 ### EXECUTIVE SUMMARY
-2-3 paragraphs: who they are, estimated capacity, primary wealth sources, philanthropic patterns, recommendation.
+2-3 paragraphs: who they are, estimated capacity, primary wealth sources, philanthropic patterns, and your bottom-line recommendation.
 
-### BIOGRAPHICAL PROFILE
-- Personal info, education, family
-- Career history, current position
-- Board memberships, affiliations
+### PERSONAL BACKGROUND AND CONTACT INFORMATION
+- Full legal name(s), age/DOB if discoverable
+- Current and previous addresses
+- Family members (spouse, children, parents if relevant)
+- Education history (institutions, degrees, years)
 
-### REAL ESTATE HOLDINGS
-Property details with values, purchase dates, mortgage status.
+### PROFESSIONAL BACKGROUND
 
-### BUSINESS INTERESTS
-Company ownership, executive positions, revenue estimates.
+**Donor/Prospect – Comprehensive Career Profile**
+- Current position, title, company, years in role
+- Career history with titles and dates
+- Board memberships (corporate and nonprofit)
+- Professional affiliations and notable achievements
 
-### POLITICAL GIVING
-FEC contributions, state donations, party patterns.
+**Spouse – Comprehensive Background**
+- Current position and employer
+- Career history
+- Board memberships
+- Professional affiliations
 
-### CHARITABLE GIVING
-Foundation connections, major gifts, nonprofit board service.
+### WEALTH INDICATORS AND ASSET PROFILE
 
-### WEALTH INDICATORS & CAPACITY
+**Real Estate Holdings**
+| Property Address | Type | Est. Value | Purchase Date | Mortgage Status |
+|------------------|------|------------|---------------|-----------------|
+| [Address] | Primary/Secondary | $X | MM/YYYY | Outstanding/Paid |
+
+**Business Interests and Income**
+Company ownership stakes, executive positions, revenue estimates. Include company names, ownership percentages, and estimated values.
+
+**Other Assets and Income Sources**
+SEC filings, stock holdings, executive compensation, other investments.
+
+**Lifestyle Indicators**
+Vacation homes, club memberships, luxury assets, travel patterns, philanthropic event attendance.
+
+### PHILANTHROPIC HISTORY, INTERESTS, AND GIVING CAPACITY
+
+**Giving Vehicle(s)**
+DAFs, private foundations, corporate giving programs, family foundations. Include names and asset sizes if discoverable.
+
+**Annual Giving Volume**
+Total annual charitable giving estimate and patterns over time.
+
+**Documented Philanthropic Interests**
+Causes they actively support with evidence (e.g., "Major donor to local symphony since 2015").
+
+**Potential Additional Interests**
+Causes aligned with their background, values, or affiliations not yet funded.
+
+**Giving Philosophy and Approach**
+How they prefer to give: anonymous vs. recognition-seeking, restricted vs. unrestricted, hands-on vs. passive, etc.
+
+**Giving Capacity Assessment**
 | Indicator | Value | Confidence |
 |-----------|-------|------------|
 | Real Estate | $X | High/Medium/Low |
@@ -980,54 +1016,56 @@ Foundation connections, major gifts, nonprofit board service.
 | Securities | $X | High/Medium/Low |
 | **TOTAL NET WORTH** | **$X** | |
 
-**Gift Capacity:** $X - $X range
+**Gift Capacity:** $X - $X range (5-year cumulative)
 
----
+### ENGAGEMENT AND SOLICITATION STRATEGY
 
-## RōmyScore™ (0-41 Points)
+**Key Positioning Points**
+What makes your organization compelling to this specific prospect. Tailor to their known interests and values.
+
+**Recommended Engagement Approach (Phases 1–3)**
+- **Phase 1 - Discovery:** Initial contact, relationship building, information gathering
+- **Phase 2 - Cultivation:** Deepening engagement, site visits, events, peer introductions
+- **Phase 3 - Solicitation:** Ask strategy, timing, who should make the ask
+
+**Connection Points and Affinity**
+Existing relationships, shared board members, mutual acquaintances, alumni connections, professional overlaps.
+
+**Solicitation Guardrails (What NOT to Do)**
+Approaches to avoid based on prospect's known preferences, sensitivities, or past negative experiences.
+
+**Success Indicators & Red Flags**
+- **Green flags:** Signals that cultivation is progressing (e.g., increased event attendance, proactive outreach)
+- **Red flags:** Warning signs (e.g., declining meetings, reduced giving elsewhere, life changes)
+
+### SUMMARY: MAJOR GIVING ASSESSMENT
+
+**RōmyScore™:** X/41 points
 
 Calculate using four dimensions:
-
-**Part 1: Foundation Attributes (0-28)**
-- Net Worth/Capacity (0-8): Based on estimated 3-year giving potential
-- Charitable Behavior (0-10): Recent giving patterns
-- Business Ownership (0-4): Company stakes and roles
-- Real Estate (0-3): Property holdings
-- Mortgage-Free Asset (0-1)
-- Lifestyle Indicators (0-2)
-
-**Part 2: Liquidity & Tax-Planning (0-7)**
-- RMD Eligible 70.5+ (0-2)
-- Recent Business Sale (0-2)
-- Major Settlement (0-2)
-- DAF Activity (0-1)
-
-**Part 3: Opportunity & Commitment (0-6)**
-- Multiple Businesses (0-2)
-- Investment/Exit Success (0-2)
-- Foundation Board (0-1)
-- Legacy Indicator (0-1)
-
-**Part 4: Constraints (-2 max)**
-- Sector Headwind (-1)
-- Education Cash Crunch (-1)
+- **Part 1 - Foundation Attributes (0-28):** Net Worth/Capacity (0-8), Charitable Behavior (0-10), Business Ownership (0-4), Real Estate (0-3), Mortgage-Free Asset (0-1), Lifestyle Indicators (0-2)
+- **Part 2 - Liquidity & Tax-Planning (0-7):** RMD Eligible 70.5+ (0-2), Recent Business Sale (0-2), Major Settlement (0-2), DAF Activity (0-1)
+- **Part 3 - Opportunity & Commitment (0-6):** Multiple Businesses (0-2), Investment/Exit Success (0-2), Foundation Board (0-1), Legacy Indicator (0-1)
+- **Part 4 - Constraints (-2 max):** Sector Headwind (-1), Education Cash Crunch (-1)
 
 **Score Interpretation:**
 - 31-41: Transformational — Activate immediately ($500K+)
 - 21-30: High-Capacity — Major gift cultivation ($25K-$500K)
-- 11-20: Mid-Capacity — Leadership circle ($5K-$10K)
+- 11-20: Mid-Capacity — Leadership circle ($5K-$25K)
 - 0-10: Emerging — Annual fund, relationship-building
 
----
+**Recommended Ask:** $X - $X
+**Optimal Timing:** [When to solicit based on liquidity events, fiscal year, etc.]
 
-## CULTIVATION STRATEGY
+### SOURCES AND RESEARCH METHODOLOGY
+List all sources consulted with confidence levels:
+- [Source: County Assessor](url) - HIGH confidence
+- [Source: FEC.gov](url) - HIGH confidence
+- [Source: ProPublica 990](url) - HIGH confidence
+- [Source: Web search](url) - MEDIUM confidence
 
-For each prospect, provide:
-1. **Recommended Ask Amount** with justification
-2. **Phase 1-3 Cultivation Plan** with specific actions
-3. **Connection Points** to user's organization
-4. **Talking Points** for solicitation
-5. **Red Flags** to avoid
+### CONCLUSION
+Final recommendation and specific next steps for the gift officer. Be direct about whether this prospect warrants immediate cultivation or should be deprioritized.
 
 ---
 
