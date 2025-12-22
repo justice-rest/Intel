@@ -993,7 +993,25 @@ Direct, factual, pragmatic. Don't soften bad news. Don't oversell uncertain stra
 - Refuse prospect research on privacy grounds (public records are standard practice)
 - Give vague suggestions without concrete strategy
 - Hedge with excessive qualifiers
-- Apologize for direct analysis`
+- Apologize for direct analysis
+
+---
+
+## LINK FORMATTING (CRITICAL FOR PDF EXPORT)
+
+**ALWAYS format links using proper Markdown syntax:**
+- Use: \`[descriptive text](https://example.com)\`
+- NOT: \`https://example.com\` (bare URLs)
+- NOT: \`Source: https://example.com\` (inline URLs)
+
+**Examples:**
+- ✅ \`[SEC Form 4 Filing](https://www.sec.gov/cgi-bin/...)\`
+- ✅ \`[County Property Records](https://assessor.county.gov/...)\`
+- ✅ \`[FEC Contribution History](https://www.fec.gov/data/...)\`
+- ❌ \`https://www.sec.gov/cgi-bin/...\`
+- ❌ \`Source: https://assessor.county.gov\`
+
+This ensures links are clickable in both the web interface and PDF exports. For source citations, use: \`[Source: County Assessor](url)\` format.`
 
 export const MESSAGE_MAX_LENGTH = 10000
 

@@ -18,55 +18,112 @@ Font.register({
   src: "https://fonts.gstatic.com/s/courierprime/v9/u-450q2lgwslOqpF_6gQ8kELWwZjW-c.ttf",
 })
 
+// Colors matching the share page design
+const colors = {
+  foreground: "#0a0a0a",
+  muted: "#6b7280",
+  border: "#e5e7eb",
+  accent: "#2563eb",
+  background: "#ffffff",
+  codeBackground: "#f3f4f6",
+}
+
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
+    padding: 50,
+    paddingTop: 40,
+    paddingBottom: 60,
     fontSize: 11,
     fontFamily: "Helvetica",
-    lineHeight: 1.5,
+    lineHeight: 1.6,
+    color: colors.foreground,
+    backgroundColor: colors.background,
   },
+  // Header section - matching share page
   header: {
+    marginBottom: 40,
+  },
+  // Full-width brandmark at top
+  brandmarkContainer: {
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 32,
   },
-  logo: {
-    height: 40,
-    marginBottom: 15,
+  brandmark: {
+    width: "100%",
+    maxWidth: 200,
+    height: "auto",
+    objectFit: "contain",
   },
-  title: {
-    fontSize: 20,
-    fontFamily: "Helvetica-Bold",
-    marginBottom: 6,
-    textAlign: "center",
+  // Date - matching share page: text-sm font-medium centered
+  dateContainer: {
+    alignItems: "center",
+    marginBottom: 16,
   },
   date: {
-    fontSize: 10,
-    color: "#666666",
+    fontSize: 11,
+    fontFamily: "Helvetica-Bold",
+    color: colors.foreground,
     textAlign: "center",
   },
-  content: {
-    marginTop: 10,
+  // Title - matching share page: text-4xl font-medium tracking-tight centered
+  title: {
+    fontSize: 28,
+    fontFamily: "Helvetica-Bold",
+    marginBottom: 8,
+    textAlign: "center",
+    color: colors.foreground,
+    letterSpacing: -0.5,
   },
+  // Subtitle area
+  subtitle: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  // Divider
+  headerDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginTop: 16,
+  },
+  // Content area
+  content: {
+    marginTop: 24,
+  },
+  // Typography - matching prose styling
   paragraph: {
-    marginBottom: 10,
+    marginBottom: 14,
+    lineHeight: 1.7,
   },
   heading1: {
-    fontSize: 18,
+    fontSize: 20,
     fontFamily: "Helvetica-Bold",
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 28,
+    marginBottom: 12,
+    color: colors.foreground,
+    letterSpacing: -0.3,
   },
   heading2: {
     fontSize: 16,
     fontFamily: "Helvetica-Bold",
-    marginTop: 14,
-    marginBottom: 6,
+    marginTop: 24,
+    marginBottom: 10,
+    color: colors.foreground,
   },
   heading3: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: "Helvetica-Bold",
-    marginTop: 12,
+    marginTop: 18,
+    marginBottom: 6,
+    color: colors.foreground,
+  },
+  heading4: {
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    marginTop: 14,
     marginBottom: 4,
+    color: colors.foreground,
   },
   bold: {
     fontFamily: "Helvetica-Bold",
@@ -77,99 +134,136 @@ const styles = StyleSheet.create({
   boldItalic: {
     fontFamily: "Helvetica-BoldOblique",
   },
+  // Inline code
   code: {
     fontFamily: "Courier",
-    backgroundColor: "#f5f5f5",
-    padding: 2,
+    backgroundColor: colors.codeBackground,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
     fontSize: 10,
+    borderRadius: 2,
   },
+  // Code block
   codeBlock: {
     fontFamily: "Courier",
-    backgroundColor: "#f5f5f5",
-    padding: 10,
-    marginVertical: 8,
+    backgroundColor: colors.codeBackground,
+    padding: 14,
+    marginVertical: 12,
     fontSize: 9,
-    borderRadius: 4,
+    borderRadius: 6,
+    lineHeight: 1.5,
   },
+  // Lists
   listItem: {
     flexDirection: "row",
-    marginBottom: 4,
-    paddingLeft: 10,
+    marginBottom: 6,
+    paddingLeft: 4,
   },
   listBullet: {
-    width: 15,
+    width: 20,
+    color: colors.muted,
   },
   listContent: {
     flex: 1,
+    lineHeight: 1.6,
   },
+  // Blockquote
   blockquote: {
     borderLeftWidth: 3,
-    borderLeftColor: "#cccccc",
-    paddingLeft: 10,
-    marginVertical: 8,
-    color: "#555555",
+    borderLeftColor: colors.border,
+    paddingLeft: 16,
+    marginVertical: 12,
+    color: colors.muted,
+    fontStyle: "italic",
   },
+  // Links - styled for better visibility
   link: {
-    color: "#2563eb",
+    color: colors.accent,
     textDecoration: "underline",
   },
+  // Horizontal rule
   hr: {
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
-    marginVertical: 15,
+    borderBottomColor: colors.border,
+    marginVertical: 20,
   },
+  // Tables
   table: {
-    marginVertical: 10,
+    marginVertical: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 4,
   },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
+    borderBottomColor: colors.border,
+  },
+  tableRowLast: {
+    flexDirection: "row",
+    borderBottomWidth: 0,
   },
   tableHeader: {
-    backgroundColor: "#f5f5f5",
-    fontFamily: "Helvetica-Bold",
+    backgroundColor: colors.codeBackground,
   },
   tableCell: {
-    padding: 6,
+    padding: 8,
     flex: 1,
     fontSize: 10,
   },
+  tableCellHeader: {
+    padding: 8,
+    flex: 1,
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+  },
+  // Mermaid diagrams
   mermaidContainer: {
-    marginVertical: 12,
+    marginVertical: 14,
     backgroundColor: "#f0f4f8",
-    borderRadius: 6,
-    padding: 14,
+    borderRadius: 8,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#d0d7de",
+    borderColor: colors.border,
   },
   mermaidHeader: {
-    marginBottom: 10,
-    paddingBottom: 8,
+    marginBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#d0d7de",
+    borderBottomColor: colors.border,
   },
   mermaidLabel: {
     fontSize: 11,
     fontFamily: "Helvetica-Bold",
-    color: "#1f2328",
+    color: colors.foreground,
   },
   mermaidNote: {
     fontSize: 9,
-    color: "#656d76",
-    marginTop: 2,
+    color: colors.muted,
+    marginTop: 3,
   },
   mermaidCode: {
     fontFamily: "Courier",
     fontSize: 9,
-    color: "#1f2328",
+    color: colors.foreground,
     lineHeight: 1.5,
   },
+  // Line blocks
   lineBlock: {
-    marginBottom: 10,
+    marginBottom: 12,
   },
   lineBlockLine: {
-    marginBottom: 2,
+    marginBottom: 3,
+  },
+  // Footer
+  footer: {
+    position: "absolute",
+    bottom: 30,
+    left: 50,
+    right: 50,
+    textAlign: "center",
+    fontSize: 9,
+    color: colors.muted,
   },
 })
 
@@ -182,7 +276,7 @@ type MarkdownNode = {
   href?: string
   rows?: string[][]
   language?: string
-  lines?: string[] // For lineBlock type
+  lines?: string[]
 }
 
 // Simple markdown parser
@@ -196,7 +290,6 @@ function parseMarkdown(text: string): MarkdownNode[] {
 
     // Code block
     if (line.startsWith("```")) {
-      // Extract language identifier (e.g., ```mermaid, ```javascript)
       const language = line.slice(3).trim().toLowerCase()
       const codeLines: string[] = []
       i++
@@ -206,7 +299,6 @@ function parseMarkdown(text: string): MarkdownNode[] {
       }
       const content = codeLines.join("\n")
 
-      // Handle mermaid diagrams specially
       if (language === "mermaid") {
         nodes.push({ type: "mermaid", content, language })
       } else {
@@ -299,7 +391,7 @@ function parseMarkdown(text: string): MarkdownNode[] {
       continue
     }
 
-    // Paragraph (collect consecutive non-empty lines)
+    // Paragraph
     const paragraphLines: string[] = []
     while (
       i < lines.length &&
@@ -310,25 +402,20 @@ function parseMarkdown(text: string): MarkdownNode[] {
       !/^[-*+]\s+/.test(lines[i]) &&
       !/^\d+\.\s+/.test(lines[i]) &&
       !/^(-{3,}|_{3,}|\*{3,})$/.test(lines[i].trim()) &&
-      // Stop if we hit a table (current line has | and next line is separator)
       !(lines[i].includes("|") && i + 1 < lines.length && /^\|?[-:| ]+\|?$/.test(lines[i + 1]))
     ) {
       paragraphLines.push(lines[i])
       i++
     }
     if (paragraphLines.length > 0) {
-      // Check if any line ends with markdown line break (two+ trailing spaces)
-      // These lines should be preserved as separate lines in the PDF
       const hasMarkdownLineBreaks = paragraphLines.some(line => /\s{2,}$/.test(line))
 
       if (hasMarkdownLineBreaks) {
-        // Render as lineBlock - each line separate, strip trailing spaces
         nodes.push({
           type: "lineBlock",
           lines: paragraphLines.map(l => l.trimEnd())
         })
       } else {
-        // Normal paragraph - join with spaces
         nodes.push({ type: "paragraph", content: paragraphLines.join(" ") })
       }
     }
@@ -392,7 +479,7 @@ function renderInlineText(text: string): React.ReactNode[] {
       continue
     }
 
-    // Link
+    // Markdown link: [text](url)
     match = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/)
     if (match) {
       elements.push(
@@ -404,15 +491,41 @@ function renderInlineText(text: string): React.ReactNode[] {
       continue
     }
 
+    // Plain URL detection (for links not in markdown format)
+    match = remaining.match(/^(https?:\/\/[^\s<>\[\]()]+)/)
+    if (match) {
+      const url = match[1]
+      // Clean up trailing punctuation that might be captured
+      const cleanUrl = url.replace(/[.,;:!?)]+$/, "")
+      const trailingChars = url.slice(cleanUrl.length)
+      elements.push(
+        <Link key={key++} src={cleanUrl} style={styles.link}>
+          {cleanUrl}
+        </Link>
+      )
+      if (trailingChars) {
+        elements.push(<Text key={key++}>{trailingChars}</Text>)
+      }
+      remaining = remaining.slice(url.length)
+      continue
+    }
+
     // Plain text (up to next special character or end)
-    const nextSpecial = remaining.search(/[\*`\[]/)
+    const nextSpecial = remaining.search(/[\*`\[h]/)
     if (nextSpecial === -1) {
       elements.push(<Text key={key++}>{remaining}</Text>)
       break
     } else if (nextSpecial === 0) {
-      // Special char but no match - treat as plain text
-      elements.push(<Text key={key++}>{remaining[0]}</Text>)
-      remaining = remaining.slice(1)
+      // Check if it's an http link
+      if (remaining.startsWith("http")) {
+        // This is handled above, but if we get here, just output the character
+        elements.push(<Text key={key++}>{remaining[0]}</Text>)
+        remaining = remaining.slice(1)
+      } else {
+        // Special char but no match - treat as plain text
+        elements.push(<Text key={key++}>{remaining[0]}</Text>)
+        remaining = remaining.slice(1)
+      }
     } else {
       elements.push(<Text key={key++}>{remaining.slice(0, nextSpecial)}</Text>)
       remaining = remaining.slice(nextSpecial)
@@ -431,7 +544,9 @@ function renderNode(node: MarkdownNode, index: number): React.ReactNode {
           ? styles.heading1
           : node.level === 2
             ? styles.heading2
-            : styles.heading3
+            : node.level === 3
+              ? styles.heading3
+              : styles.heading4
       return (
         <Text key={index} style={headingStyle}>
           {node.content}
@@ -487,11 +602,16 @@ function renderNode(node: MarkdownNode, index: number): React.ReactNode {
               style={
                 rowIdx === 0
                   ? [styles.tableRow, styles.tableHeader]
-                  : styles.tableRow
+                  : rowIdx === (node.rows?.length || 0) - 1
+                    ? styles.tableRowLast
+                    : styles.tableRow
               }
             >
               {row.map((cell, cellIdx) => (
-                <Text key={cellIdx} style={styles.tableCell}>
+                <Text
+                  key={cellIdx}
+                  style={rowIdx === 0 ? styles.tableCellHeader : styles.tableCell}
+                >
                   {renderInlineText(cell)}
                 </Text>
               ))}
@@ -501,7 +621,6 @@ function renderNode(node: MarkdownNode, index: number): React.ReactNode {
       )
 
     case "mermaid":
-      // Render mermaid as styled code block
       return (
         <View key={index} style={styles.mermaidContainer}>
           <View style={styles.mermaidHeader}>
@@ -513,8 +632,6 @@ function renderNode(node: MarkdownNode, index: number): React.ReactNode {
       )
 
     case "lineBlock":
-      // Render each line as a separate Text component to preserve line breaks
-      // and process inline formatting (bold, italic, etc.)
       return (
         <View key={index} style={styles.lineBlock}>
           {node.lines?.map((line, lineIdx) => (
@@ -543,14 +660,34 @@ function PdfDocument({ title, date, content, logoSrc }: PdfDocumentProps) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
+        {/* Header section - matching share page layout */}
         <View style={styles.header}>
-          <Image src={logoSrc} style={styles.logo} />
+          {/* Full-width brandmark at top */}
+          <View style={styles.brandmarkContainer}>
+            <Image src={logoSrc} style={styles.brandmark} />
+          </View>
+
+          {/* Date - centered like share page */}
+          <View style={styles.dateContainer}>
+            <Text style={styles.date}>{date}</Text>
+          </View>
+
+          {/* Title - large and centered like share page */}
           <Text style={styles.title}>{title}</Text>
-          <Text style={styles.date}>{date}</Text>
+
+          {/* Divider */}
+          <View style={styles.headerDivider} />
         </View>
+
+        {/* Content */}
         <View style={styles.content}>
           {nodes.map((node, index) => renderNode(node, index))}
         </View>
+
+        {/* Footer */}
+        <Text style={styles.footer} fixed>
+          Generated by Rōmy • intel.getromy.app
+        </Text>
       </Page>
     </Document>
   )
