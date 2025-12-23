@@ -73,7 +73,7 @@ export const openrouterModels: ModelConfig[] = [
     webSearch: true,
     openSource: false,
     speed: "Medium",
-    intelligence: "Very High",
+    intelligence: "High",
     website: "https://openrouter.ai",
     apiDocs: "https://openrouter.ai/docs",
     modelPage: "https://openrouter.ai/google/gemini-3-pro-preview",
