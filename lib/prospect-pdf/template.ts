@@ -196,6 +196,7 @@ function formatText(text: string): string {
 
 /**
  * Generate the complete HTML document for PDF export
+ * Perplexity-style design with clean cards, subtle shadows, and modern typography
  */
 export function generateProspectReportHtml(data: ProspectReportData): string {
   const logoBase64 = getLogoBase64()
@@ -212,13 +213,23 @@ export function generateProspectReportHtml(data: ProspectReportData): string {
     <style>
         :root {
             --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --color-heading: #0f172a;
-            --color-text: #1e293b;
+            --color-primary: #0f172a;
+            --color-secondary: #475569;
+            --color-accent: #00A5E4;
+            --color-accent-light: #e0f2fe;
+            --color-text: #334155;
             --color-muted: #64748b;
             --color-border: #e2e8f0;
-            --color-bg-subtle: #f8fafc;
-            --base-font-size: 11pt;
-            --base-line-height: 1.6;
+            --color-bg: #ffffff;
+            --color-card: #f8fafc;
+            --color-card-hover: #f1f5f9;
+            --base-font-size: 10.5pt;
+            --base-line-height: 1.65;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
         }
         * { box-sizing: border-box; }
         html, body {
@@ -228,155 +239,235 @@ export function generateProspectReportHtml(data: ProspectReportData): string {
             line-height: var(--base-line-height);
             color: var(--color-text);
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
             margin: 0;
             padding: 0;
         }
         body {
             max-width: 7.5in;
             margin: 0 auto;
-            padding: 0.75in 0.85in;
-            background: #fff;
+            padding: 0.6in 0.75in;
+            background: var(--color-bg);
         }
 
-        /* Header - centered like shared page */
+        /* Header - Clean, minimal design */
         .header {
             text-align: center;
-            margin-bottom: 2em;
-            padding-bottom: 1.5em;
+            margin-bottom: 2.5em;
+            padding-bottom: 1.75em;
             border-bottom: 1px solid var(--color-border);
         }
         .header img {
-            height: 36px;
+            height: 32px;
             width: auto;
             display: inline-block;
-            margin-bottom: 1em;
+            margin-bottom: 1.25em;
             object-fit: contain;
         }
         .header .date {
-            font-size: 10pt;
+            font-size: 9pt;
+            font-weight: 500;
             color: var(--color-muted);
-            margin-bottom: 0.5em;
+            margin-bottom: 0.75em;
+            letter-spacing: 0.02em;
         }
         .header h1 {
-            font-size: 24pt;
-            font-weight: 600;
-            margin: 0 0 0.25em;
-            letter-spacing: -0.02em;
-            line-height: 1.2;
-            color: var(--color-heading);
+            font-size: 26pt;
+            font-weight: 700;
+            margin: 0 0 0.35em;
+            letter-spacing: -0.03em;
+            line-height: 1.15;
+            color: var(--color-primary);
         }
         .header .subtitle {
-            font-size: 11pt;
-            color: var(--color-muted);
+            font-size: 10.5pt;
+            font-weight: 500;
+            color: var(--color-secondary);
             margin: 0;
         }
 
-        /* Content */
+        /* Section Headers */
         h2 {
-            font-size: 14pt;
-            font-weight: 600;
-            color: var(--color-heading);
-            margin: 1.75em 0 0.75em;
-            padding-bottom: 0.4em;
-            border-bottom: 2px solid var(--color-heading);
+            font-size: 13pt;
+            font-weight: 700;
+            color: var(--color-primary);
+            margin: 2em 0 0.85em;
+            padding-bottom: 0.5em;
+            border-bottom: 2px solid var(--color-accent);
+            letter-spacing: -0.01em;
         }
         h3 {
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: 600;
-            color: var(--color-heading);
-            margin: 1.25em 0 0.5em;
+            color: var(--color-primary);
+            margin: 1.5em 0 0.6em;
+            letter-spacing: -0.01em;
         }
-        p { margin: 0 0 0.75em; }
-        strong { font-weight: 600; }
-        em { font-style: italic; }
-        ul { margin: 0.5em 0 1em 1.5em; padding: 0; }
-        li { margin: 0.35em 0; }
 
-        /* Info grid - cleaner style */
+        /* Typography */
+        p { margin: 0 0 0.85em; }
+        strong { font-weight: 600; color: var(--color-primary); }
+        em { font-style: italic; }
+        ul { margin: 0.6em 0 1.1em 1.25em; padding: 0; }
+        li { margin: 0.4em 0; line-height: 1.55; }
+
+        /* Card - Modern card design with subtle shadow */
+        .card {
+            background: var(--color-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 1.1em 1.25em;
+            margin: 1em 0 1.35em;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* Info Grid - Two-column metadata layout */
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.5em 1.5em;
-            padding: 1em;
-            background: var(--color-bg-subtle);
-            border-radius: 8px;
+            gap: 0.85em 1.75em;
+            padding: 1.1em 1.25em;
+            background: var(--color-card);
+            border-radius: var(--radius-md);
             margin: 1em 0 1.5em;
             border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-sm);
         }
-        .info-grid .item { margin-bottom: 0.25em; }
+        .info-grid .item { margin-bottom: 0.15em; }
         .info-grid .label {
-            font-size: 9pt;
+            font-size: 8.5pt;
             font-weight: 600;
             color: var(--color-muted);
             text-transform: uppercase;
-            letter-spacing: 0.03em;
-            margin-bottom: 0.15em;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.2em;
         }
         .info-grid .value {
-            font-size: 10.5pt;
+            font-size: 10pt;
+            font-weight: 500;
             margin: 0;
-            color: var(--color-heading);
+            color: var(--color-primary);
         }
 
-        /* Summary box */
+        /* Summary Box - Executive summary card */
         .summary-box {
-            background: var(--color-bg-subtle);
-            padding: 1em 1.25em;
-            margin: 1em 0 1.5em;
-            border-radius: 8px;
+            background: linear-gradient(135deg, var(--color-card) 0%, var(--color-card-hover) 100%);
+            padding: 1.25em 1.4em;
+            margin: 1em 0 1.75em;
+            border-radius: var(--radius-md);
             border: 1px solid var(--color-border);
+            box-shadow: var(--shadow-sm);
+        }
+        .summary-box p {
+            margin: 0;
+            line-height: 1.7;
         }
 
-        /* Callout - for giving capacity */
+        /* Capacity Callout - Prominent giving capacity display */
         .callout {
             text-align: center;
-            padding: 1.25em;
-            margin: 1.25em 0;
-            background: var(--color-bg-subtle);
-            border-radius: 8px;
-            border: 1px solid var(--color-border);
+            padding: 1.5em 1.75em;
+            margin: 1.5em 0;
+            background: linear-gradient(135deg, var(--color-accent-light) 0%, #f0f9ff 100%);
+            border-radius: var(--radius-lg);
+            border: 1px solid #bae6fd;
+            box-shadow: var(--shadow-md);
         }
         .callout .label {
             font-size: 9pt;
-            font-weight: 600;
+            font-weight: 700;
             text-transform: uppercase;
-            color: var(--color-muted);
-            letter-spacing: 0.05em;
-            margin-bottom: 0.5em;
+            color: var(--color-accent);
+            letter-spacing: 0.08em;
+            margin-bottom: 0.4em;
         }
         .callout .big {
-            font-size: 20pt;
+            font-size: 24pt;
             font-weight: 700;
-            margin: 0.25em 0;
-            color: var(--color-heading);
+            margin: 0.2em 0;
+            color: var(--color-primary);
+            letter-spacing: -0.02em;
         }
         .callout .notes {
-            margin: 0.5em 0 0;
-            color: var(--color-muted);
-            font-size: 10pt;
+            margin: 0.6em 0 0;
+            color: var(--color-secondary);
+            font-size: 9.5pt;
+            line-height: 1.6;
         }
 
-        /* Footer */
+        /* Metrics Table - Clean tabular data */
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0 1.5em;
+            font-size: 10pt;
+        }
+        .metrics-table th,
+        .metrics-table td {
+            padding: 0.65em 0.85em;
+            text-align: left;
+            border-bottom: 1px solid var(--color-border);
+        }
+        .metrics-table th {
+            font-size: 8.5pt;
+            font-weight: 600;
+            color: var(--color-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background: var(--color-card);
+        }
+        .metrics-table td {
+            color: var(--color-text);
+        }
+        .metrics-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Source Citation - Inline source markers */
+        .source {
+            font-size: 8pt;
+            color: var(--color-accent);
+            font-weight: 500;
+            vertical-align: super;
+        }
+
+        /* Footer - Clean, minimal */
         .footer {
-            margin-top: 2.5em;
-            padding-top: 1em;
+            margin-top: 3em;
+            padding-top: 1.25em;
             border-top: 1px solid var(--color-border);
-            font-size: 9pt;
+            font-size: 8.5pt;
             color: var(--color-muted);
             text-align: center;
+            line-height: 1.7;
+        }
+        .footer p {
+            margin: 0.4em 0;
+        }
+        .footer .confidential {
+            font-size: 8pt;
+            color: #94a3b8;
+            margin-top: 0.75em;
         }
 
         .page-break-before { break-before: page; page-break-before: always; }
 
         @media print {
-            body { padding: 0.5in 0.65in; }
-            h1, h2, h3, .summary-box, .callout, .info-grid, ul {
+            body { padding: 0.4in 0.55in; }
+            h1, h2, h3, .summary-box, .callout, .info-grid, .card, ul, .metrics-table {
                 break-inside: avoid;
                 page-break-inside: avoid;
             }
             h2, h3 { break-after: avoid; }
             p { orphans: 3; widows: 3; }
             a[href]:after { content: ""; }
+            .callout {
+                box-shadow: none;
+                border: 2px solid #bae6fd;
+            }
+            .card, .info-grid, .summary-box {
+                box-shadow: none;
+            }
         }
     </style>
 </head>

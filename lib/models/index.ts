@@ -10,11 +10,14 @@ const STATIC_MODELS: ModelConfig[] = [...openrouterModels]
  * Maps old/deprecated model IDs to their current versions
  */
 const MODEL_ID_MIGRATIONS: Record<string, string> = {
-  // Grok → Perplexity Sonar Reasoning Pro (model overhaul)
-  "openrouter:x-ai/grok-4-fast": "openrouter:perplexity/sonar-reasoning-pro",
-  "openrouter:x-ai/grok-4.1-fast": "openrouter:perplexity/sonar-reasoning-pro",
-  // Old deprecated model → new model
-  "openrouter:perplexity/sonar-reasoning": "openrouter:perplexity/sonar-reasoning-pro",
+  // Grok → Gemini 3 Flash (via Perplexity → Gemini migration)
+  "openrouter:x-ai/grok-4-fast": "openrouter:google/gemini-3-flash-preview",
+  "openrouter:x-ai/grok-4.1-fast": "openrouter:google/gemini-3-flash-preview",
+  // Perplexity → Gemini 3 migration (2025-12)
+  // Gemini 3 supports native tool calling, eliminating need for two-stage architecture
+  "openrouter:perplexity/sonar-reasoning": "openrouter:google/gemini-3-flash-preview",
+  "openrouter:perplexity/sonar-reasoning-pro": "openrouter:google/gemini-3-flash-preview",
+  "openrouter:perplexity/sonar-deep-research": "openrouter:google/gemini-3-pro-preview",
 }
 
 /**

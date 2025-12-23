@@ -1,21 +1,22 @@
 /**
  * Batch Prospect Report Generator
- * Generates comprehensive prospect research reports using Perplexity's built-in web search
+ * Generates comprehensive prospect research reports using Gemini 3 Flash with web search
  *
  * Two modes:
  * - Standard: Fast research for quick prioritization (~600-800 word summaries)
  * - Comprehensive: Thorough multi-source research (~15-section reports)
  *
- * Note: Tools disabled - Perplexity Sonar Reasoning Pro has built-in web search
- * and does NOT support function calling. All research is done via Perplexity's
- * native search capabilities.
+ * Uses Gemini 3 Flash via OpenRouter with:
+ * - Web search plugin for prospect research
+ * - Reasoning enabled for better analysis
+ * - Native tool calling support (if needed in future)
  */
 
 import { streamText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { ProspectInputData, BatchProspectItem, BatchSearchMode } from "./types"
 import { buildProspectQueryString } from "./parser"
-// Note: Tools disabled - Perplexity has built-in web search and doesn't support function calling
+// Gemini 3 supports native tool calling - can be extended with additional tools in future
 import {
   getRomyScore,
   RomyScoreDataPoints,
@@ -291,36 +292,34 @@ You have access to powerful research tools. Use them ALL to gather comprehensive
 
 ### MANDATORY RESEARCH WORKFLOW:
 
-**STEP 1: Property Assessment (county_assessor + property_valuation)**
-1. county_assessor - OFFICIAL government data (HIGH confidence)
-2. property_valuation - AVM estimate with comparables
-3. searchWeb for additional properties
+**STEP 1: Property Assessment**
+1. Search for property records, county assessor data
+2. Look for AVM estimates (Zillow, Redfin, etc.)
+3. Search for additional properties
 
 **STEP 2: Business & Ownership**
-1. find_business_ownership - State registry search
-2. business_affiliation_search - PUBLIC company roles
-3. business_revenue_estimate - Revenue estimate with methodology
-4. sec_insider_search - Verify public company positions
+1. State business registry searches
+2. SEC EDGAR for public company affiliations
+3. LinkedIn/web for professional background
 
 **STEP 3: Family & Household**
-1. family_discovery - Spouse, children from public records
-2. voter_registration - Party affiliation, registration data
-3. household_search - Combined household assessment
+1. Spouse/partner information from public records
+2. Voter registration data for party affiliation
+3. Family foundation connections
 
 **STEP 4: Philanthropic Profile**
-1. nonprofit_affiliation_search - Foundation connections
-2. foundation_grants - 990-PF Schedule I (where do they give?)
-3. fec_contributions - Political giving patterns
-4. giving_history - Aggregate giving data
+1. ProPublica Nonprofit Explorer for 990 data
+2. FEC.gov for political contributions
+3. Foundation Directory for giving history
 
 **STEP 5: Background & Due Diligence**
-1. wikidata_search + wikidata_entity - Biographical data
-2. opensanctions_screening - PEP/sanctions check
-3. searchWeb - Career history, education, publications
+1. Biographical data from Wikipedia/Wikidata
+2. News articles and publications
+3. Career history and education
 
 ---
 
-## OUTPUT FORMAT - 15-SECTION PROFESSIONAL REPORT
+## OUTPUT FORMAT - PROFESSIONAL PROSPECT RESEARCH REPORT
 
 Produce the report following this EXACT structure:
 
@@ -360,17 +359,13 @@ Produce the report following this EXACT structure:
 - Purchase History: [If found]
 
 ### Marital Status
-[Status] [Source: Property records/Voter Registration/Family Discovery]
+[Status] [Source: Property records/Voter Registration]
 
 ### Family
-[List from family_discovery tool with relationship and confidence]
+[List with relationship and confidence]
 
 ### Political Affiliation
 [Party] [Source: Voter Registration or FEC pattern analysis]
-- Methodology if from FEC: [Explain pattern]
-
-### Religious Affiliation
-[If found] [Source: X] or "Not found in public records"
 
 ### Contact Information
 - Phone: [If found] or "Not found in public records"
@@ -381,25 +376,35 @@ Produce the report following this EXACT structure:
 
 ## 3. Professional Background
 
-### [Name] - Career Profile
+### Donor/Prospect – Comprehensive Career Profile
 
 **Current Primary Roles:**
 1. **[Title], [Company]** (since [Year])
    - Role Details: [Description]
    - Company Type: [Public/Private/LLC]
    - Revenue Estimate: $[X]-$[Y] [Estimated - Methodology: Employee count × industry benchmark]
-   - Employees: ~[X] [Source: Web search/LinkedIn]
    - Ownership: [If determinable] [Source: State Registry]
 
 ### Education
 - [Degree], [Institution], [Year] [Source: Wikidata/Web Search]
-- [Additional degrees]
 
 ### Prior Career
 [Chronological list with sources]
 
-### Notable Accomplishments & Publications
+### Notable Accomplishments
 [From web search - each with source]
+
+---
+
+### Spouse – Comprehensive Background
+
+**Name:** [Spouse Name]
+**Occupation:** [Current role/profession]
+**Education:** [Degrees if found]
+**Professional Background:** [Career summary]
+**Philanthropic Involvement:** [Any separate giving/board roles]
+
+*If no spouse found: "Spouse information not found in public records"*
 
 ---
 
@@ -420,7 +425,7 @@ Produce the report following this EXACT structure:
 
 ---
 
-## 5. Real Estate Holdings
+### Real Estate Holdings
 
 | Property | Details | Assessed Value | Market Value | Source |
 |----------|---------|----------------|--------------|--------|
@@ -431,39 +436,61 @@ Produce the report following this EXACT structure:
 
 ---
 
-## 6. Business Interests and Income
+### Business Interests and Income
 
-### [Company Name 1]
-- **Entity Type:** [LLC/Corp/etc.] [Source: State Registry]
-- **Role:** [Title/Position] [Source: Registry/SEC]
-- **Ownership Inference:** [X%] [Methodology: Managing Member = likely owner]
-- **Revenue Estimate:** $[X]-$[Y] [Estimated - Employee count × $[Z]/employee]
-- **Equity Value:** $[X]-$[Y] [Estimated - Revenue × [industry multiple]]
-
-### [Company Name 2]
-[Same format]
+**[Company Name 1]**
+- Entity Type: [LLC/Corp/etc.] [Source: State Registry]
+- Role: [Title/Position] [Source: Registry/SEC]
+- Ownership Inference: [X%] [Methodology: Managing Member = likely owner]
+- Revenue Estimate: $[X]-$[Y] [Estimated - Employee count × $[Z]/employee]
+- Equity Value: $[X]-$[Y] [Estimated - Revenue × [industry multiple]]
 
 **Total Business Interests:** $[X]-$[Y] [Estimated]
 
 ---
 
-## 7. Other Assets and Income Sources
+### Other Assets and Income Sources
 
 - **Stock Holdings:** [From SEC Form 4 or "Not found"] [Source]
-- **Publishing/Speaking:** [If found] [Source]
 - **Board Compensation:** [If found] [Source]
-- **Lifestyle Indicators:** [Notable expenditures found] [Source]
+- **Other Income:** [If found] [Source]
 
 ---
 
-## 8. Philanthropic History, Interests, and Giving Capacity
+### Lifestyle Indicators
 
-### Giving Vehicle
+[Observable lifestyle factors that indicate wealth capacity]
+- **Luxury Assets:** [Boats, aircraft, art collections, etc.]
+- **Club Memberships:** [Country clubs, exclusive organizations]
+- **Travel/Events:** [Major donor events, galas attended]
+- **Other Indicators:** [Notable expenditures]
+
+*If none found: "No notable lifestyle indicators found in public records"*
+
+---
+
+## 5. Philanthropic History, Interests, and Giving Capacity
+
+### Giving Vehicle(s)
 [Foundation Name] or "Direct giving (no foundation found)"
 - **EIN:** [Number] [Source: ProPublica 990]
 - **Type:** Private Family Foundation / DAF / Direct
 - **Total Assets:** $[X] [Source: 990]
 - **Annual Grants:** $[X] [Source: 990]
+
+---
+
+### Annual Giving Volume
+
+| Year | Total Giving | Major Gifts | Sources |
+|------|--------------|-------------|---------|
+| [Year] | $[X] | [Notable gifts] | [990/FEC/News] |
+| [Year] | $[X] | [Notable gifts] | [Source] |
+
+**Average Annual Giving:** $[X]/year
+**Largest Single Gift:** $[X] to [Organization] ([Year])
+
+---
 
 ### Documented Philanthropic Interests
 
@@ -475,6 +502,17 @@ Produce the report following this EXACT structure:
 **[Category 2]**
 [Same format]
 
+---
+
+### Potential Additional Interests
+
+Based on professional background, board service, and family connections:
+- [Interest 1]: [Evidence/connection]
+- [Interest 2]: [Evidence/connection]
+- [Interest 3]: [Evidence/connection]
+
+---
+
 ### FEC Political Contributions
 - **Total Giving:** $[X] [Source: FEC]
 - **Party Lean:** [Republican/Democratic/Bipartisan]
@@ -482,7 +520,7 @@ Produce the report following this EXACT structure:
 
 ---
 
-## 9. Giving Philosophy and Approach
+### Giving Philosophy and Approach
 
 [Key insights from behavior/writings - each with source]
 - [Insight 1] [Source: Interview/Speech/Article]
@@ -490,41 +528,53 @@ Produce the report following this EXACT structure:
 
 ---
 
-## 10. Giving Capacity Assessment
+### Giving Capacity Assessment
 
-### Annual Giving Capacity: $[X] - $[Y]
-**Methodology:** [Explain calculation]
-- Net worth $[X] × 1-2% = $[Y] annual capacity
-- Historical giving: $[Z]/year average
+#### Annual Fund Ask: $[X] - $[Y]
+**Methodology:** Net worth $[X] × 0.5-1% = Annual giving capacity
+*This represents sustainable yearly giving without impacting principal*
 
-### Major Gift Capacity: $[X] - $[Y]
-**Methodology:** [Explain calculation]
-- Net worth $[X] × 5-10% = $[Y] major gift capacity
-- Largest documented gift: $[Z]
+#### Capital Campaign Ask: $[X] - $[Y]
+**Methodology:** Net worth $[X] × 3-5% = Major gift capacity
+*This represents a one-time transformational gift over 3-5 years*
 
-### Capacity Rating: [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL]
+| Ask Type | Low Estimate | High Estimate | Basis |
+|----------|--------------|---------------|-------|
+| **Annual Fund** | $[X] | $[Y] | 0.5-1% of net worth |
+| **Capital Campaign** | $[X] | $[Y] | 3-5% of net worth |
+| **Planned Gift** | $[X] | $[Y] | 10-15% of estate |
+
+**Capacity Rating:** [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL]
 
 ---
 
-## 11. Engagement and Solicitation Strategy
+## 6. Engagement and Solicitation Strategy
 
 ### Key Positioning Points
 1. [Point based on discovered interests]
 2. [Point based on professional background]
 3. [Point based on philanthropic history]
 
+---
+
 ### Recommended Engagement Approach
 
-**Phase 1: Relationship Building**
+**Phase 1: Relationship Building** (Months 1-3)
 - [Specific actions]
 - [Who should reach out]
+- [Touchpoint ideas]
 
-**Phase 2: Strategic Cultivation**
+**Phase 2: Strategic Cultivation** (Months 4-8)
 - [Actions to deepen engagement]
+- [Events/experiences to invite]
+- [Information to share]
 
-**Phase 3: Strategic Solicitation**
-- [Recommended ask]
+**Phase 3: Strategic Solicitation** (Months 9-12)
+- [Recommended ask amount and type]
+- [Who should make the ask]
 - [Timing considerations]
+
+---
 
 ### Connection Points and Affinity
 
@@ -532,16 +582,31 @@ Produce the report following this EXACT structure:
 |---------------|------------|--------|
 | [Area] | [Evidence] | [Source] |
 
-### Solicitation Guardrails (What NOT to Do)
-- [Based on prospect profile - be specific]
+---
 
-### Success Indicators & Red Flags
-**Green Lights:** [What would indicate readiness]
-**Red Flags:** [Warning signs to watch for]
+### Solicitation Guardrails (What NOT to Do)
+
+Based on prospect profile:
+- [Guardrail 1 - be specific to this prospect]
+- [Guardrail 2]
+- [Guardrail 3]
 
 ---
 
-## 12. Summary: Major Giving Assessment
+### Success Indicators & Red Flags
+
+**Green Lights (Signs of Readiness):**
+- [Indicator 1]
+- [Indicator 2]
+- [Indicator 3]
+
+**Red Flags (Warning Signs):**
+- [Warning 1]
+- [Warning 2]
+
+---
+
+## 7. Summary: Major Giving Assessment
 
 **Prospect Rating:** [PREMIUM/HIGH/MID/EMERGING]
 
@@ -550,7 +615,8 @@ Produce the report following this EXACT structure:
 | **RōmyScore™** | [X]/41 — [Tier Name] |
 | **Est. Net Worth** | $[X]-$[Y] |
 | **Est. Gift Capacity** | $[X]-$[Y] |
-| **Recommended Ask** | $[X] |
+| **Annual Fund Ask** | $[X]-$[Y] |
+| **Capital Campaign Ask** | $[X]-$[Y] |
 
 **Why They Matter:**
 1. [Reason with evidence]
@@ -561,21 +627,7 @@ Produce the report following this EXACT structure:
 
 ---
 
-## 13. Due Diligence Notes
-
-### Sanctions/PEP Screening
-- **Result:** [CLEAR/LOW/MEDIUM/HIGH] [Source: OpenSanctions]
-- **Details:** [Any findings]
-
-### Court Records
-- **Litigation:** [If found] [Source: CourtListener]
-
-### Other Considerations
-- [Any reputational notes with sources]
-
----
-
-## 14. Sources and Research Methodology
+## 8. Sources and Research Methodology
 
 ### Primary Sources Verified
 | Source | Data Provided | Confidence |
@@ -592,14 +644,15 @@ Produce the report following this EXACT structure:
 |----------|-------------|------------|
 | Net Worth | Sum of real estate + business equity | MEDIUM |
 | Business Revenue | Employee count × industry benchmark | LOW |
-| Gift Capacity | Net worth × capacity percentage | MEDIUM |
+| Annual Fund Ask | Net worth × 0.5-1% | MEDIUM |
+| Capital Campaign Ask | Net worth × 3-5% | MEDIUM |
 
 ### Research Confidence Level: [HIGH/MEDIUM/LOW]
 [Explanation of overall data quality]
 
 ---
 
-## 15. Conclusion
+## 9. Conclusion
 
 [2 paragraphs summarizing:
 1. The opportunity this prospect represents with key evidence
@@ -619,12 +672,18 @@ Produce the report following this EXACT structure:
 - **LEADERSHIP:** Property >$300K OR professional role = Gift Capacity $5K-$10K
 - **ANNUAL:** Lower indicators = Gift Capacity <$5K
 
+## ASK AMOUNT FORMULAS (TFG Research):
+- **Annual Fund Ask:** 0.5-1% of net worth (sustainable yearly giving)
+- **Capital Campaign Ask:** 3-5% of net worth (major gift over 3-5 years)
+- **Planned Gift Capacity:** 10-15% of estate value
+
 ## FINAL REMINDERS:
 - Every claim needs a source in [brackets]
 - Every estimate needs [Estimated - Methodology: X]
 - "Not found in public records" is better than fabrication
 - Use tables for clarity
-- Be direct - no sycophancy or filler language`
+- Be direct - no sycophancy or filler language
+- Always include BOTH Annual Fund Ask AND Capital Campaign Ask`
 
 // ============================================================================
 // TYPES
@@ -1117,17 +1176,25 @@ After researching, produce the comprehensive report with all sections filled in 
 
     console.log(`[BatchProcessor] Starting comprehensive research for: ${prospect.name}`)
 
-    // Generate report using AI (Perplexity has built-in web search)
+    // Generate report using Gemini 3 Flash with web search plugin
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+      extraBody: {
+        // Enable web search for prospect research
+        plugins: [{ id: "web", max_results: 8 }],
+        // Enable reasoning for better analysis
+        thinking: {
+          type: "enabled",
+          budget_tokens: 8000,
+        },
+      },
     })
-    const model = openrouter.chat("perplexity/sonar-reasoning-pro")
+    const model = openrouter.chat("google/gemini-3-flash-preview")
 
     const result = await streamText({
       model,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-      // No tools - Perplexity has built-in web search
       maxSteps: 1,
       maxTokens: 16000,
       temperature: 0.3,
@@ -1222,17 +1289,25 @@ After researching, produce the concise prospect summary with ALL sections filled
 
     console.log(`[BatchProcessor] Starting standard research for: ${prospect.name}`)
 
-    // Generate report using AI (Perplexity has built-in web search)
+    // Generate report using Gemini 3 Flash with web search plugin
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+      extraBody: {
+        // Enable web search for prospect research
+        plugins: [{ id: "web", max_results: 5 }],
+        // Enable reasoning for better analysis
+        thinking: {
+          type: "enabled",
+          budget_tokens: 4000,
+        },
+      },
     })
-    const model = openrouter.chat("perplexity/sonar-reasoning-pro")
+    const model = openrouter.chat("google/gemini-3-flash-preview")
 
     const result = await streamText({
       model,
       system: systemPrompt,
       messages: [{ role: "user", content: userMessage }],
-      // No tools - Perplexity has built-in web search
       maxSteps: 1,
       maxTokens: 4000,
       temperature: 0.3,

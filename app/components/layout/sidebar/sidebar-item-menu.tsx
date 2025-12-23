@@ -3,17 +3,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useMessages } from "@/lib/chat-store/messages/provider"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { Chat } from "@/lib/chat-store/types"
-import { DotsThree, PencilSimple, Trash } from "@phosphor-icons/react"
+import { DotsThree, FolderPlus, PencilSimple, Trash } from "@phosphor-icons/react"
 import { Pin, PinOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { DialogDeleteChat } from "./dialog-delete-chat"
+import { DialogAddToProject } from "./dialog-add-to-project"
 
 type SidebarItemMenuProps = {
   chat: Chat
@@ -27,9 +29,10 @@ export function SidebarItemMenu({
   onMenuOpenChange,
 }: SidebarItemMenuProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false)
   const router = useRouter()
   const { deleteMessages } = useMessages()
-  const { deleteChat, togglePinned } = useChats()
+  const { deleteChat, togglePinned, refresh } = useChats()
   const { chatId } = useChatSession()
   const isMobile = useBreakpoint(768)
 
@@ -81,6 +84,18 @@ export function SidebarItemMenu({
             Rename
           </DropdownMenuItem>
           <DropdownMenuItem
+            className="cursor-pointer"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsAddToProjectOpen(true)
+            }}
+          >
+            <FolderPlus size={16} className="mr-2" />
+            Add to Project
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
             className="text-destructive"
             variant="destructive"
             onClick={(e) => {
@@ -100,6 +115,15 @@ export function SidebarItemMenu({
         setIsOpen={setIsDeleteDialogOpen}
         chatTitle={chat.title || "Untitled chat"}
         onConfirmDelete={handleConfirmDelete}
+      />
+
+      <DialogAddToProject
+        isOpen={isAddToProjectOpen}
+        setIsOpen={setIsAddToProjectOpen}
+        chatId={chat.id}
+        chatTitle={chat.title || "Untitled chat"}
+        currentProjectId={chat.project_id}
+        onProjectChange={() => refresh()}
       />
     </>
   )

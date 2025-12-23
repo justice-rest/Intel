@@ -2,83 +2,101 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { ModelConfig } from "../types"
 
 export const openrouterModels: ModelConfig[] = [
+  // Gemini 3 Flash - Fast reasoning model for Research mode
+  // Replaces Perplexity Sonar Reasoning Pro with native tool calling support
   {
-    id: "openrouter:perplexity/sonar-reasoning-pro",
-    name: "Perplexity Sonar Reasoning Pro",
+    id: "openrouter:google/gemini-3-flash-preview",
+    name: "Gemini 3 Flash",
     provider: "OpenRouter",
     providerId: "openrouter",
-    modelFamily: "Sonar",
-    baseProviderId: "perplexity",
+    modelFamily: "Gemini",
+    baseProviderId: "google",
     description:
-      "Premier reasoning model powered by DeepSeek R1 with Chain of Thought. Supports in-depth, multi-step queries with built-in web search.",
-    tags: ["reasoning", "pro", "advanced", "QA", "research"],
-    contextWindow: 128000,
-    inputCost: 2,
-    outputCost: 8,
+      "High-speed thinking model designed for agentic workflows, multi-turn chat, and coding assistance. Near Pro-level reasoning with lower latency.",
+    tags: ["reasoning", "fast", "agentic", "research", "tools"],
+    contextWindow: 1048576, // 1M tokens
+    inputCost: 0.5,
+    outputCost: 3,
     priceUnit: "per 1M tokens",
-    vision: true, // Now supports images
-    tools: false,
-    audio: false,
-    reasoning: true,
+    vision: true, // Supports images, video, PDF
+    tools: true, // Native tool calling support
+    audio: true,
+    reasoning: true, // Configurable reasoning levels
     webSearch: true,
     openSource: false,
-    speed: "Medium",
+    speed: "Fast",
     intelligence: "High",
     website: "https://openrouter.ai",
     apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/perplexity/sonar-reasoning-pro",
-    releasedAt: "2025-03-07",
-    icon: "perplexity",
+    modelPage: "https://openrouter.ai/google/gemini-3-flash-preview",
+    releasedAt: "2025-12-17",
+    icon: "google",
     isPro: false,
-    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) =>
+    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
         extraBody: {
-          transforms: ["middle-out"], // Auto-compress if context exceeds 128K limit
-          ...(opts?.enableSearch && {
-            plugins: [{ id: "web", max_results: 3 }],
-          }),
-        },
-      }).chat("perplexity/sonar-reasoning-pro"),
-  },
-  {
-    id: "openrouter:perplexity/sonar-deep-research",
-    name: "Perplexity Sonar Deep Research",
-    provider: "OpenRouter",
-    providerId: "openrouter",
-    modelFamily: "Sonar",
-    baseProviderId: "perplexity",
-    description:
-      "Advanced multi-step research model for comprehensive, in-depth analysis. Performs thorough web research with multiple search iterations.",
-    tags: ["reasoning", "pro", "advanced", "research", "deep"],
-    contextWindow: 128000,
-    inputCost: 2,
-    outputCost: 8,
-    priceUnit: "per 1M tokens",
-    vision: false,
-    tools: false,
-    audio: false,
-    reasoning: true,
-    webSearch: true,
-    openSource: false,
-    speed: "Slow",
-    intelligence: "High",
-    website: "https://openrouter.ai",
-    apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/perplexity/sonar-deep-research",
-    releasedAt: "2025-03-07",
-    icon: "perplexity",
-    isPro: false,
-    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean }) =>
-      createOpenRouter({
-        apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-        extraBody: {
-          transforms: ["middle-out"], // Auto-compress if context exceeds 128K limit
+          // Enable web search plugin when requested
           ...(opts?.enableSearch && {
             plugins: [{ id: "web", max_results: 5 }],
           }),
+          // Enable reasoning with medium effort by default
+          ...(opts?.enableReasoning !== false && {
+            thinking: {
+              type: "enabled",
+              budget_tokens: 8000,
+            },
+          }),
         },
-      }).chat("perplexity/sonar-deep-research"),
+      }).chat("google/gemini-3-flash-preview"),
+  },
+  // Gemini 3 Pro - Advanced reasoning model for Deep Research mode
+  // Replaces Perplexity Sonar Deep Research with native tool calling support
+  {
+    id: "openrouter:google/gemini-3-pro-preview",
+    name: "Gemini 3 Pro",
+    provider: "OpenRouter",
+    providerId: "openrouter",
+    modelFamily: "Gemini",
+    baseProviderId: "google",
+    description:
+      "Advanced multimodal model excelling at agentic workflows, tool-calling, and structured long-form tasks. Strong performance across text, image, video, audio, and code.",
+    tags: ["reasoning", "pro", "advanced", "research", "deep", "tools"],
+    contextWindow: 1048576, // 1M tokens
+    inputCost: 2,
+    outputCost: 12,
+    priceUnit: "per 1M tokens",
+    vision: true, // Supports images, video, PDF
+    tools: true, // Native tool calling support
+    audio: true,
+    reasoning: true, // Configurable reasoning levels
+    webSearch: true,
+    openSource: false,
+    speed: "Medium",
+    intelligence: "Very High",
+    website: "https://openrouter.ai",
+    apiDocs: "https://openrouter.ai/docs",
+    modelPage: "https://openrouter.ai/google/gemini-3-pro-preview",
+    releasedAt: "2025-11-18",
+    icon: "google",
+    isPro: false,
+    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
+      createOpenRouter({
+        apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+        extraBody: {
+          // Enable web search plugin when requested
+          ...(opts?.enableSearch && {
+            plugins: [{ id: "web", max_results: 8 }],
+          }),
+          // Enable reasoning with high effort for deep research
+          ...(opts?.enableReasoning !== false && {
+            thinking: {
+              type: "enabled",
+              budget_tokens: 16000,
+            },
+          }),
+        },
+      }).chat("google/gemini-3-pro-preview"),
   },
   // GPT-5-Nano - Used internally for two-stage architecture (tool execution)
   // Ultra-fast, ultra-cheap model optimized for low latency tool calling

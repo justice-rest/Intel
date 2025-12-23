@@ -463,33 +463,5 @@ export function optimizeForContextWindow(
   }
 }
 
-/**
- * Perplexity-specific context optimization
- *
- * Perplexity models have 128K context window but need special handling:
- * - Built-in web search adds ~5-10K tokens of results
- * - Reasoning tokens consume additional context
- * - Lower max output to leave room for search results
- */
-export function optimizeForPerplexity(
-  messages: Message[],
-  systemPromptTokens: number = 3000
-): {
-  messages: Message[]
-  maxOutputTokens: number
-  inputTokens: number
-} {
-  // Perplexity Sonar Reasoning Pro: 128K context window
-  // Reserve extra for web search results and reasoning
-  const result = optimizeForContextWindow(messages, {
-    contextWindow: 128000,
-    reservedOutputTokens: 8000,    // 8K for output (reduced from 32K)
-    systemPromptTokens: systemPromptTokens + 15000, // Extra 15K for web search results + reasoning
-  })
-
-  return {
-    messages: result.messages,
-    maxOutputTokens: result.maxOutputTokens,
-    inputTokens: result.inputTokens,
-  }
-}
+// Note: Perplexity optimization function removed - now using Gemini 3 with 1M context window
+// Gemini models don't require aggressive context optimization like Perplexity's 128K limit

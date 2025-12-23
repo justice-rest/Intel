@@ -1,5 +1,4 @@
-import { SYSTEM_PROMPT_DEFAULT, SYSTEM_PROMPT_PERPLEXITY, AI_MAX_OUTPUT_TOKENS } from "@/lib/config"
-import { createOpenRouter } from "@openrouter/ai-sdk-provider"
+import { SYSTEM_PROMPT_DEFAULT, AI_MAX_OUTPUT_TOKENS } from "@/lib/config"
 import { getAllModels, normalizeModelId } from "@/lib/models"
 import { getProviderForModel } from "@/lib/openproviders/provider-map"
 import { createListDocumentsTool } from "@/lib/tools/list-documents"
@@ -112,9 +111,9 @@ import {
 } from "@/lib/tools/crm-search"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
-import { optimizeMessagePayload, optimizeForPerplexity, estimateTokens } from "@/lib/message-payload-optimizer"
+import { optimizeMessagePayload, estimateTokens } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, generateText, smoothStream, ToolSet, tool, createDataStreamResponse, createDataStream } from "ai"
+import { Message as MessageAISDK, streamText, smoothStream, ToolSet, tool } from "ai"
 import { z } from "zod"
 import {
   incrementMessageCount,
@@ -147,10 +146,11 @@ type ChatRequest = {
   editCutoffTimestamp?: string
 }
 
-// Map research modes to Perplexity model IDs (via OpenRouter)
+// Map research modes to Gemini model IDs (via OpenRouter)
+// Gemini 3 supports native tool calling - no intermediary needed
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
-  "research": "openrouter:perplexity/sonar-reasoning-pro",
-  "deep-research": "openrouter:perplexity/sonar-deep-research",
+  "research": "openrouter:google/gemini-3-flash-preview",
+  "deep-research": "openrouter:google/gemini-3-pro-preview",
 }
 
 export async function POST(req: Request) {
@@ -209,10 +209,8 @@ export async function POST(req: Request) {
       // 2. Get all models config (needed for streaming)
       getAllModels(),
       // 3. Get system prompt with onboarding context (cached after first request)
-      // Use SYSTEM_PROMPT_PERPLEXITY for Perplexity models (smaller, no tool docs)
       (async () => {
-        const isPerplexity = normalizedModel.includes("perplexity/sonar")
-        const baseSystemPrompt = systemPrompt || (isPerplexity ? SYSTEM_PROMPT_PERPLEXITY : SYSTEM_PROMPT_DEFAULT)
+        const baseSystemPrompt = systemPrompt || SYSTEM_PROMPT_DEFAULT
         return await getSystemPromptWithContext(
           isAuthenticated ? userId : null,
           baseSystemPrompt
@@ -362,10 +360,8 @@ You have access to **search_memory** to recall past conversations and user conte
     }
 
     // Add search guidance when search is enabled
-    // SKIP for Perplexity models - they use SYSTEM_PROMPT_PERPLEXITY via two-stage architecture
-    // Perplexity has built-in web search and doesn't need tool documentation
-    const isPerplexityModelEarly = normalizedModel.includes("perplexity/sonar")
-    if (enableSearch && !isPerplexityModelEarly) {
+    // Gemini 3 supports native tool calling, so all models get full tool documentation
+    if (enableSearch) {
       // Data API tools (direct access to authoritative sources)
       const dataTools: string[] = []
       if (shouldEnableSecEdgarTools()) dataTools.push("sec_edgar_filings (SEC 10-K/10-Q filings, financial statements, executive compensation)")
@@ -728,7 +724,7 @@ For comprehensive prospect due diligence:
     } as ToolSet
 
     // Check model capabilities to determine what content to clean
-    // Perplexity models don't support tool calling or vision - passing such content causes errors
+    // Some models don't support tool calling or vision - passing such content causes errors
     const modelSupportsTools = modelConfig.tools !== false
     const modelSupportsVision = modelConfig.vision !== false
     const hasTools = modelSupportsTools && Object.keys(tools).length > 0
@@ -766,325 +762,17 @@ For comprehensive prospect due diligence:
     })
 
     // =========================================================================
-    // TWO-STAGE ARCHITECTURE FOR PERPLEXITY MODELS
+    // UNIFIED FLOW - All models (including Gemini 3 with native tool calling)
     // =========================================================================
-    // Perplexity models (Sonar Pro, Deep Research) have built-in web search but
-    // do NOT support function calling. To enable RAG, CRM, and Memory tools:
-    //
-    // Stage 1: GPT-5-Nano executes essential user-context tools (ONLY when needed)
-    // Stage 2: Perplexity synthesizes with gathered context + built-in search
-    //
-    // OPTIMIZATION: Intent detection skips Stage 1 for queries that don't need
-    // personal data (e.g., "What's the capital of France?")
-    // =========================================================================
-    const isPerplexityModel = normalizedModel.includes("perplexity/sonar")
-
-    // Intent detection: Check if query needs personal data (documents, CRM, memory)
-    const lastUserMessage = cleanedMessages.filter(m => m.role === "user").pop()
-    const queryText = typeof lastUserMessage?.content === "string"
-      ? lastUserMessage.content.toLowerCase()
-      : ""
-
-    // Patterns that indicate need for personal data (documents, CRM, memory)
-    // IMPORTANT: Patterns are designed to minimize false positives (matching questions ABOUT these topics)
-    // while catching genuine requests for personal data access
-    const needsPersonalData = (query: string): boolean => {
-      const patterns = [
-        // Direct references to personal data with possessive/action context
-        /\bmy\s+(document|file|pdf|doc|report|data|crm|constituent|donor|memor|record|spreadsheet|xlsx)/i,
-        /\bcheck\s+(my|the)\s+(crm|document|file|record|donor|constituent)/i,
-        /\bfrom\s+(my|the)\s+(document|file|crm|database|record)/i,
-        /\bin\s+my\s+(document|file|crm|record|data)/i,
-        /\bsearch\s+(my|the)\s+(document|file|crm|memor)/i,
-        /\blook\s*(up|for|at)\s+(my|in\s+my)/i,
-        /\bfind\s+(in\s+)?(my)\s+(document|file|crm|record)/i,
-        /\bshow\s+me\s+(my|the)\s+(document|file|record|donor|constituent)/i,
-        /\bpull\s+(up|from)\s+(my|the)\s+(crm|document|record)/i,
-        /\bget\s+(me\s+)?(my|the)\s+(donor|constituent|record)/i,
-
-        // File references with extensions (strong signal)
-        /\.(pdf|xlsx?|docx?|csv|txt)\b/i,
-        /\buploaded?\s+(file|document)/i,
-
-        // CRM action context (avoid matching "what is a CRM?")
-        /\b(check|search|look\s*up|find|get|pull|show)\s+(the\s+)?crm\b/i,
-        /\bcrm\s+(search|lookup|data|record|info)/i,
-        /\b(donor|constituent)\s+(record|history|info|data|profile|lookup)/i,
-        /\b(bloomerang|virtuous|neoncrm|donorperfect)\s+(record|data|search)/i,
-        /\b(search|check|find|look)\s+(in\s+)?(bloomerang|virtuous|neoncrm|donorperfect)/i,
-        /\bgiving\s+history\s+(for|of)\b/i,
-
-        // Memory-specific with context
-        /\bremember\s+(when|that|what|if|the|my)/i,
-        /\b(you|we)\s+discussed\b/i,
-        /\blast\s+time\s+(we|i|you)\b/i,
-        /\bpreviously\s+(we|i|you|discussed|mentioned|said|told)/i,
-        /\bearlier\s+(you|we|i)\s+(said|mentioned|discussed|told)/i,
-        /\bwhat\s+did\s+(i|we)\s+(tell|say|discuss|mention)/i,
-        /\bdo\s+you\s+remember\b/i,
-        /\bour\s+(previous|past|last)\s+(conversation|discussion|chat)/i,
-        /\btold\s+you\s+(about|that|my)/i,
-        /\bmentioned\s+(earlier|before|previously)/i,
-        /\bwe\s+talked\s+about\b/i,
-
-        // Prospect/batch research
-        /\bprevious\s+research\b/i,
-        /\bbatch\s+(research|report|result)/i,
-        /\bresearch\s+(i|we)\s+(did|ran|completed)/i,
-
-        // Personal context indicators (more specific)
-        /\b(tell|show)\s+me\s+(about|more\s+about)\s+[A-Z][a-z]+/i, // "Tell me about Brad" - proper noun
-      ]
-      return patterns.some(pattern => pattern.test(query))
-    }
-
-    const queryNeedsTools = needsPersonalData(queryText)
-    const hasUserTools = isAuthenticated || hasCRM
-
-    // Two-stage architecture triggers when:
-    // 1. Web search is enabled (Perplexity's built-in search) OR
-    // 2. Query needs personal data AND user has tools available
-    // This ensures CRM/RAG/Memory work even when web search is OFF
-    if (isPerplexityModel && (enableSearch || (queryNeedsTools && hasUserTools))) {
-      console.log("[Chat API] Two-stage architecture: Perplexity", {
-        queryNeedsTools,
-        hasUserTools,
-        hasCRM,
-        queryPreview: queryText.substring(0, 80)
-      })
-
-      return createDataStreamResponse({
-        execute: async (dataStream) => {
-          let gatheredContext = ""
-
-          // STAGE 1: Only execute if query explicitly needs personal data
-          if (queryNeedsTools && hasUserTools) {
-            // GPT-5-Nano: Ultra-fast ($0.05/$0.40 per 1M tokens), excellent tool calling
-            const toolModel = createOpenRouter({
-              apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-            }).chat("openai/gpt-5-nano")
-
-            const essentialTools: ToolSet = {
-              ...(isAuthenticated
-                ? {
-                    list_documents: createListDocumentsTool(userId),
-                    rag_search: createRagSearchTool(userId),
-                    search_memory: createMemorySearchTool(userId),
-                    search_prospects: createBatchReportsSearchTool(userId),
-                  }
-                : {}),
-              ...(isAuthenticated && hasCRM
-                ? {
-                    crm_search: tool({
-                      description:
-                        "Search CRM for donor/constituent records by name, email, or keyword.",
-                      parameters: z.object({
-                        query: z.string().describe("Search term"),
-                        provider: z.enum(["bloomerang", "virtuous", "neoncrm", "donorperfect", "all"]).optional().default("all"),
-                        limit: z.number().optional().default(10),
-                      }),
-                      execute: async ({ query, provider, limit }) => {
-                        return await searchCRMConstituents(userId, query, provider, limit)
-                      },
-                    }),
-                  }
-                : {}),
-            }
-
-            const toolCount = Object.keys(essentialTools).length
-
-            if (toolCount > 0) {
-              // Status: searching personal data
-              dataStream.writeMessageAnnotation({
-                type: "status",
-                status: "gathering-context",
-                message: hasCRM ? "Searching your CRM..." : "Searching your documents...",
-              })
-
-              console.log("[Chat API] Stage 1: GPT-5-Nano executing tools", { toolCount })
-
-              try {
-                const toolGatheringResult = await generateText({
-                  model: toolModel,
-                  system: `You are a data retrieval assistant. The user needs information from their personal data.
-
-AVAILABLE TOOLS:
-- list_documents: List user's uploaded documents with names and metadata
-- rag_search: Search INSIDE uploaded documents (PDFs, spreadsheets, etc.) - use specific search terms
-- search_memory: Search saved memories and past conversations
-- search_prospects: Search previous prospect research reports
-${hasCRM ? "- crm_search: Search CRM for donor/constituent records (name, email, giving history)" : ""}
-
-STRATEGY:
-1. Analyze what the user is asking for
-2. Select the most relevant tool(s):
-   - For "what documents do I have?" → list_documents
-   - For "what does my report say about X?" → rag_search with keyword
-   - For "remember when we discussed X?" → search_memory
-   - For "my previous research on X" → search_prospects
-   - For "donor record for X" → crm_search
-3. Execute the tool(s) with appropriate search terms
-4. Summarize findings concisely
-
-Be efficient - only call tools that directly answer the user's question.`,
-                  messages: cleanedMessages,
-                  tools: essentialTools,
-                  maxSteps: 5,
-                  maxTokens: 2000,
-                })
-
-                if (toolGatheringResult.text?.trim()) {
-                  gatheredContext = `\n\n## Your Data\n\n${toolGatheringResult.text}`
-                  console.log("[Chat API] Stage 1 complete:", gatheredContext.length, "chars")
-
-                  dataStream.writeMessageAnnotation({
-                    type: "status",
-                    status: "context-found",
-                    message: "Found data. Analyzing...",
-                  })
-                } else {
-                  console.log("[Chat API] Stage 1: No relevant data found")
-                }
-              } catch (error) {
-                console.error("[Chat API] Stage 1 error:", error)
-              }
-            }
-          } else {
-            console.log("[Chat API] Skipping Stage 1 - query doesn't need personal data")
-          }
-
-          // STAGE 2: Synthesize with Perplexity
-          console.log("[Chat API] Stage 2: Synthesizing with Perplexity", normalizedModel)
-
-          // Include auto-injected memories and batch reports from parallel loading
-          // These are ALWAYS included (from semantic search), separate from Stage 1 tool results
-          let perplexitySystemPrompt = SYSTEM_PROMPT_PERPLEXITY
-          if (memoryResult) {
-            perplexitySystemPrompt += `\n\n${memoryResult}`
-          }
-          if (batchReportsResult) {
-            perplexitySystemPrompt += `\n\n${batchReportsResult}`
-          }
-          // Add Stage 1 tool-gathered context (CRM, docs, explicit memory searches)
-          perplexitySystemPrompt += gatheredContext
-
-          if (gatheredContext.trim() !== "") {
-            perplexitySystemPrompt += `
-
-## Important: Acknowledge User's Data
-You have context from the user's documents/CRM/memory above.
-At the START of your response, briefly acknowledge this (e.g., "Based on your documents...")
-before proceeding with your research.`
-          }
-
-          // =====================================================================
-          // CRITICAL: Perplexity has 128K context limit
-          // Optimize messages to fit within context window
-          // =====================================================================
-          const systemPromptTokens = estimateTokens(perplexitySystemPrompt)
-          const perplexityOptimized = optimizeForPerplexity(cleanedMessages, systemPromptTokens)
-
-          console.log("[Chat API] Perplexity context optimization:", {
-            originalMessages: cleanedMessages.length,
-            optimizedMessages: perplexityOptimized.messages.length,
-            inputTokens: perplexityOptimized.inputTokens,
-            maxOutputTokens: perplexityOptimized.maxOutputTokens,
-            systemPromptTokens,
-          })
-
-          const result = streamText({
-            model: modelConfig.apiSdk!(apiKey, { enableSearch }),
-            system: perplexitySystemPrompt,
-            messages: perplexityOptimized.messages,
-            maxSteps: 1,
-            maxTokens: perplexityOptimized.maxOutputTokens,
-            maxRetries: 8,
-            experimental_telemetry: { isEnabled: false },
-            experimental_transform: smoothStream(),
-            onError: (err: unknown) => {
-              console.error("[Chat API] Perplexity error:", err)
-            },
-            onFinish: async ({ response, text, finishReason, usage }) => {
-              console.log("[Chat API] Perplexity finished:", { finishReason, textLength: text?.length ?? 0 })
-
-              if (supabase) {
-                await storeAssistantMessage({
-                  supabase,
-                  chatId,
-                  messages: response.messages as unknown as import("@/app/types/api.types").Message[],
-                  message_group_id,
-                  model: normalizedModel,
-                })
-
-                // Memory extraction
-                if (isAuthenticated) {
-                  Promise.resolve().then(async () => {
-                    try {
-                      const { extractMemories, createMemory, memoryExists, calculateImportanceScore, isMemoryEnabled } = await import("@/lib/memory")
-                      const { generateEmbedding } = await import("@/lib/rag/embeddings")
-
-                      if (!isMemoryEnabled()) return
-
-                      const textParts: string[] = []
-                      for (const msg of response.messages) {
-                        if (msg.role === "assistant" && Array.isArray(msg.content)) {
-                          for (const part of msg.content) {
-                            if (part.type === "text" && part.text) {
-                              textParts.push(part.text)
-                            }
-                          }
-                        }
-                      }
-                      const responseText = textParts.join("\n\n")
-
-                      const extractedMemories = await extractMemories(
-                        { messages: [{ role: userMessage.role, content: String(userMessage.content) }, { role: "assistant", content: responseText }], userId, chatId },
-                        apiKey || process.env.OPENROUTER_API_KEY || ""
-                      )
-
-                      for (const memory of extractedMemories) {
-                        const exists = await memoryExists(memory.content, userId, apiKey || process.env.OPENROUTER_API_KEY || "")
-                        if (exists) continue
-
-                        const embeddingResponse = await generateEmbedding(memory.content, apiKey || process.env.OPENROUTER_API_KEY || "")
-                        const importanceScore = calculateImportanceScore(memory.content, memory.category)
-
-                        await createMemory({
-                          user_id: userId,
-                          content: memory.content,
-                          memory_type: memory.tags?.includes("explicit") ? "explicit" : "auto",
-                          importance_score: importanceScore,
-                          embedding: embeddingResponse.embedding,
-                          metadata: { source_chat_id: chatId, category: memory.category, tags: memory.tags, context: memory.context },
-                        })
-                      }
-                    } catch (err) {
-                      console.error("[Memory] Extraction error:", err)
-                    }
-                  }).catch(console.error)
-                }
-
-                if (isAuthenticated && supabase) {
-                  await incrementMessageCount({ supabase, userId, isAuthenticated, model: normalizedModel })
-                }
-              }
-            },
-          })
-
-          // Merge the Perplexity stream into the data stream
-          result.mergeIntoDataStream(dataStream)
-        },
-      })
-    }
-
-    // =========================================================================
-    // STANDARD FLOW (Non-Perplexity models)
+    // Gemini 3 Flash/Pro support native tool calling, eliminating the need for
+    // the previous two-stage architecture that was required for Perplexity models.
+    // All tools (RAG, CRM, Memory, Web Search) are now handled directly by the model.
     // =========================================================================
     const result = streamText({
-      model: modelConfig.apiSdk(apiKey, { enableSearch }),
+      model: modelConfig.apiSdk(apiKey, { enableSearch, enableReasoning: true }),
       system: finalSystemPrompt,
       messages: cleanedMessages,
-      // Only pass tools if model supports them - Perplexity models error on tool definitions
+      // Only pass tools if model supports them
       ...(modelSupportsTools && { tools }),
       // Allow multiple tool call steps for complex research workflows
       maxSteps: modelSupportsTools ? 50 : 1,
