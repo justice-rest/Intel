@@ -11,13 +11,32 @@ export function cleanMessagesForTools(
   hasTools: boolean,
   hasVision: boolean = true // Default to true for backwards compatibility
 ): MessageAISDK[] {
-  // If model supports everything, return as-is
+  // Helper to check if content is empty/invalid
+  const isEmptyContent = (content: unknown): boolean => {
+    if (content === null || content === undefined) return true
+    if (typeof content === "string") return content.trim() === ""
+    if (Array.isArray(content)) return content.length === 0
+    return false
+  }
+
+  // Always sanitize messages to ensure no empty content (xAI/Grok requires non-empty)
+  const sanitizedMessages = messages.map((message) => {
+    if (isEmptyContent(message.content)) {
+      return {
+        ...message,
+        content: message.role === "assistant" ? "[Assistant response]" : "[User message]",
+      }
+    }
+    return message
+  })
+
+  // If model supports everything, return sanitized messages
   if (hasTools && hasVision) {
-    return messages
+    return sanitizedMessages
   }
 
   // Clean messages based on model capabilities
-  const cleanedMessages = messages
+  const cleanedMessages = sanitizedMessages
     .map((message) => {
       // Skip tool messages entirely when no tools are available
       if (!hasTools && (message as { role: string }).role === "tool") {
