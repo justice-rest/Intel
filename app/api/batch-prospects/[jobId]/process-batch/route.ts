@@ -286,8 +286,14 @@ export async function POST(
       apiKey = undefined
     }
 
+    // Get LinkUp API key from environment (parallel search enhancement)
+    const linkupApiKey = process.env.LINKUP_API_KEY
+
     console.log(
       `[BatchProcessParallel] Processing ${itemsToProcess.length} items in parallel for job ${jobId}`
+    )
+    console.log(
+      `[BatchProcessParallel] LinkUp parallel search: ${linkupApiKey ? "ENABLED" : "DISABLED"}`
     )
 
     // Process all items in parallel
@@ -311,6 +317,7 @@ export async function POST(
           const result = await generateComprehensiveReportWithTools({
             prospect: item.input_data,
             apiKey,
+            linkupApiKey, // Enable parallel LinkUp search
           })
 
           if (result.success) {

@@ -23,6 +23,10 @@ import {
   shouldEnablePerplexityTools,
 } from "@/lib/tools/perplexity-prospect-research"
 import {
+  linkupProspectResearchTool,
+  shouldEnableLinkupTools,
+} from "@/lib/tools/linkup-prospect-research"
+import {
   rentalInvestmentTool,
   shouldEnableRentalInvestmentTool,
 } from "@/lib/tools/rental-investment-tool"
@@ -340,6 +344,7 @@ You have access to **search_memory** to recall past conversations and user conte
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
       if (shouldEnablePerplexityTools()) dataTools.push("perplexity_prospect_research (comprehensive prospect research with grounded citations - real estate, business, philanthropy, securities, biography)")
+      if (shouldEnableLinkupTools()) dataTools.push("linkup_prospect_research (parallel web search for prospect research - use ALONGSIDE perplexity for maximum coverage)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
       if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
       if (shouldEnableNeonCRMTools()) dataTools.push("neon_crm_* (Neon CRM integration: search accounts/donors, get donor details, search donations - requires API key)")
@@ -357,16 +362,24 @@ You have built-in web search capabilities through Perplexity Sonar Reasoning. Us
 ${dataTools.join("\n")}
 
 **Key Tools:**
-- **perplexity_prospect_research**: PRIMARY tool for comprehensive prospect research. Searches real estate, business ownership, philanthropy, securities, and biography with grounded citations. Use this FIRST for most research requests.
+- **perplexity_prospect_research + linkup_prospect_research**: ALWAYS use BOTH IN PARALLEL for comprehensive prospect research. Perplexity provides structured JSON output; LinkUp provides additional sources and coverage. Call both simultaneously for maximum results.
 - **fec_contributions**: Political contribution history by individual name (structured FEC data)
 - **propublica_nonprofit_***: Foundation 990s, nonprofit financials (search by ORG name)
 - **sec_edgar_filings**: Public company financials, 10-K/10-Q, executive compensation
 - **sec_insider_search / sec_proxy_search**: Verify board membership via SEC filings
 
+### Parallel Web Search Strategy (CRITICAL)
+When researching prospects with web search enabled:
+1. **ALWAYS invoke BOTH perplexity_prospect_research AND linkup_prospect_research IN PARALLEL** (single tool call message with both tools)
+2. Wait for both results before synthesizing
+3. Combine findings, deduplicate sources, and cross-reference information
+4. Present unified research with all sources cited
+5. Flag discrepancies between sources and prefer official sources (SEC, FEC, ProPublica) when conflicts exist
+
 ### Research Strategy
-1. **Start with perplexity_prospect_research** - comprehensive search with citations covering property, business, philanthropy
+1. **Start with PARALLEL web search** - call perplexity_prospect_research AND linkup_prospect_research simultaneously
 2. **Use structured tools for specific data**: FEC for political giving, ProPublica for 990s, SEC for public company roles
-3. **Run tools in parallel** when gathering data from multiple sources
+3. **Run ALL tools in parallel** when gathering data from multiple sources for maximum efficiency
 4. **propublica workflow**: Search perplexity for nonprofit names → propublica_nonprofit_search with ORG name for 990 details
 
 ### Board & Officer Validation (PUBLIC COMPANIES)
@@ -476,6 +489,14 @@ For full donor research:
             perplexity_prospect_research: createPerplexityProspectResearchTool(
               researchMode === "deep-research"
             ),
+          }
+        : {}),
+      // Add LinkUp web search for parallel prospect research
+      // Use ALONGSIDE perplexity_prospect_research for maximum coverage
+      // Deep search with sourced answers and inline citations
+      ...(enableSearch && shouldEnableLinkupTools()
+        ? {
+            linkup_prospect_research: linkupProspectResearchTool,
           }
         : {}),
       // Add Rental Investment tool for rental valuation and investment analysis

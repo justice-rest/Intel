@@ -266,9 +266,15 @@ export async function POST(
       apiKey = undefined
     }
 
+    // Get LinkUp API key from environment (parallel search enhancement)
+    const linkupApiKey = process.env.LINKUP_API_KEY
+
     // Generate the prospect report using Grok 4.1 Fast + Exa web search (comprehensive mode)
     console.log(
       `[BatchProcess] Processing item ${nextItem.item_index + 1}/${job.total_prospects}: ${nextItem.prospect_name}`
+    )
+    console.log(
+      `[BatchProcess] LinkUp parallel search: ${linkupApiKey ? "ENABLED" : "DISABLED"}`
     )
 
     let reportResult: SonarGrokReportResult | null = null
@@ -276,9 +282,11 @@ export async function POST(
 
     try {
       // Use Perplexity Sonar Pro for grounded, citation-first research
+      // + LinkUp parallel search for maximum coverage
       const result = await generateComprehensiveReportWithTools({
         prospect: nextItem.input_data,
         apiKey,
+        linkupApiKey, // Enable parallel LinkUp search
       })
 
       if (result.success) {

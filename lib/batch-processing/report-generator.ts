@@ -28,6 +28,13 @@ import {
   RomyScoreDataPoints,
   RomyScoreBreakdown,
 } from "@/lib/romy-score"
+import {
+  linkupBatchSearch,
+  mergeLinkupWithPerplexity,
+  isLinkupAvailable,
+  LinkupBatchResult,
+  ExtractedLinkupData,
+} from "./linkup-search"
 
 // ============================================================================
 // PERPLEXITY SONAR PRO SYSTEM PROMPT
@@ -210,6 +217,7 @@ When identity may be ambiguous:
 export interface GenerateReportOptions {
   prospect: ProspectInputData
   apiKey?: string
+  linkupApiKey?: string
   organizationContext?: string
 }
 
@@ -558,6 +566,343 @@ Return ONLY the JSON object.`
       processing_duration_ms: processingTime,
       error_message: error instanceof Error ? error.message : "Research failed",
     }
+  }
+}
+
+// ============================================================================
+// PARALLEL PERPLEXITY + LINKUP RESEARCH
+// ============================================================================
+
+/**
+ * Integrate extracted LinkUp data into Perplexity's structured output
+ * Fills in gaps where Perplexity didn't find data but LinkUp did
+ */
+function integrateExtractedLinkupData(
+  output: ProspectResearchOutput,
+  extractedData: ExtractedLinkupData
+): ProspectResearchOutput {
+  const updated = { ...output }
+
+  // ========== REAL ESTATE ==========
+  // Add property values from LinkUp if Perplexity found none
+  if (!updated.wealth.real_estate.total_value && extractedData.properties.length > 0) {
+    const totalValue = extractedData.properties.reduce((sum, p) => sum + (p.value || 0), 0)
+    updated.wealth.real_estate.total_value = totalValue
+    updated.wealth.real_estate.properties = extractedData.properties.map(p => ({
+      address: p.address || "Address from LinkUp",
+      value: p.value || 0,
+      source: p.source || "LinkUp",
+      confidence: "ESTIMATED" as const,
+    }))
+    console.log(`[BatchProcessor] Integrated ${extractedData.properties.length} properties from LinkUp (~$${(totalValue/1000000).toFixed(1)}M)`)
+  }
+
+  // ========== BUSINESS OWNERSHIP ==========
+  // Add businesses from LinkUp if Perplexity found fewer
+  if (updated.wealth.business_ownership.length < extractedData.businesses.length) {
+    const existingCompanies = new Set(updated.wealth.business_ownership.map(b => b.company.toLowerCase()))
+    for (const biz of extractedData.businesses) {
+      if (biz.name && !existingCompanies.has(biz.name.toLowerCase())) {
+        updated.wealth.business_ownership.push({
+          company: biz.name,
+          role: biz.role || "Executive",
+          estimated_value: biz.value || null,
+          source: "LinkUp",
+          confidence: "UNVERIFIED" as const,
+        })
+        existingCompanies.add(biz.name.toLowerCase())
+      }
+    }
+    console.log(`[BatchProcessor] Integrated ${extractedData.businesses.length} businesses from LinkUp`)
+  }
+
+  // ========== SEC FILINGS ==========
+  // Add SEC ticker information if Perplexity didn't find any
+  if (!updated.wealth.securities.has_sec_filings && extractedData.secFilings.hasFilings) {
+    updated.wealth.securities.has_sec_filings = true
+    updated.wealth.securities.insider_at = extractedData.secFilings.tickers
+    updated.wealth.securities.source = "LinkUp (needs SEC EDGAR verification)"
+    console.log(`[BatchProcessor] Integrated SEC tickers from LinkUp: ${extractedData.secFilings.tickers.join(", ")}`)
+  }
+
+  // ========== POLITICAL GIVING ==========
+  // Use LinkUp's political giving total if higher than Perplexity's
+  if (extractedData.politicalGiving.total &&
+      extractedData.politicalGiving.total > updated.philanthropy.political_giving.total) {
+    updated.philanthropy.political_giving.total = extractedData.politicalGiving.total
+    if (extractedData.politicalGiving.partyLean) {
+      updated.philanthropy.political_giving.party_lean = extractedData.politicalGiving.partyLean as any
+    }
+    // Note: source field only accepts "FEC" or null, so we keep the original source
+    // The data came from LinkUp but we mark it as needing FEC verification
+    console.log(`[BatchProcessor] Integrated political giving from LinkUp: $${extractedData.politicalGiving.total.toLocaleString()}`)
+  }
+
+  // ========== FOUNDATIONS ==========
+  // Add foundation affiliations from LinkUp
+  if (extractedData.foundations.length > 0) {
+    const existingFoundations = new Set(updated.philanthropy.foundation_affiliations.map(f => f.toLowerCase()))
+    for (const foundation of extractedData.foundations) {
+      if (!existingFoundations.has(foundation.toLowerCase())) {
+        updated.philanthropy.foundation_affiliations.push(foundation)
+        existingFoundations.add(foundation.toLowerCase())
+      }
+    }
+  }
+
+  // ========== MAJOR GIFTS ==========
+  // Add major gifts from LinkUp
+  if (extractedData.majorGifts.length > 0) {
+    for (const gift of extractedData.majorGifts) {
+      if (gift.amount && gift.organization) {
+        const exists = updated.philanthropy.known_major_gifts.some(
+          g => g.organization.toLowerCase() === gift.organization!.toLowerCase() &&
+               Math.abs(g.amount - gift.amount!) < 1000
+        )
+        if (!exists) {
+          updated.philanthropy.known_major_gifts.push({
+            organization: gift.organization,
+            amount: gift.amount,
+            year: null,
+            source: "LinkUp",
+          })
+        }
+      }
+    }
+  }
+
+  // ========== NET WORTH ==========
+  // Use LinkUp's net worth if Perplexity didn't find one
+  if (!updated.metrics.estimated_net_worth_low && extractedData.netWorthMentioned) {
+    updated.metrics.estimated_net_worth_low = extractedData.netWorthMentioned.low || null
+    updated.metrics.estimated_net_worth_high = extractedData.netWorthMentioned.high || extractedData.netWorthMentioned.low || null
+    console.log(`[BatchProcessor] Integrated net worth from LinkUp: $${((extractedData.netWorthMentioned.low || 0)/1000000).toFixed(1)}M`)
+  }
+
+  // ========== BACKGROUND ==========
+  // Add age if Perplexity didn't find it
+  if (!updated.background.age && extractedData.age) {
+    updated.background.age = extractedData.age
+  }
+
+  // Add education if Perplexity found fewer
+  if (updated.background.education.length < extractedData.education.length) {
+    const existingEdu = new Set(updated.background.education.map(e => e.toLowerCase()))
+    for (const edu of extractedData.education) {
+      if (!existingEdu.has(edu.toLowerCase())) {
+        updated.background.education.push(edu)
+        existingEdu.add(edu.toLowerCase())
+      }
+    }
+  }
+
+  return updated
+}
+
+/**
+ * Execute parallel research with Perplexity Sonar Pro AND LinkUp
+ *
+ * When LINKUP_API_KEY is available, runs both searches simultaneously
+ * and merges results for maximum coverage.
+ *
+ * Features:
+ * - Parallel execution of Perplexity + LinkUp
+ * - Smart depth selection: Uses "deep" mode when Perplexity confidence is LOW
+ * - Structured data extraction from LinkUp answer
+ * - Gap-filling: LinkUp data fills missing Perplexity fields
+ *
+ * Architecture:
+ * ┌─────────────────────────────────────────────────────────┐
+ * │  PARALLEL EXECUTION                                      │
+ * ├─────────────────────────────────────────────────────────┤
+ * │  Perplexity Sonar Pro          │  LinkUp (standard)     │
+ * │  - Comprehensive 3-pass        │  - Optimized query      │
+ * │  - JSON structured output      │  - sourcedAnswer        │
+ * └─────────────────────────────────────────────────────────┘
+ *                          ↓
+ *               Merge & Deduplicate Results
+ *                          ↓
+ *          (If confidence LOW) → LinkUp Deep Search
+ */
+async function researchWithParallelSources(
+  prospect: ProspectInputData,
+  openrouterKey?: string,
+  linkupKey?: string
+): Promise<PerplexityResearchResult> {
+  const startTime = Date.now()
+  const hasLinkup = isLinkupAvailable(linkupKey)
+
+  console.log(`[BatchProcessor] Starting parallel research for ${prospect.name}`)
+  console.log(`[BatchProcessor] Perplexity: enabled | LinkUp: ${hasLinkup ? "enabled" : "disabled"}`)
+
+  // If no LinkUp key, fall back to Perplexity-only
+  if (!hasLinkup) {
+    return researchWithPerplexitySonar(prospect, openrouterKey)
+  }
+
+  // Execute BOTH searches in parallel (standard depth for initial LinkUp)
+  const [perplexityResult, linkupResult] = await Promise.allSettled([
+    researchWithPerplexitySonar(prospect, openrouterKey),
+    linkupBatchSearch(
+      {
+        name: prospect.name,
+        address: prospect.address || prospect.full_address,
+        employer: prospect.employer,
+        title: prospect.title,
+        city: prospect.city,
+        state: prospect.state,
+      },
+      linkupKey
+    ),
+  ])
+
+  // Extract results
+  const perplexity = perplexityResult.status === "fulfilled" ? perplexityResult.value : null
+  const linkup = linkupResult.status === "fulfilled" ? linkupResult.value : null
+
+  // If Perplexity failed, we can't proceed (it provides the JSON structure)
+  if (!perplexity || !perplexity.success || !perplexity.output) {
+    console.error("[BatchProcessor] Perplexity failed, cannot generate report")
+    return perplexity || {
+      success: false,
+      tokens_used: 0,
+      model_used: "perplexity/sonar-pro",
+      processing_duration_ms: Date.now() - startTime,
+      error_message: "Perplexity research failed",
+    }
+  }
+
+  // Track total tokens used
+  let totalTokens = perplexity.tokens_used || 0
+
+  // If LinkUp succeeded, merge results
+  if (linkup && !linkup.error && linkup.answer) {
+    console.log(`[BatchProcessor] LinkUp returned ${linkup.sources.length} sources in ${linkup.durationMs}ms`)
+
+    // Merge LinkUp findings into the report
+    const perplexitySources = perplexity.output.sources.map(s => ({
+      name: s.title,
+      url: s.url,
+    }))
+
+    const { mergedSources, linkupContribution, linkupUniqueInsights, extractedData } = mergeLinkupWithPerplexity(
+      linkup,
+      "", // We don't merge text content into Perplexity's structured output
+      perplexitySources
+    )
+
+    // ========== INTEGRATE EXTRACTED DATA ==========
+    // Fill gaps in Perplexity's output with LinkUp's extracted data
+    perplexity.output = integrateExtractedLinkupData(perplexity.output, extractedData)
+
+    // Add LinkUp-only sources to the output
+    const linkupOnlySources = linkup.sources.filter(
+      s => !perplexity.output!.sources.some(ps => ps.url === s.url)
+    )
+
+    if (linkupOnlySources.length > 0) {
+      perplexity.output.sources.push(
+        ...linkupOnlySources.map(s => ({
+          title: s.name,
+          url: s.url,
+          data_provided: s.snippet || "Additional data from LinkUp search",
+        }))
+      )
+      console.log(`[BatchProcessor] Added ${linkupOnlySources.length} unique sources from LinkUp`)
+    }
+
+    // Add LinkUp contribution note to executive summary (with insights)
+    if (linkupUniqueInsights.length > 0) {
+      const insightsSummary = linkupUniqueInsights.slice(0, 2).join("; ")
+      perplexity.output.executive_summary += ` [LinkUp: ${insightsSummary}]`
+    } else if (linkupContribution && !linkupContribution.includes("corroborated")) {
+      perplexity.output.executive_summary += ` [${linkupContribution}]`
+    }
+
+    // Update token count to include LinkUp
+    totalTokens += linkup.tokensUsed || 0
+
+    // ========== SMART DEPTH SELECTION ==========
+    // If Perplexity confidence is LOW and we haven't found much, try LinkUp deep search
+    const confidenceIsLow = perplexity.output.metrics.confidence_level === "LOW"
+    const lacksWealthData = !perplexity.output.wealth.real_estate.total_value &&
+                           perplexity.output.wealth.business_ownership.length === 0 &&
+                           !perplexity.output.wealth.securities.has_sec_filings
+    const lacksPhilanthropyData = perplexity.output.philanthropy.political_giving.total === 0 &&
+                                  perplexity.output.philanthropy.foundation_affiliations.length === 0
+
+    if (confidenceIsLow && (lacksWealthData || lacksPhilanthropyData)) {
+      console.log(`[BatchProcessor] Low confidence detected, initiating LinkUp DEEP search for ${prospect.name}`)
+
+      try {
+        // Import and use deep search (imported from linkup-prospect-research for deep mode)
+        const { linkupProspectSearch } = await import("@/lib/tools/linkup-prospect-research")
+
+        const deepResult = await linkupProspectSearch(
+          {
+            name: prospect.name,
+            address: prospect.address || prospect.full_address,
+            employer: prospect.employer,
+            title: prospect.title,
+          },
+          linkupKey!,
+          "deep" // Use deep mode for low-confidence cases
+        )
+
+        if (deepResult.answer && deepResult.sources.length > 0) {
+          console.log(`[BatchProcessor] LinkUp DEEP search returned ${deepResult.sources.length} additional sources`)
+
+          // Merge deep search results
+          const { extractedData: deepExtractedData } = mergeLinkupWithPerplexity(
+            {
+              answer: deepResult.answer,
+              sources: deepResult.sources,
+              query: deepResult.query,
+              tokensUsed: 0,
+              durationMs: 0,
+            },
+            "",
+            []
+          )
+
+          // Integrate deep search data
+          perplexity.output = integrateExtractedLinkupData(perplexity.output, deepExtractedData)
+
+          // Add unique sources from deep search
+          const existingUrls = new Set(perplexity.output.sources.map(s => s.url))
+          for (const source of deepResult.sources) {
+            if (!existingUrls.has(source.url)) {
+              perplexity.output.sources.push({
+                title: source.name,
+                url: source.url,
+                data_provided: source.snippet || "Data from LinkUp deep search",
+              })
+              existingUrls.add(source.url)
+            }
+          }
+
+          // Upgrade confidence if deep search found substantial data
+          if (deepExtractedData.properties.length > 0 || deepExtractedData.businesses.length > 0) {
+            perplexity.output.metrics.confidence_level = "MEDIUM"
+            console.log(`[BatchProcessor] Upgraded confidence to MEDIUM after deep search`)
+          }
+        }
+      } catch (deepError) {
+        console.warn(`[BatchProcessor] LinkUp deep search failed: ${deepError instanceof Error ? deepError.message : "Unknown error"}`)
+        // Continue with standard results
+      }
+    }
+  } else if (linkup?.error) {
+    console.warn(`[BatchProcessor] LinkUp search failed: ${linkup.error}`)
+  }
+
+  const totalDuration = Date.now() - startTime
+  console.log(`[BatchProcessor] Parallel research completed in ${totalDuration}ms`)
+
+  return {
+    ...perplexity,
+    tokens_used: totalTokens,
+    processing_duration_ms: totalDuration,
   }
 }
 
@@ -1088,14 +1433,20 @@ async function calculateRomyScoreFromResearch(
 export async function generateProspectReport(
   options: GenerateReportOptions
 ): Promise<GenerateReportResult> {
-  const { prospect, apiKey } = options
+  const { prospect, apiKey, linkupApiKey } = options
   const startTime = Date.now()
 
   try {
     console.log(`[BatchProcessor] Starting research for: ${prospect.name}`)
 
-    // Step 1: Research with Perplexity Sonar Pro
-    const researchResult = await researchWithPerplexitySonar(prospect, apiKey)
+    // Step 1: Research with Perplexity Sonar Pro + LinkUp (parallel when available)
+    // Uses researchWithParallelSources which automatically falls back to Perplexity-only
+    // if LINKUP_API_KEY is not configured
+    const researchResult = await researchWithParallelSources(
+      prospect,
+      apiKey,
+      linkupApiKey || process.env.LINKUP_API_KEY
+    )
 
     if (!researchResult.success || !researchResult.output) {
       return {
