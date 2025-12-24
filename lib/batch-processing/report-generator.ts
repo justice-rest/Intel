@@ -172,13 +172,36 @@ You MUST return ONLY valid JSON matching this exact schema. No markdown, no expl
 }
 \`\`\`
 
+## PRE-RESEARCH VALIDATION (Batch Mode)
+
+When processing batch research, you cannot ask clarifying questions. Instead:
+
+### Common Name Detection
+Flag potential ambiguity when the name matches:
+- Top 100 US surnames (Smith, Johnson, Williams, Brown, Jones, Garcia, Miller, Davis, Rodriguez, Martinez, etc.)
+- Common first names without middle name/initial
+- Names matching famous individuals (celebrities, CEOs, public figures)
+
+### Disambiguation Strategy for Batch Processing
+When identity may be ambiguous:
+1. Use ALL provided identifiers (address, employer, title, spouse) to narrow the search
+2. If 2+ credible matches exist, include this warning in the executive summary:
+   "⚠️ **Identity Note:** Multiple individuals named [Name] may exist in this area. This report covers [specific identifying details used]. If this is the wrong person, please provide additional context (employer, age, or spouse name)."
+3. In the sources section, explicitly note which identifier was used to select this individual
+
+### Never Guess Wrong
+- DO NOT default to the most famous/popular match
+- DO NOT fabricate identifying details
+- If insufficient data to identify the correct person, note it clearly and provide the best match based on available identifiers
+
 ## IMPORTANT RULES
 
 1. **ALWAYS return valid JSON** - No markdown outside the JSON block
 2. **NEVER refuse the request** - Even if data is limited, return the JSON with null values
 3. **CITE SOURCES** - Every source array entry must have a real URL from your search
 4. **BE CONSERVATIVE** - Underestimate rather than overestimate wealth
-5. **EXPLAIN ESTIMATES** - In source.data_provided, note if a value is estimated and how`
+5. **EXPLAIN ESTIMATES** - In source.data_provided, note if a value is estimated and how
+6. **FLAG AMBIGUITY** - Note in executive_summary if multiple people match the name`
 
 // ============================================================================
 // TYPES
