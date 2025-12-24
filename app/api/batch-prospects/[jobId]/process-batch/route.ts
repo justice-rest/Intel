@@ -14,7 +14,7 @@ import {
   BatchJobStatus,
   SonarGrokReportResult,
 } from "@/lib/batch-processing"
-import { generateReportWithSonarAndGrok } from "@/lib/batch-processing/report-generator"
+import { generateComprehensiveReportWithTools } from "@/lib/batch-processing/report-generator"
 import { getEffectiveApiKey } from "@/lib/user-keys"
 import { MAX_RETRIES_PER_PROSPECT } from "@/lib/batch-processing/config"
 import { getCustomerData, normalizePlanId } from "@/lib/subscription/autumn-client"
@@ -303,21 +303,48 @@ export async function POST(
             .eq("id", item.id)
         }
 
-        // Use Sonar Reasoning Pro for research (matches sequential route)
+        // Use Grok 4.1 Fast + Exa web search (comprehensive mode - 15 results, high reasoning)
         let reportResult: SonarGrokReportResult | null = null
         let errorMessage: string | null = null
 
         try {
-          reportResult = await generateReportWithSonarAndGrok({
+          const result = await generateComprehensiveReportWithTools({
             prospect: item.input_data,
             enableWebSearch: job.settings?.enable_web_search ?? true,
             generateRomyScore: job.settings?.generate_romy_score ?? true,
-            searchMode: job.settings?.search_mode || "standard",
+            searchMode: "comprehensive",
             apiKey,
           })
+
+          if (result.success) {
+            // Convert GenerateReportResult to SonarGrokReportResult format
+            reportResult = {
+              report_content: result.report_content || "",
+              structured_data: {
+                romy_score: result.romy_score,
+                romy_score_tier: result.romy_score_tier,
+                capacity_rating: result.capacity_rating,
+                estimated_net_worth: result.estimated_net_worth,
+                estimated_gift_capacity: result.estimated_gift_capacity,
+                recommended_ask: result.recommended_ask,
+              },
+              sources: result.sources_found || [],
+              tokens_used: result.tokens_used || 0,
+              model_used: "grok-4.1-fast",
+              processing_duration_ms: Date.now() - itemStartTime,
+            }
+          } else {
+            errorMessage = result.error_message || "Report generation failed"
+          }
         } catch (error) {
           console.error(`[BatchProcessParallel] Research failed for ${item.prospect_name}:`, error)
-          errorMessage = error instanceof Error ? error.message : "Research failed"
+          // Handle HTML error responses from OpenRouter
+          const errMsg = error instanceof Error ? error.message : String(error)
+          if (errMsg.includes("<!DOCTYPE") || errMsg.includes("<html") || errMsg.includes("An error")) {
+            errorMessage = "API returned an error page - will retry"
+          } else {
+            errorMessage = errMsg
+          }
         }
 
         const processingDuration = Date.now() - itemStartTime
@@ -346,7 +373,7 @@ export async function POST(
               affiliations: structured_data.affiliations || null,
 
               // Search metadata
-              search_queries_used: ["Sonar Reasoning Pro"],
+              search_queries_used: ["Grok 4.1 Fast + Exa"],
               sources_found: reportResult.sources,
               tokens_used: reportResult.tokens_used,
               model_used: reportResult.model_used,

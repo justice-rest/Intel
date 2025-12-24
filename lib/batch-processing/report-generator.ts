@@ -870,7 +870,7 @@ interface GenerateReportOptions {
   organizationContext?: string
 }
 
-interface GenerateReportResult {
+export interface GenerateReportResult {
   success: boolean
   report_content?: string
   romy_score?: number
@@ -1385,135 +1385,45 @@ function removeJsonBlockFromReport(content: string): string {
 }
 
 // ============================================================================
-// SONAR + GROK REPORT GENERATION
+// DEPRECATED: SONAR + GROK REPORT GENERATION
 // ============================================================================
 
 /**
- * Generate a prospect report using Gemini 3 Pro with native web search.
- * Single API call that does research AND outputs structured JSON.
+ * @deprecated Use generateComprehensiveReportWithTools instead.
+ * This function now redirects to the comprehensive mode which uses
+ * Grok 4.1 Fast + Exa web search (reliable and working).
  *
- * Cost: ~$0.02-0.05/prospect (Gemini 3 Pro with native search)
+ * Previously used Gemini 3 Pro with native web search, but that configuration
+ * doesn't work - Gemini doesn't support native web search via OpenRouter plugins.
  */
 export async function generateReportWithSonarAndGrok(
   options: GenerateReportOptions
 ): Promise<SonarGrokReportResult> {
-  const { prospect, apiKey } = options
   const startTime = Date.now()
 
-  console.log(`[BatchProcessor] Starting Gemini 3 Pro research for: ${prospect.name}`)
+  console.log(`[BatchProcessor] generateReportWithSonarAndGrok is DEPRECATED - routing to generateComprehensiveReportWithTools`)
 
-  // Build full address for research
-  const fullAddress = buildProspectQueryString(prospect)
-
-  // Collect additional context
-  const additionalContext = Object.entries(prospect)
-    .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
-    .filter(([, value]) => value)
-    .map(([key, value]) => `${key}: ${value}`)
-    .join(", ")
-
-  // Build research prompt - Sonar has built-in web search
-  const userMessage = `Research this prospect and generate a professional summary for major gift screening.
-
-**Prospect:** ${prospect.name}
-**Address:** ${fullAddress}
-${additionalContext ? `**Additional Info:** ${additionalContext}` : ""}
-
-Search for:
-1. Property value at this address (Zillow, Redfin, county records)
-2. Business ownership ("${prospect.name}" + business/company/LLC)
-3. Foundation affiliations (ProPublica Nonprofit Explorer)
-4. Political giving (FEC.gov)
-5. SEC filings (if public company executive)
-6. News articles and professional background
-
-IMPORTANT:
-- If your searches return irrelevant results (wrong person, different business), try adding the city/state or address to narrow down.
-- You MUST output the complete report format even if you find limited information.
-- Use "None found" for sections where you couldn't find relevant data.
-- NEVER say "Unable to Complete" or ask for more information - just do your best with what you can find.
-
-Output the full prospect summary with the JSON block at the end.`
-
-  // Use Gemini 3 Pro with native web search
-  const openrouter = createOpenRouter({
-    apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-    extraBody: {
-      plugins: [{
-        id: "web",
-        engine: "native", // Use Gemini's native web search
-        max_results: 10,
-      }],
-    },
+  // Route to the working function (Grok 4.1 Fast + Exa)
+  const result = await generateComprehensiveReportWithTools({
+    ...options,
+    searchMode: "comprehensive",
   })
 
-  console.log(`[BatchProcessor] Calling Gemini 3 Pro with native web search...`)
-
-  const result = await streamText({
-    model: openrouter.chat("google/gemini-3-pro-preview"),
-    system: GROK_SYNTHESIS_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
-    maxTokens: 6000,
-    temperature: 0.3,
-  })
-
-  // Collect the full response
-  let reportContent = ""
-  for await (const chunk of result.textStream) {
-    reportContent += chunk
-  }
-
-  // Get usage stats
-  const usage = await result.usage
-  const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
-  const duration = Date.now() - startTime
-
-  console.log(`[BatchProcessor] Gemini 3 Pro research completed in ${duration}ms, ${tokensUsed} tokens`)
-
-  // DEBUG: Log raw output to diagnose extraction issues
-  console.log(`[BatchProcessor] DEBUG - Output length: ${reportContent.length}`)
-  console.log(`[BatchProcessor] DEBUG - Output preview (last 1500 chars):`)
-  console.log(reportContent.slice(-1500))
-  console.log(`[BatchProcessor] DEBUG - END OF PREVIEW`)
-
-  // Extract structured data from the report
-  const structuredData = extractStructuredDataFromReport(reportContent)
-
-  // DEBUG: Log extracted data
-  console.log(`[BatchProcessor] DEBUG - Extracted structured data:`, JSON.stringify(structuredData, null, 2))
-
-  // Get clean report content (without JSON block)
-  const cleanReport = removeJsonBlockFromReport(reportContent)
-
-  // Calculate final RomyScore using our verified function
-  const romyBreakdown = await calculateRomyScoreFromMetrics(
-    prospect,
-    {
-      estimated_net_worth: structuredData.estimated_net_worth,
-      estimated_gift_capacity: structuredData.estimated_gift_capacity,
-    }
-  )
-
-  // Use our calculated RomyScore (more reliable than AI's guess)
-  structuredData.romy_score = romyBreakdown.totalScore
-  structuredData.romy_score_tier = romyBreakdown.tier.name
-  structuredData.capacity_rating = romyBreakdown.tier.capacity
-
-  console.log(
-    `[BatchProcessor] Report completed for ${prospect.name} in ${duration}ms, ` +
-    `${tokensUsed} tokens, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
-  )
-
-  // Extract sources from report (inline citations)
-  const sources = extractSourcesFromReport(reportContent)
-
+  // Convert GenerateReportResult to SonarGrokReportResult format
   return {
-    report_content: cleanReport,
-    structured_data: structuredData,
-    sources,
-    tokens_used: tokensUsed,
-    model_used: "gemini-3-pro-preview",
-    processing_duration_ms: duration,
+    report_content: result.report_content || "",
+    structured_data: {
+      romy_score: result.romy_score,
+      romy_score_tier: result.romy_score_tier,
+      capacity_rating: result.capacity_rating,
+      estimated_net_worth: result.estimated_net_worth,
+      estimated_gift_capacity: result.estimated_gift_capacity,
+      recommended_ask: result.recommended_ask,
+    },
+    sources: result.sources_found || [],
+    tokens_used: result.tokens_used || 0,
+    model_used: "grok-4.1-fast",
+    processing_duration_ms: Date.now() - startTime,
   }
 }
 
@@ -1593,7 +1503,7 @@ async function calculateRomyScoreFromMetrics(
  * This mode gives the AI access to search, ProPublica, SEC, FEC, Wikidata, etc.
  * and lets it autonomously research the prospect using maxSteps.
  */
-async function generateComprehensiveReportWithTools(
+export async function generateComprehensiveReportWithTools(
   options: GenerateReportOptions
 ): Promise<GenerateReportResult> {
   const { prospect, apiKey } = options
