@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useMemo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { UsersThree, Plus, CheckCircle, Spinner, Clock, CloudArrowUp, FileCsv, X } from "@phosphor-icons/react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -383,10 +383,17 @@ export function SidebarBatch() {
     },
     staleTime: 30000, // 30 seconds
     refetchInterval: 60000, // Refetch every minute
+    refetchOnMount: false, // Don't refetch on route changes - prevents glitching
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+    placeholderData: keepPreviousData, // Keep showing previous data during refetch
   })
 
   // Only show recent jobs (last 5)
-  const recentJobs = jobs.slice(0, 5)
+  const recentJobs = useMemo(() => jobs.slice(0, 5), [jobs])
+
+  // Only show loading skeleton on INITIAL load (no cached data)
+  // This prevents the glitch when navigating between routes
+  const showSkeleton = isLoading && jobs.length === 0
 
   return (
     <div className="mb-5">
@@ -415,41 +422,26 @@ export function SidebarBatch() {
         </button>
       </div>
 
-      <AnimatePresence mode="popLayout">
-        {isLoading ? (
-          <motion.div
-            key="skeleton"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="mt-1 space-y-1 pl-2"
-          >
-            {[0, 1, 2].map((i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex items-center gap-2 px-2 py-1.5"
-              >
-                <Skeleton className="h-3 w-3 rounded" />
-                <Skeleton className="h-4 flex-1" />
-              </motion.div>
-            ))}
-          </motion.div>
-        ) : recentJobs.length > 0 ? (
-          <motion.div
-            key="jobs"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-1 space-y-0.5 pl-2"
-          >
-            {recentJobs.map((job, index) => (
-              <BatchJobItem key={job.id} job={job} index={index} />
-            ))}
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {/* Only show skeleton on initial load, not during navigation */}
+      {showSkeleton ? (
+        <div className="mt-1 space-y-1 pl-2">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 px-2 py-1.5"
+            >
+              <Skeleton className="h-3 w-3 rounded" />
+              <Skeleton className="h-4 flex-1" />
+            </div>
+          ))}
+        </div>
+      ) : recentJobs.length > 0 ? (
+        <div className="mt-1 space-y-0.5 pl-2">
+          {recentJobs.map((job, index) => (
+            <BatchJobItem key={job.id} job={job} index={index} />
+          ))}
+        </div>
+      ) : null}
 
       {/* Upload Dialog */}
       <BatchUploadDialog

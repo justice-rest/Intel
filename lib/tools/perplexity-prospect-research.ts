@@ -43,7 +43,7 @@ export function shouldEnablePerplexityTools(): boolean {
 }
 
 // ============================================================================
-// TIMEOUT HELPER
+// TIMEOUT & RETRY HELPERS
 // ============================================================================
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
@@ -53,6 +53,53 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
       setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
     ),
   ])
+}
+
+/**
+ * Retry logic with exponential backoff for transient errors
+ * Handles 401 (Cloudflare challenges), 429 (rate limits), and 5xx errors
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 2000
+): Promise<T> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      const errorMessage = lastError.message.toLowerCase()
+
+      // Check if this is a retryable error
+      const isRetryable =
+        errorMessage.includes("401") ||           // Cloudflare challenge
+        errorMessage.includes("429") ||           // Rate limit
+        errorMessage.includes("502") ||           // Bad gateway
+        errorMessage.includes("503") ||           // Service unavailable
+        errorMessage.includes("504") ||           // Gateway timeout
+        errorMessage.includes("cloudflare") ||    // Cloudflare protection
+        errorMessage.includes("authorization required") ||
+        errorMessage.includes("timeout") ||
+        errorMessage.includes("econnreset") ||    // Connection reset
+        errorMessage.includes("socket hang up")
+
+      if (!isRetryable || attempt >= maxRetries - 1) {
+        throw lastError
+      }
+
+      // Exponential backoff with jitter
+      const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 1000
+      console.log(`[Perplexity] Retryable error on attempt ${attempt + 1}. Retrying in ${Math.round(delay)}ms...`)
+      console.log(`[Perplexity] Error was: ${lastError.message.substring(0, 200)}`)
+
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+
+  throw lastError
 }
 
 // ============================================================================
@@ -221,38 +268,40 @@ export function createPerplexityProspectResearchTool(isDeepResearch: boolean = f
       try {
         const prompt = buildProspectResearchPrompt(name, address, context, focus_areas)
 
-        // Call Perplexity via OpenRouter
-        const response = await withTimeout(
-          fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${apiKey}`,
-              "Content-Type": "application/json",
-              "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://getromy.app",
-              "X-Title": "Romy Prospect Research",
-            },
-            body: JSON.stringify({
-              model: model,
-              messages: [
-                {
-                  role: "user",
-                  content: prompt,
-                },
-              ],
-              max_tokens: MAX_OUTPUT_TOKENS,
-              temperature: 0.1, // Low temperature for factual research
+        // Call Perplexity via OpenRouter with retry logic for transient errors
+        const data = await withRetry(async () => {
+          const response = await withTimeout(
+            fetch("https://openrouter.ai/api/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${apiKey}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://getromy.app",
+                "X-Title": "Romy Prospect Research",
+              },
+              body: JSON.stringify({
+                model: model,
+                messages: [
+                  {
+                    role: "user",
+                    content: prompt,
+                  },
+                ],
+                max_tokens: MAX_OUTPUT_TOKENS,
+                temperature: 0.1, // Low temperature for factual research
+              }),
             }),
-          }),
-          timeout,
-          `Perplexity ${modeLabel} request timed out after ${timeout / 1000} seconds`
-        )
+            timeout,
+            `Perplexity ${modeLabel} request timed out after ${timeout / 1000} seconds`
+          )
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`)
-        }
+          if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`)
+          }
 
-        const data = await response.json()
+          return await response.json()
+        }, 3, 2000) // 3 retries with 2s base delay
         const duration = Date.now() - startTime
         console.log(`[Perplexity] ${modeLabel} research completed in`, duration, "ms")
 
