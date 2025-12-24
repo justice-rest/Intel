@@ -83,7 +83,11 @@ import {
   hasCRMConnections,
 } from "@/lib/tools/crm-search"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
-import { checkAndTrackDeepResearchCredits } from "@/lib/subscription/autumn-client"
+import {
+  preCheckDeepResearchCredits,
+  deductDeepResearchCredits,
+  type DeepResearchCreditCheck,
+} from "@/lib/subscription/autumn-client"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload, estimateTokens } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
@@ -172,7 +176,8 @@ export async function POST(req: Request) {
       apiKey,
       memoryResult,
       batchReportsResult,
-      hasCRM
+      hasCRM,
+      deepResearchCreditCheck,
     ] = await Promise.all([
       // 1. Validate user and check rate limits (critical - blocks streaming)
       validateAndTrackUsage({
@@ -275,7 +280,12 @@ export async function POST(req: Request) {
           console.error("Failed to check CRM connections:", error)
           return false
         }
-      })()
+      })(),
+      // 8. DEEP RESEARCH CREDIT CHECK - Pre-check only, no deduction (safe for parallel)
+      (async (): Promise<DeepResearchCreditCheck | null> => {
+        if (researchMode !== "deep-research" || !isAuthenticated) return null
+        return await preCheckDeepResearchCredits(userId)
+      })(),
     ])
 
     // Verify model config exists
@@ -286,20 +296,22 @@ export async function POST(req: Request) {
 
     /**
      * Deep Research Credit Check (Growth Plan: 2 credits)
-     * Must happen BEFORE incrementMessageCount to block insufficient credits
+     * Pre-check ran in parallel above; now validate result and deduct if needed
      */
     let skipAutumnTracking = false
-    if (researchMode === "deep-research" && isAuthenticated) {
-      const creditCheck = await checkAndTrackDeepResearchCredits(userId)
-
-      if (!creditCheck.allowed) {
+    if (deepResearchCreditCheck) {
+      // Check failed - insufficient credits
+      if (!deepResearchCreditCheck.allowed) {
         return new Response(
-          JSON.stringify({ error: creditCheck.error || "Insufficient credits for Deep Research" }),
+          JSON.stringify({ error: deepResearchCreditCheck.error || "Insufficient credits for Deep Research" }),
           { status: 402, headers: { "Content-Type": "application/json" } }
         )
       }
-      // Deep research already deducted 2 credits - skip normal tracking
-      skipAutumnTracking = true
+      // Check passed - deduct credits now (after all other checks passed)
+      if (deepResearchCreditCheck.needsDeduction) {
+        await deductDeepResearchCredits(userId)
+        skipAutumnTracking = true // Already deducted 2 credits
+      }
     }
 
     /**

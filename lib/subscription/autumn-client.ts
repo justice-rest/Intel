@@ -405,33 +405,40 @@ export async function checkBatchCredits(
 }
 
 /**
- * Check and track deep research usage for Growth plan users
- * Growth plan: 2 credits for deep research (deducted upfront)
- * Pro/Scale: 1 credit (or unlimited) - no upfront deduction
+ * Deep Research Credit Check Result
+ */
+export interface DeepResearchCreditCheck {
+  allowed: boolean
+  needsDeduction: boolean // true if Growth plan and has credits
+  error?: string
+}
+
+/**
+ * Pre-check deep research credits (NO DEDUCTION - safe for parallel execution)
+ * Use this in Promise.all, then call deductDeepResearchCredits after all checks pass
  *
  * @param userId - The user's ID
- * @returns { allowed: boolean, error?: string }
+ * @returns Check result with needsDeduction flag
  */
-export async function checkAndTrackDeepResearchCredits(
+export async function preCheckDeepResearchCredits(
   userId: string
-): Promise<{ allowed: boolean; error?: string }> {
+): Promise<DeepResearchCreditCheck> {
   const autumn = getAutumnClient()
   if (!autumn) {
-    return { allowed: true } // Allow if Autumn not configured
+    return { allowed: true, needsDeduction: false }
   }
 
   try {
-    // Get customer data to check plan (use longer timeout for credit operations)
-    const customerData = await getCustomerData(userId, 3000)
+    // Get customer data to check plan (cached - usually instant)
+    const customerData = await getCustomerData(userId, 2000)
     const activeProduct = customerData?.products?.find(
       (p: { status: string }) => p.status === "active" || p.status === "trialing"
     )
     const planId = normalizePlanId(activeProduct?.id)
 
-    // Pro/Scale have unlimited or pay normal rate - allow without extra deduction
+    // Pro/Scale have unlimited or pay normal rate - no deduction needed
     if (planId === "pro" || planId === "scale") {
-      console.log(`[Autumn] Deep research: ${planId} plan - no extra charge`)
-      return { allowed: true }
+      return { allowed: true, needsDeduction: false }
     }
 
     // Growth plan (or no plan): Check if user has 2 credits available
@@ -441,19 +448,38 @@ export async function checkAndTrackDeepResearchCredits(
     })
 
     if (error) {
-      console.error("[Autumn] Deep research credit check error:", error)
-      return { allowed: true } // Fail open on error
+      console.error("[Autumn] Deep research pre-check error:", error)
+      return { allowed: true, needsDeduction: false } // Fail open
     }
 
     const balance = data.balance ?? 0
     if (balance < 2) {
       return {
         allowed: false,
+        needsDeduction: false,
         error: `Deep Research requires 2 credits. You have ${balance} credit${balance === 1 ? "" : "s"}. Please upgrade your plan or use standard Research mode.`,
       }
     }
 
-    // Deduct 2 credits upfront for Growth plan
+    // Has credits - needs deduction after all checks pass
+    return { allowed: true, needsDeduction: true }
+  } catch (error) {
+    console.error("[Autumn] Deep research pre-check failed:", error)
+    return { allowed: true, needsDeduction: false } // Fail open
+  }
+}
+
+/**
+ * Deduct deep research credits (2 credits for Growth plan)
+ * Call this AFTER preCheckDeepResearchCredits and AFTER all other validations pass
+ *
+ * @param userId - The user's ID
+ */
+export async function deductDeepResearchCredits(userId: string): Promise<void> {
+  const autumn = getAutumnClient()
+  if (!autumn) return
+
+  try {
     await autumn.track({
       customer_id: userId,
       feature_id: "messages",
@@ -461,15 +487,29 @@ export async function checkAndTrackDeepResearchCredits(
     })
     console.log(`[Autumn] Deducted 2 credits for deep research (Growth plan): ${userId}`)
 
-    // Invalidate the access cache so balance is accurate
+    // Invalidate cache so balance is accurate
     accessCache.delete(userId)
-
-    return { allowed: true }
   } catch (error) {
-    console.error("[Autumn] Deep research credit check failed:", error)
-    // On error, allow request to proceed (fail open)
-    return { allowed: true }
+    console.error("[Autumn] Deep research deduction failed:", error)
+    // Don't throw - already committed to the request
   }
+}
+
+/**
+ * Check and track deep research usage for Growth plan users (LEGACY - combined check+track)
+ * @deprecated Use preCheckDeepResearchCredits + deductDeepResearchCredits for parallel execution
+ */
+export async function checkAndTrackDeepResearchCredits(
+  userId: string
+): Promise<{ allowed: boolean; error?: string }> {
+  const check = await preCheckDeepResearchCredits(userId)
+  if (!check.allowed) {
+    return { allowed: false, error: check.error }
+  }
+  if (check.needsDeduction) {
+    await deductDeepResearchCredits(userId)
+  }
+  return { allowed: true }
 }
 
 /**
