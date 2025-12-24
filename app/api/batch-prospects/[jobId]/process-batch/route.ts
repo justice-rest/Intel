@@ -318,14 +318,46 @@ export async function POST(
           // When input_data JSONB is stored, JavaScript undefined values are omitted during
           // JSON serialization. The individual columns (prospect_city, etc.) store data correctly,
           // so we use them as fallback to ensure complete address data reaches the AI.
+
+          // Helper to get non-empty string value
+          const getNonEmpty = (primary: string | null | undefined, fallback: string | null | undefined): string | undefined => {
+            const val = primary?.trim() || fallback?.trim()
+            return val && val.length > 0 ? val : undefined
+          }
+
+          // Extract address components from all available sources
+          const address = getNonEmpty(item.input_data?.address, item.prospect_address)
+          const city = getNonEmpty(item.input_data?.city, item.prospect_city)
+          const state = getNonEmpty(item.input_data?.state, item.prospect_state)
+          const zip = getNonEmpty(item.input_data?.zip, item.prospect_zip)
+          const existingFullAddress = getNonEmpty(item.input_data?.full_address, undefined)
+
+          // Construct full_address from components if not already provided
+          const constructedFullAddress = existingFullAddress || [address, city, state, zip].filter(Boolean).join(", ")
+
           const enrichedProspect = {
             ...item.input_data,
-            // Use individual columns as fallback if JSONB fields are missing
-            city: item.input_data?.city || item.prospect_city || undefined,
-            state: item.input_data?.state || item.prospect_state || undefined,
-            zip: item.input_data?.zip || item.prospect_zip || undefined,
-            address: item.input_data?.address || item.prospect_address || undefined,
+            address,
+            city,
+            state,
+            zip,
+            // CRITICAL: Always set full_address to ensure complete address reaches the AI
+            full_address: constructedFullAddress || undefined,
           }
+
+          // Log for debugging address data flow
+          console.log(`[BatchProcessParallel] Address data for ${item.prospect_name}:`, {
+            input_data_address: item.input_data?.address,
+            input_data_city: item.input_data?.city,
+            input_data_state: item.input_data?.state,
+            input_data_zip: item.input_data?.zip,
+            input_data_full_address: item.input_data?.full_address,
+            db_prospect_address: item.prospect_address,
+            db_prospect_city: item.prospect_city,
+            db_prospect_state: item.prospect_state,
+            db_prospect_zip: item.prospect_zip,
+            enriched_full_address: enrichedProspect.full_address,
+          })
 
           const result = await generateComprehensiveReportWithTools({
             prospect: enrichedProspect,
