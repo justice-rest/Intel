@@ -290,11 +290,13 @@ export async function incrementMessageCount({
   userId,
   isAuthenticated,
   model,
+  skipAutumnTracking = false,
 }: {
   supabase: SupabaseClientType
   userId: string
   isAuthenticated: boolean
   model: string
+  skipAutumnTracking?: boolean
 }): Promise<void> {
   if (!supabase) return
 
@@ -356,7 +358,8 @@ export async function incrementMessageCount({
     }
 
     // Track usage in Autumn for authenticated users (non-blocking)
-    if (isAuthenticated) {
+    // Skip if already tracked (e.g., deep research deducts 2 credits upfront)
+    if (isAuthenticated && !skipAutumnTracking) {
       trackMessageUsage(userId).catch(err =>
         console.error("Autumn tracking failed:", err)
       )

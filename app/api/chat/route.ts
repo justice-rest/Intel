@@ -83,6 +83,7 @@ import {
   hasCRMConnections,
 } from "@/lib/tools/crm-search"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
+import { checkAndTrackDeepResearchCredits } from "@/lib/subscription/autumn-client"
 import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload, estimateTokens } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
@@ -284,6 +285,24 @@ export async function POST(req: Request) {
     }
 
     /**
+     * Deep Research Credit Check (Growth Plan: 2 credits)
+     * Must happen BEFORE incrementMessageCount to block insufficient credits
+     */
+    let skipAutumnTracking = false
+    if (researchMode === "deep-research" && isAuthenticated) {
+      const creditCheck = await checkAndTrackDeepResearchCredits(userId)
+
+      if (!creditCheck.allowed) {
+        return new Response(
+          JSON.stringify({ error: creditCheck.error || "Insufficient credits for Deep Research" }),
+          { status: 402, headers: { "Content-Type": "application/json" } }
+        )
+      }
+      // Deep research already deducted 2 credits - skip normal tracking
+      skipAutumnTracking = true
+    }
+
+    /**
      * CRITICAL: Increment message count BEFORE streaming
      * This prevents race conditions where multiple rapid requests could bypass rate limits
      * The increment must complete before streaming starts to ensure accurate counting
@@ -293,7 +312,8 @@ export async function POST(req: Request) {
         supabase,
         userId,
         isAuthenticated,
-        model: normalizedModel
+        model: normalizedModel,
+        skipAutumnTracking,
       })
     }
 

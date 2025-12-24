@@ -405,6 +405,74 @@ export async function checkBatchCredits(
 }
 
 /**
+ * Check and track deep research usage for Growth plan users
+ * Growth plan: 2 credits for deep research (deducted upfront)
+ * Pro/Scale: 1 credit (or unlimited) - no upfront deduction
+ *
+ * @param userId - The user's ID
+ * @returns { allowed: boolean, error?: string }
+ */
+export async function checkAndTrackDeepResearchCredits(
+  userId: string
+): Promise<{ allowed: boolean; error?: string }> {
+  const autumn = getAutumnClient()
+  if (!autumn) {
+    return { allowed: true } // Allow if Autumn not configured
+  }
+
+  try {
+    // Get customer data to check plan (use longer timeout for credit operations)
+    const customerData = await getCustomerData(userId, 3000)
+    const activeProduct = customerData?.products?.find(
+      (p: { status: string }) => p.status === "active" || p.status === "trialing"
+    )
+    const planId = normalizePlanId(activeProduct?.id)
+
+    // Pro/Scale have unlimited or pay normal rate - allow without extra deduction
+    if (planId === "pro" || planId === "scale") {
+      console.log(`[Autumn] Deep research: ${planId} plan - no extra charge`)
+      return { allowed: true }
+    }
+
+    // Growth plan (or no plan): Check if user has 2 credits available
+    const { data, error } = await autumn.check({
+      customer_id: userId,
+      feature_id: "messages",
+    })
+
+    if (error) {
+      console.error("[Autumn] Deep research credit check error:", error)
+      return { allowed: true } // Fail open on error
+    }
+
+    const balance = data.balance ?? 0
+    if (balance < 2) {
+      return {
+        allowed: false,
+        error: `Deep Research requires 2 credits. You have ${balance} credit${balance === 1 ? "" : "s"}. Please upgrade your plan or use standard Research mode.`,
+      }
+    }
+
+    // Deduct 2 credits upfront for Growth plan
+    await autumn.track({
+      customer_id: userId,
+      feature_id: "messages",
+      value: 2,
+    })
+    console.log(`[Autumn] Deducted 2 credits for deep research (Growth plan): ${userId}`)
+
+    // Invalidate the access cache so balance is accurate
+    accessCache.delete(userId)
+
+    return { allowed: true }
+  } catch (error) {
+    console.error("[Autumn] Deep research credit check failed:", error)
+    // On error, allow request to proceed (fail open)
+    return { allowed: true }
+  }
+}
+
+/**
  * Get customer subscription data
  * OPTIMIZED: Cached for 5 minutes to reduce API calls
  *
