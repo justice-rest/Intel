@@ -464,8 +464,8 @@ Return ONLY the JSON object matching the schema. No other text.`
 
 SEARCH STRATEGIES TO TRY:
 ${!output.wealth.real_estate.total_value ? `
-- Property: Search "${prospect.name}" on county property appraiser/assessor for ${prospect.city || "the area"}
-- Try Zillow/Redfin search for the exact address: ${prospect.address || prospect.full_address || "address not provided"}
+- Property: Search "${prospect.name}" on county property appraiser/assessor${prospect.city ? ` for ${prospect.city}` : ""}${prospect.state ? `, ${prospect.state}` : ""}
+${(prospect.address || prospect.full_address) ? `- Try Zillow/Redfin search for: ${prospect.address || prospect.full_address}` : ""}
 - Look for property tax records` : ""}
 ${output.wealth.business_ownership.length === 0 ? `
 - Business: Search LinkedIn for "${prospect.name}" in ${prospect.city || prospect.state || ""}
@@ -500,8 +500,8 @@ Return ONLY the JSON object. Include any NEW information found.`
       const nameVariationPrompt = `Search for this person using a simplified name:
 
 **Name:** ${simplifiedName}
-**Location:** ${prospect.city ? `${prospect.city}, ` : ""}${prospect.state || ""}
-**Address hint:** ${prospect.address || prospect.full_address || "not provided"}
+**Location:** ${prospect.city ? `${prospect.city}, ` : ""}${prospect.state || ""}${(prospect.address || prospect.full_address) ? `
+**Address hint:** ${prospect.address || prospect.full_address}` : ""}
 
 The person's full name might be "${prospect.name}" but records might be under "${simplifiedName}".
 
