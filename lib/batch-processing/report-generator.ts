@@ -1499,9 +1499,15 @@ async function calculateRomyScoreFromMetrics(
 // ============================================================================
 
 /**
- * Generate a comprehensive prospect report using agentic AI with all available tools.
- * This mode gives the AI access to search, ProPublica, SEC, FEC, Wikidata, etc.
- * and lets it autonomously research the prospect using maxSteps.
+ * Generate a comprehensive prospect report using multi-phase targeted Exa searches.
+ *
+ * This approach does 4 targeted searches optimized for specific data types:
+ * 1. PROPERTY: Real estate values from Zillow, Redfin, Realtor.com
+ * 2. BUSINESS: Company ownership from LinkedIn, Bloomberg, state registries
+ * 3. PHILANTHROPY: Foundation/political giving from FEC, OpenSecrets, ProPublica
+ * 4. BIOGRAPHY: News and professional background
+ *
+ * Each search uses optimized search_prompts to guide Exa to the right sources.
  */
 export async function generateComprehensiveReportWithTools(
   options: GenerateReportOptions
@@ -1510,7 +1516,105 @@ export async function generateComprehensiveReportWithTools(
   const startTime = Date.now()
 
   try {
-    // Build prospect info for the prompt
+    // Build search context from prospect data
+    const name = prospect.name
+    const address = prospect.address || prospect.full_address || ""
+    const city = prospect.city || ""
+    const state = prospect.state || ""
+    const location = [city, state].filter(Boolean).join(", ")
+    const fullAddress = [address, city, state, prospect.zip].filter(Boolean).join(", ")
+
+    console.log(`[BatchProcessor] Starting multi-phase research for: ${name}`)
+
+    // =========================================================================
+    // PHASE 1: PROPERTY SEARCH - Real estate values
+    // =========================================================================
+    console.log(`[BatchProcessor] Phase 1: Property search for ${fullAddress}`)
+
+    const propertySearch = await runTargetedSearch({
+      apiKey,
+      searchQuery: `"${fullAddress}" OR "${address} ${city}" property value home worth sold price`,
+      searchPrompt: `Find real estate and property information.
+ONLY return results from: zillow.com, redfin.com, realtor.com, trulia.com, county assessor websites, property tax records.
+Look for: home value estimates, sale prices, property tax assessments, square footage, lot size.
+EXCLUDE: rental listings, apartments, commercial properties unless clearly owned by the person.`,
+      maxResults: 5,
+    })
+
+    // =========================================================================
+    // PHASE 2: BUSINESS SEARCH - Company ownership and professional roles
+    // =========================================================================
+    console.log(`[BatchProcessor] Phase 2: Business search for ${name}`)
+
+    const businessSearch = await runTargetedSearch({
+      apiKey,
+      searchQuery: `"${name}" ${location} CEO OR founder OR owner OR president OR executive OR director company business`,
+      searchPrompt: `Find business ownership and professional information.
+ONLY return results from: linkedin.com, bloomberg.com, crunchbase.com, pitchbook.com, businesswire.com,
+state secretary of state websites, corporation wikis, company websites, press releases.
+Look for: company ownership, executive titles, board positions, business valuations.
+EXCLUDE: social media posts, personal blogs, unverified directories.`,
+      maxResults: 5,
+    })
+
+    // =========================================================================
+    // PHASE 3: PHILANTHROPY SEARCH - Political giving and foundation connections
+    // =========================================================================
+    console.log(`[BatchProcessor] Phase 3: Philanthropy search for ${name}`)
+
+    const philanthropySearch = await runTargetedSearch({
+      apiKey,
+      searchQuery: `"${name}" ${location} donation OR contribution OR foundation OR nonprofit OR charity OR board`,
+      searchPrompt: `Find philanthropic and political giving information.
+ONLY return results from: fec.gov, opensecrets.org, propublica.org, guidestar.org, foundationcenter.org,
+candid.org, charitynavigator.org, 990finder.foundationcenter.org, news about charitable donations.
+Look for: political contributions (FEC data), foundation board seats, nonprofit involvement, major gifts.
+EXCLUDE: crowdfunding, GoFundMe, personal social media.`,
+      maxResults: 5,
+    })
+
+    // =========================================================================
+    // PHASE 4: BIOGRAPHY SEARCH - News and professional background
+    // =========================================================================
+    console.log(`[BatchProcessor] Phase 4: Biography search for ${name}`)
+
+    const biographySearch = await runTargetedSearch({
+      apiKey,
+      searchQuery: `"${name}" ${location} biography OR profile OR interview OR appointed OR awarded`,
+      searchPrompt: `Find biographical and news information about this person.
+ONLY return results from: Major news outlets (nytimes.com, wsj.com, bloomberg.com, forbes.com, etc.),
+wikipedia.org, university websites, professional associations, awards announcements.
+Look for: education, career history, awards, interviews, net worth estimates, family office.
+EXCLUDE: social media, personal blogs, unverified celebrity net worth sites.`,
+      maxResults: 5,
+    })
+
+    // =========================================================================
+    // PHASE 5: SYNTHESIS - Combine all search results into final report
+    // =========================================================================
+    console.log(`[BatchProcessor] Phase 5: Synthesizing ${name}'s report from ${
+      (propertySearch.sources?.length || 0) +
+      (businessSearch.sources?.length || 0) +
+      (philanthropySearch.sources?.length || 0) +
+      (biographySearch.sources?.length || 0)
+    } sources`)
+
+    // Combine all search findings
+    const combinedFindings = `
+## PROPERTY DATA (from Zillow, Redfin, county records):
+${propertySearch.content || "No property data found."}
+
+## BUSINESS DATA (from LinkedIn, Bloomberg, state registries):
+${businessSearch.content || "No business data found."}
+
+## PHILANTHROPIC DATA (from FEC, ProPublica, OpenSecrets):
+${philanthropySearch.content || "No philanthropic data found."}
+
+## BIOGRAPHICAL DATA (from news, Wikipedia):
+${biographySearch.content || "No biographical data found."}
+`
+
+    // Build prospect info for final synthesis
     const prospectInfo = buildProspectQueryString(prospect)
     const additionalInfo = Object.entries(prospect)
       .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
@@ -1518,53 +1622,46 @@ export async function generateComprehensiveReportWithTools(
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n")
 
-    // Perplexity has built-in web search - no tools needed
-    const systemPrompt = COMPREHENSIVE_MODE_SYSTEM_PROMPT
-
-    // User message for comprehensive research
-    const userMessage = `Research this prospect and generate a comprehensive prospect research report:
-
-**Prospect:** ${prospectInfo}
-${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
-
-Use your built-in web search to gather data about this person:
-1. Search for their professional background and affiliations
-2. Look for foundation/nonprofit connections (check IRS 990 data on ProPublica Nonprofit Explorer)
-3. If they're a public company executive, search SEC EDGAR for financial data
-4. Check FEC.gov for political contribution history
-5. Search for biographical details and net worth estimates
-
-After researching, produce the comprehensive report with all sections filled in based on your findings.`
-
-    console.log(`[BatchProcessor] Starting comprehensive research for: ${prospect.name}`)
-
-    // Generate report using Grok 4.1 Fast with Exa web search - OPTIMIZED
+    // Final synthesis with Grok (no additional web search needed)
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
       extraBody: {
-        // Enable Exa web search with maximum power for comprehensive research
-        plugins: [{
-          id: "web",
-          engine: "exa",
-          max_results: 15, // Maximum for comprehensive mode
-          search_prompt: `Find authoritative information about this person for nonprofit donor research.
-Prioritize: property records (Zillow, Redfin, county assessors), business registries (state SOS),
-SEC EDGAR filings, FEC political contributions, ProPublica 990 filings, LinkedIn profiles,
-news articles, foundation databases, Wikipedia/Wikidata, and biographical sources.
-Exclude: social media posts, unverified blogs, outdated information (>5 years old unless historical).`,
-        }],
-        // Enable high-effort reasoning for comprehensive analysis
         reasoning: { effort: "high" },
       },
     })
     const model = openrouter.chat("x-ai/grok-4.1-fast")
 
+    const synthesisPrompt = `You are Rōmy, a prospect research assistant. Synthesize the following research data into a professional prospect summary for major gift fundraising.
+
+**PROSPECT:** ${prospectInfo}
+${additionalInfo ? `**Additional Info:** ${additionalInfo}` : ""}
+
+**RESEARCH FINDINGS:**
+${combinedFindings}
+
+**YOUR TASK:**
+1. Analyze all the research data above
+2. Extract key wealth indicators (property values, business ownership, giving history)
+3. Calculate estimated net worth based on the data
+4. Determine gift capacity (1-2% of liquid net worth)
+5. Produce a comprehensive prospect summary
+
+**OUTPUT FORMAT:**
+Use the standard prospect summary format with:
+- Key Metrics table (RōmyScore, Est. Net Worth, Gift Capacity, Capacity Rating)
+- Executive Summary (2-3 sentences)
+- Wealth Indicators (Real Estate, Business Interests, Securities)
+- Philanthropic Profile (Political Giving, Foundation Connections, Known Major Gifts)
+- Cultivation Strategy (3 specific next steps)
+- Sources
+
+If data is missing for a section, write "None found in available sources" - do NOT fabricate data.`
+
     const result = await streamText({
       model,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-      maxSteps: 1,
-      maxTokens: 16000,
+      system: COMPREHENSIVE_MODE_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: synthesisPrompt }],
+      maxTokens: 8000,
       temperature: 0.3,
     })
 
@@ -1592,9 +1689,17 @@ Exclude: social media posts, unverified blogs, outdated information (>5 years ol
 
     const processingTime = Date.now() - startTime
     console.log(
-      `[BatchProcessor] Comprehensive report generated for ${prospect.name} in ${processingTime}ms, ` +
+      `[BatchProcessor] Multi-phase report generated for ${prospect.name} in ${processingTime}ms, ` +
         `tokens: ${tokensUsed}, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
     )
+
+    // Combine all sources
+    const allSources = [
+      ...(propertySearch.sources || []),
+      ...(businessSearch.sources || []),
+      ...(philanthropySearch.sources || []),
+      ...(biographySearch.sources || []),
+    ]
 
     return {
       success: true,
@@ -1605,16 +1710,77 @@ Exclude: social media posts, unverified blogs, outdated information (>5 years ol
       estimated_net_worth: aiMetrics.estimated_net_worth,
       estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
       recommended_ask: aiMetrics.recommended_ask,
-      search_queries_used: ["Perplexity built-in web search"],
-      sources_found: [], // Sources are inline in Perplexity responses
+      search_queries_used: ["Property (Zillow/Redfin)", "Business (LinkedIn/Bloomberg)", "Philanthropy (FEC/ProPublica)", "Biography (News)"],
+      sources_found: allSources,
       tokens_used: tokensUsed,
     }
   } catch (error) {
-    console.error("[BatchProcessor] Comprehensive report generation failed:", error)
+    console.error("[BatchProcessor] Multi-phase report generation failed:", error)
 
     return {
       success: false,
       error_message: error instanceof Error ? error.message : "Report generation failed",
+    }
+  }
+}
+
+/**
+ * Run a single targeted Exa search with optimized search_prompt
+ */
+async function runTargetedSearch(options: {
+  apiKey?: string
+  searchQuery: string
+  searchPrompt: string
+  maxResults: number
+}): Promise<{ content: string; sources: Array<{ name: string; url: string }> }> {
+  const { apiKey, searchQuery, searchPrompt, maxResults } = options
+
+  try {
+    const openrouter = createOpenRouter({
+      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+      extraBody: {
+        plugins: [{
+          id: "web",
+          engine: "exa",
+          max_results: maxResults,
+          search_prompt: searchPrompt,
+        }],
+      },
+    })
+
+    const result = await generateText({
+      model: openrouter.chat("x-ai/grok-4.1-fast"),
+      prompt: `Search for: ${searchQuery}
+
+Return ONLY the factual information found. Include specific numbers, dates, and dollar amounts.
+Format as bullet points. Cite the source URL for each fact.
+If nothing relevant is found, say "No relevant results found."`,
+      maxTokens: 2000,
+      temperature: 0.1,
+    })
+
+    // Extract sources from the response (URLs mentioned)
+    const urlPattern = /https?:\/\/[^\s\)\]<>"]+/g
+    const urls = result.text.match(urlPattern) || []
+    const sources = [...new Set(urls)].slice(0, 5).map(url => {
+      const cleanUrl = url.replace(/[.,;:!?]+$/, "")
+      try {
+        const domain = new URL(cleanUrl).hostname.replace(/^www\./, "")
+        return { name: domain, url: cleanUrl }
+      } catch {
+        return { name: "Source", url: cleanUrl }
+      }
+    })
+
+    return {
+      content: result.text,
+      sources,
+    }
+  } catch (error) {
+    console.error(`[BatchProcessor] Targeted search failed:`, error)
+    return {
+      content: "Search failed - no data available.",
+      sources: [],
     }
   }
 }
