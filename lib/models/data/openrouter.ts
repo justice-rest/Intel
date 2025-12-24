@@ -40,8 +40,8 @@ export const openrouterModels: ModelConfig[] = [
           ...(opts?.enableSearch && {
             plugins: [{ id: "web", engine: "exa", max_results: 5 }],
           }),
-          // Medium reasoning effort for fast research mode
-          reasoning: { effort: "medium" },
+          // High reasoning effort for research mode
+          reasoning: { effort: "high" },
         },
       }).chat("x-ai/grok-4.1-fast"),
   },

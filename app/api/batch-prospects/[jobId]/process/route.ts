@@ -16,8 +16,12 @@ import {
   BatchProspectItem,
   BatchProspectJob,
   BatchJobStatus,
+  SonarGrokReportResult,
 } from "@/lib/batch-processing"
-import { generateProspectReport } from "@/lib/batch-processing/report-generator"
+import {
+  generateProspectReport,
+  generateReportWithSonarAndGrok,
+} from "@/lib/batch-processing/report-generator"
 import { getEffectiveApiKey } from "@/lib/user-keys"
 import { MAX_RETRIES_PER_PROSPECT } from "@/lib/batch-processing/config"
 import {
@@ -243,46 +247,68 @@ export async function POST(
       apiKey = undefined
     }
 
-    // Generate the prospect report
+    // Generate the prospect report using Sonar+Grok flow (matches chat quality)
     console.log(
       `[BatchProcess] Processing item ${nextItem.item_index + 1}/${job.total_prospects}: ${nextItem.prospect_name}`
     )
 
-    const reportResult = await generateProspectReport({
-      prospect: nextItem.input_data,
-      enableWebSearch: job.settings?.enable_web_search ?? true,
-      generateRomyScore: job.settings?.generate_romy_score ?? true,
-      searchMode: job.settings?.search_mode || "standard",
-      apiKey,
-    })
+    let reportResult: SonarGrokReportResult | null = null
+    let errorMessage: string | null = null
+
+    try {
+      // Use Sonar Reasoning Pro + Grok synthesis (matches chat flow)
+      reportResult = await generateReportWithSonarAndGrok({
+        prospect: nextItem.input_data,
+        enableWebSearch: job.settings?.enable_web_search ?? true,
+        generateRomyScore: job.settings?.generate_romy_score ?? true,
+        searchMode: job.settings?.search_mode || "standard",
+        apiKey,
+      })
+    } catch (error) {
+      console.error(`[BatchProcess] Sonar+Grok research failed:`, error)
+      errorMessage = error instanceof Error ? error.message : "Research failed"
+    }
 
     const processingDuration = Date.now() - startTime
 
     // Update item with results
-    if (reportResult.success) {
+    if (reportResult) {
+      const { structured_data } = reportResult
+
       await (supabase as any)
         .from("batch_prospect_items")
         .update({
           status: "completed",
           report_content: reportResult.report_content,
-          romy_score: reportResult.romy_score,
-          romy_score_tier: reportResult.romy_score_tier,
-          capacity_rating: reportResult.capacity_rating,
-          estimated_net_worth: reportResult.estimated_net_worth,
-          estimated_gift_capacity: reportResult.estimated_gift_capacity,
-          recommended_ask: reportResult.recommended_ask,
-          search_queries_used: reportResult.search_queries_used,
-          sources_found: reportResult.sources_found,
+
+          // Core metrics
+          romy_score: structured_data.romy_score,
+          romy_score_tier: structured_data.romy_score_tier,
+          capacity_rating: structured_data.capacity_rating,
+          estimated_net_worth: structured_data.estimated_net_worth,
+          estimated_gift_capacity: structured_data.estimated_gift_capacity,
+          recommended_ask: structured_data.recommended_ask,
+
+          // Structured JSONB data
+          wealth_indicators: structured_data.wealth_indicators || null,
+          business_details: structured_data.business_details || null,
+          giving_history: structured_data.giving_history || null,
+          affiliations: structured_data.affiliations || null,
+
+          // Search metadata
+          search_queries_used: ["Sonar Reasoning Pro"],
+          sources_found: reportResult.sources,
           tokens_used: reportResult.tokens_used,
-          model_used: "openrouter:perplexity/sonar-reasoning-pro",
+          model_used: reportResult.model_used,
           processing_completed_at: new Date().toISOString(),
-          processing_duration_ms: processingDuration,
+          processing_duration_ms: reportResult.processing_duration_ms,
           error_message: null,
         })
         .eq("id", nextItem.id)
 
       console.log(
-        `[BatchProcess] Completed item ${nextItem.item_index + 1}: RōmyScore ${reportResult.romy_score || "N/A"}`
+        `[BatchProcess] Completed item ${nextItem.item_index + 1}: ` +
+        `RōmyScore ${structured_data.romy_score || "N/A"}/41 (${structured_data.romy_score_tier || "N/A"})`
       )
     } else {
       // Mark as failed
@@ -290,7 +316,7 @@ export async function POST(
         .from("batch_prospect_items")
         .update({
           status: "failed",
-          error_message: reportResult.error_message,
+          error_message: errorMessage || "Unknown error",
           processing_completed_at: new Date().toISOString(),
           processing_duration_ms: processingDuration,
           last_retry_at: new Date().toISOString(),
@@ -298,7 +324,7 @@ export async function POST(
         .eq("id", nextItem.id)
 
       console.error(
-        `[BatchProcess] Failed item ${nextItem.item_index + 1}: ${reportResult.error_message}`
+        `[BatchProcess] Failed item ${nextItem.item_index + 1}: ${errorMessage}`
       )
     }
 
@@ -344,9 +370,9 @@ export async function POST(
         failed: updatedJob?.failed_count || 0,
       },
       has_more: hasMore,
-      message: reportResult.success
+      message: reportResult
         ? `Processed ${nextItem.prospect_name}`
-        : `Failed to process ${nextItem.prospect_name}: ${reportResult.error_message}`,
+        : `Failed to process ${nextItem.prospect_name}: ${errorMessage}`,
     }
 
     return NextResponse.json(response)

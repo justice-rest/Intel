@@ -168,6 +168,12 @@ export interface BatchProspectItem {
   estimated_gift_capacity?: number
   recommended_ask?: number
 
+  // Structured data (JSONB columns)
+  wealth_indicators?: WealthIndicators
+  business_details?: BusinessDetails
+  giving_history?: GivingHistory
+  affiliations?: Affiliations
+
   // Search data
   search_queries_used?: string[]
   sources_found?: Array<{ name: string; url: string }>
@@ -250,6 +256,97 @@ export interface ParsedFileResult {
   total_rows: number
   errors: string[]
   suggested_mapping: Partial<ColumnMapping>
+}
+
+// ============================================================================
+// STRUCTURED DATA TYPES (for JSON extraction)
+// ============================================================================
+
+/**
+ * Wealth indicators extracted from research
+ */
+export interface WealthIndicators {
+  real_estate_total?: number
+  property_count?: number
+  business_equity?: number
+  public_holdings?: number
+  inheritance_likely?: boolean
+}
+
+/**
+ * Business ownership details
+ */
+export interface BusinessDetails {
+  companies?: string[]
+  roles?: string[]
+  industries?: string[]
+}
+
+/**
+ * Philanthropic and political giving history
+ */
+export interface GivingHistory {
+  total_political?: number
+  political_party?: string
+  foundation_affiliations?: string[]
+  nonprofit_boards?: string[]
+  known_major_gifts?: Array<{
+    org: string
+    amount: number
+    year?: number
+  }>
+}
+
+/**
+ * Personal and professional affiliations
+ */
+export interface Affiliations {
+  education?: string[]
+  clubs?: string[]
+  public_company_boards?: string[]
+}
+
+/**
+ * Core metrics extracted from reports
+ */
+export interface ExtractedMetrics {
+  romy_score?: number
+  romy_score_tier?: string
+  capacity_rating?: string
+  estimated_net_worth?: number
+  estimated_gift_capacity?: number
+  recommended_ask?: number
+}
+
+/**
+ * Complete structured data from Sonar+Grok research
+ */
+export interface StructuredProspectData extends ExtractedMetrics {
+  wealth_indicators?: WealthIndicators
+  business_details?: BusinessDetails
+  giving_history?: GivingHistory
+  affiliations?: Affiliations
+}
+
+/**
+ * Result from Sonar research call
+ */
+export interface SonarResearchResult {
+  content: string
+  sources: Array<{ name: string; url: string }>
+  tokens: number
+}
+
+/**
+ * Result from the combined Sonar+Grok report generation
+ */
+export interface SonarGrokReportResult {
+  report_content: string
+  structured_data: StructuredProspectData
+  sources: Array<{ name: string; url: string }>
+  tokens_used: number
+  model_used: string
+  processing_duration_ms: number
 }
 
 // ============================================================================

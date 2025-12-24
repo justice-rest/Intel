@@ -256,6 +256,36 @@ code {
   order: 0;
 }
 
+/* Streamdown table cell styling for better alignment */
+[data-streamdown="table-wrapper"] table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+[data-streamdown="table-wrapper"] th,
+[data-streamdown="table-wrapper"] td {
+  padding: 0.5rem 1rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+[data-streamdown="table-wrapper"] th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+[data-streamdown="table-wrapper"] td {
+  white-space: nowrap;
+}
+
+[data-streamdown="table-wrapper"] tr {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+[data-streamdown="table-wrapper"] thead tr {
+  border-bottom: 2px solid hsl(var(--border));
+}
+
 /* Streamdown code block styling to match existing */
 [data-streamdown="code-block"] {
   @apply border-border bg-card text-card-foreground rounded-xl border;

@@ -12,10 +12,21 @@
  * - Native tool calling support
  */
 
-import { streamText } from "ai"
+import { streamText, generateText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
-import { ProspectInputData, BatchProspectItem, BatchSearchMode } from "./types"
+import {
+  ProspectInputData,
+  BatchProspectItem,
+  BatchSearchMode,
+  StructuredProspectData,
+  SonarGrokReportResult,
+  WealthIndicators,
+  BusinessDetails,
+  GivingHistory,
+  Affiliations,
+} from "./types"
 import { buildProspectQueryString } from "./parser"
+import { callSonarReasoningPro } from "./sonar-research"
 // Grok 4.1 Fast supports native tool calling - can be extended with additional tools in future
 import {
   getRomyScore,
@@ -686,6 +697,153 @@ Based on prospect profile:
 - Always include BOTH Annual Fund Ask AND Capital Campaign Ask`
 
 // ============================================================================
+// GROK SYNTHESIS PROMPT (for Sonar+Grok flow)
+// ============================================================================
+
+/**
+ * System prompt for Grok to synthesize Sonar research into a structured report
+ * Outputs both markdown report AND JSON block for reliable data extraction
+ */
+const GROK_SYNTHESIS_PROMPT = `You are Rōmy, a prospect research assistant. Synthesize the research data into a professional prospect summary.
+
+## YOUR TASK:
+You will receive research findings from Perplexity Sonar. Your job is to:
+1. Organize the data into a clear, structured report
+2. Calculate the RōmyScore and capacity ratings
+3. Output a JSON block with all extracted metrics
+
+## OUTPUT FORMAT:
+
+### Prospect Summary: [Full Name]
+**Address:** [Full Address] | **Report Date:** [Current Date]
+
+---
+
+### Key Metrics
+| Metric | Value |
+|--------|-------|
+| **RōmyScore™** | [X]/41 — [Tier Name] |
+| **Est. Net Worth** | $[Amount] |
+| **Est. Gift Capacity** | $[Amount] |
+| **Capacity Rating** | [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL] |
+| **Recommended Ask** | $[Amount] |
+
+---
+
+### Executive Summary
+[2-3 sentences summarizing who they are, wealth sources, and giving potential]
+
+---
+
+### Wealth Indicators
+
+**Real Estate**
+- Primary Residence: [Address] - Est. Value: $[X]
+- Additional Properties: [Count] properties totaling $[X] (or "None found")
+- **Total Real Estate:** $[X]
+
+**Business Interests**
+- [Company Name] - [Role] - Est. Value: $[X] (or "No business ownership found")
+
+**Securities & Holdings**
+- [SEC filings if any, or "None found in public filings"]
+
+---
+
+### Philanthropic Profile
+
+**Political Giving (FEC)**
+- Total: $[X] | Party Lean: [Republican/Democratic/Bipartisan/None found]
+
+**Foundation Connections**
+- [Foundation Name] - [Role] (or "No foundation affiliations found")
+
+**Nonprofit Board Service**
+- [Organization] - [Role] (or "None found")
+
+**Known Major Gifts**
+- [Organization] - $[X] - [Year] (or "None documented")
+
+---
+
+### Cultivation Strategy
+1. [Specific next step with who should execute]
+2. [Second action item]
+3. [Third action item]
+
+---
+
+### Sources
+- [Source 1]: [What it provided]
+- [Source 2]: [What it provided]
+
+---
+
+## CRITICAL: JSON DATA BLOCK
+
+At the END of your report, you MUST include this JSON block for data extraction.
+Fill in actual values from the research. Use null for unknown values.
+
+\`\`\`json
+{
+  "metrics": {
+    "romy_score": [NUMBER 0-41],
+    "romy_score_tier": "[Tier Name]",
+    "capacity_rating": "[MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL]",
+    "estimated_net_worth": [NUMBER or null],
+    "estimated_gift_capacity": [NUMBER or null],
+    "recommended_ask": [NUMBER or null]
+  },
+  "wealth_indicators": {
+    "real_estate_total": [NUMBER or null],
+    "property_count": [NUMBER or null],
+    "business_equity": [NUMBER or null],
+    "public_holdings": [NUMBER or null],
+    "inheritance_likely": [true/false/null]
+  },
+  "business_details": {
+    "companies": ["Company 1", "Company 2"],
+    "roles": ["CEO", "Founder"],
+    "industries": ["Technology", "Real Estate"]
+  },
+  "giving_history": {
+    "total_political": [NUMBER or null],
+    "political_party": "[Republican/Democratic/Bipartisan/null]",
+    "foundation_affiliations": ["Foundation 1"],
+    "nonprofit_boards": ["Org 1", "Org 2"],
+    "known_major_gifts": [
+      {"org": "Organization", "amount": [NUMBER], "year": [YEAR or null]}
+    ]
+  },
+  "affiliations": {
+    "education": ["Harvard MBA", "Stanford BS"],
+    "clubs": ["Country Club"],
+    "public_company_boards": ["ACME Inc (NYSE: ACM)"]
+  }
+}
+\`\`\`
+
+## SCORING GUIDE (RōmyScore):
+- 31-41: Transformational Prospect (MAJOR capacity, $25K+)
+- 21-30: High-Capacity Major Donor (PRINCIPAL capacity, $10K-$25K)
+- 11-20: Mid-Capacity Growth (LEADERSHIP capacity, $5K-$10K)
+- 0-10: Emerging/Annual Fund (ANNUAL capacity, <$5K)
+
+## CAPACITY RATINGS:
+- **MAJOR:** Property >$750K AND business owner/executive = Gift Capacity $25K+
+- **PRINCIPAL:** Property >$500K OR significant business role = Gift Capacity $10K-$25K
+- **LEADERSHIP:** Property >$300K OR professional role = Gift Capacity $5K-$10K
+- **ANNUAL:** Lower indicators = Gift Capacity <$5K
+
+## RULES:
+- Use "None found" when data unavailable - don't leave blanks
+- Include specific dollar amounts where possible
+- Base estimates on actual research findings
+- Recommended Ask = 1-2% of estimated net worth
+- Keep report concise (~600-800 words)
+- The JSON block is REQUIRED - never skip it`
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
@@ -1091,6 +1249,260 @@ function extractMetricsFromReport(content: string): {
   }
 
   return metrics
+}
+
+// ============================================================================
+// JSON-BASED STRUCTURED DATA EXTRACTION
+// ============================================================================
+
+/**
+ * Extract structured data from JSON block in report
+ * Falls back to regex extraction if JSON not found
+ */
+function extractStructuredDataFromReport(content: string): StructuredProspectData {
+  // Try to extract JSON block from report
+  const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/)
+
+  if (jsonMatch && jsonMatch[1]) {
+    try {
+      const jsonStr = jsonMatch[1].trim()
+      const data = JSON.parse(jsonStr)
+
+      console.log("[BatchProcessor] Successfully extracted JSON data block")
+
+      // Build structured data from JSON
+      const structuredData: StructuredProspectData = {}
+
+      // Extract metrics
+      if (data.metrics) {
+        structuredData.romy_score = data.metrics.romy_score ?? undefined
+        structuredData.romy_score_tier = data.metrics.romy_score_tier ?? undefined
+        structuredData.capacity_rating = data.metrics.capacity_rating ?? undefined
+        structuredData.estimated_net_worth = data.metrics.estimated_net_worth ?? undefined
+        structuredData.estimated_gift_capacity = data.metrics.estimated_gift_capacity ?? undefined
+        structuredData.recommended_ask = data.metrics.recommended_ask ?? undefined
+      }
+
+      // Extract wealth indicators
+      if (data.wealth_indicators) {
+        structuredData.wealth_indicators = {
+          real_estate_total: data.wealth_indicators.real_estate_total ?? undefined,
+          property_count: data.wealth_indicators.property_count ?? undefined,
+          business_equity: data.wealth_indicators.business_equity ?? undefined,
+          public_holdings: data.wealth_indicators.public_holdings ?? undefined,
+          inheritance_likely: data.wealth_indicators.inheritance_likely ?? undefined,
+        }
+      }
+
+      // Extract business details
+      if (data.business_details) {
+        structuredData.business_details = {
+          companies: Array.isArray(data.business_details.companies)
+            ? data.business_details.companies.filter((c: unknown) => c && typeof c === "string")
+            : undefined,
+          roles: Array.isArray(data.business_details.roles)
+            ? data.business_details.roles.filter((r: unknown) => r && typeof r === "string")
+            : undefined,
+          industries: Array.isArray(data.business_details.industries)
+            ? data.business_details.industries.filter((i: unknown) => i && typeof i === "string")
+            : undefined,
+        }
+      }
+
+      // Extract giving history
+      if (data.giving_history) {
+        structuredData.giving_history = {
+          total_political: data.giving_history.total_political ?? undefined,
+          political_party: data.giving_history.political_party ?? undefined,
+          foundation_affiliations: Array.isArray(data.giving_history.foundation_affiliations)
+            ? data.giving_history.foundation_affiliations.filter((f: unknown) => f && typeof f === "string")
+            : undefined,
+          nonprofit_boards: Array.isArray(data.giving_history.nonprofit_boards)
+            ? data.giving_history.nonprofit_boards.filter((n: unknown) => n && typeof n === "string")
+            : undefined,
+          known_major_gifts: Array.isArray(data.giving_history.known_major_gifts)
+            ? data.giving_history.known_major_gifts.filter(
+                (g: unknown) => g && typeof g === "object" && "org" in (g as object)
+              )
+            : undefined,
+        }
+      }
+
+      // Extract affiliations
+      if (data.affiliations) {
+        structuredData.affiliations = {
+          education: Array.isArray(data.affiliations.education)
+            ? data.affiliations.education.filter((e: unknown) => e && typeof e === "string")
+            : undefined,
+          clubs: Array.isArray(data.affiliations.clubs)
+            ? data.affiliations.clubs.filter((c: unknown) => c && typeof c === "string")
+            : undefined,
+          public_company_boards: Array.isArray(data.affiliations.public_company_boards)
+            ? data.affiliations.public_company_boards.filter((p: unknown) => p && typeof p === "string")
+            : undefined,
+        }
+      }
+
+      return structuredData
+    } catch (parseError) {
+      console.warn("[BatchProcessor] Failed to parse JSON block, falling back to regex extraction:", parseError)
+    }
+  }
+
+  // Fallback to regex extraction
+  console.log("[BatchProcessor] No JSON block found, using regex extraction")
+  const regexMetrics = extractMetricsFromReport(content)
+
+  return {
+    romy_score: regexMetrics.romy_score,
+    romy_score_tier: regexMetrics.romy_score_tier,
+    capacity_rating: regexMetrics.capacity_rating,
+    estimated_net_worth: regexMetrics.estimated_net_worth,
+    estimated_gift_capacity: regexMetrics.estimated_gift_capacity,
+    recommended_ask: regexMetrics.recommended_ask,
+  }
+}
+
+/**
+ * Remove JSON block from report content (for display purposes)
+ */
+function removeJsonBlockFromReport(content: string): string {
+  return content.replace(/\n*---\n*\s*```json[\s\S]*?```\s*$/m, "").trim()
+}
+
+// ============================================================================
+// SONAR + GROK REPORT GENERATION
+// ============================================================================
+
+/**
+ * Generate a prospect report using Sonar Reasoning Pro for research
+ * and Grok 4.1 Fast for synthesis and scoring.
+ *
+ * This matches the chat flow: deep research first, then synthesis.
+ *
+ * Cost: ~$0.04 (Sonar) + ~$0.003 (Grok) = ~$0.043/prospect
+ */
+export async function generateReportWithSonarAndGrok(
+  options: GenerateReportOptions
+): Promise<SonarGrokReportResult> {
+  const { prospect, apiKey } = options
+  const startTime = Date.now()
+
+  console.log(`[BatchProcessor] Starting Sonar+Grok research for: ${prospect.name}`)
+
+  // Build full address for research
+  const fullAddress = buildProspectQueryString(prospect)
+
+  // Collect additional context
+  const additionalContext = Object.entries(prospect)
+    .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
+    .filter(([, value]) => value)
+    .map(([key, value]) => `${key}: ${value}`)
+    .join(", ")
+
+  // Stage 1: Sonar Reasoning Pro for deep research
+  console.log(`[BatchProcessor] Stage 1: Calling Sonar Reasoning Pro...`)
+  const sonarStartTime = Date.now()
+
+  let sonarResult
+  try {
+    sonarResult = await callSonarReasoningPro({
+      name: prospect.name,
+      address: fullAddress,
+      city: prospect.city,
+      state: prospect.state,
+      context: additionalContext || undefined,
+      apiKey,
+    })
+  } catch (error) {
+    console.error("[BatchProcessor] Sonar research failed:", error)
+    throw new Error(`Sonar research failed: ${error instanceof Error ? error.message : "Unknown error"}`)
+  }
+
+  const sonarDuration = Date.now() - sonarStartTime
+  console.log(
+    `[BatchProcessor] Sonar research completed in ${sonarDuration}ms, ` +
+    `${sonarResult.tokens} tokens, ${sonarResult.sources.length} sources`
+  )
+
+  // Stage 2: Grok 4.1 Fast for synthesis
+  console.log(`[BatchProcessor] Stage 2: Calling Grok for synthesis...`)
+  const grokStartTime = Date.now()
+
+  const userMessage = `Synthesize this research into a professional prospect summary for major gift screening.
+
+**Prospect:** ${prospect.name}
+**Address:** ${fullAddress}
+${additionalContext ? `**Additional Info:** ${additionalContext}` : ""}
+
+---
+
+## Research Findings from Perplexity Sonar:
+
+${sonarResult.content}
+
+---
+
+## Sources Found:
+${sonarResult.sources.map((s) => `- ${s.name}: ${s.url}`).join("\n") || "No external sources"}
+
+---
+
+Now synthesize this into a professional prospect summary. Include the JSON data block at the end.`
+
+  const openrouter = createOpenRouter({
+    apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+  })
+
+  const grokResult = await generateText({
+    model: openrouter("x-ai/grok-4.1-fast"),
+    system: GROK_SYNTHESIS_PROMPT,
+    prompt: userMessage,
+    maxTokens: 4000,
+    temperature: 0.3,
+  })
+
+  const grokDuration = Date.now() - grokStartTime
+  const grokTokens = (grokResult.usage?.promptTokens || 0) + (grokResult.usage?.completionTokens || 0)
+
+  console.log(`[BatchProcessor] Grok synthesis completed in ${grokDuration}ms, ${grokTokens} tokens`)
+
+  // Extract structured data from the report
+  const structuredData = extractStructuredDataFromReport(grokResult.text)
+
+  // Get clean report content (without JSON block)
+  const cleanReport = removeJsonBlockFromReport(grokResult.text)
+
+  // Calculate final RomyScore using our verified function
+  const romyBreakdown = await calculateRomyScoreFromMetrics(
+    prospect,
+    {
+      estimated_net_worth: structuredData.estimated_net_worth,
+      estimated_gift_capacity: structuredData.estimated_gift_capacity,
+    }
+  )
+
+  // Use our calculated RomyScore (more reliable than AI's guess)
+  structuredData.romy_score = romyBreakdown.totalScore
+  structuredData.romy_score_tier = romyBreakdown.tier.name
+  structuredData.capacity_rating = romyBreakdown.tier.capacity
+
+  const totalDuration = Date.now() - startTime
+  const totalTokens = sonarResult.tokens + grokTokens
+
+  console.log(
+    `[BatchProcessor] Sonar+Grok report completed for ${prospect.name} in ${totalDuration}ms, ` +
+    `${totalTokens} total tokens, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
+  )
+
+  return {
+    report_content: cleanReport,
+    structured_data: structuredData,
+    sources: sonarResult.sources,
+    tokens_used: totalTokens,
+    model_used: "sonar-reasoning-pro + grok-4.1-fast",
+    processing_duration_ms: totalDuration,
+  }
 }
 
 // ============================================================================
