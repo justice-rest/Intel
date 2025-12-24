@@ -28,7 +28,7 @@ export interface PerplexityProspectResult {
 // CONFIGURATION
 // ============================================================================
 
-const PERPLEXITY_MODEL = "perplexity/sonar-pro-search"
+const PERPLEXITY_MODEL = "perplexity/sonar-reasoning-pro"
 const PERPLEXITY_TIMEOUT_MS = 60000 // 60 seconds for comprehensive research
 const MAX_OUTPUT_TOKENS = 4000
 

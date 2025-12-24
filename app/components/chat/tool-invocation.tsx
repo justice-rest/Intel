@@ -1,6 +1,7 @@
 "use client"
 
 import { cn } from "@/lib/utils"
+import { Markdown } from "@/components/prompt-kit/markdown"
 import type { ToolInvocationUIPart } from "@ai-sdk/ui-utils"
 import {
   CaretDown,
@@ -1346,14 +1347,12 @@ function SingleToolCard({
             </div>
           </div>
 
-          {/* Research content - render as formatted text */}
+          {/* Research content - render as markdown */}
           {perplexityResult.research && (
             <div className="border-border rounded-md border bg-muted/30 p-4">
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
-                  {perplexityResult.research}
-                </pre>
-              </div>
+              <Markdown className="prose prose-sm dark:prose-invert max-w-none text-foreground [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                {perplexityResult.research}
+              </Markdown>
             </div>
           )}
 
