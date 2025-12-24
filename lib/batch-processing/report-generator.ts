@@ -1425,6 +1425,12 @@ export async function generateReportWithSonarAndGrok(
     `${sonarResult.tokens} tokens, ${sonarResult.sources.length} sources`
   )
 
+  // DEBUG: Log Sonar output preview
+  console.log(`[BatchProcessor] DEBUG - Sonar output length: ${sonarResult.content.length}`)
+  console.log(`[BatchProcessor] DEBUG - Sonar output preview (first 500 chars):`)
+  console.log(sonarResult.content.slice(0, 500))
+  console.log(`[BatchProcessor] DEBUG - END SONAR PREVIEW`)
+
   // Stage 2: Grok 4.1 Fast for synthesis
   console.log(`[BatchProcessor] Stage 2: Calling Grok for synthesis...`)
   const grokStartTime = Date.now()
@@ -1467,8 +1473,17 @@ Now synthesize this into a professional prospect summary. Include the JSON data 
 
   console.log(`[BatchProcessor] Grok synthesis completed in ${grokDuration}ms, ${grokTokens} tokens`)
 
+  // DEBUG: Log raw Grok output to diagnose extraction issues
+  console.log(`[BatchProcessor] DEBUG - Grok raw output length: ${grokResult.text.length}`)
+  console.log(`[BatchProcessor] DEBUG - Grok output preview (last 1500 chars):`)
+  console.log(grokResult.text.slice(-1500))
+  console.log(`[BatchProcessor] DEBUG - END OF PREVIEW`)
+
   // Extract structured data from the report
   const structuredData = extractStructuredDataFromReport(grokResult.text)
+
+  // DEBUG: Log extracted data
+  console.log(`[BatchProcessor] DEBUG - Extracted structured data:`, JSON.stringify(structuredData, null, 2))
 
   // Get clean report content (without JSON block)
   const cleanReport = removeJsonBlockFromReport(grokResult.text)
