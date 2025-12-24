@@ -275,12 +275,9 @@ export async function POST(
     let errorMessage: string | null = null
 
     try {
-      // Use Grok 4.1 Fast + Exa web search (comprehensive mode - 15 results, high reasoning)
+      // Use Perplexity Sonar Pro for grounded, citation-first research
       const result = await generateComprehensiveReportWithTools({
         prospect: nextItem.input_data,
-        enableWebSearch: job.settings?.enable_web_search ?? true,
-        generateRomyScore: job.settings?.generate_romy_score ?? true,
-        searchMode: "comprehensive",
         apiKey,
       })
 
@@ -298,7 +295,7 @@ export async function POST(
           },
           sources: result.sources_found || [],
           tokens_used: result.tokens_used || 0,
-          model_used: "grok-4.1-fast",
+          model_used: "perplexity/sonar-pro",
           processing_duration_ms: Date.now() - startTime,
         }
       } else {

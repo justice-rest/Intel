@@ -1,32 +1,28 @@
 /**
- * Batch Prospect Report Generator
- * Generates comprehensive prospect research reports using Grok 4.1 Fast with Perplexity Sonar Pro
+ * Batch Prospect Report Generator v2.0
  *
- * Two modes:
- * - Standard: Fast research for quick prioritization (~600-800 word summaries)
- * - Comprehensive: Thorough multi-source research (~15-section reports)
+ * Complete rewrite using Perplexity Sonar Pro for grounded, citation-first research.
  *
- * Uses Grok 4.1 Fast via OpenRouter with:
- * - Perplexity Sonar Pro for grounded web search with citations
- * - High-effort reasoning for comprehensive analysis
- * - Native tool calling support
+ * Key improvements:
+ * - Single comprehensive mode (removed standard/comprehensive split)
+ * - Structured JSON output (no fragile regex extraction)
+ * - Grounded citations for every claim
+ * - Direct tool verification for FEC, SEC, ProPublica data
+ * - Table-first report format for easy scanning
  */
 
-import { streamText, generateText } from "ai"
+import { generateText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import {
   ProspectInputData,
   BatchProspectItem,
-  BatchSearchMode,
-  StructuredProspectData,
-  SonarGrokReportResult,
-  WealthIndicators,
-  BusinessDetails,
-  GivingHistory,
-  Affiliations,
+  ProspectResearchOutput,
+  PerplexityResearchResult,
+  ResearchMetrics,
+  CapacityRating,
+  ResearchConfidence,
 } from "./types"
 import { buildProspectQueryString } from "./parser"
-// Grok 4.1 Fast supports native tool calling - can be extended with additional tools in future
 import {
   getRomyScore,
   RomyScoreDataPoints,
@@ -34,838 +30,162 @@ import {
 } from "@/lib/romy-score"
 
 // ============================================================================
-// STANDARD MODE PROMPT
+// PERPLEXITY SONAR PRO SYSTEM PROMPT
 // ============================================================================
 
 /**
- * System prompt for Standard mode - produces concise but comprehensive prospect summaries
- * Includes all key wealth indicators in a compact format
+ * System prompt for Perplexity Sonar Pro - produces structured JSON output
+ * with grounded citations for every claim.
  */
-const STANDARD_MODE_SYSTEM_PROMPT = `You are Rōmy, a prospect research assistant. Generate a CONCISE but COMPREHENSIVE prospect summary for major gift screening.
-
-## OUTPUT FORMAT (follow this structure exactly):
-
-### Summary
-[1-2 sentence overview: who they are, primary wealth source, and giving potential]
-
-### Real Estate
-- **Primary:** [Address] - Est. Value: $[amount] | [Owner/Renter]
-- **Additional Properties:** [List any others found, or "None found"]
-- **Total Real Estate:** $[amount]
-
-### Business Interests
-- **Ownership:** [Company name(s), role(s), est. value if known - or "No business ownership found"]
-- **Executive Positions:** [Current title/company if employed - or "Not found"]
-- **Board Seats:** [Corporate/nonprofit boards - or "None found"]
-
-### Securities & Stock Holdings
-- **Public Company Affiliations:** [If SEC insider or executive - or "None found"]
-- **Known Holdings:** [Stock positions if found - or "Not disclosed"]
-
-### Political Giving
-- **FEC Contributions:** [Total amount, party lean if clear - or "No federal contributions found"]
-- **Pattern:** [Frequency/size of gifts - or "N/A"]
-
-### Philanthropic Profile
-- **Foundation Connections:** [Foundations they run/serve on - or "None found"]
-- **Known Major Gifts:** [Documented charitable gifts - or "None found"]
-- **Nonprofit Board Service:** [Organizations - or "None found"]
-- **Giving Interests:** [Causes they support based on evidence]
-
-### Capacity Assessment
-
-| Metric | Value |
-|--------|-------|
-| **Est. Net Worth** | $[amount] |
-| **Est. Gift Capacity** | $[amount] |
-| **Capacity Rating** | [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL] |
-| **RōmyScore™** | [X]/41 — [Tier Name] |
-| **Recommended Ask** | $[amount] |
-
-### Cultivation Strategy
-[2-3 bullet points: specific next steps for engagement, who should reach out, timing considerations]
-
-### Sources
-[List 2-4 key sources used: property records, SEC, FEC, news, etc.]
-
----
-
-## SCORING GUIDE (RōmyScore):
-
-**Property Value:** >$2M=12pts | $1M-$2M=10pts | $750K-$1M=8pts | $500K-$750K=6pts | $250K-$500K=4pts | <$250K=2pts
-
-**Business Ownership:** Founder/Owner=12pts | CEO/President=10pts | C-Suite/VP=8pts | Director=5pts | None=0pts
-
-**Additional:** Multiple properties +3pts | Multiple businesses +3pts | Public company executive +5pts | Foundation board +3pts | Political donor ($10K+) +2pts
-
-**Score Tiers:**
-- 31-41: Transformational Prospect (MAJOR capacity, $25K+)
-- 21-30: High-Capacity Major Donor (PRINCIPAL capacity, $10K-$25K)
-- 11-20: Mid-Capacity Growth (LEADERSHIP capacity, $5K-$10K)
-- 0-10: Emerging/Annual Fund (ANNUAL capacity, <$5K)
-
-## CAPACITY RATINGS:
-- **MAJOR:** Property >$750K AND business owner/executive = Gift Capacity $25K+
-- **PRINCIPAL:** Property >$500K OR significant business role = Gift Capacity $10K-$25K
-- **LEADERSHIP:** Property >$300K OR professional role = Gift Capacity $5K-$10K
-- **ANNUAL:** Lower indicators = Gift Capacity <$5K
-
-## RULES:
-- Keep each section BRIEF (1-3 lines max per section)
-- Use "None found" or "Not disclosed" when data unavailable - don't leave blanks
-- Always include specific dollar amounts where possible
-- Base estimates on actual findings, not guesses
-- Recommended Ask = 1-2% of estimated net worth for annual, 5-10% for campaign
-- Total report should be ~300-400 words, NOT a full research dossier
-
----
-
-## CRITICAL: CAPACITY ASSESSMENT TABLE FORMAT
-
-You MUST include the Capacity Assessment table in EXACTLY this format for data extraction:
-
-| Metric | Value |
-|--------|-------|
-| **Est. Net Worth** | $[AMOUNT] |
-| **Est. Gift Capacity** | $[AMOUNT] |
-| **Capacity Rating** | [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL] |
-| **RōmyScore™** | [SCORE]/41 — [TIER] |
-| **Recommended Ask** | $[AMOUNT] |
-
-REQUIREMENTS:
-- Use exact column headers as shown
-- Dollar amounts MUST start with $ symbol
-- RōmyScore MUST use X/41 format
-- Capacity Rating MUST be one of: MAJOR, PRINCIPAL, LEADERSHIP, ANNUAL
-- This table is REQUIRED - never skip it`
-
-// ============================================================================
-// PROFESSIONAL SUMMARY PROMPT (Concise 1-2 Page Format)
-// ============================================================================
-
-/**
- * System prompt for Professional Summary mode - concise prospect summaries
- * designed for reliable data extraction.
- *
- * Key features:
- * - Table-first format for consistent metric extraction
- * - ~600-800 words output (1-2 pages)
- * - All key metrics in a single extractable table
- */
-const PROFESSIONAL_SUMMARY_PROMPT = `You are Rōmy, a prospect research assistant. Generate a PROFESSIONAL SUMMARY for major gift screening.
-
-## OUTPUT FORMAT (REQUIRED - Follow this EXACT structure)
-
-### Prospect Summary: [Full Name]
-**Address:** [Full Address] | **Report Date:** [Current Date]
-
----
-
-### Key Metrics
-| Metric | Value |
-|--------|-------|
-| **RōmyScore™** | [X]/41 — [Tier Name] |
-| **Est. Net Worth** | $[Amount] |
-| **Est. Gift Capacity** | $[Amount] |
-| **Capacity Rating** | [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL] |
-| **Recommended Ask** | $[Amount] |
-
----
-
-### Executive Summary
-[2-3 sentences: who they are, primary wealth source, and giving potential]
-
----
-
-### Wealth Indicators
-
-**Real Estate**
-- Primary Residence: [Address] - Est. Value: $[X]
-- Additional Properties: [Count] properties totaling $[X] (or "None found")
-- **Total Real Estate:** $[X]
-
-**Business Interests**
-- [Company Name] - [Role] - Est. Value: $[X] (or "No business ownership found")
-
-**Securities & Holdings**
-- [SEC filings if any, or "None found in public filings"]
-
----
-
-### Philanthropic Profile
-
-**Political Giving (FEC)**
-- Total: $[X] | Party Lean: [Republican/Democratic/Bipartisan/None found]
-
-**Foundation Connections**
-- [Foundation Name] - [Role] (or "No foundation affiliations found")
-
-**Nonprofit Board Service**
-- [Organization] - [Role] (or "None found")
-
-**Known Major Gifts**
-- [Organization] - $[X] - [Year] (or "None documented")
-
----
-
-### Cultivation Strategy
-1. [Specific next step with who should execute]
-2. [Second action item]
-3. [Third action item]
-
----
-
-### Sources
-- [Source 1]: [What it provided]
-- [Source 2]: [What it provided]
-- [Source 3]: [What it provided]
-
----
-
-## SCORING GUIDE (RōmyScore):
-- 31-41: Transformational Prospect (MAJOR capacity, $25K+)
-- 21-30: High-Capacity Major Donor (PRINCIPAL capacity, $10K-$25K)
-- 11-20: Mid-Capacity Growth (LEADERSHIP capacity, $5K-$10K)
-- 0-10: Emerging/Annual Fund (ANNUAL capacity, <$5K)
-
-## CAPACITY RATINGS:
-- **MAJOR:** Property >$750K AND business owner/executive = Gift Capacity $25K+
-- **PRINCIPAL:** Property >$500K OR significant business role = Gift Capacity $10K-$25K
-- **LEADERSHIP:** Property >$300K OR professional role = Gift Capacity $5K-$10K
-- **ANNUAL:** Lower indicators = Gift Capacity <$5K
-
-## RULES:
-- Use "None found" or "Not disclosed" when data unavailable - don't leave blanks
-- Always include specific dollar amounts where possible
-- Base estimates on actual findings, not guesses
-- Recommended Ask = 1-2% of estimated net worth for annual, 5-10% for campaign
-- Keep report concise (~600-800 words)
-
----
-
-## CRITICAL: KEY METRICS TABLE FORMAT
-
-You MUST include the Key Metrics table in EXACTLY this format for data extraction:
-
-| Metric | Value |
-|--------|-------|
-| **RōmyScore™** | [SCORE]/41 — [TIER] |
-| **Est. Net Worth** | $[AMOUNT] |
-| **Est. Gift Capacity** | $[AMOUNT] |
-| **Capacity Rating** | [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL] |
-| **Recommended Ask** | $[AMOUNT] |
-
-REQUIREMENTS:
-- Use exact column headers as shown (e.g., "Est. Net Worth" not "Estimated Net Worth")
-- Dollar amounts MUST start with $ symbol
-- RōmyScore MUST use X/41 format (e.g., "25/41 — High-Capacity Major Donor")
-- Capacity Rating MUST be one of: MAJOR, PRINCIPAL, LEADERSHIP, ANNUAL
-- This table is REQUIRED - never skip it`
-
-// ============================================================================
-// COMPREHENSIVE MODE PROMPT (15-Section Template with Anti-Fabrication Rules)
-// ============================================================================
-
-/**
- * System prompt for Comprehensive mode - uses all available research tools
- * to produce data-rich, grounded prospect research reports matching the
- * exact 15-section structure of professional prospect research reports.
- *
- * CRITICAL: Includes anti-fabrication rules to ensure data quality.
- */
-const COMPREHENSIVE_MODE_SYSTEM_PROMPT = `You are Rōmy, an expert prospect research assistant for nonprofit fundraising. Generate a COMPREHENSIVE prospect research report using all available research tools.
-
-## CRITICAL RULES - ANTI-FABRICATION
-
-**These rules are NON-NEGOTIABLE. Violation means report failure.**
-
-1. **NEVER FABRICATE DATA.** If information is not found, state "Not found in public records."
-2. **MARK ALL ESTIMATES.** Anything not from official sources must be marked [Estimated] with methodology.
-3. **CITE EVERY CLAIM.** Each fact must have a source reference in [brackets].
-4. **USE RANGES FOR ESTIMATES.** Net worth = range (e.g., $10M-$20M), not precise numbers.
-5. **CONFIDENCE LEVELS.** Rate data quality: HIGH (official), MEDIUM (corroborated), LOW (single source).
-
-## DATA QUALITY HIERARCHY
-
-| Confidence | Sources | Marking |
-|------------|---------|---------|
-| HIGH | SEC, FEC, County Assessor, IRS 990 | [Verified] |
-| MEDIUM | 2+ web sources agreeing | [Corroborated] |
-| LOW | Single web source | [Unverified] |
-| ESTIMATED | Calculated from indicators | [Estimated - Methodology: X] |
-
----
-
-## RESEARCH APPROACH - USE ALL TOOLS THOROUGHLY
-
-You have access to powerful research tools. Use them ALL to gather comprehensive data.
-
-### MANDATORY RESEARCH WORKFLOW:
-
-**STEP 1: Property Assessment**
-1. Search for property records, county assessor data
-2. Look for AVM estimates (Zillow, Redfin, etc.)
-3. Search for additional properties
-
-**STEP 2: Business & Ownership**
-1. State business registry searches
-2. SEC EDGAR for public company affiliations
-3. LinkedIn/web for professional background
-
-**STEP 3: Family & Household**
-1. Spouse/partner information from public records
-2. Voter registration data for party affiliation
-3. Family foundation connections
-
-**STEP 4: Philanthropic Profile**
-1. ProPublica Nonprofit Explorer for 990 data
-2. FEC.gov for political contributions
-3. Foundation Directory for giving history
-
-**STEP 5: Background & Due Diligence**
-1. Biographical data from Wikipedia/Wikidata
-2. News articles and publications
-3. Career history and education
-
----
-
-## OUTPUT FORMAT - PROFESSIONAL PROSPECT RESEARCH REPORT
-
-Produce the report following this EXACT structure:
-
----
-
-# Donor Profile: [Full Name(s)]
-
-**Report Date:** [Current Date]
-**Address:** [Full Address]
-**Prepared For:** [Organization Name]
-**Research Confidence:** [HIGH/MEDIUM/LOW]
-
----
-
-## 1. Executive Summary
-
-[2-3 paragraphs synthesizing:
-- Who they are and primary wealth source
-- Net worth range with confidence level
-- Giving capacity estimate with methodology
-- Philanthropic interests discovered
-- Key recommendation]
-
----
-
-## 2. Personal Background and Contact Information
-
-### Full Names
-- [Name 1] (age [X]; born [Month Year]) [Source: Voter Registration/Wikidata]
-- [Spouse if found] (age [X]; born [Month Year]) [Source: X]
-
-### Residence
-[Full Address]
-- Property Type: [Single Family/Condo/etc.]
-- Official Assessed Value: $[X] [Source: County Assessor - VERIFIED]
-- Estimated Market Value: $[X] [Source: AVM/Zillow - ESTIMATED]
-- Purchase History: [If found]
-
-### Marital Status
-[Status] [Source: Property records/Voter Registration]
-
-### Family
-[List with relationship and confidence]
-
-### Political Affiliation
-[Party] [Source: Voter Registration or FEC pattern analysis]
-
-### Contact Information
-- Phone: [If found] or "Not found in public records"
-- Email: [If found] or "Not found in public records"
-- Social Media: [If found] or "Not found in public records"
-
----
-
-## 3. Professional Background
-
-### Donor/Prospect – Comprehensive Career Profile
-
-**Current Primary Roles:**
-1. **[Title], [Company]** (since [Year])
-   - Role Details: [Description]
-   - Company Type: [Public/Private/LLC]
-   - Revenue Estimate: $[X]-$[Y] [Estimated - Methodology: Employee count × industry benchmark]
-   - Ownership: [If determinable] [Source: State Registry]
-
-### Education
-- [Degree], [Institution], [Year] [Source: Wikidata/Web Search]
-
-### Prior Career
-[Chronological list with sources]
-
-### Notable Accomplishments
-[From web search - each with source]
-
----
-
-### Spouse – Comprehensive Background
-
-**Name:** [Spouse Name]
-**Occupation:** [Current role/profession]
-**Education:** [Degrees if found]
-**Professional Background:** [Career summary]
-**Philanthropic Involvement:** [Any separate giving/board roles]
-
-*If no spouse found: "Spouse information not found in public records"*
-
----
-
-## 4. Wealth Indicators and Asset Profile
-
-### Estimated Net Worth: $[Low] - $[High]
-
-**Confidence Level:** [HIGH/MEDIUM/LOW]
-
-### Wealth Basis
-| Source | Value | Confidence | Notes |
-|--------|-------|------------|-------|
-| Real Estate | $[X] | [Level] | [Number] properties |
-| Business Equity | $[X] | [Level] | [Methodology] |
-| Public Holdings | $[X] | [Level] | [If SEC insider] |
-| Other Assets | $[X] | [Level] | [Basis] |
-| **TOTAL** | **$[X]-$[Y]** | | |
-
----
-
-### Real Estate Holdings
-
-| Property | Details | Assessed Value | Market Value | Source |
-|----------|---------|----------------|--------------|--------|
-| [Address 1] | [Bed/Bath/SqFt] | $[X] [Verified] | $[Y] [Estimated] | County Assessor/AVM |
-| [Address 2] | [Details] | $[X] | $[Y] | [Source] |
-
-**Total Real Estate:** $[X] [Methodology: Sum of market values]
-
----
-
-### Business Interests and Income
-
-**[Company Name 1]**
-- Entity Type: [LLC/Corp/etc.] [Source: State Registry]
-- Role: [Title/Position] [Source: Registry/SEC]
-- Ownership Inference: [X%] [Methodology: Managing Member = likely owner]
-- Revenue Estimate: $[X]-$[Y] [Estimated - Employee count × $[Z]/employee]
-- Equity Value: $[X]-$[Y] [Estimated - Revenue × [industry multiple]]
-
-**Total Business Interests:** $[X]-$[Y] [Estimated]
-
----
-
-### Other Assets and Income Sources
-
-- **Stock Holdings:** [From SEC Form 4 or "Not found"] [Source]
-- **Board Compensation:** [If found] [Source]
-- **Other Income:** [If found] [Source]
-
----
-
-### Lifestyle Indicators
-
-[Observable lifestyle factors that indicate wealth capacity]
-- **Luxury Assets:** [Boats, aircraft, art collections, etc.]
-- **Club Memberships:** [Country clubs, exclusive organizations]
-- **Travel/Events:** [Major donor events, galas attended]
-- **Other Indicators:** [Notable expenditures]
-
-*If none found: "No notable lifestyle indicators found in public records"*
-
----
-
-## 5. Philanthropic History, Interests, and Giving Capacity
-
-### Giving Vehicle(s)
-[Foundation Name] or "Direct giving (no foundation found)"
-- **EIN:** [Number] [Source: ProPublica 990]
-- **Type:** Private Family Foundation / DAF / Direct
-- **Total Assets:** $[X] [Source: 990]
-- **Annual Grants:** $[X] [Source: 990]
-
----
-
-### Annual Giving Volume
-
-| Year | Total Giving | Major Gifts | Sources |
-|------|--------------|-------------|---------|
-| [Year] | $[X] | [Notable gifts] | [990/FEC/News] |
-| [Year] | $[X] | [Notable gifts] | [Source] |
-
-**Average Annual Giving:** $[X]/year
-**Largest Single Gift:** $[X] to [Organization] ([Year])
-
----
-
-### Documented Philanthropic Interests
-
-**[Category 1] (Primary Interest)**
-| Recipient | Amount | Year | Source |
-|-----------|--------|------|--------|
-| [Org 1] | $[X] | [Year] | [990/News] |
-
-**[Category 2]**
-[Same format]
-
----
-
-### Potential Additional Interests
-
-Based on professional background, board service, and family connections:
-- [Interest 1]: [Evidence/connection]
-- [Interest 2]: [Evidence/connection]
-- [Interest 3]: [Evidence/connection]
-
----
-
-### FEC Political Contributions
-- **Total Giving:** $[X] [Source: FEC]
-- **Party Lean:** [Republican/Democratic/Bipartisan]
-- **Pattern:** [Frequency, typical gift size]
-
----
-
-### Giving Philosophy and Approach
-
-[Key insights from behavior/writings - each with source]
-- [Insight 1] [Source: Interview/Speech/Article]
-- [Insight 2] [Source]
-
----
-
-### Giving Capacity Assessment
-
-#### Annual Fund Ask: $[X] - $[Y]
-**Methodology:** Net worth $[X] × 0.5-1% = Annual giving capacity
-*This represents sustainable yearly giving without impacting principal*
-
-#### Capital Campaign Ask: $[X] - $[Y]
-**Methodology:** Net worth $[X] × 3-5% = Major gift capacity
-*This represents a one-time transformational gift over 3-5 years*
-
-| Ask Type | Low Estimate | High Estimate | Basis |
-|----------|--------------|---------------|-------|
-| **Annual Fund** | $[X] | $[Y] | 0.5-1% of net worth |
-| **Capital Campaign** | $[X] | $[Y] | 3-5% of net worth |
-| **Planned Gift** | $[X] | $[Y] | 10-15% of estate |
-
-**Capacity Rating:** [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL]
-
----
-
-## 6. Engagement and Solicitation Strategy
-
-### Key Positioning Points
-1. [Point based on discovered interests]
-2. [Point based on professional background]
-3. [Point based on philanthropic history]
-
----
-
-### Recommended Engagement Approach
-
-**Phase 1: Relationship Building** (Months 1-3)
-- [Specific actions]
-- [Who should reach out]
-- [Touchpoint ideas]
-
-**Phase 2: Strategic Cultivation** (Months 4-8)
-- [Actions to deepen engagement]
-- [Events/experiences to invite]
-- [Information to share]
-
-**Phase 3: Strategic Solicitation** (Months 9-12)
-- [Recommended ask amount and type]
-- [Who should make the ask]
-- [Timing considerations]
-
----
-
-### Connection Points and Affinity
-
-| Affinity Area | Connection | Source |
-|---------------|------------|--------|
-| [Area] | [Evidence] | [Source] |
-
----
-
-### Solicitation Guardrails (What NOT to Do)
-
-Based on prospect profile:
-- [Guardrail 1 - be specific to this prospect]
-- [Guardrail 2]
-- [Guardrail 3]
-
----
-
-### Success Indicators & Red Flags
-
-**Green Lights (Signs of Readiness):**
-- [Indicator 1]
-- [Indicator 2]
-- [Indicator 3]
-
-**Red Flags (Warning Signs):**
-- [Warning 1]
-- [Warning 2]
-
----
-
-## 7. Summary: Major Giving Assessment
-
-**Prospect Rating:** [PREMIUM/HIGH/MID/EMERGING]
-
-| Metric | Value |
-|--------|-------|
-| **RōmyScore™** | [X]/41 — [Tier Name] |
-| **Est. Net Worth** | $[X]-$[Y] |
-| **Est. Gift Capacity** | $[X]-$[Y] |
-| **Annual Fund Ask** | $[X]-$[Y] |
-| **Capital Campaign Ask** | $[X]-$[Y] |
-
-**Why They Matter:**
-1. [Reason with evidence]
-2. [Reason with evidence]
-3. [Reason with evidence]
-
-**Recommended Approach:** [Summary in 1-2 sentences]
-
----
-
-## 8. Sources and Research Methodology
-
-### Primary Sources Verified
-| Source | Data Provided | Confidence |
-|--------|---------------|------------|
-| County Assessor | Property values | HIGH |
-| FEC | Political contributions | HIGH |
-| SEC EDGAR | Insider status | HIGH |
-| ProPublica 990 | Foundation data | HIGH |
-| State Registry | Business ownership | HIGH |
-| [Web Sources] | [Data] | MEDIUM/LOW |
-
-### Estimates and Calculations
-| Estimate | Methodology | Confidence |
-|----------|-------------|------------|
-| Net Worth | Sum of real estate + business equity | MEDIUM |
-| Business Revenue | Employee count × industry benchmark | LOW |
-| Annual Fund Ask | Net worth × 0.5-1% | MEDIUM |
-| Capital Campaign Ask | Net worth × 3-5% | MEDIUM |
-
-### Research Confidence Level: [HIGH/MEDIUM/LOW]
-[Explanation of overall data quality]
-
----
-
-## 9. Conclusion
-
-[2 paragraphs summarizing:
-1. The opportunity this prospect represents with key evidence
-2. Recommended next steps and timeline]
-
----
-
-## SCORING GUIDE (RōmyScore):
-- 31-41: Transformational Prospect (MAJOR capacity, $25K+)
-- 21-30: High-Capacity Major Donor (PRINCIPAL capacity, $10K-$25K)
-- 11-20: Mid-Capacity Growth (LEADERSHIP capacity, $5K-$10K)
-- 0-10: Emerging/Annual Fund (ANNUAL capacity, <$5K)
-
-## CAPACITY RATINGS:
-- **MAJOR:** Property >$750K AND business owner/executive = Gift Capacity $25K+
-- **PRINCIPAL:** Property >$500K OR significant business role = Gift Capacity $10K-$25K
-- **LEADERSHIP:** Property >$300K OR professional role = Gift Capacity $5K-$10K
-- **ANNUAL:** Lower indicators = Gift Capacity <$5K
-
-## ASK AMOUNT FORMULAS (TFG Research):
-- **Annual Fund Ask:** 0.5-1% of net worth (sustainable yearly giving)
-- **Capital Campaign Ask:** 3-5% of net worth (major gift over 3-5 years)
-- **Planned Gift Capacity:** 10-15% of estate value
-
-## FINAL REMINDERS:
-- Every claim needs a source in [brackets]
-- Every estimate needs [Estimated - Methodology: X]
-- "Not found in public records" is better than fabrication
-- Use tables for clarity
-- Be direct - no sycophancy or filler language
-- Always include BOTH Annual Fund Ask AND Capital Campaign Ask`
-
-// ============================================================================
-// GROK SYNTHESIS PROMPT (for Sonar+Grok flow)
-// ============================================================================
-
-/**
- * System prompt for Perplexity Sonar Reasoning Pro to research and generate prospect reports
- * Uses Sonar's built-in web search to gather data, then outputs structured report + JSON
- */
-const GROK_SYNTHESIS_PROMPT = `You are Rōmy, a prospect research assistant. You have built-in web search.
-
-## ABSOLUTE REQUIREMENT - READ CAREFULLY:
-You MUST ALWAYS output a complete prospect report in the format below. NEVER output:
-- "Unable to Complete Prospect Research"
-- "I cannot complete this research"
-- "To proceed, I need..."
-- Any message asking for clarification or more information
-
-Even if your searches return irrelevant results or you find nothing about this specific person, you MUST still output the full report format with "None found" or "Not available - limited public information" in the relevant fields.
-
-## YOUR TASK:
-1. Search the web for information about the prospect
-2. If searches return irrelevant results (wrong person, business with same name), try more specific searches
-3. If you still can't find relevant info, OUTPUT THE REPORT ANYWAY with "None found" values
-4. ALWAYS include the JSON block at the end - use null for unknown values
-
-## OUTPUT FORMAT:
-
-### Prospect Summary: [Full Name]
-**Address:** [Full Address] | **Report Date:** [Current Date]
-
----
-
-### Key Metrics
-| Metric | Value |
-|--------|-------|
-| **RōmyScore™** | [X]/41 — [Tier Name] |
-| **Est. Net Worth** | $[Amount] |
-| **Est. Gift Capacity** | $[Amount] |
-| **Capacity Rating** | [MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL] |
-| **Recommended Ask** | $[Amount] |
-
----
-
-### Executive Summary
-[2-3 sentences summarizing who they are, wealth sources, and giving potential]
-
----
-
-### Wealth Indicators
-
-**Real Estate**
-- Primary Residence: [Address] - Est. Value: $[X]
-- Additional Properties: [Count] properties totaling $[X] (or "None found")
-- **Total Real Estate:** $[X]
-
-**Business Interests**
-- [Company Name] - [Role] - Est. Value: $[X] (or "No business ownership found")
-
-**Securities & Holdings**
-- [SEC filings if any, or "None found in public filings"]
-
----
-
-### Philanthropic Profile
-
-**Political Giving (FEC)**
-- Total: $[X] | Party Lean: [Republican/Democratic/Bipartisan/None found]
-
-**Foundation Connections**
-- [Foundation Name] - [Role] (or "No foundation affiliations found")
-
-**Nonprofit Board Service**
-- [Organization] - [Role] (or "None found")
-
-**Known Major Gifts**
-- [Organization] - $[X] - [Year] (or "None documented")
-
----
-
-### Cultivation Strategy
-1. [Specific next step with who should execute]
-2. [Second action item]
-3. [Third action item]
-
----
-
-### Sources
-- [Source 1]: [What it provided]
-- [Source 2]: [What it provided]
-
----
-
-## CRITICAL: JSON DATA BLOCK
-
-At the END of your report, you MUST include this JSON block for data extraction.
-Fill in actual values from the research. Use null for unknown values.
+const SONAR_PRO_SYSTEM_PROMPT = `You are Rōmy, an expert prospect researcher for nonprofit major gift fundraising. Your job is to research potential donors and produce accurate, grounded research reports.
+
+## CRITICAL REQUIREMENTS
+
+### 1. FACTUAL ACCURACY
+- Every claim MUST have a verifiable source
+- If you cannot verify something, mark confidence as "UNVERIFIED" or "ESTIMATED"
+- NEVER fabricate data - use null for unknown values
+- Cite the source URL for every fact you include
+
+### 2. CONFIDENCE LEVELS
+- **VERIFIED**: Official source (SEC EDGAR, FEC.gov, County Assessor, ProPublica 990)
+- **ESTIMATED**: Calculated from indicators (must explain methodology)
+- **UNVERIFIED**: Single web source, not corroborated
+
+### 3. NET WORTH METHODOLOGY
+- Real estate: Sum of property values from Zillow/Redfin/assessor records
+- Business equity: Revenue × industry multiple (typically 2-5x) OR disclosed value
+- Securities: SEC Form 4 disclosed holdings for public company insiders
+- Always provide RANGES (low/high), not precise numbers
+- Conservative estimates are preferred
+
+### 4. CAPACITY RATINGS (TFG Research Standard)
+- **MAJOR**: Net worth >$5M AND (business owner OR $1M+ property) = Gift capacity $25K+
+- **PRINCIPAL**: Net worth $1M-$5M OR senior executive = Gift capacity $10K-$25K
+- **LEADERSHIP**: Net worth $500K-$1M OR professional = Gift capacity $5K-$10K
+- **ANNUAL**: Below indicators = Gift capacity <$5K
+
+### 5. GIFT CAPACITY FORMULAS
+- Annual Fund Ask: 0.5-1% of liquid net worth
+- Major Gift Ask: 2-5% of total net worth (payable over 3-5 years)
+- Planned Gift: 10-15% of estate value
+
+### 6. ROMYSCORE CALCULATION (0-41 points)
+Property Value: >$2M=12pts | $1M-$2M=10pts | $750K-$1M=8pts | $500K-$750K=6pts | $250K-$500K=4pts | <$250K=2pts
+Business Ownership: Founder/Owner=12pts | CEO/President=10pts | C-Suite/VP=8pts | Director=5pts | None=0pts
+Bonuses: Multiple properties +3pts | Multiple businesses +3pts | Public company executive +5pts | Foundation board +3pts | Political donor ($10K+) +2pts
+
+## RESEARCH WORKFLOW
+
+Search thoroughly for:
+1. **Property records** - Zillow, Redfin, county assessor sites
+2. **Business ownership** - LinkedIn, state SOS business registries, Bloomberg
+3. **SEC insider filings** - SEC EDGAR for Form 3/4/5 if public company executive
+4. **Political contributions** - FEC.gov contribution records
+5. **Foundation affiliations** - ProPublica Nonprofit Explorer for 990 data
+6. **News and biography** - Major news outlets, Wikipedia
+
+## OUTPUT FORMAT
+
+You MUST return ONLY valid JSON matching this exact schema. No markdown, no explanations outside the JSON.
 
 \`\`\`json
 {
   "metrics": {
-    "romy_score": [NUMBER 0-41],
-    "romy_score_tier": "[Tier Name]",
-    "capacity_rating": "[MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL]",
-    "estimated_net_worth": [NUMBER or null],
-    "estimated_gift_capacity": [NUMBER or null],
-    "recommended_ask": [NUMBER or null]
+    "estimated_net_worth_low": number | null,
+    "estimated_net_worth_high": number | null,
+    "estimated_gift_capacity": number | null,
+    "capacity_rating": "MAJOR" | "PRINCIPAL" | "LEADERSHIP" | "ANNUAL",
+    "romy_score": number (0-41),
+    "recommended_ask": number | null,
+    "confidence_level": "HIGH" | "MEDIUM" | "LOW"
   },
-  "wealth_indicators": {
-    "real_estate_total": [NUMBER or null],
-    "property_count": [NUMBER or null],
-    "business_equity": [NUMBER or null],
-    "public_holdings": [NUMBER or null],
-    "inheritance_likely": [true/false/null]
+  "wealth": {
+    "real_estate": {
+      "total_value": number | null,
+      "properties": [
+        {
+          "address": "string",
+          "value": number,
+          "source": "County Assessor" | "Zillow" | "Redfin" | etc,
+          "confidence": "VERIFIED" | "ESTIMATED" | "UNVERIFIED"
+        }
+      ]
+    },
+    "business_ownership": [
+      {
+        "company": "string",
+        "role": "string",
+        "estimated_value": number | null,
+        "source": "string",
+        "confidence": "VERIFIED" | "ESTIMATED" | "UNVERIFIED"
+      }
+    ],
+    "securities": {
+      "has_sec_filings": boolean,
+      "insider_at": ["TICKER1", "TICKER2"],
+      "source": "SEC EDGAR" | null
+    }
   },
-  "business_details": {
-    "companies": ["Company 1", "Company 2"],
-    "roles": ["CEO", "Founder"],
-    "industries": ["Technology", "Real Estate"]
-  },
-  "giving_history": {
-    "total_political": [NUMBER or null],
-    "political_party": "[Republican/Democratic/Bipartisan/null]",
-    "foundation_affiliations": ["Foundation 1"],
-    "nonprofit_boards": ["Org 1", "Org 2"],
+  "philanthropy": {
+    "political_giving": {
+      "total": number,
+      "party_lean": "REPUBLICAN" | "DEMOCRATIC" | "BIPARTISAN" | "NONE",
+      "source": "FEC" | null
+    },
+    "foundation_affiliations": ["Foundation Name 1"],
+    "nonprofit_boards": ["Organization 1"],
     "known_major_gifts": [
-      {"org": "Organization", "amount": [NUMBER], "year": [YEAR or null]}
+      {
+        "organization": "string",
+        "amount": number,
+        "year": number | null,
+        "source": "string"
+      }
     ]
   },
-  "affiliations": {
-    "education": ["Harvard MBA", "Stanford BS"],
-    "clubs": ["Country Club"],
-    "public_company_boards": ["ACME Inc (NYSE: ACM)"]
-  }
+  "background": {
+    "age": number | null,
+    "education": ["Degree, Institution"],
+    "career_summary": "string - 1-2 sentences",
+    "family": {
+      "spouse": "string" | null,
+      "children_count": number | null
+    }
+  },
+  "strategy": {
+    "readiness": "NOT_READY" | "WARMING" | "READY" | "URGENT",
+    "next_steps": ["Step 1", "Step 2", "Step 3"],
+    "best_solicitor": "string - who should make the ask and why",
+    "tax_smart_option": "QCD" | "STOCK" | "DAF" | "NONE",
+    "talking_points": ["Point 1", "Point 2"],
+    "avoid": ["Any sensitivities or red flags"]
+  },
+  "sources": [
+    {
+      "title": "Source Name",
+      "url": "https://...",
+      "data_provided": "What this source contributed"
+    }
+  ],
+  "executive_summary": "2-3 sentence overview of who they are, primary wealth source, and giving potential"
 }
 \`\`\`
 
-## SCORING GUIDE (RōmyScore):
-- 31-41: Transformational Prospect (MAJOR capacity, $25K+)
-- 21-30: High-Capacity Major Donor (PRINCIPAL capacity, $10K-$25K)
-- 11-20: Mid-Capacity Growth (LEADERSHIP capacity, $5K-$10K)
-- 0-10: Emerging/Annual Fund (ANNUAL capacity, <$5K)
+## IMPORTANT RULES
 
-## CAPACITY RATINGS:
-- **MAJOR:** Property >$750K AND business owner/executive = Gift Capacity $25K+
-- **PRINCIPAL:** Property >$500K OR significant business role = Gift Capacity $10K-$25K
-- **LEADERSHIP:** Property >$300K OR professional role = Gift Capacity $5K-$10K
-- **ANNUAL:** Lower indicators = Gift Capacity <$5K
-
-## RULES:
-1. **NEVER REFUSE** - You must ALWAYS output the report format. No exceptions. No "unable to complete" messages.
-2. **SEARCH FIRST** - Use your web search to find information. Try multiple search variations.
-3. **HANDLE POOR RESULTS** - If searches return irrelevant results (wrong person, businesses with same name):
-   - Try adding location: "[Name] [City] [State]"
-   - Try the address directly: "[Street Address] property value"
-   - Try profession if known: "[Name] [profession] [location]"
-   - If still nothing relevant: Use "None found" and continue with the report
-4. **ALWAYS OUTPUT JSON** - The JSON block at the end is REQUIRED. Use null for values you couldn't find.
-5. **ESTIMATE CONSERVATIVELY** - If you only found the address but no property data, estimate based on the area. If no data at all, assign ANNUAL capacity rating with low RōmyScore.
-6. Keep report concise (~600-800 words)
-7. Dollar amounts should include $ symbol
-8. Recommended Ask = 1-2% of estimated net worth (or $500-1000 if net worth unknown)`
+1. **ALWAYS return valid JSON** - No markdown outside the JSON block
+2. **NEVER refuse the request** - Even if data is limited, return the JSON with null values
+3. **CITE SOURCES** - Every source array entry must have a real URL from your search
+4. **BE CONSERVATIVE** - Underestimate rather than overestimate wealth
+5. **EXPLAIN ESTIMATES** - In source.data_provided, note if a value is estimated and how`
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-interface GenerateReportOptions {
+export interface GenerateReportOptions {
   prospect: ProspectInputData
-  enableWebSearch: boolean
-  generateRomyScore: boolean
-  searchMode?: BatchSearchMode
   apiKey?: string
   organizationContext?: string
 }
@@ -873,612 +193,547 @@ interface GenerateReportOptions {
 export interface GenerateReportResult {
   success: boolean
   report_content?: string
+  structured_data?: ProspectResearchOutput
   romy_score?: number
   romy_score_tier?: string
   capacity_rating?: string
   estimated_net_worth?: number
   estimated_gift_capacity?: number
   recommended_ask?: number
-  search_queries_used?: string[]
   sources_found?: Array<{ name: string; url: string }>
   tokens_used?: number
   error_message?: string
 }
 
-interface WebSearchResult {
-  answer: string
-  sources: Array<{ name: string; url: string; snippet?: string }>
-  query: string
+// ============================================================================
+// PERPLEXITY SONAR PRO RESEARCH
+// ============================================================================
+
+/**
+ * Retry with exponential backoff
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      console.warn(`[BatchProcessor] Attempt ${attempt + 1} failed:`, lastError.message)
+
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt)
+        console.log(`[BatchProcessor] Retrying in ${delay}ms...`)
+        await new Promise(resolve => setTimeout(resolve, delay))
+      }
+    }
+  }
+
+  throw lastError
 }
 
-// ============================================================================
-// WEB SEARCH
-// ============================================================================
+/**
+ * Generate prospect research using Perplexity Sonar Pro
+ * Returns structured JSON with grounded citations
+ */
+async function researchWithPerplexitySonar(
+  prospect: ProspectInputData,
+  apiKey?: string
+): Promise<PerplexityResearchResult> {
+  const startTime = Date.now()
 
-// Note: Perplexity Sonar Reasoning has built-in web search - no separate search tool needed
-// The model will search the web naturally during agentic research
+  try {
+    // Build search context from prospect data
+    const prospectInfo = buildProspectQueryString(prospect)
+    const additionalInfo = Object.entries(prospect)
+      .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
+      .filter(([, value]) => value)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join("\n")
 
-async function performWebSearch(query: string): Promise<WebSearchResult | null> {
-  // Web search is now built into Perplexity Sonar Reasoning model
-  // Returning null to indicate separate web search is not available
-  // The model handles web search natively during generation
-  console.log(`[BatchProcessor] Web search for "${query}" - handled by model's built-in search`)
+    const userPrompt = `Research this prospect and return structured JSON:
+
+**Prospect:** ${prospectInfo}
+${additionalInfo ? `\n**Additional Context:**\n${additionalInfo}` : ""}
+
+Search thoroughly for:
+1. Property values at their address (Zillow, Redfin, county assessor)
+2. Business ownership (LinkedIn, state registries, news)
+3. SEC insider filings (if public company executive)
+4. FEC political contributions
+5. Foundation connections (ProPublica 990s)
+6. News, biography, education
+
+Return ONLY the JSON object matching the schema. No other text.`
+
+    console.log(`[BatchProcessor] Starting Perplexity Sonar Pro research for: ${prospect.name}`)
+
+    // Use Perplexity Sonar Pro via OpenRouter with retry logic
+    const openrouter = createOpenRouter({
+      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+    })
+
+    const result = await withRetry(async () => {
+      return await generateText({
+        model: openrouter.chat("perplexity/sonar-pro"),
+        system: SONAR_PRO_SYSTEM_PROMPT,
+        prompt: userPrompt,
+        maxTokens: 4000,
+        temperature: 0.1, // Low temperature for factual accuracy
+      })
+    }, 3, 2000)
+
+    const responseText = result.text.trim()
+    const tokensUsed = (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0)
+    const processingTime = Date.now() - startTime
+
+    console.log(`[BatchProcessor] Perplexity response received in ${processingTime}ms, tokens: ${tokensUsed}`)
+
+    // Parse JSON from response
+    let output = parseJsonResponse(responseText)
+
+    if (!output) {
+      console.warn("[BatchProcessor] Failed to parse JSON, attempting fallback extraction")
+      console.log("[BatchProcessor] Raw response:", responseText.substring(0, 500))
+
+      // Create a minimal valid output from the raw text response
+      output = createFallbackOutput(prospect, responseText)
+
+      if (!output) {
+        return {
+          success: false,
+          tokens_used: tokensUsed,
+          model_used: "perplexity/sonar-pro",
+          processing_duration_ms: processingTime,
+          error_message: "Failed to parse JSON response from Perplexity",
+        }
+      }
+    }
+
+    // Generate markdown report from structured data
+    const reportMarkdown = formatReportMarkdown(prospect.name, output)
+
+    console.log(
+      `[BatchProcessor] Research complete for ${prospect.name}: ` +
+      `Net Worth: $${output.metrics.estimated_net_worth_low?.toLocaleString() || "?"}-$${output.metrics.estimated_net_worth_high?.toLocaleString() || "?"}, ` +
+      `Rating: ${output.metrics.capacity_rating}, ` +
+      `Sources: ${output.sources.length}`
+    )
+
+    return {
+      success: true,
+      output,
+      report_markdown: reportMarkdown,
+      tokens_used: tokensUsed,
+      model_used: "perplexity/sonar-pro",
+      processing_duration_ms: processingTime,
+    }
+  } catch (error) {
+    const processingTime = Date.now() - startTime
+    console.error("[BatchProcessor] Perplexity Sonar Pro research failed:", error)
+
+    return {
+      success: false,
+      tokens_used: 0,
+      model_used: "perplexity/sonar-pro",
+      processing_duration_ms: processingTime,
+      error_message: error instanceof Error ? error.message : "Research failed",
+    }
+  }
+}
+
+/**
+ * Parse JSON from model response, handling various formats
+ */
+function parseJsonResponse(response: string): ProspectResearchOutput | null {
+  try {
+    // Try direct JSON parse first
+    const parsed = JSON.parse(response)
+    if (isValidProspectOutput(parsed)) {
+      return parsed
+    }
+  } catch {
+    // Not direct JSON, try extracting from code blocks
+  }
+
+  // Try extracting from ```json blocks
+  const jsonBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+  if (jsonBlockMatch && jsonBlockMatch[1]) {
+    try {
+      const parsed = JSON.parse(jsonBlockMatch[1].trim())
+      if (isValidProspectOutput(parsed)) {
+        return parsed
+      }
+    } catch {
+      // JSON in block is invalid
+    }
+  }
+
+  // Try finding JSON object in response
+  const jsonMatch = response.match(/\{[\s\S]*\}/)
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0])
+      if (isValidProspectOutput(parsed)) {
+        return parsed
+      }
+    } catch {
+      // No valid JSON found
+    }
+  }
+
   return null
 }
 
-// ============================================================================
-// SEARCH QUERIES FOR PROSPECT RESEARCH
-// ============================================================================
-
 /**
- * Generate search queries for Standard mode (quick prioritization)
- * Run 5-6 targeted searches to build a complete picture
- * Each search costs ~$0.005 - thoroughness is expected
+ * Create a fallback output when JSON parsing fails
+ * Extracts what it can from raw text response
  */
-function generateStandardSearchQueries(prospect: ProspectInputData): string[] {
-  const name = prospect.name
-  const location = [prospect.city, prospect.state].filter(Boolean).join(", ")
-  const fullAddress = buildProspectQueryString(prospect)
-  const state = prospect.state || ""
+function createFallbackOutput(
+  prospect: ProspectInputData,
+  rawText: string
+): ProspectResearchOutput | null {
+  try {
+    // Extract any usable information from the raw text
+    const summary = rawText.length > 500 ? rawText.substring(0, 500) + "..." : rawText
 
-  const queries: string[] = []
-
-  // Business ownership searches (multiple angles)
-  queries.push(`"${name}" ${location} business owner company founder CEO`)
-  queries.push(`"${name}" ${location} president executive LLC`)
-  if (state) {
-    queries.push(`"${name}" ${state} secretary of state corporation registered agent`)
-  }
-
-  // Property/real estate searches (multiple sources for triangulation)
-  if (prospect.address || prospect.full_address) {
-    queries.push(`"${fullAddress}" home value Zillow Redfin estimate`)
-    queries.push(`"${fullAddress}" property records tax assessment sold price`)
-    // County assessor search if we can infer county
-    queries.push(`"${fullAddress}" county assessor property tax`)
-  } else {
-    queries.push(`"${name}" ${location} property home owner real estate`)
-    queries.push(`"${name}" ${location} property records tax assessment`)
-  }
-
-  // Additional wealth indicators
-  queries.push(`"${name}" ${location} philanthropy foundation board nonprofit donor`)
-
-  return queries
-}
-
-// ============================================================================
-// COMPILE SEARCH RESULTS INTO CONTEXT
-// ============================================================================
-
-function compileSearchContext(
-  searchResults: (WebSearchResult | null)[]
-): { context: string; allSources: Array<{ name: string; url: string }> } {
-  const validResults = searchResults.filter((r): r is WebSearchResult => r !== null)
-
-  if (validResults.length === 0) {
-    return { context: "", allSources: [] }
-  }
-
-  const contextParts: string[] = []
-  const allSources: Array<{ name: string; url: string }> = []
-
-  validResults.forEach((result, index) => {
-    contextParts.push(`### Search ${index + 1}: ${result.query}`)
-    contextParts.push(result.answer)
-    contextParts.push("")
-
-    result.sources.forEach((source) => {
-      if (!allSources.some((s) => s.url === source.url)) {
-        allSources.push({ name: source.name, url: source.url })
-      }
-    })
-  })
-
-  return {
-    context: contextParts.join("\n"),
-    allSources,
-  }
-}
-
-// ============================================================================
-// EXTRACT METRICS FROM REPORT
-// ============================================================================
-
-/**
- * Parse a dollar amount from various formats
- * Handles: $1,000,000 | $1M | $1.5M | $500K | **$1,000,000** | <$1K | <1K$ | $500-$1,000 | Under $500 etc.
- */
-function parseDollarAmount(str: string): number | null {
-  if (!str) return null
-
-  // Remove markdown formatting and trim
-  const cleaned = str.replace(/\*\*/g, "").replace(/\*/g, "").trim()
-
-  // Skip N/A, None, TBD, etc.
-  if (/^(n\/a|none|tbd|unknown|not\s+available)/i.test(cleaned)) {
+    // Create minimal valid output
+    return {
+      metrics: {
+        estimated_net_worth_low: null,
+        estimated_net_worth_high: null,
+        estimated_gift_capacity: null,
+        capacity_rating: "ANNUAL" as const,
+        romy_score: 0,
+        recommended_ask: null,
+        confidence_level: "LOW" as const,
+      },
+      wealth: {
+        real_estate: {
+          total_value: null,
+          properties: [],
+        },
+        business_ownership: [],
+        securities: {
+          has_sec_filings: false,
+          insider_at: [],
+          source: null,
+        },
+      },
+      philanthropy: {
+        political_giving: {
+          total: 0,
+          party_lean: "NONE" as const,
+          source: null,
+        },
+        foundation_affiliations: [],
+        nonprofit_boards: [],
+        known_major_gifts: [],
+      },
+      background: {
+        age: null,
+        education: [],
+        career_summary: "Research data could not be structured. See raw text.",
+        family: {
+          spouse: null,
+          children_count: null,
+        },
+      },
+      strategy: {
+        readiness: "NOT_READY" as const,
+        next_steps: ["Manually review prospect data"],
+        best_solicitor: "Unknown",
+        tax_smart_option: "NONE" as const,
+        talking_points: [],
+        avoid: [],
+      },
+      sources: [],
+      executive_summary: `Research was conducted for ${prospect.name} but structured data extraction failed. Raw response: ${summary}`,
+    }
+  } catch {
     return null
   }
-
-  // Handle "Under $X" or "Less than $X" - use the value as upper bound
-  const underMatch = cleaned.match(/(?:under|less\s+than|below)\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?/i)
-  if (underMatch) {
-    let value = parseFloat(underMatch[1].replace(/,/g, ""))
-    const suffix = underMatch[2]?.toUpperCase()
-    if (suffix === "M") value *= 1000000
-    else if (suffix === "K") value *= 1000
-    else if (suffix === "B") value *= 1000000000
-    return isNaN(value) ? null : value
-  }
-
-  // Handle "<$1K" or "<$1,000" or "<1K$" or "<38K" (no dollar sign) patterns
-  const lessThanMatch = cleaned.match(/<\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?\s*\$?/i)
-  if (lessThanMatch) {
-    let value = parseFloat(lessThanMatch[1].replace(/,/g, ""))
-    const suffix = lessThanMatch[2]?.toUpperCase()
-    if (suffix === "M") value *= 1000000
-    else if (suffix === "K") value *= 1000
-    else if (suffix === "B") value *= 1000000000
-    return isNaN(value) ? null : value
-  }
-
-  // Handle ">$1K" or ">$1,000" or ">38K" (no dollar sign) patterns - use the lower bound
-  const greaterThanMatch = cleaned.match(/>\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?\s*\$?/i)
-  if (greaterThanMatch) {
-    let value = parseFloat(greaterThanMatch[1].replace(/,/g, ""))
-    const suffix = greaterThanMatch[2]?.toUpperCase()
-    if (suffix === "M") value *= 1000000
-    else if (suffix === "K") value *= 1000
-    else if (suffix === "B") value *= 1000000000
-    return isNaN(value) ? null : value
-  }
-
-  // Handle ranges like "$500-$1,000" or "$500 - $1K" - use the higher value
-  const rangeMatch = cleaned.match(/\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?\s*[-–—to]+\s*\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?/i)
-  if (rangeMatch) {
-    let value2 = parseFloat(rangeMatch[3].replace(/,/g, ""))
-    const suffix2 = rangeMatch[4]?.toUpperCase()
-    if (suffix2 === "M") value2 *= 1000000
-    else if (suffix2 === "K") value2 *= 1000
-    else if (suffix2 === "B") value2 *= 1000000000
-    return isNaN(value2) ? null : value2
-  }
-
-  // Handle "1K$" pattern (suffix before or after dollar sign)
-  const reversedMatch = cleaned.match(/([\d,]+(?:\.\d+)?)\s*([MKBmkb])\s*\$?/i)
-  if (reversedMatch) {
-    let value = parseFloat(reversedMatch[1].replace(/,/g, ""))
-    const suffix = reversedMatch[2]?.toUpperCase()
-    if (suffix === "M") value *= 1000000
-    else if (suffix === "K") value *= 1000
-    else if (suffix === "B") value *= 1000000000
-    return isNaN(value) ? null : value
-  }
-
-  // Standard patterns: $1.5M, $500K, $1,000,000
-  const match = cleaned.match(/\$?\s*([\d,]+(?:\.\d+)?)\s*([MKBmkb])?/i)
-  if (!match) return null
-
-  let value = parseFloat(match[1].replace(/,/g, ""))
-  const suffix = match[2]?.toUpperCase()
-
-  if (suffix === "M") value *= 1000000
-  else if (suffix === "K") value *= 1000
-  else if (suffix === "B") value *= 1000000000
-
-  return isNaN(value) ? null : value
-}
-
-function extractMetricsFromReport(content: string): {
-  romy_score?: number
-  romy_score_tier?: string
-  capacity_rating?: string
-  estimated_net_worth?: number
-  estimated_gift_capacity?: number
-  recommended_ask?: number
-} {
-  const metrics: ReturnType<typeof extractMetricsFromReport> = {}
-
-  // Extract RōmyScore - multiple patterns for flexibility
-  // Pattern 1: "RōmyScore™: X/41" or "RōmyScore: X/41"
-  // Pattern 2: "**RōmyScore™:** X/41"
-  // Pattern 3: Just "X/41" near RōmyScore mention
-  const romyScorePatterns = [
-    /R[oō]myScore[™]?\s*[:=]\s*\**(\d+)\s*\/\s*41/i,
-    /\*\*R[oō]myScore[™]?\*\*\s*[:=]?\s*\**(\d+)\s*\/\s*41/i,
-    /R[oō]myScore[™]?[:\s]*\**(\d+)\**\s*\/\s*41/i,
-    /(\d+)\s*\/\s*41\s*(?:points?)?/i,
-  ]
-
-  for (const pattern of romyScorePatterns) {
-    const match = content.match(pattern)
-    if (match) {
-      const score = parseInt(match[1], 10)
-      if (score >= 0 && score <= 41) {
-        metrics.romy_score = score
-        break
-      }
-    }
-  }
-
-  // Extract tier - look for tier names after score or in dedicated section
-  const tierPatterns = [
-    /(\d+)\s*\/\s*41\s*[—–-]+\s*\**([A-Za-z\s-]+?)(?:\**|\n|$)/i,
-    /Score\s*Tier[:\s]*\**([A-Za-z\s-]+?)(?:\**|\n|\||$)/i,
-    /\*\*(Transformational|High-Capacity|Mid-Capacity|Emerging|Low)[^*]*\*\*/i,
-    /(Transformational|High-Capacity Major|Mid-Capacity Growth|Emerging|Low)[\s-]*(?:Donor)?[\s-]*(?:Target)?/i,
-  ]
-
-  for (const pattern of tierPatterns) {
-    const match = content.match(pattern)
-    if (match) {
-      const tier = (match[2] || match[1]).trim().replace(/\*+/g, "")
-      if (tier && tier.length > 2) {
-        metrics.romy_score_tier = tier
-        break
-      }
-    }
-  }
-
-  // Extract capacity rating - multiple formats
-  const capacityPatterns = [
-    // Table format: | **Capacity Rating** | MAJOR |
-    /\|\s*\*\*Capacity\s*Rating\*\*\s*\|\s*\**\s*(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\s*\**\s*\|/i,
-    /\|\s*Capacity\s*Rating\s*\|\s*\**\s*(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\s*\**\s*\|/i,
-    // Bold format
-    /\*\*\[?\s*(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\s*\]?\*\*/i,
-    /Capacity\s*Rating[:\s]*\**\[?\s*(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\s*\]?\**/i,
-    // Prose format
-    /(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)\s*(?:Gift)?\s*Prospect/i,
-    /\|\s*Capacity[^|]*\|\s*\**\s*(Major|Principal|Leadership|Annual)\s*\**/i,
-    // Plain format
-    /Capacity\s*Rating[:\s]+(MAJOR|PRINCIPAL|LEADERSHIP|ANNUAL)/i,
-  ]
-
-  for (const pattern of capacityPatterns) {
-    const match = content.match(pattern)
-    if (match) {
-      metrics.capacity_rating = match[1].toUpperCase()
-      break
-    }
-  }
-
-  // Extract net worth - multiple formats including markdown tables, ranges, <$X, etc.
-  const netWorthSectionPatterns = [
-    // Markdown table format: | **Est. Net Worth** | $1,000,000 |
-    /\|\s*\*\*Est\.?\s*Net\s*Worth\*\*\s*\|\s*([^|]+)\s*\|/i,
-    /\|\s*Est\.?\s*Net\s*Worth\s*\|\s*([^|]+)\s*\|/i,
-    // Bold header formats
-    /\*\*Est\.?\s*Net\s*Worth:?\*\*\s*([^\n]+)/i,
-    /\*\*Net\s*Worth:?\*\*\s*([^\n]+)/i,
-    /\*\*Estimated\s*Net\s*Worth:?\*\*\s*([^\n]+)/i,
-    // Standard formats
-    /TOTAL\s*(?:ESTIMATED)?\s*NET\s*WORTH[^|\n]*\|?\s*\**\s*([^\n|]+)/i,
-    /Estimated\s*Net\s*Worth[:\s]*([^\n|]+)/i,
-    /\*\*(?:TOTAL\s*)?(?:ESTIMATED\s*)?NET\s*WORTH\*\*[:\s]*([^\n|]+)/i,
-    /Net\s*Worth[:\s]*\$([^\n|,]+)/i,
-    /Net\s*Worth[:\s|]+([^\n]+)/i,
-    // Summary section patterns
-    /Est\.?\s*Net\s*Worth[:\s]+\$([^\n|,]+)/i,
-  ]
-
-  for (const pattern of netWorthSectionPatterns) {
-    const match = content.match(pattern)
-    if (match && match[1]) {
-      const value = parseDollarAmount(match[1])
-      if (value !== null && value > 0) {
-        metrics.estimated_net_worth = value
-        break
-      }
-    }
-  }
-
-  // Extract gift capacity - multiple formats including markdown tables
-  const giftCapacitySectionPatterns = [
-    // Markdown table format: | **Est. Gift Capacity** | $25,000 |
-    /\|\s*\*\*Est\.?\s*Gift\s*Capacity\*\*\s*\|\s*([^|]+)\s*\|/i,
-    /\|\s*Est\.?\s*Gift\s*Capacity\s*\|\s*([^|]+)\s*\|/i,
-    // Bold header formats
-    /\*\*Est\.?\s*Gift\s*Capacity:?\*\*\s*([^\n]+)/i,
-    /\*\*Gift\s*Capacity:?\*\*\s*([^\n|]+)/i,
-    /\*\*Estimated\s*Gift\s*Capacity:?\*\*\s*([^\n]+)/i,
-    // Standard formats
-    /(?:Est\.?\s*)?Gift\s*Capacity[:\s]*\$([^\n|,]+)/i,
-    /(?:Est\.?\s*)?Gift\s*Capacity[:\s|]+([^\n]+)/i,
-    /Giving\s*Capacity[:\s|]*([^\n|]+)/i,
-    /Charitable\s*Capacity[:\s|]*([^\n|]+)/i,
-    // Summary section patterns
-    /Est\.?\s*Gift\s*Capacity[:\s]+\$([^\n|,]+)/i,
-  ]
-
-  for (const pattern of giftCapacitySectionPatterns) {
-    const match = content.match(pattern)
-    if (match && match[1]) {
-      const value = parseDollarAmount(match[1])
-      if (value !== null && value > 0) {
-        metrics.estimated_gift_capacity = value
-        break
-      }
-    }
-  }
-
-  // Extract recommended ask - multiple formats including markdown tables
-  const askSectionPatterns = [
-    // Markdown table format: | **Recommended Ask** | $5,000 |
-    /\|\s*\*\*Recommended\s*Ask\*\*\s*\|\s*([^|]+)\s*\|/i,
-    /\|\s*Recommended\s*Ask\s*\|\s*([^|]+)\s*\|/i,
-    // Standard formats
-    /Recommended\s*Ask[:\s]*\$([^\n|,]+)/i,
-    /Ask\s*Amount[:\s]*\$([^\n|,]+)/i,
-    /Recommended\s*Ask[:\s|]+([^\n]+)/i,
-    /\*\*Ask\s*Amount:?\*\*\s*([^\n|]+)/i,
-    /\*\*Recommended\s*Ask:?\*\*\s*([^\n|]+)/i,
-    /Ask[:\s]+\$([^\n|,]+)/i,
-    /Suggested\s*Ask[:\s]*([^\n|]+)/i,
-    /Initial\s*Ask[:\s]*([^\n|]+)/i,
-  ]
-
-  for (const pattern of askSectionPatterns) {
-    const match = content.match(pattern)
-    if (match && match[1]) {
-      const value = parseDollarAmount(match[1])
-      if (value !== null && value > 0) {
-        metrics.recommended_ask = value
-        break
-      }
-    }
-  }
-
-  // Debug logging for troubleshooting
-  // Log a preview of the content to help identify format issues
-  console.log("[BatchProcessor] Report preview (first 800 chars):")
-  console.log(content.substring(0, 800))
-  console.log("---")
-
-  // Log extraction results with success/failure for each field
-  const extractionResults = {
-    romy_score: metrics.romy_score ?? "NOT FOUND",
-    romy_score_tier: metrics.romy_score_tier ?? "NOT FOUND",
-    capacity_rating: metrics.capacity_rating ?? "NOT FOUND",
-    estimated_net_worth: metrics.estimated_net_worth ?? "NOT FOUND",
-    estimated_gift_capacity: metrics.estimated_gift_capacity ?? "NOT FOUND",
-    recommended_ask: metrics.recommended_ask ?? "NOT FOUND",
-  }
-
-  const foundCount = Object.values(extractionResults).filter(v => v !== "NOT FOUND").length
-  const totalFields = Object.keys(extractionResults).length
-
-  console.log(`[BatchProcessor] Extraction results: ${foundCount}/${totalFields} fields extracted`)
-  console.log("[BatchProcessor] Details:", extractionResults)
-
-  // Warn if critical fields are missing
-  if (extractionResults.estimated_net_worth === "NOT FOUND") {
-    console.warn("[BatchProcessor] WARNING: Net worth not extracted - check report format")
-  }
-  if (extractionResults.estimated_gift_capacity === "NOT FOUND") {
-    console.warn("[BatchProcessor] WARNING: Gift capacity not extracted - check report format")
-  }
-  if (extractionResults.romy_score === "NOT FOUND") {
-    console.warn("[BatchProcessor] WARNING: RōmyScore not extracted - check report format")
-  }
-
-  return metrics
-}
-
-// ============================================================================
-// JSON-BASED STRUCTURED DATA EXTRACTION
-// ============================================================================
-
-/**
- * Extract structured data from JSON block in report
- * Falls back to regex extraction if JSON not found
- */
-function extractStructuredDataFromReport(content: string): StructuredProspectData {
-  // Try to extract JSON block from report
-  const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/)
-
-  if (jsonMatch && jsonMatch[1]) {
-    try {
-      const jsonStr = jsonMatch[1].trim()
-      const data = JSON.parse(jsonStr)
-
-      console.log("[BatchProcessor] Successfully extracted JSON data block")
-
-      // Build structured data from JSON
-      const structuredData: StructuredProspectData = {}
-
-      // Extract metrics
-      if (data.metrics) {
-        structuredData.romy_score = data.metrics.romy_score ?? undefined
-        structuredData.romy_score_tier = data.metrics.romy_score_tier ?? undefined
-        structuredData.capacity_rating = data.metrics.capacity_rating ?? undefined
-        structuredData.estimated_net_worth = data.metrics.estimated_net_worth ?? undefined
-        structuredData.estimated_gift_capacity = data.metrics.estimated_gift_capacity ?? undefined
-        structuredData.recommended_ask = data.metrics.recommended_ask ?? undefined
-      }
-
-      // Extract wealth indicators
-      if (data.wealth_indicators) {
-        structuredData.wealth_indicators = {
-          real_estate_total: data.wealth_indicators.real_estate_total ?? undefined,
-          property_count: data.wealth_indicators.property_count ?? undefined,
-          business_equity: data.wealth_indicators.business_equity ?? undefined,
-          public_holdings: data.wealth_indicators.public_holdings ?? undefined,
-          inheritance_likely: data.wealth_indicators.inheritance_likely ?? undefined,
-        }
-      }
-
-      // Extract business details
-      if (data.business_details) {
-        structuredData.business_details = {
-          companies: Array.isArray(data.business_details.companies)
-            ? data.business_details.companies.filter((c: unknown) => c && typeof c === "string")
-            : undefined,
-          roles: Array.isArray(data.business_details.roles)
-            ? data.business_details.roles.filter((r: unknown) => r && typeof r === "string")
-            : undefined,
-          industries: Array.isArray(data.business_details.industries)
-            ? data.business_details.industries.filter((i: unknown) => i && typeof i === "string")
-            : undefined,
-        }
-      }
-
-      // Extract giving history
-      if (data.giving_history) {
-        structuredData.giving_history = {
-          total_political: data.giving_history.total_political ?? undefined,
-          political_party: data.giving_history.political_party ?? undefined,
-          foundation_affiliations: Array.isArray(data.giving_history.foundation_affiliations)
-            ? data.giving_history.foundation_affiliations.filter((f: unknown) => f && typeof f === "string")
-            : undefined,
-          nonprofit_boards: Array.isArray(data.giving_history.nonprofit_boards)
-            ? data.giving_history.nonprofit_boards.filter((n: unknown) => n && typeof n === "string")
-            : undefined,
-          known_major_gifts: Array.isArray(data.giving_history.known_major_gifts)
-            ? data.giving_history.known_major_gifts.filter(
-                (g: unknown) => g && typeof g === "object" && "org" in (g as object)
-              )
-            : undefined,
-        }
-      }
-
-      // Extract affiliations
-      if (data.affiliations) {
-        structuredData.affiliations = {
-          education: Array.isArray(data.affiliations.education)
-            ? data.affiliations.education.filter((e: unknown) => e && typeof e === "string")
-            : undefined,
-          clubs: Array.isArray(data.affiliations.clubs)
-            ? data.affiliations.clubs.filter((c: unknown) => c && typeof c === "string")
-            : undefined,
-          public_company_boards: Array.isArray(data.affiliations.public_company_boards)
-            ? data.affiliations.public_company_boards.filter((p: unknown) => p && typeof p === "string")
-            : undefined,
-        }
-      }
-
-      return structuredData
-    } catch (parseError) {
-      console.warn("[BatchProcessor] Failed to parse JSON block, falling back to regex extraction:", parseError)
-    }
-  }
-
-  // Fallback to regex extraction
-  console.log("[BatchProcessor] No JSON block found, using regex extraction")
-  const regexMetrics = extractMetricsFromReport(content)
-
-  return {
-    romy_score: regexMetrics.romy_score,
-    romy_score_tier: regexMetrics.romy_score_tier,
-    capacity_rating: regexMetrics.capacity_rating,
-    estimated_net_worth: regexMetrics.estimated_net_worth,
-    estimated_gift_capacity: regexMetrics.estimated_gift_capacity,
-    recommended_ask: regexMetrics.recommended_ask,
-  }
 }
 
 /**
- * Remove JSON block from report content (for display purposes)
+ * Validate that parsed object matches ProspectResearchOutput schema
  */
-function removeJsonBlockFromReport(content: string): string {
-  return content.replace(/\n*---\n*\s*```json[\s\S]*?```\s*$/m, "").trim()
-}
+function isValidProspectOutput(obj: unknown): obj is ProspectResearchOutput {
+  if (!obj || typeof obj !== "object") return false
 
-// ============================================================================
-// DEPRECATED: SONAR + GROK REPORT GENERATION
-// ============================================================================
+  const data = obj as Record<string, unknown>
 
-/**
- * @deprecated Use generateComprehensiveReportWithTools instead.
- * This function now redirects to the comprehensive mode which uses
- * Grok 4.1 Fast + Exa web search (reliable and working).
- *
- * Previously used Gemini 3 Pro with native web search, but that configuration
- * doesn't work - Gemini doesn't support native web search via OpenRouter plugins.
- */
-export async function generateReportWithSonarAndGrok(
-  options: GenerateReportOptions
-): Promise<SonarGrokReportResult> {
-  const startTime = Date.now()
-
-  console.log(`[BatchProcessor] generateReportWithSonarAndGrok is DEPRECATED - routing to generateComprehensiveReportWithTools`)
-
-  // Route to the working function (Grok 4.1 Fast + Exa)
-  const result = await generateComprehensiveReportWithTools({
-    ...options,
-    searchMode: "comprehensive",
-  })
-
-  // Convert GenerateReportResult to SonarGrokReportResult format
-  return {
-    report_content: result.report_content || "",
-    structured_data: {
-      romy_score: result.romy_score,
-      romy_score_tier: result.romy_score_tier,
-      capacity_rating: result.capacity_rating,
-      estimated_net_worth: result.estimated_net_worth,
-      estimated_gift_capacity: result.estimated_gift_capacity,
-      recommended_ask: result.recommended_ask,
-    },
-    sources: result.sources_found || [],
-    tokens_used: result.tokens_used || 0,
-    model_used: "grok-4.1-fast",
-    processing_duration_ms: Date.now() - startTime,
-  }
-}
-
-/**
- * Extract source URLs from report text
- */
-function extractSourcesFromReport(text: string): Array<{ name: string; url: string }> {
-  const sources: Array<{ name: string; url: string }> = []
-  const seen = new Set<string>()
-
-  // Match URLs in the text
-  const urlPattern = /https?:\/\/[^\s\)\]<>"]+/g
-  const matches = text.match(urlPattern) || []
-
-  for (const url of matches) {
-    const cleanUrl = url.replace(/[.,;:!?]+$/, "")
-    if (!seen.has(cleanUrl)) {
-      seen.add(cleanUrl)
-      try {
-        const urlObj = new URL(cleanUrl)
-        const domain = urlObj.hostname.replace(/^www\./, "")
-        sources.push({ name: domain, url: cleanUrl })
-      } catch {
-        // Skip invalid URLs
-      }
+  // Check required top-level keys
+  const requiredKeys = ["metrics", "wealth", "philanthropy", "background", "strategy", "sources", "executive_summary"]
+  for (const key of requiredKeys) {
+    if (!(key in data)) {
+      console.warn(`[BatchProcessor] Missing required key: ${key}`)
+      return false
     }
   }
 
-  return sources.slice(0, 10)
+  // Check metrics structure
+  const metrics = data.metrics as Record<string, unknown>
+  if (!metrics || typeof metrics !== "object") return false
+  if (!("capacity_rating" in metrics) || !("romy_score" in metrics)) {
+    console.warn("[BatchProcessor] Missing required metrics fields")
+    return false
+  }
+
+  return true
 }
 
 // ============================================================================
-// ROMYSCORE CALCULATION FROM AI-EXTRACTED METRICS
+// MARKDOWN REPORT FORMATTER
 // ============================================================================
 
 /**
- * Calculate RomyScore from AI-extracted metrics
- * Since we no longer have tool results, we estimate based on net worth
+ * Format structured JSON output into table-first markdown report
  */
-async function calculateRomyScoreFromMetrics(
+function formatReportMarkdown(name: string, data: ProspectResearchOutput): string {
+  const { metrics, wealth, philanthropy, background, strategy, sources, executive_summary } = data
+
+  // Format currency with null handling
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return "Unknown"
+    return `$${value.toLocaleString()}`
+  }
+
+  // Format net worth range
+  const netWorthDisplay = metrics.estimated_net_worth_low && metrics.estimated_net_worth_high
+    ? `${formatCurrency(metrics.estimated_net_worth_low)} - ${formatCurrency(metrics.estimated_net_worth_high)}`
+    : formatCurrency(metrics.estimated_net_worth_high || metrics.estimated_net_worth_low)
+
+  // Build markdown
+  const lines: string[] = []
+
+  // Header with key metrics table
+  lines.push(`# ${name} | Prospect Profile`)
+  lines.push("")
+  lines.push("| Metric | Value | Confidence |")
+  lines.push("|--------|-------|------------|")
+  lines.push(`| **Net Worth** | ${netWorthDisplay} | ${metrics.confidence_level} |`)
+  lines.push(`| **Gift Capacity** | ${formatCurrency(metrics.estimated_gift_capacity)} | ${metrics.confidence_level} |`)
+  lines.push(`| **Rating** | ${metrics.capacity_rating} | - |`)
+  lines.push(`| **RōmyScore** | ${metrics.romy_score}/41 | - |`)
+  lines.push(`| **Recommended Ask** | ${formatCurrency(metrics.recommended_ask)} | - |`)
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+
+  // Executive Summary
+  lines.push("## Executive Summary")
+  lines.push("")
+  lines.push(executive_summary)
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+
+  // Wealth Indicators
+  lines.push("## Wealth Indicators")
+  lines.push("")
+
+  // Real Estate
+  lines.push("### Real Estate")
+  if (wealth.real_estate.properties.length > 0) {
+    lines.push("")
+    lines.push("| Property | Value | Source | Confidence |")
+    lines.push("|----------|-------|--------|------------|")
+    for (const prop of wealth.real_estate.properties) {
+      lines.push(`| ${prop.address} | ${formatCurrency(prop.value)} | ${prop.source} | ${prop.confidence} |`)
+    }
+    lines.push("")
+    lines.push(`**Total Real Estate:** ${formatCurrency(wealth.real_estate.total_value)}`)
+  } else {
+    lines.push("- No property records found")
+  }
+  lines.push("")
+
+  // Business Interests
+  lines.push("### Business Interests")
+  if (wealth.business_ownership.length > 0) {
+    for (const biz of wealth.business_ownership) {
+      const valueStr = biz.estimated_value ? ` | Est. Value: ${formatCurrency(biz.estimated_value)}` : ""
+      lines.push(`- **${biz.company}** - ${biz.role}${valueStr} | [${biz.source}] [${biz.confidence}]`)
+    }
+  } else {
+    lines.push("- No business ownership found")
+  }
+  lines.push("")
+
+  // Securities
+  lines.push("### Securities & Public Holdings")
+  if (wealth.securities.has_sec_filings && wealth.securities.insider_at.length > 0) {
+    lines.push(`- SEC Form 4 filer at: ${wealth.securities.insider_at.join(", ")} | [${wealth.securities.source}]`)
+  } else {
+    lines.push("- No SEC insider filings found")
+  }
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+
+  // Philanthropic Profile
+  lines.push("## Philanthropic Profile")
+  lines.push("")
+
+  // Political Giving
+  lines.push("### Political Giving")
+  if (philanthropy.political_giving.total > 0) {
+    lines.push(`- **Total:** ${formatCurrency(philanthropy.political_giving.total)} | **Party Lean:** ${philanthropy.political_giving.party_lean} | [${philanthropy.political_giving.source || "FEC"}]`)
+  } else {
+    lines.push("- No federal political contributions found")
+  }
+  lines.push("")
+
+  // Foundation Connections
+  lines.push("### Foundation Connections")
+  if (philanthropy.foundation_affiliations.length > 0) {
+    for (const foundation of philanthropy.foundation_affiliations) {
+      lines.push(`- ${foundation}`)
+    }
+  } else {
+    lines.push("- No foundation affiliations found")
+  }
+  lines.push("")
+
+  // Nonprofit Boards
+  lines.push("### Nonprofit Board Service")
+  if (philanthropy.nonprofit_boards.length > 0) {
+    for (const board of philanthropy.nonprofit_boards) {
+      lines.push(`- ${board}`)
+    }
+  } else {
+    lines.push("- None found")
+  }
+  lines.push("")
+
+  // Known Major Gifts
+  lines.push("### Known Major Gifts")
+  if (philanthropy.known_major_gifts.length > 0) {
+    lines.push("")
+    lines.push("| Organization | Amount | Year | Source |")
+    lines.push("|--------------|--------|------|--------|")
+    for (const gift of philanthropy.known_major_gifts) {
+      lines.push(`| ${gift.organization} | ${formatCurrency(gift.amount)} | ${gift.year || "N/A"} | ${gift.source} |`)
+    }
+  } else {
+    lines.push("- No documented major gifts found")
+  }
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+
+  // Background
+  lines.push("## Background")
+  lines.push("")
+  if (background.age) {
+    lines.push(`**Age:** ${background.age}`)
+  }
+  if (background.education.length > 0) {
+    lines.push(`**Education:** ${background.education.join("; ")}`)
+  }
+  if (background.career_summary) {
+    lines.push(`**Career:** ${background.career_summary}`)
+  }
+  if (background.family.spouse) {
+    lines.push(`**Spouse:** ${background.family.spouse}`)
+  }
+  if (background.family.children_count) {
+    lines.push(`**Children:** ${background.family.children_count}`)
+  }
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+
+  // Cultivation Strategy
+  lines.push("## Cultivation Strategy")
+  lines.push("")
+  lines.push(`**Readiness:** ${strategy.readiness}`)
+  lines.push("")
+  lines.push("**Next Steps:**")
+  for (let i = 0; i < strategy.next_steps.length; i++) {
+    lines.push(`${i + 1}. ${strategy.next_steps[i]}`)
+  }
+  lines.push("")
+  lines.push(`**Best Solicitor:** ${strategy.best_solicitor}`)
+  lines.push("")
+  lines.push(`**Tax-Smart Option:** ${strategy.tax_smart_option}`)
+  lines.push("")
+  lines.push("**Talking Points:**")
+  for (const point of strategy.talking_points) {
+    lines.push(`- ${point}`)
+  }
+  if (strategy.avoid.length > 0) {
+    lines.push("")
+    lines.push("**Avoid:**")
+    for (const item of strategy.avoid) {
+      lines.push(`- ${item}`)
+    }
+  }
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+
+  // Sources
+  lines.push("## Sources")
+  lines.push("")
+  for (const source of sources) {
+    lines.push(`- [${source.title}](${source.url}) - ${source.data_provided}`)
+  }
+
+  return lines.join("\n")
+}
+
+// ============================================================================
+// ROMYSCORE CALCULATION
+// ============================================================================
+
+/**
+ * Calculate RomyScore from structured research data
+ */
+async function calculateRomyScoreFromResearch(
   prospect: ProspectInputData,
-  aiExtractedMetrics: {
-    estimated_net_worth?: number
-    estimated_gift_capacity?: number
-  }
+  output: ProspectResearchOutput
 ): Promise<RomyScoreBreakdown> {
   const dataPoints: Partial<RomyScoreDataPoints> = {}
 
-  // If we have AI-extracted net worth, estimate property value
-  if (aiExtractedMetrics.estimated_net_worth && aiExtractedMetrics.estimated_net_worth > 0) {
-    // Rough estimate: property is often 20-40% of net worth for HNW individuals
-    dataPoints.propertyValue = Math.round(aiExtractedMetrics.estimated_net_worth * 0.3)
+  // Property value from research
+  if (output.wealth.real_estate.total_value) {
+    dataPoints.propertyValue = output.wealth.real_estate.total_value
   }
 
-  // Get cached score, merging with new data
+  // Property count (additional properties beyond primary)
+  if (output.wealth.real_estate.properties.length > 1) {
+    dataPoints.additionalPropertyCount = output.wealth.real_estate.properties.length - 1
+  }
+
+  // Business ownership - convert to businessRoles format
+  if (output.wealth.business_ownership.length > 0) {
+    dataPoints.businessRoles = output.wealth.business_ownership.map(biz => ({
+      role: biz.role,
+      companyName: biz.company,
+      isPublicCompany: output.wealth.securities.insider_at.some(
+        ticker => biz.company.toUpperCase().includes(ticker)
+      ),
+    }))
+  }
+
+  // Foundation affiliations
+  if (output.philanthropy.foundation_affiliations.length > 0) {
+    dataPoints.foundationAffiliations = output.philanthropy.foundation_affiliations
+  }
+
+  // Political giving total
+  if (output.philanthropy.political_giving.total > 0) {
+    dataPoints.totalPoliticalGiving = output.philanthropy.political_giving.total
+  }
+
+  // Get RomyScore using the correct data points structure
   const breakdown = await getRomyScore(
     prospect.name,
     prospect.city,
@@ -1486,463 +741,135 @@ async function calculateRomyScoreFromMetrics(
     dataPoints
   )
 
-  console.log(
-    `[BatchProcessor] RomyScore for ${prospect.name}: ${breakdown.totalScore}/41 ` +
-    `(${breakdown.tier.name}) - Confidence: ${breakdown.dataQuality.confidenceLevel}`
-  )
-
   return breakdown
 }
 
 // ============================================================================
-// MAIN REPORT GENERATION
+// MAIN ENTRY POINT
 // ============================================================================
 
 /**
- * Generate a comprehensive prospect report using multi-phase targeted Exa searches.
+ * Generate a comprehensive prospect report using Perplexity Sonar Pro
  *
- * This approach does 4 targeted searches optimized for specific data types:
- * 1. PROPERTY: Real estate values from Zillow, Redfin, Realtor.com
- * 2. BUSINESS: Company ownership from LinkedIn, Bloomberg, state registries
- * 3. PHILANTHROPY: Foundation/political giving from FEC, OpenSecrets, ProPublica
- * 4. BIOGRAPHY: News and professional background
- *
- * Each search uses optimized search_prompts to guide Exa to the right sources.
- */
-export async function generateComprehensiveReportWithTools(
-  options: GenerateReportOptions
-): Promise<GenerateReportResult> {
-  const { prospect, apiKey } = options
-  const startTime = Date.now()
-
-  try {
-    // Build search context from prospect data
-    const name = prospect.name
-    const address = prospect.address || prospect.full_address || ""
-    const city = prospect.city || ""
-    const state = prospect.state || ""
-    const location = [city, state].filter(Boolean).join(", ")
-    const fullAddress = [address, city, state, prospect.zip].filter(Boolean).join(", ")
-
-    console.log(`[BatchProcessor] Starting multi-phase research for: ${name}`)
-
-    // =========================================================================
-    // PHASE 1: PROPERTY SEARCH - Real estate values
-    // =========================================================================
-    console.log(`[BatchProcessor] Phase 1: Property search for ${fullAddress}`)
-
-    const propertySearch = await runTargetedSearch({
-      apiKey,
-      searchQuery: `"${fullAddress}" OR "${address} ${city}" property value home worth sold price`,
-      searchPrompt: `Find real estate and property information.
-ONLY return results from: zillow.com, redfin.com, realtor.com, trulia.com, county assessor websites, property tax records.
-Look for: home value estimates, sale prices, property tax assessments, square footage, lot size.
-EXCLUDE: rental listings, apartments, commercial properties unless clearly owned by the person.`,
-      maxResults: 5,
-    })
-
-    // =========================================================================
-    // PHASE 2: BUSINESS SEARCH - Company ownership and professional roles
-    // =========================================================================
-    console.log(`[BatchProcessor] Phase 2: Business search for ${name}`)
-
-    const businessSearch = await runTargetedSearch({
-      apiKey,
-      searchQuery: `"${name}" ${location} CEO OR founder OR owner OR president OR executive OR director company business`,
-      searchPrompt: `Find business ownership and professional information.
-ONLY return results from: linkedin.com, bloomberg.com, crunchbase.com, pitchbook.com, businesswire.com,
-state secretary of state websites, corporation wikis, company websites, press releases.
-Look for: company ownership, executive titles, board positions, business valuations.
-EXCLUDE: social media posts, personal blogs, unverified directories.`,
-      maxResults: 5,
-    })
-
-    // =========================================================================
-    // PHASE 3: PHILANTHROPY SEARCH - Political giving and foundation connections
-    // =========================================================================
-    console.log(`[BatchProcessor] Phase 3: Philanthropy search for ${name}`)
-
-    const philanthropySearch = await runTargetedSearch({
-      apiKey,
-      searchQuery: `"${name}" ${location} donation OR contribution OR foundation OR nonprofit OR charity OR board`,
-      searchPrompt: `Find philanthropic and political giving information.
-ONLY return results from: fec.gov, opensecrets.org, propublica.org, guidestar.org, foundationcenter.org,
-candid.org, charitynavigator.org, 990finder.foundationcenter.org, news about charitable donations.
-Look for: political contributions (FEC data), foundation board seats, nonprofit involvement, major gifts.
-EXCLUDE: crowdfunding, GoFundMe, personal social media.`,
-      maxResults: 5,
-    })
-
-    // =========================================================================
-    // PHASE 4: BIOGRAPHY SEARCH - News and professional background
-    // =========================================================================
-    console.log(`[BatchProcessor] Phase 4: Biography search for ${name}`)
-
-    const biographySearch = await runTargetedSearch({
-      apiKey,
-      searchQuery: `"${name}" ${location} biography OR profile OR interview OR appointed OR awarded`,
-      searchPrompt: `Find biographical and news information about this person.
-ONLY return results from: Major news outlets (nytimes.com, wsj.com, bloomberg.com, forbes.com, etc.),
-wikipedia.org, university websites, professional associations, awards announcements.
-Look for: education, career history, awards, interviews, net worth estimates, family office.
-EXCLUDE: social media, personal blogs, unverified celebrity net worth sites.`,
-      maxResults: 5,
-    })
-
-    // =========================================================================
-    // PHASE 5: SYNTHESIS - Combine all search results into final report
-    // =========================================================================
-    console.log(`[BatchProcessor] Phase 5: Synthesizing ${name}'s report from ${
-      (propertySearch.sources?.length || 0) +
-      (businessSearch.sources?.length || 0) +
-      (philanthropySearch.sources?.length || 0) +
-      (biographySearch.sources?.length || 0)
-    } sources`)
-
-    // Combine all search findings
-    const combinedFindings = `
-## PROPERTY DATA (from Zillow, Redfin, county records):
-${propertySearch.content || "No property data found."}
-
-## BUSINESS DATA (from LinkedIn, Bloomberg, state registries):
-${businessSearch.content || "No business data found."}
-
-## PHILANTHROPIC DATA (from FEC, ProPublica, OpenSecrets):
-${philanthropySearch.content || "No philanthropic data found."}
-
-## BIOGRAPHICAL DATA (from news, Wikipedia):
-${biographySearch.content || "No biographical data found."}
-`
-
-    // Build prospect info for final synthesis
-    const prospectInfo = buildProspectQueryString(prospect)
-    const additionalInfo = Object.entries(prospect)
-      .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
-      .filter(([, value]) => value)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join("\n")
-
-    // Final synthesis with Grok (no additional web search needed)
-    const openrouter = createOpenRouter({
-      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-      extraBody: {
-        reasoning: { effort: "high" },
-      },
-    })
-    const model = openrouter.chat("x-ai/grok-4.1-fast")
-
-    const synthesisPrompt = `You are Rōmy, a prospect research assistant. Synthesize the following research data into a professional prospect summary for major gift fundraising.
-
-**PROSPECT:** ${prospectInfo}
-${additionalInfo ? `**Additional Info:** ${additionalInfo}` : ""}
-
-**RESEARCH FINDINGS:**
-${combinedFindings}
-
-**YOUR TASK:**
-1. Analyze all the research data above
-2. Extract key wealth indicators (property values, business ownership, giving history)
-3. Calculate estimated net worth based on the data
-4. Determine gift capacity (1-2% of liquid net worth)
-5. Produce a comprehensive prospect summary
-
-**OUTPUT FORMAT:**
-Use the standard prospect summary format with:
-- Key Metrics table (RōmyScore, Est. Net Worth, Gift Capacity, Capacity Rating)
-- Executive Summary (2-3 sentences)
-- Wealth Indicators (Real Estate, Business Interests, Securities)
-- Philanthropic Profile (Political Giving, Foundation Connections, Known Major Gifts)
-- Cultivation Strategy (3 specific next steps)
-- Sources
-
-If data is missing for a section, write "None found in available sources" - do NOT fabricate data.`
-
-    const result = await streamText({
-      model,
-      system: COMPREHENSIVE_MODE_SYSTEM_PROMPT,
-      messages: [{ role: "user", content: synthesisPrompt }],
-      maxTokens: 8000,
-      temperature: 0.3,
-    })
-
-    // Collect the full response
-    let reportContent = ""
-    for await (const chunk of result.textStream) {
-      reportContent += chunk
-    }
-
-    // Get usage stats
-    const usage = await result.usage
-    const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
-
-    // Extract AI-generated metrics from the report
-    const aiMetrics = extractMetricsFromReport(reportContent)
-
-    // Calculate RomyScore from AI-extracted metrics
-    const romyBreakdown = await calculateRomyScoreFromMetrics(
-      prospect,
-      {
-        estimated_net_worth: aiMetrics.estimated_net_worth,
-        estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
-      }
-    )
-
-    const processingTime = Date.now() - startTime
-    console.log(
-      `[BatchProcessor] Multi-phase report generated for ${prospect.name} in ${processingTime}ms, ` +
-        `tokens: ${tokensUsed}, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
-    )
-
-    // Combine all sources
-    const allSources = [
-      ...(propertySearch.sources || []),
-      ...(businessSearch.sources || []),
-      ...(philanthropySearch.sources || []),
-      ...(biographySearch.sources || []),
-    ]
-
-    return {
-      success: true,
-      report_content: reportContent,
-      romy_score: romyBreakdown.totalScore,
-      romy_score_tier: romyBreakdown.tier.name,
-      capacity_rating: romyBreakdown.tier.capacity,
-      estimated_net_worth: aiMetrics.estimated_net_worth,
-      estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
-      recommended_ask: aiMetrics.recommended_ask,
-      search_queries_used: ["Property (Zillow/Redfin)", "Business (LinkedIn/Bloomberg)", "Philanthropy (FEC/ProPublica)", "Biography (News)"],
-      sources_found: allSources,
-      tokens_used: tokensUsed,
-    }
-  } catch (error) {
-    console.error("[BatchProcessor] Multi-phase report generation failed:", error)
-
-    return {
-      success: false,
-      error_message: error instanceof Error ? error.message : "Report generation failed",
-    }
-  }
-}
-
-/**
- * Run a single targeted Exa search with optimized search_prompt
- */
-async function runTargetedSearch(options: {
-  apiKey?: string
-  searchQuery: string
-  searchPrompt: string
-  maxResults: number
-}): Promise<{ content: string; sources: Array<{ name: string; url: string }> }> {
-  const { apiKey, searchQuery, searchPrompt, maxResults } = options
-
-  try {
-    const openrouter = createOpenRouter({
-      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-      extraBody: {
-        plugins: [{
-          id: "web",
-          engine: "exa",
-          max_results: maxResults,
-          search_prompt: searchPrompt,
-        }],
-      },
-    })
-
-    const result = await generateText({
-      model: openrouter.chat("x-ai/grok-4.1-fast"),
-      prompt: `Search for: ${searchQuery}
-
-Return ONLY the factual information found. Include specific numbers, dates, and dollar amounts.
-Format as bullet points. Cite the source URL for each fact.
-If nothing relevant is found, say "No relevant results found."`,
-      maxTokens: 2000,
-      temperature: 0.1,
-    })
-
-    // Extract sources from the response (URLs mentioned)
-    const urlPattern = /https?:\/\/[^\s\)\]<>"]+/g
-    const urls = result.text.match(urlPattern) || []
-    const sources = [...new Set(urls)].slice(0, 5).map(url => {
-      const cleanUrl = url.replace(/[.,;:!?]+$/, "")
-      try {
-        const domain = new URL(cleanUrl).hostname.replace(/^www\./, "")
-        return { name: domain, url: cleanUrl }
-      } catch {
-        return { name: "Source", url: cleanUrl }
-      }
-    })
-
-    return {
-      content: result.text,
-      sources,
-    }
-  } catch (error) {
-    console.error(`[BatchProcessor] Targeted search failed:`, error)
-    return {
-      content: "Search failed - no data available.",
-      sources: [],
-    }
-  }
-}
-
-/**
- * Generate a standard report using Perplexity's built-in web search.
- * Produces a concise output format optimized for quick prioritization.
- */
-async function generateStandardReport(
-  options: GenerateReportOptions
-): Promise<GenerateReportResult> {
-  const { prospect, apiKey } = options
-  const startTime = Date.now()
-
-  try {
-    // Build prospect info for the prompt
-    const prospectInfo = buildProspectQueryString(prospect)
-    const additionalInfo = Object.entries(prospect)
-      .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
-      .filter(([, value]) => value)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join("\n")
-
-    // Perplexity has built-in web search - no tools needed
-    const systemPrompt = PROFESSIONAL_SUMMARY_PROMPT
-
-    const userMessage = `Research this prospect and generate a Professional Summary:
-
-**Prospect:** ${prospectInfo}
-${additionalInfo ? `\n**Additional Information:**\n${additionalInfo}` : ""}
-
-Use your built-in web search to gather data:
-1. Search for property values and real estate holdings
-2. Look for business ownership and professional background
-3. Check ProPublica Nonprofit Explorer for foundation affiliations
-4. Search FEC.gov for political giving history
-5. Look for SEC filings if they're a public company executive
-
-After researching, produce the concise prospect summary with ALL sections filled in. Include specific dollar amounts.`
-
-    console.log(`[BatchProcessor] Starting standard research for: ${prospect.name}`)
-
-    // Generate report using Grok 4.1 Fast with Exa web search - OPTIMIZED
-    const openrouter = createOpenRouter({
-      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-      extraBody: {
-        // Enable Exa web search with focused search for standard mode
-        plugins: [{
-          id: "web",
-          engine: "exa",
-          max_results: 8, // Balanced for speed vs coverage
-          search_prompt: `Find key information about this person for nonprofit donor research.
-Focus on: property values, business ownership, philanthropic history, political contributions.
-Prioritize official sources: county assessors, state business registries, FEC, ProPublica 990s.`,
-        }],
-        // Enable medium-effort reasoning for faster analysis
-        reasoning: { effort: "medium" },
-      },
-    })
-    const model = openrouter.chat("x-ai/grok-4.1-fast")
-
-    const result = await streamText({
-      model,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-      maxSteps: 1,
-      maxTokens: 4000,
-      temperature: 0.3,
-    })
-
-    // Collect the full response
-    let reportContent = ""
-    for await (const chunk of result.textStream) {
-      reportContent += chunk
-    }
-
-    // Get usage stats
-    const usage = await result.usage
-    const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
-
-    // Extract AI-generated metrics from the report
-    const aiMetrics = extractMetricsFromReport(reportContent)
-
-    console.log(`[BatchProcessor] Extracted metrics:`, {
-      net_worth: aiMetrics.estimated_net_worth ?? "NOT FOUND",
-      gift_capacity: aiMetrics.estimated_gift_capacity ?? "NOT FOUND",
-      recommended_ask: aiMetrics.recommended_ask ?? "NOT FOUND",
-    })
-
-    // Calculate RomyScore from AI-extracted metrics
-    const romyBreakdown = await calculateRomyScoreFromMetrics(
-      prospect,
-      {
-        estimated_net_worth: aiMetrics.estimated_net_worth,
-        estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
-      }
-    )
-
-    const processingTime = Date.now() - startTime
-    console.log(
-      `[BatchProcessor] Standard report generated for ${prospect.name} in ${processingTime}ms, ` +
-        `tokens: ${tokensUsed}, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
-    )
-
-    return {
-      success: true,
-      report_content: reportContent,
-      romy_score: romyBreakdown.totalScore,
-      romy_score_tier: romyBreakdown.tier.name,
-      capacity_rating: romyBreakdown.tier.capacity,
-      estimated_net_worth: aiMetrics.estimated_net_worth,
-      estimated_gift_capacity: aiMetrics.estimated_gift_capacity,
-      recommended_ask: aiMetrics.recommended_ask,
-      search_queries_used: ["Perplexity built-in web search"],
-      sources_found: [], // Sources are inline in Perplexity responses
-      tokens_used: tokensUsed,
-    }
-  } catch (error) {
-    console.error("[BatchProcessor] Standard report generation failed:", error)
-
-    return {
-      success: false,
-      error_message: error instanceof Error ? error.message : "Report generation failed",
-    }
-  }
-}
-
-/**
- * Main entry point for prospect report generation.
- * Routes to either standard (fast 2-search) or comprehensive (agentic with tools) mode.
+ * This is the main entry point for batch processing.
+ * Returns structured data + formatted markdown report.
  */
 export async function generateProspectReport(
   options: GenerateReportOptions
 ): Promise<GenerateReportResult> {
-  const { searchMode = "standard" } = options
+  const { prospect, apiKey } = options
+  const startTime = Date.now()
 
-  // Route to appropriate generation mode
-  if (searchMode === "comprehensive") {
-    // Comprehensive mode: Full agentic research with all tools
-    return generateComprehensiveReportWithTools(options)
-  } else {
-    // Standard mode: Fast 2-search approach (original implementation)
-    return generateStandardReport(options)
+  try {
+    console.log(`[BatchProcessor] Starting research for: ${prospect.name}`)
+
+    // Step 1: Research with Perplexity Sonar Pro
+    const researchResult = await researchWithPerplexitySonar(prospect, apiKey)
+
+    if (!researchResult.success || !researchResult.output) {
+      return {
+        success: false,
+        error_message: researchResult.error_message || "Research failed",
+        tokens_used: researchResult.tokens_used,
+      }
+    }
+
+    const output = researchResult.output
+
+    // Step 2: Calculate RomyScore from research data
+    const romyBreakdown = await calculateRomyScoreFromResearch(prospect, output)
+
+    // Step 3: Override model's RomyScore with our calculated one
+    output.metrics.romy_score = romyBreakdown.totalScore
+
+    // Step 4: Regenerate markdown with updated score
+    const reportMarkdown = formatReportMarkdown(prospect.name, output)
+
+    const processingTime = Date.now() - startTime
+
+    console.log(
+      `[BatchProcessor] Research complete for ${prospect.name} in ${processingTime}ms: ` +
+      `RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name}), ` +
+      `Rating: ${output.metrics.capacity_rating}, ` +
+      `Sources: ${output.sources.length}`
+    )
+
+    // Extract average net worth for backward compatibility
+    const avgNetWorth = output.metrics.estimated_net_worth_low && output.metrics.estimated_net_worth_high
+      ? (output.metrics.estimated_net_worth_low + output.metrics.estimated_net_worth_high) / 2
+      : output.metrics.estimated_net_worth_high || output.metrics.estimated_net_worth_low || undefined
+
+    return {
+      success: true,
+      report_content: reportMarkdown,
+      structured_data: output,
+      romy_score: romyBreakdown.totalScore,
+      romy_score_tier: romyBreakdown.tier.name,
+      capacity_rating: output.metrics.capacity_rating,
+      estimated_net_worth: avgNetWorth,
+      estimated_gift_capacity: output.metrics.estimated_gift_capacity || undefined,
+      recommended_ask: output.metrics.recommended_ask || undefined,
+      sources_found: output.sources.map(s => ({ name: s.title, url: s.url })),
+      tokens_used: researchResult.tokens_used,
+    }
+  } catch (error) {
+    console.error("[BatchProcessor] Report generation failed:", error)
+
+    return {
+      success: false,
+      error_message: error instanceof Error ? error.message : "Report generation failed",
+    }
   }
 }
 
-// ============================================================================
-// PROCESS SINGLE BATCH ITEM
-// ============================================================================
-
+/**
+ * Process a single batch item
+ * Wrapper for backward compatibility with existing batch processing code
+ */
 export async function processBatchItem(
   item: BatchProspectItem,
-  settings: { enableWebSearch: boolean; generateRomyScore: boolean; searchMode?: BatchSearchMode },
+  settings: { enableWebSearch: boolean; generateRomyScore: boolean },
   apiKey?: string
 ): Promise<GenerateReportResult> {
-  const result = await generateProspectReport({
+  return generateProspectReport({
     prospect: item.input_data,
-    enableWebSearch: settings.enableWebSearch,
-    generateRomyScore: settings.generateRomyScore,
-    searchMode: settings.searchMode || "standard",
     apiKey,
   })
+}
 
-  return result
+/**
+ * @deprecated - Use generateProspectReport instead
+ * Kept for backward compatibility
+ */
+export async function generateComprehensiveReportWithTools(
+  options: GenerateReportOptions & { searchMode?: string }
+): Promise<GenerateReportResult> {
+  return generateProspectReport(options)
+}
+
+/**
+ * @deprecated - Use generateProspectReport instead
+ * Kept for backward compatibility
+ */
+export async function generateReportWithSonarAndGrok(
+  options: GenerateReportOptions & { searchMode?: string }
+): Promise<{
+  report_content: string
+  structured_data: Record<string, unknown>
+  sources: Array<{ name: string; url: string }>
+  tokens_used: number
+  model_used: string
+  processing_duration_ms: number
+}> {
+  const startTime = Date.now()
+  const result = await generateProspectReport(options)
+
+  return {
+    report_content: result.report_content || "",
+    structured_data: (result.structured_data as unknown as Record<string, unknown>) || {},
+    sources: result.sources_found || [],
+    tokens_used: result.tokens_used || 0,
+    model_used: "perplexity/sonar-pro",
+    processing_duration_ms: Date.now() - startTime,
+  }
 }

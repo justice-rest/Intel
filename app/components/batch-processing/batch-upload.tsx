@@ -31,12 +31,7 @@ import {
   type ParsedFileResult,
   type ColumnMapping,
   type ProspectInputData,
-  type BatchSearchMode,
 } from "@/lib/batch-processing"
-import {
-  ESTIMATED_SECONDS_PER_PROSPECT_STANDARD,
-  ESTIMATED_SECONDS_PER_PROSPECT_COMPREHENSIVE,
-} from "@/lib/batch-processing/config"
 import { MAX_BATCH_FILE_SIZE, ALLOWED_BATCH_EXTENSIONS } from "@/lib/batch-processing/config"
 
 interface BatchUploadProps {
@@ -44,8 +39,7 @@ interface BatchUploadProps {
     prospects: ProspectInputData[],
     fileName: string,
     fileSize: number,
-    columnMapping: ColumnMapping,
-    searchMode: BatchSearchMode
+    columnMapping: ColumnMapping
   ) => void
   isCreatingJob?: boolean
 }
@@ -59,7 +53,6 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({
     name: null,
   })
-  const [searchMode, setSearchMode] = useState<BatchSearchMode>("standard")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -156,7 +149,7 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
       return
     }
 
-    onUploadComplete(prospects, file.name, file.size, columnMapping, searchMode)
+    onUploadComplete(prospects, file.name, file.size, columnMapping)
   }
 
   const handleReset = () => {
@@ -164,7 +157,6 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
     setFile(null)
     setParseResult(null)
     setColumnMapping({ name: null })
-    setSearchMode("standard")
     setError(null)
   }
 
@@ -450,59 +442,29 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
               </div>
             </div>
 
-            {/* Search Mode Selector */}
-            <div className="rounded-lg border p-4 space-y-3">
-              <h4 className="text-sm font-medium">Search Mode</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSearchMode("standard")}
-                  className={cn(
-                    "p-3 rounded-lg border text-left transition-all",
-                    searchMode === "standard"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-muted hover:border-muted-foreground/50"
-                  )}
-                >
-                  <div className="font-medium text-sm">Standard</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Quick 5-line summary for prioritization. Business ownership + home value.
-                  </div>
-                  <div className="text-xs text-primary mt-2 font-medium">~20 sec/prospect</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSearchMode("comprehensive")}
-                  className={cn(
-                    "p-3 rounded-lg border text-left transition-all",
-                    searchMode === "comprehensive"
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-muted hover:border-muted-foreground/50"
-                  )}
-                >
-                  <div className="font-medium text-sm">Comprehensive</div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Full research report with philanthropy, SEC, FEC, and more.
-                  </div>
-                  <div className="text-xs text-primary mt-2 font-medium">~90-120 sec/prospect</div>
-                </button>
-              </div>
+            {/* Research Info */}
+            <div className="rounded-lg border p-4 bg-primary/5">
+              <h4 className="text-sm font-medium mb-2">Comprehensive Research</h4>
+              <p className="text-xs text-muted-foreground">
+                Each prospect will be researched using Perplexity Sonar Pro with grounded citations from:
+              </p>
+              <ul className="text-xs text-muted-foreground mt-2 space-y-1">
+                <li>• Property records (Zillow, county assessors)</li>
+                <li>• Business ownership (LinkedIn, state registries)</li>
+                <li>• SEC insider filings (if public company executive)</li>
+                <li>• FEC political contributions</li>
+                <li>• ProPublica nonprofit 990s</li>
+              </ul>
             </div>
 
             {/* Estimated Processing Time */}
             <div className="rounded-lg border p-4">
               <h4 className="text-sm font-medium mb-2">Estimated Processing Time</h4>
               <p className="text-2xl font-semibold">
-                {searchMode === "standard"
-                  ? `${Math.ceil((validationSummary.valid * ESTIMATED_SECONDS_PER_PROSPECT_STANDARD) / 60)} minutes`
-                  : `${Math.ceil((validationSummary.valid * 90) / 60)} - ${Math.ceil((validationSummary.valid * 120) / 60)} minutes`
-                }
+                ~{Math.ceil((validationSummary.valid * 30) / 60)} minutes
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {searchMode === "standard"
-                  ? "~20 seconds per prospect (focused business + property search)"
-                  : "~90-120 seconds per prospect (comprehensive web searches)"
-                }
+                ~30 seconds per prospect with comprehensive web search
               </p>
             </div>
 

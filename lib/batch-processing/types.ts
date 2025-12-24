@@ -23,13 +23,49 @@ export type BatchItemStatus =
   | "skipped"
 
 // ============================================================================
-// SEARCH MODE TYPES
+// CONFIDENCE & RATING TYPES
 // ============================================================================
 
 /**
- * Batch search mode options
- * - standard: Quick 5-line summary for prioritization (business + property only)
- * - comprehensive: Full research report with philanthropy, SEC, FEC, and more
+ * Confidence levels for data points
+ * - VERIFIED: Official source (SEC, FEC, County Assessor, ProPublica 990)
+ * - ESTIMATED: Calculated from indicators (includes methodology)
+ * - UNVERIFIED: Single web source, not corroborated
+ */
+export type DataConfidence = "VERIFIED" | "ESTIMATED" | "UNVERIFIED"
+
+/**
+ * Overall research confidence level
+ */
+export type ResearchConfidence = "HIGH" | "MEDIUM" | "LOW"
+
+/**
+ * Capacity ratings based on TFG Research standards
+ * - MAJOR: Net worth >$5M AND (business owner OR $1M+ property) = $25K+ capacity
+ * - PRINCIPAL: Net worth $1M-$5M OR senior executive = $10K-$25K capacity
+ * - LEADERSHIP: Net worth $500K-$1M OR professional = $5K-$10K capacity
+ * - ANNUAL: Below indicators = <$5K capacity
+ */
+export type CapacityRating = "MAJOR" | "PRINCIPAL" | "LEADERSHIP" | "ANNUAL"
+
+/**
+ * Political party affiliation based on FEC giving patterns
+ */
+export type PoliticalParty = "REPUBLICAN" | "DEMOCRATIC" | "BIPARTISAN" | "NONE"
+
+/**
+ * Prospect readiness for solicitation
+ */
+export type ProspectReadiness = "NOT_READY" | "WARMING" | "READY" | "URGENT"
+
+/**
+ * Tax-smart giving options
+ */
+export type TaxSmartOption = "QCD" | "STOCK" | "DAF" | "NONE"
+
+/**
+ * @deprecated - Removed in favor of single comprehensive mode
+ * Kept for backward compatibility with existing database records
  */
 export type BatchSearchMode = "standard" | "comprehensive"
 
@@ -367,4 +403,176 @@ export interface ExportResponse {
   download_url?: string
   file_name?: string
   error?: string
+}
+
+// ============================================================================
+// PROSPECT RESEARCH OUTPUT (New Perplexity Sonar Pro Format)
+// ============================================================================
+
+/**
+ * Source citation from research
+ */
+export interface ResearchSource {
+  title: string
+  url: string
+  data_provided: string  // What this source contributed to the research
+}
+
+/**
+ * Individual property record
+ */
+export interface PropertyRecord {
+  address: string
+  value: number
+  source: string  // "County Assessor" | "Zillow" | "Redfin" | etc.
+  confidence: DataConfidence
+}
+
+/**
+ * Business ownership record
+ */
+export interface BusinessRecord {
+  company: string
+  role: string
+  estimated_value: number | null
+  source: string
+  confidence: DataConfidence
+}
+
+/**
+ * Known major gift record
+ */
+export interface MajorGiftRecord {
+  organization: string
+  amount: number
+  year: number | null
+  source: string
+}
+
+/**
+ * Core metrics from research - always present
+ */
+export interface ResearchMetrics {
+  estimated_net_worth_low: number | null
+  estimated_net_worth_high: number | null
+  estimated_gift_capacity: number | null
+  capacity_rating: CapacityRating
+  romy_score: number  // 0-41
+  recommended_ask: number | null
+  confidence_level: ResearchConfidence
+}
+
+/**
+ * Real estate holdings
+ */
+export interface RealEstateData {
+  total_value: number | null
+  properties: PropertyRecord[]
+}
+
+/**
+ * Securities and public company affiliations
+ */
+export interface SecuritiesData {
+  has_sec_filings: boolean
+  insider_at: string[]  // Public company tickers
+  source: string | null
+}
+
+/**
+ * Wealth indicators from research
+ */
+export interface ResearchWealth {
+  real_estate: RealEstateData
+  business_ownership: BusinessRecord[]
+  securities: SecuritiesData
+}
+
+/**
+ * Political giving data from FEC
+ */
+export interface PoliticalGivingData {
+  total: number
+  party_lean: PoliticalParty
+  source: "FEC" | null
+}
+
+/**
+ * Philanthropic profile
+ */
+export interface ResearchPhilanthropy {
+  political_giving: PoliticalGivingData
+  foundation_affiliations: string[]
+  nonprofit_boards: string[]
+  known_major_gifts: MajorGiftRecord[]
+}
+
+/**
+ * Family information
+ */
+export interface FamilyData {
+  spouse: string | null
+  children_count: number | null
+}
+
+/**
+ * Personal background
+ */
+export interface ResearchBackground {
+  age: number | null
+  education: string[]
+  career_summary: string
+  family: FamilyData
+}
+
+/**
+ * Cultivation strategy recommendations
+ */
+export interface CultivationStrategy {
+  readiness: ProspectReadiness
+  next_steps: string[]
+  best_solicitor: string
+  tax_smart_option: TaxSmartOption
+  talking_points: string[]
+  avoid: string[]
+}
+
+/**
+ * Complete structured output from Perplexity Sonar Pro research
+ * This is the JSON schema the model outputs directly
+ */
+export interface ProspectResearchOutput {
+  // Core metrics (always required)
+  metrics: ResearchMetrics
+
+  // Wealth indicators with confidence levels
+  wealth: ResearchWealth
+
+  // Philanthropic profile
+  philanthropy: ResearchPhilanthropy
+
+  // Personal background
+  background: ResearchBackground
+
+  // Cultivation strategy
+  strategy: CultivationStrategy
+
+  // Sources with URLs (grounded citations)
+  sources: ResearchSource[]
+
+  // Brief narrative summary (for display)
+  executive_summary: string
+}
+
+/**
+ * Result from Perplexity Sonar Pro research
+ */
+export interface PerplexityResearchResult {
+  success: boolean
+  output?: ProspectResearchOutput
+  report_markdown?: string  // Formatted display report
+  tokens_used: number
+  model_used: string
+  processing_duration_ms: number
+  error_message?: string
 }

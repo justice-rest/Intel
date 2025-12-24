@@ -783,38 +783,196 @@ Based on their philanthropic history and interests, assess alignment with [User'
 
 ---
 
-## 9. CULTIVATION STRATEGY & RECOMMENDATIONS
+## 9. DONOR ENGAGEMENT, CULTIVATION, SOLICITATION & STEWARDSHIP STRATEGY
 
-### Recommended Approach
-[Based on everything above, outline a specific cultivation strategy]
+### 9.1 Prospect Readiness Assessment
 
-**Phase 1: Discovery (Months 1-2)**
-- [Specific action] - [Who executes] - [Timeline]
-- [Specific action] - [Who executes] - [Timeline]
+**Readiness Score:** [X]/10 — [NOT READY / WARMING / READY / URGENT]
 
-**Phase 2: Cultivation (Months 3-4)**
-- [Specific action] - [Who executes] - [Timeline]
-- [Specific action] - [Who executes] - [Timeline]
+| Readiness Signal | Present? | Evidence |
+|------------------|----------|----------|
+| Asks questions about programs/impact | [Yes/No/Unknown] | [Example] |
+| Returns calls/emails promptly | [Yes/No/Unknown] | [Pattern] |
+| Brings friends to events | [Yes/No/Unknown] | [Names] |
+| Uses "we" language about organization | [Yes/No/Unknown] | [Quote] |
+| Inquires about giving options | [Yes/No/Unknown] | [Question] |
+| Shares personal values | [Yes/No] | [Info type] |
+| Expresses excitement about project | [Yes/No] | [Project] |
+| Recent liquidity event | [Yes/No] | [Type/timing] |
 
-**Phase 3: Solicitation (Month 5-6)**
-- [Specific action] - [Who executes] - [Timeline]
+**Interpretation:**
+- **8-10 (URGENT):** Donor may be waiting for ask. Act within 30 days.
+- **5-7 (READY):** Schedule solicitation within 60 days.
+- **3-4 (WARMING):** Continue cultivation; reassess monthly.
+- **0-2 (NOT READY):** Focus on discovery and relationship building.
 
-### Ask Recommendation
-- **Ask Amount:** $X
-- **Ask Type:** [Outright/Pledge/Planned Gift/Stock Transfer]
+---
+
+### 9.2 Strategic 5-Phase Moves Management Plan
+
+**Phase 1: Qualification & Discovery** (Weeks 1-4)
+- [ ] Discovery call to assess interest and capacity
+- [ ] Validate wealth indicators through research
+- [ ] Identify decision-makers (spouse, advisor, family)
+- [ ] Document LIA: Linkage [X/10], Interest [X/10], Ability [X/10]
+- **Key Discovery Questions:**
+  - "What originally drew you to causes like ours?"
+  - "What causes are most important to you and your family?"
+  - "How do you typically approach major giving decisions?"
+
+**Phase 2: Early Cultivation** (Months 2-4)
+- [ ] Personalized tour with program leader
+- [ ] Introduction to beneficiaries
+- [ ] Mission moment experience
+- [ ] 1:1 meeting with CEO or board member
+- **Monthly Touchpoints:**
+  - Month 2: Handwritten note + impact story
+  - Month 3: Board member phone call
+  - Month 4: Exclusive event invitation
+
+**Phase 3: Engagement Deepening** (Months 5-7)
+- [ ] Advisory committee invitation
+- [ ] Behind-the-scenes access
+- [ ] Peer donor introduction
+- [ ] Project-specific proposal preview
+- **Key Positioning Points:**
+  1. [Tailored to philanthropic interests]
+  2. [Connection to professional background]
+  3. [Alignment with values/giving history]
+
+**Phase 4: Strategic Solicitation** (Months 8-9)
+- **Primary Ask:** $[Amount] — [Annual / Campaign / Planned Gift]
+- **Backup Position:** $[Lower Amount] — [Alternative]
+- **Solicitor Team:**
+  - Lead: [Peer donor OR CEO]
+  - Support: [Gift officer]
+- **Meeting Structure:**
+  - Set expectations in advance
+  - 30-45 minutes, max 2-3 people
+  - Present specific funding opportunity
+  - Always leave with agreed next step
+
+**Phase 5: Stewardship & Renewal** (Post-Gift — Ongoing)
+- See 12-Month Stewardship Calendar below
+- Track for upgrade potential in 12-18 months
+- Introduce planned giving at 6-month mark
+
+---
+
+### 9.3 Tax-Advantaged Giving Recommendations
+
+**Qualified Charitable Distribution (QCD)** — [RECOMMENDED / NOT APPLICABLE]
+- Eligibility: Age 70½+ with IRA assets
+- Benefits: Up to $108,000/year from IRA, satisfies RMD
+- Talking Point: "Have you considered directing your RMD to support our mission?"
+
+**Appreciated Securities** — [HIGHLY RECOMMENDED / RECOMMENDED / NOT APPLICABLE]
+- Eligibility: Long-term holdings with significant appreciation
+- Benefits: Avoid capital gains, deduct full fair market value
+- Talking Point: "Donating stock can increase your impact by 20%+ vs. cash."
+
+**Donor-Advised Fund (DAF)** — [RECOMMENDED / NOT APPLICABLE]
+- Benefits: Immediate deduction, flexible timing, family involvement
+- Talking Point: "Many leadership donors use DAFs for multi-year support."
+
+**Planned Giving** — [INTRODUCE / DEFER]
+- Bequest: Legacy giving with no current cost
+- CRT/CGA: Income stream + charitable deduction
+- Talking Point: "Would you like to learn how others have included us in estate plans?"
+
+**Primary Tax Strategy Recommendation:** [Best fit for this prospect]
+
+---
+
+### 9.4 Anticipated Objections & Response Scripts
+
+**"I need to think about it"**
+- Response: "I understand. Would a follow-up next week help? I can send specific info to review."
+- Follow-up: Personalized note within 24 hours; check-in within 7 days
+
+**"I'm already committed to other organizations"**
+- Response: "That speaks to your generosity. What drew you to those organizations?"
+- Strategy: Find unique value that complements, not competes
+
+**"Now isn't a good time"**
+- Response: "Would a multi-year pledge work better than an immediate gift?"
+- Strategy: Probe gently; offer flexibility
+
+**"The ask is too high"**
+- Response: "What level feels right? We'd be grateful for any gift reflecting your passion."
+- Strategy: Have backup positions ready
+
+**"I want to see more impact first"**
+- Response: "Fair request. Let me arrange a program meeting and site visit."
+- Strategy: Shift to cultivation—this is engagement, not rejection
+
+**Most Likely Objection for This Prospect:** [Based on profile]
+
+---
+
+### 9.5 Communication & Engagement Style
+
+**Prospect Type:** [ANALYTICAL / SOCIAL / DRIVER / AMIABLE]
+
+| Type | Prefer | Avoid | Solicitor Match |
+|------|--------|-------|-----------------|
+| Analytical | 1:1 meetings, data, time to process | Large events, pressure | Patient, detail-oriented |
+| Social | Events, public recognition | Long materials, formal | Energetic, storyteller |
+| Driver | Efficiency, clear ROI, action | Small talk, delays | CEO or peer |
+| Amiable | Personal connection, consensus | Pressure, urgency | Warm, patient |
+
+**This Prospect's Recommended Approach:** [Specific guidance]
+
+---
+
+### 9.6 12-Month Stewardship Calendar (Post-Gift)
+
+**Stewardship Level:** [STANDARD $1K-$5K / LEADERSHIP $5K-$25K / MAJOR $25K-$100K / PRINCIPAL $100K+]
+
+| Touchpoint | Standard | Leadership | Major | Principal |
+|------------|----------|------------|-------|-----------|
+| Thank-you call (48hrs) | Staff | Director | CEO | CEO + Board |
+| Handwritten note | Staff | Director | CEO | CEO + Peer |
+| Impact reports | Quarterly | Quarterly + Annual | Monthly | Custom |
+| Site visits | Annual | Bi-annual | Quarterly | Open door |
+| Recognition | Website | Annual Report | Donor Wall | Naming |
+| CEO contact | Annual | Bi-annual | Quarterly | Monthly |
+
+**Month-by-Month Plan:**
+| Month | Action | Owner |
+|-------|--------|-------|
+| 1 | Tax receipt + thank-you call + note | Gift Officer |
+| 2 | Impact story for their designation | Communications |
+| 3 | Behind-the-scenes update | Program Staff |
+| 4 | Quarterly impact report | Development |
+| 5 | Birthday/anniversary acknowledgment | Gift Officer |
+| 6 | Mid-year summary + planned giving intro | CEO |
+| 7 | Exclusive donor event | Development |
+| 8 | Beneficiary thank-you | Program Staff |
+| 9 | Preview of initiatives | Gift Officer |
+| 10 | Holiday greeting (non-solicitation) | CEO |
+| 11 | Year-end impact summary | Development |
+| 12 | Renewal cultivation begins | Gift Officer |
+
+---
+
+### 9.7 Ask Recommendation Summary
+
+- **Primary Ask:** $[Amount] via [Cash/Stock/DAF/Pledge]
 - **Designation:** [Specific fund/program/unrestricted]
-- **Solicitor:** [Who should make the ask and why]
+- **Best Solicitor:** [Who and why]
 - **Timing:** [When and why]
-- **Backup Position:** $X if initial ask is declined
+- **Backup Position:** $[Lower Amount] if declined
 
-### Talking Points
-1. [Specific point connecting their interests to your mission]
+### 9.8 Key Talking Points
+1. [Specific point connecting their interests to mission]
 2. [Peer comparison—"Your neighbors the Smiths recently supported..."]
 3. [Impact statement tied to their capacity]
 
-### Red Flags / Considerations
-- [Any concerns: competing asks, timing issues, family dynamics, legal matters]
-- [What to avoid in conversation]
+### 9.9 Red Flags & Guardrails
+- [Concerns: competing asks, timing issues, family dynamics]
+- [Topics/timing to avoid]
+- [Sensitivities discovered in research]
 
 ---
 
