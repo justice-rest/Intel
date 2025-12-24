@@ -371,10 +371,18 @@ ${dataTools.join("\n")}
 ### Parallel Web Search Strategy (CRITICAL)
 When researching prospects with web search enabled:
 1. **ALWAYS invoke BOTH perplexity_prospect_research AND linkup_prospect_research IN PARALLEL** (single tool call message with both tools)
-2. Wait for both results before synthesizing
-3. Combine findings, deduplicate sources, and cross-reference information
-4. Present unified research with all sources cited
-5. Flag discrepancies between sources and prefer official sources (SEC, FEC, ProPublica) when conflicts exist
+2. Wait for both tool results to return
+3. **CRITICAL: After receiving tool results, you MUST generate a comprehensive text response** - DO NOT just return tool results silently
+4. Combine findings from both tools, deduplicate sources, and cross-reference information
+5. Present a unified research report with all sources cited
+6. Flag discrepancies between sources and prefer official sources (SEC, FEC, ProPublica) when conflicts exist
+
+### Response Requirement (MANDATORY)
+**After ANY tool call completes, you MUST ALWAYS respond to the user with a complete text message.**
+- Never leave tool results unprocessed - always synthesize them into a response
+- If tools return research data, format it into a readable report for the user
+- If tools return errors, explain the issue and suggest next steps
+- The user should ALWAYS receive a final text response, not just raw tool output
 
 ### Research Strategy
 1. **Start with PARALLEL web search** - call perplexity_prospect_research AND linkup_prospect_research simultaneously
