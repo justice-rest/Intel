@@ -1397,49 +1397,39 @@ export async function generateReportWithSonarAndGrok(
     .map(([key, value]) => `${key}: ${value}`)
     .join(", ")
 
-  // Build research prompt
+  // Build research prompt - Sonar has built-in web search
   const userMessage = `Research this prospect and generate a professional summary for major gift screening.
 
 **Prospect:** ${prospect.name}
 **Address:** ${fullAddress}
 ${additionalContext ? `**Additional Info:** ${additionalContext}` : ""}
 
-Use your web search to gather data about this person:
-1. Search for property values and real estate holdings at this address
-2. Look for business ownership and professional background
-3. Check ProPublica Nonprofit Explorer for foundation affiliations
-4. Search FEC.gov for political giving history
-5. Look for SEC filings if they're a public company executive
-6. Find biographical details and career history
+Search for and synthesize information about this person from authoritative sources:
+1. Property values and real estate holdings at this address (Zillow, Redfin, county assessor records)
+2. Business ownership and professional background (state business registries, LinkedIn, company websites)
+3. Foundation affiliations (ProPublica Nonprofit Explorer, IRS 990 data, foundation databases)
+4. Political giving history (FEC.gov records, OpenSecrets)
+5. SEC filings if they're a public company executive (EDGAR database)
+6. Biographical details, education, and career history (news articles, Wikipedia)
+
+IMPORTANT RESEARCH REQUIREMENTS:
+- Search multiple authoritative sources for each data point
+- Look up the property address specifically on Zillow or Redfin for home value estimates
+- Search "[Name] [City] business owner" and "[Name] [State] LLC" for business ownership
+- Always cite your sources
 
 After researching, produce the prospect summary with ALL sections filled in.
-IMPORTANT: You MUST include the JSON data block at the end of your response.`
+CRITICAL: You MUST include the JSON data block at the end of your response with actual values found.`
 
-  // Use Grok 4.1 Fast with Exa web search - OPTIMIZED for prospect research
+  // Use Perplexity Sonar Reasoning Pro - Chain of Thought with built-in web search
   const openrouter = createOpenRouter({
     apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-    extraBody: {
-      // Enable Exa web search with maximum power for prospect research
-      plugins: [{
-        id: "web",
-        engine: "exa",
-        max_results: 12, // Increased from 8 for more comprehensive coverage
-        // Guide search toward high-value prospect research domains
-        search_prompt: `Find authoritative information about this person for nonprofit donor research.
-Prioritize: property records (Zillow, Redfin, county assessors), business registries (state SOS),
-SEC EDGAR filings, FEC political contributions, ProPublica 990 filings, LinkedIn profiles,
-news articles, foundation databases, and biographical sources.
-Exclude: social media posts, unverified blogs, outdated information (>5 years old unless historical).`,
-      }],
-      // Enable HIGH reasoning for thorough analysis
-      reasoning: { effort: "high" },
-    },
   })
 
-  console.log(`[BatchProcessor] Calling Grok 4.1 Fast with Exa web search...`)
+  console.log(`[BatchProcessor] Calling Perplexity Sonar Reasoning Pro...`)
 
   const result = await streamText({
-    model: openrouter.chat("x-ai/grok-4.1-fast"),
+    model: openrouter.chat("perplexity/sonar-reasoning-pro"),
     system: GROK_SYNTHESIS_PROMPT,
     messages: [{ role: "user", content: userMessage }],
     maxTokens: 6000,
@@ -1501,7 +1491,7 @@ Exclude: social media posts, unverified blogs, outdated information (>5 years ol
     structured_data: structuredData,
     sources,
     tokens_used: tokensUsed,
-    model_used: "grok-4.1-fast + exa-search",
+    model_used: "sonar-reasoning-pro",
     processing_duration_ms: duration,
   }
 }

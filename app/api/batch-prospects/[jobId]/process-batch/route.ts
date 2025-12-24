@@ -12,8 +12,9 @@ import {
   BatchProspectItem,
   BatchProspectJob,
   BatchJobStatus,
+  SonarGrokReportResult,
 } from "@/lib/batch-processing"
-import { generateProspectReport } from "@/lib/batch-processing/report-generator"
+import { generateReportWithSonarAndGrok } from "@/lib/batch-processing/report-generator"
 import { getEffectiveApiKey } from "@/lib/user-keys"
 import { MAX_RETRIES_PER_PROSPECT } from "@/lib/batch-processing/config"
 import { getCustomerData, normalizePlanId } from "@/lib/subscription/autumn-client"
@@ -302,34 +303,55 @@ export async function POST(
             .eq("id", item.id)
         }
 
-        const reportResult = await generateProspectReport({
-          prospect: item.input_data,
-          enableWebSearch: job.settings?.enable_web_search ?? true,
-          generateRomyScore: job.settings?.generate_romy_score ?? true,
-          searchMode: job.settings?.search_mode || "standard",
-          apiKey,
-        })
+        // Use Sonar Reasoning Pro for research (matches sequential route)
+        let reportResult: SonarGrokReportResult | null = null
+        let errorMessage: string | null = null
+
+        try {
+          reportResult = await generateReportWithSonarAndGrok({
+            prospect: item.input_data,
+            enableWebSearch: job.settings?.enable_web_search ?? true,
+            generateRomyScore: job.settings?.generate_romy_score ?? true,
+            searchMode: job.settings?.search_mode || "standard",
+            apiKey,
+          })
+        } catch (error) {
+          console.error(`[BatchProcessParallel] Research failed for ${item.prospect_name}:`, error)
+          errorMessage = error instanceof Error ? error.message : "Research failed"
+        }
 
         const processingDuration = Date.now() - itemStartTime
 
-        if (reportResult.success) {
+        if (reportResult) {
+          const { structured_data } = reportResult
+
           await (supabase as any)
             .from("batch_prospect_items")
             .update({
               status: "completed",
               report_content: reportResult.report_content,
-              romy_score: reportResult.romy_score,
-              romy_score_tier: reportResult.romy_score_tier,
-              capacity_rating: reportResult.capacity_rating,
-              estimated_net_worth: reportResult.estimated_net_worth,
-              estimated_gift_capacity: reportResult.estimated_gift_capacity,
-              recommended_ask: reportResult.recommended_ask,
-              search_queries_used: reportResult.search_queries_used,
-              sources_found: reportResult.sources_found,
+
+              // Core metrics from structured data
+              romy_score: structured_data.romy_score,
+              romy_score_tier: structured_data.romy_score_tier,
+              capacity_rating: structured_data.capacity_rating,
+              estimated_net_worth: structured_data.estimated_net_worth,
+              estimated_gift_capacity: structured_data.estimated_gift_capacity,
+              recommended_ask: structured_data.recommended_ask,
+
+              // Structured JSONB data
+              wealth_indicators: structured_data.wealth_indicators || null,
+              business_details: structured_data.business_details || null,
+              giving_history: structured_data.giving_history || null,
+              affiliations: structured_data.affiliations || null,
+
+              // Search metadata
+              search_queries_used: ["Sonar Reasoning Pro"],
+              sources_found: reportResult.sources,
               tokens_used: reportResult.tokens_used,
-              model_used: "openrouter:x-ai/grok-4.1-fast",
+              model_used: reportResult.model_used,
               processing_completed_at: new Date().toISOString(),
-              processing_duration_ms: processingDuration,
+              processing_duration_ms: reportResult.processing_duration_ms,
               error_message: null,
             })
             .eq("id", item.id)
@@ -343,7 +365,7 @@ export async function POST(
               await generateBatchReportEmbedding(
                 {
                   itemId: item.id,
-                  reportContent: reportResult.report_content!,
+                  reportContent: reportResult!.report_content,
                   prospectName: item.prospect_name || item.input_data.name,
                 },
                 apiKey || process.env.OPENROUTER_API_KEY || ""
@@ -359,14 +381,14 @@ export async function POST(
             .from("batch_prospect_items")
             .update({
               status: "failed",
-              error_message: reportResult.error_message,
+              error_message: errorMessage || "Unknown error",
               processing_completed_at: new Date().toISOString(),
               processing_duration_ms: processingDuration,
               last_retry_at: new Date().toISOString(),
             })
             .eq("id", item.id)
 
-          return { success: false, itemId: item.id, name: item.prospect_name, error: reportResult.error_message }
+          return { success: false, itemId: item.id, name: item.prospect_name, error: errorMessage }
         }
       })
     )
