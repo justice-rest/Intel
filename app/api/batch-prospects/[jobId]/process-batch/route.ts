@@ -314,8 +314,21 @@ export async function POST(
         let errorMessage: string | null = null
 
         try {
+          // FIX: Ensure prospect has all address fields by merging JSONB with individual columns
+          // When input_data JSONB is stored, JavaScript undefined values are omitted during
+          // JSON serialization. The individual columns (prospect_city, etc.) store data correctly,
+          // so we use them as fallback to ensure complete address data reaches the AI.
+          const enrichedProspect = {
+            ...item.input_data,
+            // Use individual columns as fallback if JSONB fields are missing
+            city: item.input_data?.city || item.prospect_city || undefined,
+            state: item.input_data?.state || item.prospect_state || undefined,
+            zip: item.input_data?.zip || item.prospect_zip || undefined,
+            address: item.input_data?.address || item.prospect_address || undefined,
+          }
+
           const result = await generateComprehensiveReportWithTools({
-            prospect: item.input_data,
+            prospect: enrichedProspect,
             apiKey,
             linkupApiKey, // Enable parallel LinkUp search
           })
