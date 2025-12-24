@@ -283,8 +283,22 @@ export async function POST(
     try {
       // Use Perplexity Sonar Pro for grounded, citation-first research
       // + LinkUp parallel search for maximum coverage
+
+      // FIX: Ensure prospect has all address fields by merging JSONB with individual columns
+      // When input_data JSONB is stored, JavaScript undefined values are omitted during
+      // JSON serialization. The individual columns (prospect_city, etc.) store data correctly,
+      // so we use them as fallback to ensure complete address data reaches the AI.
+      const enrichedProspect = {
+        ...nextItem.input_data,
+        // Use individual columns as fallback if JSONB fields are missing
+        city: nextItem.input_data?.city || nextItem.prospect_city || undefined,
+        state: nextItem.input_data?.state || nextItem.prospect_state || undefined,
+        zip: nextItem.input_data?.zip || nextItem.prospect_zip || undefined,
+        address: nextItem.input_data?.address || nextItem.prospect_address || undefined,
+      }
+
       const result = await generateComprehensiveReportWithTools({
-        prospect: nextItem.input_data,
+        prospect: enrichedProspect,
         apiKey,
         linkupApiKey, // Enable parallel LinkUp search
       })

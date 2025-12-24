@@ -31,8 +31,8 @@ export interface LinkupProspectResult {
 // CONFIGURATION
 // ============================================================================
 
-const LINKUP_TIMEOUT_MS = 30000 // 30s max for chat mode
-const LINKUP_STANDARD_TIMEOUT_MS = 25000 // 25s for standard searches (used in chat)
+const LINKUP_STANDARD_TIMEOUT_MS = 25000 // 25s for standard searches
+const LINKUP_DEEP_TIMEOUT_MS = 60000 // 60s for deep research mode
 
 /**
  * Check if LinkUp tools should be enabled
@@ -209,7 +209,7 @@ async function executeLinkupSearch(
   }
 
   const client = new LinkupClient({ apiKey: key })
-  const timeout = depth === "deep" ? LINKUP_TIMEOUT_MS : LINKUP_STANDARD_TIMEOUT_MS
+  const timeout = depth === "deep" ? LINKUP_DEEP_TIMEOUT_MS : LINKUP_STANDARD_TIMEOUT_MS
 
   const result = await withRetry(async () => {
     const searchPromise = client.search({
@@ -265,63 +265,81 @@ const linkupProspectResearchSchema = z.object({
 type LinkupProspectResearchParams = z.infer<typeof linkupProspectResearchSchema>
 
 /**
- * LinkUp Prospect Research Tool for chat mode
- * Uses standard search for fast responses (10-20s typical)
+ * LinkUp Prospect Research Tool Factory
+ * Creates a tool configured for either standard or deep research mode
+ *
+ * @param isDeepResearch - If true, uses deep search with longer timeout (~45-60s)
+ *                        If false, uses standard search for fast responses (~10-20s)
  */
-export const linkupProspectResearchTool = tool({
-  description:
-    "Fast web search for prospect research using LinkUp's grounded search API. " +
-    "Searches real estate, business ownership, securities, philanthropy, and biographical data with citations. " +
-    "Returns factual results from authoritative web sources in ~10-20 seconds. " +
-    "Use alongside perplexity_prospect_research for comprehensive dual-source research.",
-  parameters: linkupProspectResearchSchema,
-  execute: async (params): Promise<LinkupProspectResult> => {
-    const { name, address, context, focus_areas } = params
-    console.log(`[LinkUp] Starting research for:`, name)
-    const startTime = Date.now()
+export function createLinkupProspectResearchTool(isDeepResearch: boolean = false) {
+  const searchDepth: "standard" | "deep" = isDeepResearch ? "deep" : "standard"
+  const modeLabel = isDeepResearch ? "Deep Research" : "Standard"
 
-    // Check if LinkUp is enabled
-    if (!process.env.LINKUP_API_KEY) {
-      return {
-        prospectName: name,
-        research:
-          "LinkUp research is not configured. Please add LINKUP_API_KEY to your environment variables.",
-        sources: [],
-        query: "",
-        depth: "standard",
-        error: "LINKUP_API_KEY not configured",
+  return tool({
+    description: isDeepResearch
+      ? "Deep web search for prospect research using LinkUp's grounded search API. " +
+        "Performs comprehensive multi-step research with extensive source gathering (~45-60s). " +
+        "Searches real estate, business ownership, securities, philanthropy, and biographical data with citations. " +
+        "Use alongside perplexity_prospect_research for maximum research coverage."
+      : "Fast web search for prospect research using LinkUp's grounded search API. " +
+        "Searches real estate, business ownership, securities, philanthropy, and biographical data with citations. " +
+        "Returns factual results from authoritative web sources in ~10-20 seconds. " +
+        "Use alongside perplexity_prospect_research for comprehensive dual-source research.",
+    parameters: linkupProspectResearchSchema,
+    execute: async (params): Promise<LinkupProspectResult> => {
+      const { name, address, context, focus_areas } = params
+      console.log(`[LinkUp ${modeLabel}] Starting research for:`, name)
+      const startTime = Date.now()
+
+      // Check if LinkUp is enabled
+      if (!process.env.LINKUP_API_KEY) {
+        return {
+          prospectName: name,
+          research:
+            "LinkUp research is not configured. Please add LINKUP_API_KEY to your environment variables.",
+          sources: [],
+          query: "",
+          depth: searchDepth,
+          error: "LINKUP_API_KEY not configured",
+        }
       }
-    }
 
-    try {
-      const query = buildProspectResearchQuery(name, address, context, focus_areas)
-      const { answer, sources } = await executeLinkupSearch(query, "standard")
+      try {
+        const query = buildProspectResearchQuery(name, address, context, focus_areas)
+        const { answer, sources } = await executeLinkupSearch(query, searchDepth)
 
-      const duration = Date.now() - startTime
-      console.log(`[LinkUp] Research completed in`, duration, "ms")
-      console.log(`[LinkUp] Found ${sources.length} sources`)
+        const duration = Date.now() - startTime
+        console.log(`[LinkUp ${modeLabel}] Research completed in`, duration, "ms")
+        console.log(`[LinkUp ${modeLabel}] Found ${sources.length} sources`)
 
-      return {
-        prospectName: name,
-        research: answer,
-        sources,
-        query,
-        depth: "standard",
+        return {
+          prospectName: name,
+          research: answer,
+          sources,
+          query,
+          depth: searchDepth,
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error"
+        console.error(`[LinkUp ${modeLabel}] Research failed:`, errorMessage)
+        return {
+          prospectName: name,
+          research: `Failed to research "${name}": ${errorMessage}`,
+          sources: [],
+          query: "",
+          depth: searchDepth,
+          error: `Failed to research: ${errorMessage}`,
+        }
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error"
-      console.error(`[LinkUp] Research failed:`, errorMessage)
-      return {
-        prospectName: name,
-        research: `Failed to research "${name}": ${errorMessage}`,
-        sources: [],
-        query: "",
-        depth: "standard",
-        error: `Failed to research: ${errorMessage}`,
-      }
-    }
-  },
-})
+    },
+  })
+}
+
+/**
+ * Default LinkUp Prospect Research Tool (standard mode)
+ * @deprecated Use createLinkupProspectResearchTool() for mode-aware tool creation
+ */
+export const linkupProspectResearchTool = createLinkupProspectResearchTool(false)
 
 // ============================================================================
 // EXPORTS FOR BATCH PROCESSING

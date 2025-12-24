@@ -31,8 +31,9 @@ const TRANSITION = {
  * Maps internal tool names to user-friendly display names
  */
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
-  // Primary research tool
+  // Primary research tools
   perplexity_prospect_research: "Web Search",
+  linkup_prospect_research: "LinkUp Research",
   // Nonprofit tools
   propublica_nonprofit_search: "Nonprofit Search",
   propublica_nonprofit_details: "Nonprofit Details",
@@ -835,6 +836,82 @@ function SingleToolCard({
           {detailsResult.filings.length === 0 && (
             <div className="text-muted-foreground text-sm">
               No Form 990 filings available for this organization.
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle LinkUp prospect research results
+    if (
+      toolName === "linkup_prospect_research" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "prospectName" in parsedResult
+    ) {
+      const linkupResult = parsedResult as {
+        prospectName: string
+        research: string
+        sources: Array<{ name: string; url: string; snippet?: string }>
+        depth: "standard" | "deep"
+        query: string
+        error?: string
+      }
+
+      if (linkupResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {linkupResult.error}
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header with prospect name and mode badge */}
+          <div className="flex items-center justify-between">
+            <div className="font-medium text-foreground text-lg">
+              {linkupResult.prospectName}
+            </div>
+            <span className={cn(
+              "shrink-0 rounded px-2 py-0.5 text-xs",
+              linkupResult.depth === "deep"
+                ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+            )}>
+              {linkupResult.depth === "deep" ? "Deep Research" : "Standard"}
+            </span>
+          </div>
+
+          {/* Research content rendered as markdown */}
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <Markdown>{linkupResult.research}</Markdown>
+          </div>
+
+          {/* Sources list */}
+          {linkupResult.sources.length > 0 && (
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
+                Sources ({linkupResult.sources.length})
+              </div>
+              <div className="space-y-1">
+                {linkupResult.sources.slice(0, 10).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block text-sm text-primary hover:underline truncate"
+                  >
+                    {source.name}
+                  </a>
+                ))}
+                {linkupResult.sources.length > 10 && (
+                  <div className="text-xs text-muted-foreground">
+                    +{linkupResult.sources.length - 10} more sources
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

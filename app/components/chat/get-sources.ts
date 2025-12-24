@@ -28,6 +28,18 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
+        // Handle LinkUp prospect research tool results
+        if (
+          part.toolInvocation.toolName === "linkup_prospect_research" &&
+          result?.sources
+        ) {
+          return result.sources.map((source: { name?: string; url: string; snippet?: string }) => ({
+            title: source.name || "LinkUp Source",
+            url: source.url,
+            text: source.snippet || "",
+          }))
+        }
+
         // Handle You.com search tool results (matches Linkup format)
         if (
           part.toolInvocation.toolName === "youSearch" &&

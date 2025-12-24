@@ -23,7 +23,7 @@ import {
   shouldEnablePerplexityTools,
 } from "@/lib/tools/perplexity-prospect-research"
 import {
-  linkupProspectResearchTool,
+  createLinkupProspectResearchTool,
   shouldEnableLinkupTools,
 } from "@/lib/tools/linkup-prospect-research"
 import {
@@ -504,7 +504,9 @@ For full donor research:
       // Deep search with sourced answers and inline citations
       ...(enableSearch && shouldEnableLinkupTools()
         ? {
-            linkup_prospect_research: linkupProspectResearchTool,
+            linkup_prospect_research: createLinkupProspectResearchTool(
+              researchMode === "deep-research"
+            ),
           }
         : {}),
       // Add Rental Investment tool for rental valuation and investment analysis
