@@ -1389,10 +1389,10 @@ function removeJsonBlockFromReport(content: string): string {
 // ============================================================================
 
 /**
- * Generate a prospect report using Grok 4.1 Fast with Exa web search.
+ * Generate a prospect report using Gemini 3 Pro with native web search.
  * Single API call that does research AND outputs structured JSON.
  *
- * Cost: ~$0.01-0.02/prospect (Grok with Exa search)
+ * Cost: ~$0.02-0.05/prospect (Gemini 3 Pro with native search)
  */
 export async function generateReportWithSonarAndGrok(
   options: GenerateReportOptions
@@ -1400,7 +1400,7 @@ export async function generateReportWithSonarAndGrok(
   const { prospect, apiKey } = options
   const startTime = Date.now()
 
-  console.log(`[BatchProcessor] Starting Grok+Exa research for: ${prospect.name}`)
+  console.log(`[BatchProcessor] Starting Gemini 3 Pro research for: ${prospect.name}`)
 
   // Build full address for research
   const fullAddress = buildProspectQueryString(prospect)
@@ -1435,15 +1435,22 @@ IMPORTANT:
 
 Output the full prospect summary with the JSON block at the end.`
 
-  // Use Perplexity Sonar Reasoning Pro - Chain of Thought with built-in web search
+  // Use Gemini 3 Pro with native web search
   const openrouter = createOpenRouter({
     apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+    extraBody: {
+      plugins: [{
+        id: "web",
+        engine: "native", // Use Gemini's native web search
+        max_results: 10,
+      }],
+    },
   })
 
-  console.log(`[BatchProcessor] Calling Perplexity Sonar Reasoning Pro...`)
+  console.log(`[BatchProcessor] Calling Gemini 3 Pro with native web search...`)
 
   const result = await streamText({
-    model: openrouter.chat("perplexity/sonar-reasoning-pro"),
+    model: openrouter.chat("google/gemini-3-pro-preview"),
     system: GROK_SYNTHESIS_PROMPT,
     messages: [{ role: "user", content: userMessage }],
     maxTokens: 6000,
@@ -1461,7 +1468,7 @@ Output the full prospect summary with the JSON block at the end.`
   const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
   const duration = Date.now() - startTime
 
-  console.log(`[BatchProcessor] Grok research completed in ${duration}ms, ${tokensUsed} tokens`)
+  console.log(`[BatchProcessor] Gemini 3 Pro research completed in ${duration}ms, ${tokensUsed} tokens`)
 
   // DEBUG: Log raw output to diagnose extraction issues
   console.log(`[BatchProcessor] DEBUG - Output length: ${reportContent.length}`)
@@ -1505,7 +1512,7 @@ Output the full prospect summary with the JSON block at the end.`
     structured_data: structuredData,
     sources,
     tokens_used: tokensUsed,
-    model_used: "sonar-reasoning-pro",
+    model_used: "gemini-3-pro-preview",
     processing_duration_ms: duration,
   }
 }
