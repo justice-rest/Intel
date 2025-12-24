@@ -700,16 +700,16 @@ Based on prospect profile:
 // ============================================================================
 
 /**
- * System prompt for Grok to synthesize Sonar research into a structured report
- * Outputs both markdown report AND JSON block for reliable data extraction
+ * System prompt for Perplexity Sonar Reasoning Pro to research and generate prospect reports
+ * Uses Sonar's built-in web search to gather data, then outputs structured report + JSON
  */
-const GROK_SYNTHESIS_PROMPT = `You are Rōmy, a prospect research assistant. Synthesize the research data into a professional prospect summary.
+const GROK_SYNTHESIS_PROMPT = `You are Rōmy, a prospect research assistant powered by Perplexity Sonar with built-in web search capabilities.
 
 ## YOUR TASK:
-You will receive research findings from Perplexity Sonar. Your job is to:
-1. Organize the data into a clear, structured report
-2. Calculate the RōmyScore and capacity ratings
-3. Output a JSON block with all extracted metrics
+You MUST use your web search capabilities to research the prospect. DO NOT say you cannot complete the research or ask for help - you have full web search access. Your job is to:
+1. ACTIVELY SEARCH the web for information about the prospect using your built-in search
+2. Find data from authoritative sources (property records, business registries, SEC, FEC, news)
+3. Synthesize findings into a structured report with the JSON data block
 
 ## OUTPUT FORMAT:
 
@@ -835,12 +835,14 @@ Fill in actual values from the research. Use null for unknown values.
 - **ANNUAL:** Lower indicators = Gift Capacity <$5K
 
 ## RULES:
-- Use "None found" when data unavailable - don't leave blanks
+- CRITICAL: You MUST search the web for this prospect. You have full web search capabilities built-in. NEVER say "I cannot complete this research" - search and find what you can.
+- Use "None found" when data unavailable AFTER searching - don't leave blanks
 - Include specific dollar amounts where possible
-- Base estimates on actual research findings
+- Base estimates on actual research findings from your web searches
 - Recommended Ask = 1-2% of estimated net worth
 - Keep report concise (~600-800 words)
-- The JSON block is REQUIRED - never skip it`
+- The JSON block is REQUIRED - never skip it
+- If your initial search returns irrelevant results (e.g., a business with the same name), search again with more specific terms like the person's address, city, or profession`
 
 // ============================================================================
 // TYPES
@@ -1398,28 +1400,28 @@ export async function generateReportWithSonarAndGrok(
     .join(", ")
 
   // Build research prompt - Sonar has built-in web search
-  const userMessage = `Research this prospect and generate a professional summary for major gift screening.
+  const userMessage = `Use your built-in web search to research this prospect and generate a professional summary for major gift screening.
 
 **Prospect:** ${prospect.name}
 **Address:** ${fullAddress}
 ${additionalContext ? `**Additional Info:** ${additionalContext}` : ""}
 
-Search for and synthesize information about this person from authoritative sources:
-1. Property values and real estate holdings at this address (Zillow, Redfin, county assessor records)
-2. Business ownership and professional background (state business registries, LinkedIn, company websites)
-3. Foundation affiliations (ProPublica Nonprofit Explorer, IRS 990 data, foundation databases)
-4. Political giving history (FEC.gov records, OpenSecrets)
-5. SEC filings if they're a public company executive (EDGAR database)
-6. Biographical details, education, and career history (news articles, Wikipedia)
+You have web search capabilities. Use them NOW to search for:
+1. Property values at "${fullAddress}" - search Zillow, Redfin, or county assessor records
+2. Business ownership - search "${prospect.name} business owner" and state business registries
+3. Foundation affiliations - search ProPublica Nonprofit Explorer for their name
+4. Political giving - search FEC.gov for "${prospect.name}" contributions
+5. SEC filings - search EDGAR if they might be a public company executive
+6. Biography - search for news articles and professional profiles
 
-IMPORTANT RESEARCH REQUIREMENTS:
-- Search multiple authoritative sources for each data point
-- Look up the property address specifically on Zillow or Redfin for home value estimates
-- Search "[Name] [City] business owner" and "[Name] [State] LLC" for business ownership
-- Always cite your sources
+CRITICAL INSTRUCTIONS:
+- You MUST perform web searches. Do NOT say "I cannot complete this research" - you have search capabilities.
+- If a search returns irrelevant results (e.g., a business with the same name), refine your search with the address or city.
+- For each data point, mark as "None found" only AFTER searching and finding nothing relevant.
+- Always cite your sources with URLs.
 
-After researching, produce the prospect summary with ALL sections filled in.
-CRITICAL: You MUST include the JSON data block at the end of your response with actual values found.`
+After searching and gathering data, produce the prospect summary with ALL sections filled in.
+You MUST include the JSON data block at the end with the values you found from your searches.`
 
   // Use Perplexity Sonar Reasoning Pro - Chain of Thought with built-in web search
   const openrouter = createOpenRouter({
