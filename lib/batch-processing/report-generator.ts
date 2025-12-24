@@ -1415,14 +1415,24 @@ Use your web search to gather data about this person:
 After researching, produce the prospect summary with ALL sections filled in.
 IMPORTANT: You MUST include the JSON data block at the end of your response.`
 
-  // Use Grok 4.1 Fast with Exa web search
+  // Use Grok 4.1 Fast with Exa web search - OPTIMIZED for prospect research
   const openrouter = createOpenRouter({
     apiKey: apiKey || process.env.OPENROUTER_API_KEY,
     extraBody: {
-      // Enable Exa web search for prospect research
-      plugins: [{ id: "web", engine: "exa", max_results: 8 }],
-      // Enable reasoning for better analysis
-      reasoning: { effort: "medium" },
+      // Enable Exa web search with maximum power for prospect research
+      plugins: [{
+        id: "web",
+        engine: "exa",
+        max_results: 12, // Increased from 8 for more comprehensive coverage
+        // Guide search toward high-value prospect research domains
+        search_prompt: `Find authoritative information about this person for nonprofit donor research.
+Prioritize: property records (Zillow, Redfin, county assessors), business registries (state SOS),
+SEC EDGAR filings, FEC political contributions, ProPublica 990 filings, LinkedIn profiles,
+news articles, foundation databases, and biographical sources.
+Exclude: social media posts, unverified blogs, outdated information (>5 years old unless historical).`,
+      }],
+      // Enable HIGH reasoning for thorough analysis
+      reasoning: { effort: "high" },
     },
   })
 
@@ -1607,12 +1617,21 @@ After researching, produce the comprehensive report with all sections filled in 
 
     console.log(`[BatchProcessor] Starting comprehensive research for: ${prospect.name}`)
 
-    // Generate report using Grok 4.1 Fast with Exa web search
+    // Generate report using Grok 4.1 Fast with Exa web search - OPTIMIZED
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
       extraBody: {
-        // Enable Exa web search for prospect research
-        plugins: [{ id: "web", engine: "exa", max_results: 8 }],
+        // Enable Exa web search with maximum power for comprehensive research
+        plugins: [{
+          id: "web",
+          engine: "exa",
+          max_results: 15, // Maximum for comprehensive mode
+          search_prompt: `Find authoritative information about this person for nonprofit donor research.
+Prioritize: property records (Zillow, Redfin, county assessors), business registries (state SOS),
+SEC EDGAR filings, FEC political contributions, ProPublica 990 filings, LinkedIn profiles,
+news articles, foundation databases, Wikipedia/Wikidata, and biographical sources.
+Exclude: social media posts, unverified blogs, outdated information (>5 years old unless historical).`,
+        }],
         // Enable high-effort reasoning for comprehensive analysis
         reasoning: { effort: "high" },
       },
@@ -1717,13 +1736,20 @@ After researching, produce the concise prospect summary with ALL sections filled
 
     console.log(`[BatchProcessor] Starting standard research for: ${prospect.name}`)
 
-    // Generate report using Grok 4.1 Fast with Exa web search
+    // Generate report using Grok 4.1 Fast with Exa web search - OPTIMIZED
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
       extraBody: {
-        // Enable Exa web search for prospect research
-        plugins: [{ id: "web", engine: "exa", max_results: 5 }],
-        // Enable medium-effort reasoning for fast analysis
+        // Enable Exa web search with focused search for standard mode
+        plugins: [{
+          id: "web",
+          engine: "exa",
+          max_results: 8, // Balanced for speed vs coverage
+          search_prompt: `Find key information about this person for nonprofit donor research.
+Focus on: property values, business ownership, philanthropic history, political contributions.
+Prioritize official sources: county assessors, state business registries, FEC, ProPublica 990s.`,
+        }],
+        // Enable medium-effort reasoning for faster analysis
         reasoning: { effort: "medium" },
       },
     })
