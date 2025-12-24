@@ -38,7 +38,7 @@ export const openrouterModels: ModelConfig[] = [
         extraBody: {
           // Enable Exa web search when requested
           ...(opts?.enableSearch && {
-            plugins: [{ id: "web", engine: "exa", max_results: 5 }],
+            plugins: [{ id: "web", engine: "exa", max_results: 12 }],
           }),
           // High reasoning effort for research mode
           reasoning: { effort: "high" },
@@ -81,7 +81,7 @@ export const openrouterModels: ModelConfig[] = [
         extraBody: {
           // Enable Exa web search when requested
           ...(opts?.enableSearch && {
-            plugins: [{ id: "web", engine: "exa", max_results: 8 }],
+            plugins: [{ id: "web", engine: "exa", max_results: 15 }],
           }),
           // Enable high-effort reasoning for deep research
           ...(opts?.enableReasoning !== false && {

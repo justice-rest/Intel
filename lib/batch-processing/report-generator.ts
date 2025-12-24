@@ -35,6 +35,12 @@ import {
   LinkupBatchResult,
   ExtractedLinkupData,
 } from "./linkup-search"
+import {
+  exaBatchSearch,
+  mergeExaWithResults,
+  isExaAvailable,
+  ExaBatchResult,
+} from "./exa-search"
 
 // ============================================================================
 // PERPLEXITY SONAR PRO SYSTEM PROMPT
@@ -731,17 +737,18 @@ async function researchWithParallelSources(
 ): Promise<PerplexityResearchResult> {
   const startTime = Date.now()
   const hasLinkup = isLinkupAvailable(linkupKey)
+  const hasExa = isExaAvailable(openrouterKey)
 
   console.log(`[BatchProcessor] Starting parallel research for ${prospect.name}`)
-  console.log(`[BatchProcessor] Perplexity: enabled | LinkUp: ${hasLinkup ? "enabled" : "disabled"}`)
+  console.log(`[BatchProcessor] Perplexity: enabled | LinkUp: ${hasLinkup ? "enabled" : "disabled"} | Exa: ${hasExa ? "enabled" : "disabled"}`)
 
   // If no LinkUp key, fall back to Perplexity-only
   if (!hasLinkup) {
     return researchWithPerplexitySonar(prospect, openrouterKey)
   }
 
-  // Execute BOTH searches in parallel (standard depth for initial LinkUp)
-  const [perplexityResult, linkupResult] = await Promise.allSettled([
+  // Execute ALL THREE searches in parallel (Perplexity + LinkUp + Exa)
+  const [perplexityResult, linkupResult, exaResult] = await Promise.allSettled([
     researchWithPerplexitySonar(prospect, openrouterKey),
     linkupBatchSearch(
       {
@@ -754,11 +761,23 @@ async function researchWithParallelSources(
       },
       linkupKey
     ),
+    exaBatchSearch(
+      {
+        name: prospect.name,
+        address: prospect.address || prospect.full_address,
+        employer: prospect.employer,
+        title: prospect.title,
+        city: prospect.city,
+        state: prospect.state,
+      },
+      openrouterKey
+    ),
   ])
 
   // Extract results
   const perplexity = perplexityResult.status === "fulfilled" ? perplexityResult.value : null
   const linkup = linkupResult.status === "fulfilled" ? linkupResult.value : null
+  const exa = exaResult.status === "fulfilled" ? exaResult.value : null
 
   // If Perplexity failed, we can't proceed (it provides the JSON structure)
   if (!perplexity || !perplexity.success || !perplexity.output) {
@@ -821,7 +840,48 @@ async function researchWithParallelSources(
 
     // Update token count to include LinkUp
     totalTokens += linkup.tokensUsed || 0
+  } else if (linkup?.error) {
+    console.warn(`[BatchProcessor] LinkUp search failed: ${linkup.error}`)
+  }
 
+  // ========== MERGE EXA RESULTS ==========
+  // If Exa succeeded, merge its sources (deduplicated)
+  if (exa && !exa.error && exa.sources.length > 0) {
+    console.log(`[BatchProcessor] Exa returned ${exa.sources.length} sources in ${exa.durationMs}ms`)
+
+    // Get existing URLs for deduplication
+    const existingUrls = new Set(
+      perplexity.output!.sources.map((s) =>
+        s.url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "")
+      )
+    )
+
+    // Find unique sources from Exa
+    const exaOnlySources = exa.sources.filter((source) => {
+      const normalizedUrl = source.url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "")
+      return !existingUrls.has(normalizedUrl)
+    })
+
+    if (exaOnlySources.length > 0) {
+      perplexity.output!.sources.push(
+        ...exaOnlySources.map((s) => ({
+          title: s.name,
+          url: s.url,
+          data_provided: s.snippet || "Data from Exa semantic search",
+        }))
+      )
+      console.log(`[BatchProcessor] Added ${exaOnlySources.length} unique sources from Exa`)
+    }
+
+    // Update token count to include Exa
+    totalTokens += exa.tokensUsed || 0
+  } else if (exa?.error) {
+    console.warn(`[BatchProcessor] Exa search failed: ${exa.error}`)
+  }
+
+  // ========== SMART DEPTH SELECTION (LinkUp only - for low confidence) ==========
+  // Check if we still have LinkUp data to work with
+  if (linkup && !linkup.error && linkup.answer) {
     // ========== SMART DEPTH SELECTION ==========
     // If Perplexity confidence is LOW and we haven't found much, try LinkUp deep search
     const confidenceIsLow = perplexity.output.metrics.confidence_level === "LOW"
@@ -892,8 +952,6 @@ async function researchWithParallelSources(
         // Continue with standard results
       }
     }
-  } else if (linkup?.error) {
-    console.warn(`[BatchProcessor] LinkUp search failed: ${linkup.error}`)
   }
 
   const totalDuration = Date.now() - startTime
