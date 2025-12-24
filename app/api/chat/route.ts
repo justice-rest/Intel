@@ -19,7 +19,7 @@ import {
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
 import {
-  perplexityProspectResearchTool,
+  createPerplexityProspectResearchTool,
   shouldEnablePerplexityTools,
 } from "@/lib/tools/perplexity-prospect-research"
 import {
@@ -468,11 +468,14 @@ For full donor research:
             usaspending_awards: usGovDataTool,
           }
         : {}),
-      // Add Perplexity Sonar Pro for comprehensive prospect research
+      // Add Perplexity Sonar Pro/Deep Research for comprehensive prospect research
       // Grounded web search with citations - real estate, business, philanthropy, securities, biography
+      // Deep research mode uses sonar-deep-research with 180s timeout for multi-step autonomous search
       ...(enableSearch && shouldEnablePerplexityTools()
         ? {
-            perplexity_prospect_research: perplexityProspectResearchTool,
+            perplexity_prospect_research: createPerplexityProspectResearchTool(
+              researchMode === "deep-research"
+            ),
           }
         : {}),
       // Add Rental Investment tool for rental valuation and investment analysis

@@ -29,7 +29,9 @@ export interface PerplexityProspectResult {
 // ============================================================================
 
 const PERPLEXITY_MODEL = "perplexity/sonar-reasoning-pro"
-const PERPLEXITY_TIMEOUT_MS = 60000 // 60 seconds for comprehensive research
+const PERPLEXITY_DEEP_MODEL = "perplexity/sonar-deep-research"
+const PERPLEXITY_TIMEOUT_MS = 60000         // 60s for standard research
+const PERPLEXITY_DEEP_TIMEOUT_MS = 180000   // 180s for deep research (multi-step autonomous)
 const MAX_OUTPUT_TOKENS = 4000
 
 /**
@@ -179,93 +181,110 @@ const perplexityProspectResearchSchema = z.object({
 type PerplexityProspectResearchParams = z.infer<typeof perplexityProspectResearchSchema>
 
 /**
- * Perplexity Sonar Pro Prospect Research Tool
- * Comprehensive donor research using Perplexity's agentic search capabilities
+ * Factory function to create Perplexity Prospect Research Tool
+ * @param isDeepResearch - If true, uses sonar-deep-research with 180s timeout
  */
-export const perplexityProspectResearchTool = tool({
-  description:
-    "Comprehensive prospect research using Perplexity Sonar Pro's agentic web search. " +
-    "Searches real estate, business ownership, securities, philanthropy, and biographical data with citations. " +
-    "Returns grounded, factual results from authoritative sources. " +
-    "Use for detailed donor research when you need verified information with sources.",
-  parameters: perplexityProspectResearchSchema,
-  execute: async (params): Promise<PerplexityProspectResult> => {
-    const { name, address, context, focus_areas } = params
-    console.log("[Perplexity] Starting prospect research for:", name)
-    const startTime = Date.now()
+export function createPerplexityProspectResearchTool(isDeepResearch: boolean = false) {
+  const model = isDeepResearch ? PERPLEXITY_DEEP_MODEL : PERPLEXITY_MODEL
+  const timeout = isDeepResearch ? PERPLEXITY_DEEP_TIMEOUT_MS : PERPLEXITY_TIMEOUT_MS
+  const modeLabel = isDeepResearch ? "Deep Research" : "Sonar Pro"
 
-    // Check if Perplexity is enabled
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
-      return {
-        prospectName: name,
-        research: "Perplexity research is not configured. Please add OPENROUTER_API_KEY to your environment variables.",
-        sources: [],
-        focusAreas: focus_areas || [],
-        error: "OPENROUTER_API_KEY not configured",
+  return tool({
+    description: isDeepResearch
+      ? "Deep prospect research using Perplexity Sonar Deep Research's multi-step autonomous search. " +
+        "Performs comprehensive, multi-step investigation for complex research requests. " +
+        "Returns deeply-researched results with extensive citations. " +
+        "Use for thorough donor investigations requiring maximum depth."
+      : "Comprehensive prospect research using Perplexity Sonar Pro's agentic web search. " +
+        "Searches real estate, business ownership, securities, philanthropy, and biographical data with citations. " +
+        "Returns grounded, factual results from authoritative sources. " +
+        "Use for detailed donor research when you need verified information with sources.",
+    parameters: perplexityProspectResearchSchema,
+    execute: async (params): Promise<PerplexityProspectResult> => {
+      const { name, address, context, focus_areas } = params
+      console.log(`[Perplexity] Starting ${modeLabel} research for:`, name)
+      console.log(`[Perplexity] Using model: ${model}, timeout: ${timeout}ms`)
+      const startTime = Date.now()
+
+      // Check if Perplexity is enabled
+      const apiKey = process.env.OPENROUTER_API_KEY
+      if (!apiKey) {
+        return {
+          prospectName: name,
+          research: "Perplexity research is not configured. Please add OPENROUTER_API_KEY to your environment variables.",
+          sources: [],
+          focusAreas: focus_areas || [],
+          error: "OPENROUTER_API_KEY not configured",
+        }
       }
-    }
 
-    try {
-      const prompt = buildProspectResearchPrompt(name, address, context, focus_areas)
+      try {
+        const prompt = buildProspectResearchPrompt(name, address, context, focus_areas)
 
-      // Call Perplexity via OpenRouter
-      const response = await withTimeout(
-        fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${apiKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://getromy.app",
-            "X-Title": "Romy Prospect Research",
-          },
-          body: JSON.stringify({
-            model: PERPLEXITY_MODEL,
-            messages: [
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            max_tokens: MAX_OUTPUT_TOKENS,
-            temperature: 0.1, // Low temperature for factual research
+        // Call Perplexity via OpenRouter
+        const response = await withTimeout(
+          fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${apiKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://getromy.app",
+              "X-Title": "Romy Prospect Research",
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: [
+                {
+                  role: "user",
+                  content: prompt,
+                },
+              ],
+              max_tokens: MAX_OUTPUT_TOKENS,
+              temperature: 0.1, // Low temperature for factual research
+            }),
           }),
-        }),
-        PERPLEXITY_TIMEOUT_MS,
-        `Perplexity request timed out after ${PERPLEXITY_TIMEOUT_MS / 1000} seconds`
-      )
+          timeout,
+          `Perplexity ${modeLabel} request timed out after ${timeout / 1000} seconds`
+        )
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`)
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`)
+        }
+
+        const data = await response.json()
+        const duration = Date.now() - startTime
+        console.log(`[Perplexity] ${modeLabel} research completed in`, duration, "ms")
+
+        // Extract the research content
+        const researchContent = data.choices?.[0]?.message?.content || "No research results returned"
+
+        // Extract sources from the response
+        const sources = extractSources(researchContent)
+
+        return {
+          prospectName: name,
+          research: researchContent,
+          sources,
+          focusAreas: focus_areas || ["real_estate", "business_ownership", "philanthropy", "securities", "biography"],
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error"
+        console.error(`[Perplexity] ${modeLabel} research failed:`, errorMessage)
+        return {
+          prospectName: name,
+          research: `Failed to research "${name}": ${errorMessage}`,
+          sources: [],
+          focusAreas: focus_areas || [],
+          error: `Failed to research: ${errorMessage}`,
+        }
       }
+    },
+  })
+}
 
-      const data = await response.json()
-      const duration = Date.now() - startTime
-      console.log("[Perplexity] Research completed in", duration, "ms")
-
-      // Extract the research content
-      const researchContent = data.choices?.[0]?.message?.content || "No research results returned"
-
-      // Extract sources from the response
-      const sources = extractSources(researchContent)
-
-      return {
-        prospectName: name,
-        research: researchContent,
-        sources,
-        focusAreas: focus_areas || ["real_estate", "business_ownership", "philanthropy", "securities", "biography"],
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error"
-      console.error("[Perplexity] Research failed:", errorMessage)
-      return {
-        prospectName: name,
-        research: `Failed to research "${name}": ${errorMessage}`,
-        sources: [],
-        focusAreas: focus_areas || [],
-        error: `Failed to research: ${errorMessage}`,
-      }
-    }
-  },
-})
+/**
+ * Perplexity Sonar Pro Prospect Research Tool (backwards-compatible export)
+ * Uses standard sonar-reasoning-pro model with 60s timeout
+ */
+export const perplexityProspectResearchTool = createPerplexityProspectResearchTool(false)
