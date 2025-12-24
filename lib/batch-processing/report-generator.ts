@@ -26,7 +26,6 @@ import {
   Affiliations,
 } from "./types"
 import { buildProspectQueryString } from "./parser"
-import { callSonarReasoningPro } from "./sonar-research"
 // Grok 4.1 Fast supports native tool calling - can be extended with additional tools in future
 import {
   getRomyScore,
@@ -1375,12 +1374,10 @@ function removeJsonBlockFromReport(content: string): string {
 // ============================================================================
 
 /**
- * Generate a prospect report using Sonar Reasoning Pro for research
- * and Grok 4.1 Fast for synthesis and scoring.
+ * Generate a prospect report using Grok 4.1 Fast with Exa web search.
+ * Single API call that does research AND outputs structured JSON.
  *
- * This matches the chat flow: deep research first, then synthesis.
- *
- * Cost: ~$0.04 (Sonar) + ~$0.003 (Grok) = ~$0.043/prospect
+ * Cost: ~$0.01-0.02/prospect (Grok with Exa search)
  */
 export async function generateReportWithSonarAndGrok(
   options: GenerateReportOptions
@@ -1388,7 +1385,7 @@ export async function generateReportWithSonarAndGrok(
   const { prospect, apiKey } = options
   const startTime = Date.now()
 
-  console.log(`[BatchProcessor] Starting Sonar+Grok research for: ${prospect.name}`)
+  console.log(`[BatchProcessor] Starting Grok+Exa research for: ${prospect.name}`)
 
   // Build full address for research
   const fullAddress = buildProspectQueryString(prospect)
@@ -1400,93 +1397,72 @@ export async function generateReportWithSonarAndGrok(
     .map(([key, value]) => `${key}: ${value}`)
     .join(", ")
 
-  // Stage 1: Sonar Reasoning Pro for deep research
-  console.log(`[BatchProcessor] Stage 1: Calling Sonar Reasoning Pro...`)
-  const sonarStartTime = Date.now()
-
-  let sonarResult
-  try {
-    sonarResult = await callSonarReasoningPro({
-      name: prospect.name,
-      address: fullAddress,
-      city: prospect.city,
-      state: prospect.state,
-      context: additionalContext || undefined,
-      apiKey,
-    })
-  } catch (error) {
-    console.error("[BatchProcessor] Sonar research failed:", error)
-    throw new Error(`Sonar research failed: ${error instanceof Error ? error.message : "Unknown error"}`)
-  }
-
-  const sonarDuration = Date.now() - sonarStartTime
-  console.log(
-    `[BatchProcessor] Sonar research completed in ${sonarDuration}ms, ` +
-    `${sonarResult.tokens} tokens, ${sonarResult.sources.length} sources`
-  )
-
-  // DEBUG: Log Sonar output preview
-  console.log(`[BatchProcessor] DEBUG - Sonar output length: ${sonarResult.content.length}`)
-  console.log(`[BatchProcessor] DEBUG - Sonar output preview (first 500 chars):`)
-  console.log(sonarResult.content.slice(0, 500))
-  console.log(`[BatchProcessor] DEBUG - END SONAR PREVIEW`)
-
-  // Stage 2: Grok 4.1 Fast for synthesis
-  console.log(`[BatchProcessor] Stage 2: Calling Grok for synthesis...`)
-  const grokStartTime = Date.now()
-
-  const userMessage = `Synthesize this research into a professional prospect summary for major gift screening.
+  // Build research prompt
+  const userMessage = `Research this prospect and generate a professional summary for major gift screening.
 
 **Prospect:** ${prospect.name}
 **Address:** ${fullAddress}
 ${additionalContext ? `**Additional Info:** ${additionalContext}` : ""}
 
----
+Use your web search to gather data about this person:
+1. Search for property values and real estate holdings at this address
+2. Look for business ownership and professional background
+3. Check ProPublica Nonprofit Explorer for foundation affiliations
+4. Search FEC.gov for political giving history
+5. Look for SEC filings if they're a public company executive
+6. Find biographical details and career history
 
-## Research Findings from Perplexity Sonar:
+After researching, produce the prospect summary with ALL sections filled in.
+IMPORTANT: You MUST include the JSON data block at the end of your response.`
 
-${sonarResult.content}
-
----
-
-## Sources Found:
-${sonarResult.sources.map((s) => `- ${s.name}: ${s.url}`).join("\n") || "No external sources"}
-
----
-
-Now synthesize this into a professional prospect summary. Include the JSON data block at the end.`
-
+  // Use Grok 4.1 Fast with Exa web search
   const openrouter = createOpenRouter({
     apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+    extraBody: {
+      // Enable Exa web search for prospect research
+      plugins: [{ id: "web", engine: "exa", max_results: 8 }],
+      // Enable reasoning for better analysis
+      reasoning: { effort: "medium" },
+    },
   })
 
-  const grokResult = await generateText({
-    model: openrouter("x-ai/grok-4.1-fast"),
+  console.log(`[BatchProcessor] Calling Grok 4.1 Fast with Exa web search...`)
+
+  const result = await streamText({
+    model: openrouter.chat("x-ai/grok-4.1-fast"),
     system: GROK_SYNTHESIS_PROMPT,
-    prompt: userMessage,
-    maxTokens: 4000,
+    messages: [{ role: "user", content: userMessage }],
+    maxTokens: 6000,
     temperature: 0.3,
   })
 
-  const grokDuration = Date.now() - grokStartTime
-  const grokTokens = (grokResult.usage?.promptTokens || 0) + (grokResult.usage?.completionTokens || 0)
+  // Collect the full response
+  let reportContent = ""
+  for await (const chunk of result.textStream) {
+    reportContent += chunk
+  }
 
-  console.log(`[BatchProcessor] Grok synthesis completed in ${grokDuration}ms, ${grokTokens} tokens`)
+  // Get usage stats
+  const usage = await result.usage
+  const tokensUsed = (usage?.promptTokens || 0) + (usage?.completionTokens || 0)
+  const duration = Date.now() - startTime
 
-  // DEBUG: Log raw Grok output to diagnose extraction issues
-  console.log(`[BatchProcessor] DEBUG - Grok raw output length: ${grokResult.text.length}`)
-  console.log(`[BatchProcessor] DEBUG - Grok output preview (last 1500 chars):`)
-  console.log(grokResult.text.slice(-1500))
+  console.log(`[BatchProcessor] Grok research completed in ${duration}ms, ${tokensUsed} tokens`)
+
+  // DEBUG: Log raw output to diagnose extraction issues
+  console.log(`[BatchProcessor] DEBUG - Output length: ${reportContent.length}`)
+  console.log(`[BatchProcessor] DEBUG - Output preview (last 1500 chars):`)
+  console.log(reportContent.slice(-1500))
   console.log(`[BatchProcessor] DEBUG - END OF PREVIEW`)
 
   // Extract structured data from the report
-  const structuredData = extractStructuredDataFromReport(grokResult.text)
+  const structuredData = extractStructuredDataFromReport(reportContent)
 
   // DEBUG: Log extracted data
   console.log(`[BatchProcessor] DEBUG - Extracted structured data:`, JSON.stringify(structuredData, null, 2))
 
   // Get clean report content (without JSON block)
-  const cleanReport = removeJsonBlockFromReport(grokResult.text)
+  const cleanReport = removeJsonBlockFromReport(reportContent)
 
   // Calculate final RomyScore using our verified function
   const romyBreakdown = await calculateRomyScoreFromMetrics(
@@ -1502,22 +1478,50 @@ Now synthesize this into a professional prospect summary. Include the JSON data 
   structuredData.romy_score_tier = romyBreakdown.tier.name
   structuredData.capacity_rating = romyBreakdown.tier.capacity
 
-  const totalDuration = Date.now() - startTime
-  const totalTokens = sonarResult.tokens + grokTokens
-
   console.log(
-    `[BatchProcessor] Sonar+Grok report completed for ${prospect.name} in ${totalDuration}ms, ` +
-    `${totalTokens} total tokens, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
+    `[BatchProcessor] Report completed for ${prospect.name} in ${duration}ms, ` +
+    `${tokensUsed} tokens, RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name})`
   )
+
+  // Extract sources from report (inline citations)
+  const sources = extractSourcesFromReport(reportContent)
 
   return {
     report_content: cleanReport,
     structured_data: structuredData,
-    sources: sonarResult.sources,
-    tokens_used: totalTokens,
-    model_used: "sonar-reasoning-pro + grok-4.1-fast",
-    processing_duration_ms: totalDuration,
+    sources,
+    tokens_used: tokensUsed,
+    model_used: "grok-4.1-fast + exa-search",
+    processing_duration_ms: duration,
   }
+}
+
+/**
+ * Extract source URLs from report text
+ */
+function extractSourcesFromReport(text: string): Array<{ name: string; url: string }> {
+  const sources: Array<{ name: string; url: string }> = []
+  const seen = new Set<string>()
+
+  // Match URLs in the text
+  const urlPattern = /https?:\/\/[^\s\)\]<>"]+/g
+  const matches = text.match(urlPattern) || []
+
+  for (const url of matches) {
+    const cleanUrl = url.replace(/[.,;:!?]+$/, "")
+    if (!seen.has(cleanUrl)) {
+      seen.add(cleanUrl)
+      try {
+        const urlObj = new URL(cleanUrl)
+        const domain = urlObj.hostname.replace(/^www\./, "")
+        sources.push({ name: domain, url: cleanUrl })
+      } catch {
+        // Skip invalid URLs
+      }
+    }
+  }
+
+  return sources.slice(0, 10)
 }
 
 // ============================================================================

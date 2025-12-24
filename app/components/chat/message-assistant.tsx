@@ -7,7 +7,6 @@ import {
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { exportToPdf } from "@/lib/pdf-export"
-import { exportProspectToPdf } from "@/lib/prospect-pdf/client-export"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { cn } from "@/lib/utils"
 import type { Message as MessageAISDK } from "@ai-sdk/react"
@@ -101,203 +100,22 @@ export function MessageAssistant({
     try {
       const chat = chatId ? getChatById(chatId) : null
       const title = chat?.title || "Rōmy Response"
-
-      // Check if content looks like a prospect report (has typical sections)
-      const isProspectReport =
-        children.includes("## Executive Summary") ||
-        children.includes("## Summary") ||
-        children.includes("### Real Estate") ||
-        children.includes("### Wealth") ||
-        children.includes("RōmyScore") ||
-        children.includes("Gift Capacity")
-
-      if (isProspectReport) {
-        // Use the branded PDF API for prospect reports
-        const response = await fetch("/api/prospect-pdf", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            prospectName: title.replace(/^(Donor Profile|Prospect Report|Research):?\s*/i, "") || "Prospect",
-            location: "See report details",
-            reportDate: new Date().toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            }),
-            executiveSummary: extractSection(children, "Executive Summary") ||
-              extractSection(children, "Summary") ||
-              children.substring(0, 500),
-            personal: {
-              fullName: title.replace(/^(Donor Profile|Prospect Report|Research):?\s*/i, "") || "Prospect",
-            },
-            professional: {
-              currentPositions: extractSection(children, "Current Position") ||
-                extractSection(children, "Business"),
-              education: extractSection(children, "Education"),
-            },
-            realEstate: {
-              primaryResidence: extractSection(children, "Real Estate") ||
-                extractSection(children, "Property"),
-            },
-            businessInterests: {
-              currentEquity: extractSection(children, "Business") ||
-                extractSection(children, "Ownership"),
-            },
-            otherAssets: {},
-            lifestyleIndicators: {
-              netWorthAssessment: extractSection(children, "Net Worth") ||
-                extractSection(children, "Wealth"),
-            },
-            philanthropic: {
-              documentedInterests: extractSection(children, "Philanthrop") ||
-                extractSection(children, "Giving"),
-            },
-            givingCapacity: {
-              recommendedAskRange: extractSection(children, "Recommended Ask") ||
-                extractSection(children, "Gift Capacity") ||
-                "See report",
-            },
-            engagement: {},
-            summary: {
-              prospectGrade: extractSection(children, "Capacity Rating") ||
-                extractSection(children, "Rating"),
-            },
-            conclusion: extractSection(children, "Conclusion") ||
-              extractSection(children, "Cultivation") ||
-              "See full report for details.",
-          }),
-        })
-
-        if (response.ok) {
-          const blob = await response.blob()
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement("a")
-          link.href = url
-          link.download =
-            response.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ||
-            `romy-report-${Date.now()}.pdf`
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          URL.revokeObjectURL(url)
-        } else {
-          // Fallback to simple PDF export
-          console.warn("Branded PDF API failed, falling back to simple export")
-          await fallbackExportPdf()
-        }
-      } else {
-        // Use simple PDF export for non-report content
-        await fallbackExportPdf()
-      }
-    } catch (error) {
-      console.error("Failed to export PDF:", error)
-      // Try fallback
-      await fallbackExportPdf()
-    } finally {
-      setIsExporting(false)
-    }
-  }
-
-  const fallbackExportPdf = async () => {
-    if (!children) return
-    const chat = chatId ? getChatById(chatId) : null
-    const title = chat?.title || "Rōmy Response"
-    const formattedDate = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-
-    // Check if content looks like a prospect report
-    const isProspectReport =
-      children.includes("## Executive Summary") ||
-      children.includes("## Summary") ||
-      children.includes("### Real Estate") ||
-      children.includes("### Wealth") ||
-      children.includes("RōmyScore") ||
-      children.includes("Gift Capacity")
-
-    if (isProspectReport) {
-      // Use branded client-side PDF export
-      await exportProspectToPdf({
-        prospectName: title.replace(/^(Donor Profile|Prospect Report|Research):?\s*/i, "") || "Prospect",
-        location: "See report details",
-        reportDate: formattedDate,
-        executiveSummary: extractSection(children, "Executive Summary") ||
-          extractSection(children, "Summary") ||
-          children.substring(0, 500),
-        personal: {
-          fullName: title.replace(/^(Donor Profile|Prospect Report|Research):?\s*/i, "") || "Prospect",
-        },
-        professional: {
-          currentPositions: extractSection(children, "Current Position") ||
-            extractSection(children, "Business"),
-          education: extractSection(children, "Education"),
-        },
-        realEstate: {
-          primaryResidence: extractSection(children, "Real Estate") ||
-            extractSection(children, "Property"),
-        },
-        businessInterests: {
-          currentEquity: extractSection(children, "Business") ||
-            extractSection(children, "Ownership"),
-        },
-        otherAssets: {},
-        lifestyleIndicators: {
-          netWorthAssessment: extractSection(children, "Net Worth") ||
-            extractSection(children, "Wealth"),
-        },
-        philanthropic: {
-          documentedInterests: extractSection(children, "Philanthrop") ||
-            extractSection(children, "Giving"),
-        },
-        givingCapacity: {
-          recommendedAskRange: extractSection(children, "Recommended Ask") ||
-            extractSection(children, "Gift Capacity") ||
-            "See report",
-        },
-        engagement: {},
-        summary: {
-          prospectGrade: extractSection(children, "Capacity Rating") ||
-            extractSection(children, "Rating"),
-        },
-        conclusion: extractSection(children, "Conclusion") ||
-          extractSection(children, "Cultivation") ||
-          "See full report for details.",
+      const formattedDate = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       })
-    } else {
-      // Use simple PDF export for non-report content
+
+      // Use server-side PDF export for all content (high-quality Puppeteer rendering)
       await exportToPdf(children, {
         title,
         date: formattedDate,
-        logoSrc: "/BrandmarkRōmy.png",
       })
+    } catch (error) {
+      console.error("Failed to export PDF:", error)
+    } finally {
+      setIsExporting(false)
     }
-  }
-
-  // Helper to extract sections from markdown
-  const extractSection = (content: string, sectionName: string): string => {
-    const patterns = [
-      new RegExp(`##\\s*${sectionName}[\\s\\S]*?(?=##|$)`, "i"),
-      new RegExp(`###\\s*${sectionName}[\\s\\S]*?(?=###|##|$)`, "i"),
-      new RegExp(`\\*\\*${sectionName}[^*]*\\*\\*[:\\s]*([^\\n]+)`, "i"),
-    ]
-
-    for (const pattern of patterns) {
-      const match = content.match(pattern)
-      if (match) {
-        let extracted = match[0]
-          .replace(/^#+\s*[^\n]+\n/, "")
-          .replace(/\*\*([^*]+)\*\*/g, "$1")
-          .trim()
-        if (extracted.length > 0 && extracted.length < 2000) {
-          return extracted
-        }
-      }
-    }
-    return ""
   }
 
   return (
