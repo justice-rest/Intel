@@ -1,14 +1,14 @@
 /**
  * Batch Prospect Report Generator
- * Generates comprehensive prospect research reports using Gemini 3 Flash with web search
+ * Generates comprehensive prospect research reports using Grok 4.1 Fast with Exa web search
  *
  * Two modes:
  * - Standard: Fast research for quick prioritization (~600-800 word summaries)
  * - Comprehensive: Thorough multi-source research (~15-section reports)
  *
- * Uses Gemini 3 Flash via OpenRouter with:
- * - Web search plugin for prospect research
- * - Reasoning enabled for better analysis
+ * Uses Grok 4.1 Fast via OpenRouter with:
+ * - Exa web search plugin for curated domain research
+ * - High-effort reasoning for comprehensive analysis
  * - Native tool calling support (if needed in future)
  */
 
@@ -16,7 +16,7 @@ import { streamText } from "ai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { ProspectInputData, BatchProspectItem, BatchSearchMode } from "./types"
 import { buildProspectQueryString } from "./parser"
-// Gemini 3 supports native tool calling - can be extended with additional tools in future
+// Grok 4.1 Fast supports native tool calling - can be extended with additional tools in future
 import {
   getRomyScore,
   RomyScoreDataPoints,
@@ -1176,20 +1176,17 @@ After researching, produce the comprehensive report with all sections filled in 
 
     console.log(`[BatchProcessor] Starting comprehensive research for: ${prospect.name}`)
 
-    // Generate report using Gemini 3 Flash with web search plugin
+    // Generate report using Grok 4.1 Fast with Exa web search
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
       extraBody: {
-        // Enable web search for prospect research
-        plugins: [{ id: "web", max_results: 8 }],
-        // Enable reasoning for better analysis
-        thinking: {
-          type: "enabled",
-          budget_tokens: 8000,
-        },
+        // Enable Exa web search for prospect research
+        plugins: [{ id: "web", engine: "exa", max_results: 8 }],
+        // Enable high-effort reasoning for comprehensive analysis
+        reasoning: { effort: "high" },
       },
     })
-    const model = openrouter.chat("google/gemini-3-flash-preview")
+    const model = openrouter.chat("x-ai/grok-4.1-fast")
 
     const result = await streamText({
       model,
@@ -1289,20 +1286,17 @@ After researching, produce the concise prospect summary with ALL sections filled
 
     console.log(`[BatchProcessor] Starting standard research for: ${prospect.name}`)
 
-    // Generate report using Gemini 3 Flash with web search plugin
+    // Generate report using Grok 4.1 Fast with Exa web search
     const openrouter = createOpenRouter({
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
       extraBody: {
-        // Enable web search for prospect research
-        plugins: [{ id: "web", max_results: 5 }],
-        // Enable reasoning for better analysis
-        thinking: {
-          type: "enabled",
-          budget_tokens: 4000,
-        },
+        // Enable Exa web search for prospect research
+        plugins: [{ id: "web", engine: "exa", max_results: 5 }],
+        // Enable medium-effort reasoning for fast analysis
+        reasoning: { effort: "medium" },
       },
     })
-    const model = openrouter.chat("google/gemini-3-flash-preview")
+    const model = openrouter.chat("x-ai/grok-4.1-fast")
 
     const result = await streamText({
       model,

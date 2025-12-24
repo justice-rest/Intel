@@ -2,25 +2,25 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { ModelConfig } from "../types"
 
 export const openrouterModels: ModelConfig[] = [
-  // Gemini 3 Flash - Fast reasoning model for Research mode
-  // Replaces Perplexity Sonar Reasoning Pro with native tool calling support
+  // Grok 4.1 Fast - Fast reasoning model for Research mode
+  // xAI's best agentic tool calling model with Exa web search
   {
-    id: "openrouter:google/gemini-3-flash-preview",
-    name: "Gemini 3 Flash",
+    id: "openrouter:x-ai/grok-4.1-fast",
+    name: "Grok 4.1 Fast",
     provider: "OpenRouter",
     providerId: "openrouter",
-    modelFamily: "Gemini",
-    baseProviderId: "google",
+    modelFamily: "Grok",
+    baseProviderId: "x-ai",
     description:
-      "High-speed thinking model designed for agentic workflows, multi-turn chat, and coding assistance. Near Pro-level reasoning with lower latency.",
+      "xAI's best agentic tool calling model for real-world use cases like customer support and deep research.",
     tags: ["reasoning", "fast", "agentic", "research", "tools"],
-    contextWindow: 1048576, // 1M tokens
-    inputCost: 0.5,
-    outputCost: 3,
+    contextWindow: 2000000, // 2M tokens
+    inputCost: 0.2,
+    outputCost: 0.5,
     priceUnit: "per 1M tokens",
-    vision: true, // Supports images, video, PDF
+    vision: true,
     tools: true, // Native tool calling support
-    audio: true,
+    audio: false,
     reasoning: true, // Configurable reasoning levels
     webSearch: true,
     openSource: false,
@@ -28,47 +28,42 @@ export const openrouterModels: ModelConfig[] = [
     intelligence: "High",
     website: "https://openrouter.ai",
     apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/google/gemini-3-flash-preview",
-    releasedAt: "2025-12-17",
-    icon: "google",
+    modelPage: "https://openrouter.ai/x-ai/grok-4.1-fast",
+    releasedAt: "2025-11-19",
+    icon: "xai",
     isPro: false,
     apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
         extraBody: {
-          // Enable web search plugin when requested
+          // Enable Exa web search when requested
           ...(opts?.enableSearch && {
-            plugins: [{ id: "web", max_results: 5 }],
+            plugins: [{ id: "web", engine: "exa", max_results: 5 }],
           }),
-          // Enable reasoning with medium effort by default
-          ...(opts?.enableReasoning !== false && {
-            thinking: {
-              type: "enabled",
-              budget_tokens: 8000,
-            },
-          }),
+          // Medium reasoning effort for fast research mode
+          reasoning: { effort: "medium" },
         },
-      }).chat("google/gemini-3-flash-preview"),
+      }).chat("x-ai/grok-4.1-fast"),
   },
-  // Gemini 3 Pro - Advanced reasoning model for Deep Research mode
-  // Replaces Perplexity Sonar Deep Research with native tool calling support
+  // Grok 4.1 Fast (Thinking) - High-effort reasoning for Deep Research mode
+  // Extended thinking for comprehensive multi-step analysis
   {
-    id: "openrouter:google/gemini-3-pro-preview",
-    name: "Gemini 3 Pro",
+    id: "openrouter:x-ai/grok-4.1-fast-thinking",
+    name: "Grok 4.1 Fast (Thinking)",
     provider: "OpenRouter",
     providerId: "openrouter",
-    modelFamily: "Gemini",
-    baseProviderId: "google",
+    modelFamily: "Grok",
+    baseProviderId: "x-ai",
     description:
-      "Advanced multimodal model excelling at agentic workflows, tool-calling, and structured long-form tasks. Strong performance across text, image, video, audio, and code.",
-    tags: ["reasoning", "pro", "advanced", "research", "deep", "tools"],
-    contextWindow: 1048576, // 1M tokens
-    inputCost: 2,
-    outputCost: 12,
+      "Grok 4.1 Fast with extended thinking for comprehensive multi-step analysis and full wealth screening.",
+    tags: ["reasoning", "deep", "advanced", "research", "tools"],
+    contextWindow: 2000000, // 2M tokens
+    inputCost: 0.2,
+    outputCost: 0.5, // + reasoning tokens
     priceUnit: "per 1M tokens",
-    vision: true, // Supports images, video, PDF
+    vision: true,
     tools: true, // Native tool calling support
-    audio: true,
+    audio: false,
     reasoning: true, // Configurable reasoning levels
     webSearch: true,
     openSource: false,
@@ -76,27 +71,24 @@ export const openrouterModels: ModelConfig[] = [
     intelligence: "High",
     website: "https://openrouter.ai",
     apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/google/gemini-3-pro-preview",
-    releasedAt: "2025-11-18",
-    icon: "google",
+    modelPage: "https://openrouter.ai/x-ai/grok-4.1-fast",
+    releasedAt: "2025-11-19",
+    icon: "xai",
     isPro: false,
     apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
         extraBody: {
-          // Enable web search plugin when requested
+          // Enable Exa web search when requested
           ...(opts?.enableSearch && {
-            plugins: [{ id: "web", max_results: 8 }],
+            plugins: [{ id: "web", engine: "exa", max_results: 8 }],
           }),
-          // Enable reasoning with high effort for deep research
+          // Enable high-effort reasoning for deep research
           ...(opts?.enableReasoning !== false && {
-            thinking: {
-              type: "enabled",
-              budget_tokens: 16000,
-            },
+            reasoning: { effort: "high" },
           }),
         },
-      }).chat("google/gemini-3-pro-preview"),
+      }).chat("x-ai/grok-4.1-fast"),
   },
   // GPT-5-Nano - Used internally for two-stage architecture (tool execution)
   // Ultra-fast, ultra-cheap model optimized for low latency tool calling

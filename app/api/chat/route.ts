@@ -146,11 +146,11 @@ type ChatRequest = {
   editCutoffTimestamp?: string
 }
 
-// Map research modes to Gemini model IDs (via OpenRouter)
-// Gemini 3 supports native tool calling - no intermediary needed
+// Map research modes to Grok model IDs (via OpenRouter)
+// Grok 4.1 Fast supports native tool calling with Exa web search
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
-  "research": "openrouter:google/gemini-3-flash-preview",
-  "deep-research": "openrouter:google/gemini-3-pro-preview",
+  "research": "openrouter:x-ai/grok-4.1-fast",
+  "deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
 }
 
 export async function POST(req: Request) {

@@ -29,12 +29,12 @@ export const maxDuration = 120
 
 // Concurrent processing limits by plan
 const CONCURRENT_LIMITS: Record<string, number> = {
-  growth: 3,
-  pro: 5,
-  scale: 8,
+  growth: 5,
+  pro: 10,
+  scale: 15,
 }
 
-const DEFAULT_CONCURRENT_LIMIT = 3
+const DEFAULT_CONCURRENT_LIMIT = 5
 
 interface ProcessBatchResponse {
   items_processed: number
@@ -327,7 +327,7 @@ export async function POST(
               search_queries_used: reportResult.search_queries_used,
               sources_found: reportResult.sources_found,
               tokens_used: reportResult.tokens_used,
-              model_used: "openrouter:perplexity/sonar-reasoning-pro",
+              model_used: "openrouter:x-ai/grok-4.1-fast",
               processing_completed_at: new Date().toISOString(),
               processing_duration_ms: processingDuration,
               error_message: null,

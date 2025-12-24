@@ -55,11 +55,11 @@ const RESEARCH_MODES: ResearchModeOption[] = [
   {
     id: "research",
     name: "Research",
-    description: "Fast, real-time web research with source citations. Best for quick prospect lookups and single-step queries.",
+    description: "Fast, real-time web research with Exa search. Best for quick prospect lookups and single-step queries.",
     speed: "Fast (~10s)",
     depth: "Standard",
-    model: "Perplexity Sonar Reasoning Pro",
-    modelLink: "https://openrouter.ai/perplexity/sonar-reasoning-pro",
+    model: "Grok 4.1 Fast",
+    modelLink: "https://openrouter.ai/x-ai/grok-4.1-fast",
     features: {
       webSearch: true,
       reasoning: true,
@@ -69,11 +69,11 @@ const RESEARCH_MODES: ResearchModeOption[] = [
   {
     id: "deep-research",
     name: "Deep Research",
-    description: "Thorough multi-step research with comprehensive analysis. Best for complex prospects requiring full wealth screening.",
+    description: "Thorough multi-step research with extended thinking. Best for complex prospects requiring full wealth screening.",
     speed: "Slower (~60s)",
     depth: "Comprehensive",
-    model: "Perplexity Sonar Deep Research",
-    modelLink: "https://openrouter.ai/perplexity/sonar-deep-research",
+    model: "Grok 4.1 Fast (Thinking)",
+    modelLink: "https://openrouter.ai/x-ai/grok-4.1-fast",
     features: {
       webSearch: true,
       reasoning: true,
