@@ -136,7 +136,7 @@ function buildProspectResearchQuery(
     .filter(Boolean)
     .join("\n")
 
-  let query = `Comprehensive wealth and philanthropic research for: ${name}
+  const query = `Comprehensive wealth and philanthropic research for: ${name}
 
 REQUIRED DATA POINTS (cite all sources with URLs):
 ${focusInstructions}
@@ -261,8 +261,6 @@ const linkupProspectResearchSchema = z.object({
     .optional()
     .describe("Specific areas to focus research on. Default: all areas"),
 })
-
-type LinkupProspectResearchParams = z.infer<typeof linkupProspectResearchSchema>
 
 /**
  * LinkUp Prospect Research Tool Factory
