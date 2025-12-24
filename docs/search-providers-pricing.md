@@ -4,48 +4,46 @@ This document outlines the pricing for the web search providers integrated into 
 
 ## Overview
 
-Rōmy uses Perplexity Sonar Pro as the primary search provider for prospect research:
+Rōmy uses Perplexity Sonar Reasoning Pro as the primary search provider for prospect research:
 
 | Provider | Tool Name | Best For | Cost per Call |
 |----------|-----------|----------|---------------|
-| **Perplexity Sonar Pro** | `perplexity_prospect_research` | Comprehensive prospect research with citations | ~$0.10 |
+| **Perplexity Sonar Reasoning Pro** | `perplexity_prospect_research` | Comprehensive prospect research with citations | ~$0.04 |
 
 ## Detailed Pricing
 
-### Perplexity Sonar Pro (via OpenRouter)
-- **Input tokens**: $3 per million tokens
-- **Output tokens**: $15 per million tokens
-- **Per-request fee**: $0.018
-- **Web search**: ~$0.018 per request
+### Perplexity Sonar Reasoning Pro (via OpenRouter)
+- **Input tokens**: $2 per million tokens
+- **Output tokens**: $8 per million tokens
+- **Web search fee**: $5 per 1,000 searches ($0.005/search)
 - **Context window**: 200K tokens
 - **Max output**: 8K tokens
 
 **Per-Query Cost Estimate** (2K input, 4K output):
-- Input: $0.006
-- Output: $0.060
-- Request fee: $0.018
-- Web search: $0.018
-- **Total: ~$0.10 per call**
+- Input: 2,000 × $2/1M = $0.004
+- Output: 4,000 × $8/1M = $0.032
+- Web search: $0.005
+- **Total: ~$0.04 per call**
 
 ### Cost Comparison (vs Previous Architecture)
 
 | Approach | Cost/Prospect | Speed |
 |----------|---------------|-------|
 | **Previous (9 tools + Linkup)** | $0.25-0.35 | 60-105s |
-| **Current (Perplexity + FEC + ProPublica)** | $0.10-0.15 | 15-25s |
+| **Current (Perplexity + FEC + ProPublica)** | ~$0.04-0.08 | 15-25s |
 
 ## Estimated Monthly Costs
 
 | Usage Level | Prospects/Month | Est. Cost |
 |-------------|-----------------|-----------|
-| Light | 100 | ~$10-15 |
-| Moderate | 500 | ~$50-75 |
-| Heavy | 1,000 | ~$100-150 |
+| Light | 100 | ~$4-8 |
+| Moderate | 500 | ~$20-40 |
+| Heavy | 1,000 | ~$40-80 |
 
 ## Environment Variables
 
 ```bash
-# Required for Perplexity Sonar Pro (via OpenRouter)
+# Required for Perplexity Sonar Reasoning Pro (via OpenRouter)
 OPENROUTER_API_KEY=your_openrouter_key
 
 # Optional - for structured data tools (FREE)
@@ -60,6 +58,5 @@ These structured data tools are retained and cost nothing:
 |------|--------|------|
 | `fec_contributions` | OpenFEC API | FREE |
 | `propublica_nonprofit_*` | ProPublica API | FREE |
-| `yahoo_finance_*` | Yahoo Finance | FREE |
 | `sec_insider_search` | SEC EDGAR | FREE |
 | `sec_edgar_filings` | SEC EDGAR | FREE |

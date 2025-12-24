@@ -149,7 +149,7 @@ You have access to specialized research tools for prospect research and wealth s
 5. **Validating wealth indicators** → Cross-reference via perplexity_prospect_research: property records + business ownership + foundation assets
 
 **PERPLEXITY PROSPECT RESEARCH - YOUR PRIMARY RESEARCH TOOL:**
-perplexity_prospect_research is your workhorse for comprehensive prospect research. It uses Perplexity Sonar Pro's agentic search to deliver grounded results with citations. Each call costs ~$0.10 and covers multiple research areas simultaneously.
+perplexity_prospect_research is your workhorse for comprehensive prospect research. It uses Perplexity Sonar Reasoning Pro's agentic search to deliver grounded results with citations. Each call costs ~$0.04 and covers multiple research areas simultaneously.
 
 **RESEARCH APPROACH:**
 perplexity_prospect_research automatically searches for:
@@ -180,7 +180,7 @@ When researching a prospect (especially when given a name + address), use tools 
 1. **Start with perplexity_prospect_research:**
    - Pass name, address, and any known context
    - This single tool call covers property, business, philanthropy, securities, and biography with grounded citations
-   - Cost: ~$0.10 per call, provides comprehensive research
+   - Cost: ~$0.04 per call, provides comprehensive research
 
 2. **Supplement with specialized structured data tools:**
    - **fec_contributions** - for verified political contribution records (structured FEC data)
