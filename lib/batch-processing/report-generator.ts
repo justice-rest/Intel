@@ -703,13 +703,22 @@ Based on prospect profile:
  * System prompt for Perplexity Sonar Reasoning Pro to research and generate prospect reports
  * Uses Sonar's built-in web search to gather data, then outputs structured report + JSON
  */
-const GROK_SYNTHESIS_PROMPT = `You are Rōmy, a prospect research assistant powered by Perplexity Sonar with built-in web search capabilities.
+const GROK_SYNTHESIS_PROMPT = `You are Rōmy, a prospect research assistant. You have built-in web search.
+
+## ABSOLUTE REQUIREMENT - READ CAREFULLY:
+You MUST ALWAYS output a complete prospect report in the format below. NEVER output:
+- "Unable to Complete Prospect Research"
+- "I cannot complete this research"
+- "To proceed, I need..."
+- Any message asking for clarification or more information
+
+Even if your searches return irrelevant results or you find nothing about this specific person, you MUST still output the full report format with "None found" or "Not available - limited public information" in the relevant fields.
 
 ## YOUR TASK:
-You MUST use your web search capabilities to research the prospect. DO NOT say you cannot complete the research or ask for help - you have full web search access. Your job is to:
-1. ACTIVELY SEARCH the web for information about the prospect using your built-in search
-2. Find data from authoritative sources (property records, business registries, SEC, FEC, news)
-3. Synthesize findings into a structured report with the JSON data block
+1. Search the web for information about the prospect
+2. If searches return irrelevant results (wrong person, business with same name), try more specific searches
+3. If you still can't find relevant info, OUTPUT THE REPORT ANYWAY with "None found" values
+4. ALWAYS include the JSON block at the end - use null for unknown values
 
 ## OUTPUT FORMAT:
 
@@ -835,14 +844,18 @@ Fill in actual values from the research. Use null for unknown values.
 - **ANNUAL:** Lower indicators = Gift Capacity <$5K
 
 ## RULES:
-- CRITICAL: You MUST search the web for this prospect. You have full web search capabilities built-in. NEVER say "I cannot complete this research" - search and find what you can.
-- Use "None found" when data unavailable AFTER searching - don't leave blanks
-- Include specific dollar amounts where possible
-- Base estimates on actual research findings from your web searches
-- Recommended Ask = 1-2% of estimated net worth
-- Keep report concise (~600-800 words)
-- The JSON block is REQUIRED - never skip it
-- If your initial search returns irrelevant results (e.g., a business with the same name), search again with more specific terms like the person's address, city, or profession`
+1. **NEVER REFUSE** - You must ALWAYS output the report format. No exceptions. No "unable to complete" messages.
+2. **SEARCH FIRST** - Use your web search to find information. Try multiple search variations.
+3. **HANDLE POOR RESULTS** - If searches return irrelevant results (wrong person, businesses with same name):
+   - Try adding location: "[Name] [City] [State]"
+   - Try the address directly: "[Street Address] property value"
+   - Try profession if known: "[Name] [profession] [location]"
+   - If still nothing relevant: Use "None found" and continue with the report
+4. **ALWAYS OUTPUT JSON** - The JSON block at the end is REQUIRED. Use null for values you couldn't find.
+5. **ESTIMATE CONSERVATIVELY** - If you only found the address but no property data, estimate based on the area. If no data at all, assign ANNUAL capacity rating with low RōmyScore.
+6. Keep report concise (~600-800 words)
+7. Dollar amounts should include $ symbol
+8. Recommended Ask = 1-2% of estimated net worth (or $500-1000 if net worth unknown)`
 
 // ============================================================================
 // TYPES
@@ -1400,28 +1413,27 @@ export async function generateReportWithSonarAndGrok(
     .join(", ")
 
   // Build research prompt - Sonar has built-in web search
-  const userMessage = `Use your built-in web search to research this prospect and generate a professional summary for major gift screening.
+  const userMessage = `Research this prospect and generate a professional summary for major gift screening.
 
 **Prospect:** ${prospect.name}
 **Address:** ${fullAddress}
 ${additionalContext ? `**Additional Info:** ${additionalContext}` : ""}
 
-You have web search capabilities. Use them NOW to search for:
-1. Property values at "${fullAddress}" - search Zillow, Redfin, or county assessor records
-2. Business ownership - search "${prospect.name} business owner" and state business registries
-3. Foundation affiliations - search ProPublica Nonprofit Explorer for their name
-4. Political giving - search FEC.gov for "${prospect.name}" contributions
-5. SEC filings - search EDGAR if they might be a public company executive
-6. Biography - search for news articles and professional profiles
+Search for:
+1. Property value at this address (Zillow, Redfin, county records)
+2. Business ownership ("${prospect.name}" + business/company/LLC)
+3. Foundation affiliations (ProPublica Nonprofit Explorer)
+4. Political giving (FEC.gov)
+5. SEC filings (if public company executive)
+6. News articles and professional background
 
-CRITICAL INSTRUCTIONS:
-- You MUST perform web searches. Do NOT say "I cannot complete this research" - you have search capabilities.
-- If a search returns irrelevant results (e.g., a business with the same name), refine your search with the address or city.
-- For each data point, mark as "None found" only AFTER searching and finding nothing relevant.
-- Always cite your sources with URLs.
+IMPORTANT:
+- If your searches return irrelevant results (wrong person, different business), try adding the city/state or address to narrow down.
+- You MUST output the complete report format even if you find limited information.
+- Use "None found" for sections where you couldn't find relevant data.
+- NEVER say "Unable to Complete" or ask for more information - just do your best with what you can find.
 
-After searching and gathering data, produce the prospect summary with ALL sections filled in.
-You MUST include the JSON data block at the end with the values you found from your searches.`
+Output the full prospect summary with the JSON block at the end.`
 
   // Use Perplexity Sonar Reasoning Pro - Chain of Thought with built-in web search
   const openrouter = createOpenRouter({
