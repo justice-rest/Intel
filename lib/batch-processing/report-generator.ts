@@ -261,7 +261,142 @@ async function withRetry<T>(
 }
 
 /**
- * Generate prospect research using Perplexity Sonar Pro
+ * Build enhanced search queries for more robust research
+ */
+function buildEnhancedSearchQueries(prospect: ProspectInputData): {
+  primary: string
+  propertyFocused: string
+  businessFocused: string
+  philanthropyFocused: string
+} {
+  const name = prospect.name
+  const location = [prospect.city, prospect.state].filter(Boolean).join(", ")
+  const fullAddress = prospect.full_address || [prospect.address, prospect.city, prospect.state, prospect.zip].filter(Boolean).join(", ")
+
+  return {
+    primary: buildProspectQueryString(prospect),
+    propertyFocused: `"${name}" property owner ${fullAddress} home value real estate Zillow Redfin`,
+    businessFocused: `"${name}" ${location} CEO founder owner business company LinkedIn executive`,
+    philanthropyFocused: `"${name}" ${location} philanthropy foundation board nonprofit donor charity`,
+  }
+}
+
+/**
+ * Check if research output has meaningful data worth keeping
+ */
+function hasMinimalData(output: ProspectResearchOutput): boolean {
+  // Has at least ONE of: property value, business ownership, political giving, or meaningful bio
+  const hasProperty = output.wealth.real_estate.total_value !== null && output.wealth.real_estate.total_value > 0
+  const hasBusiness = output.wealth.business_ownership.length > 0
+  const hasSecFilings = output.wealth.securities.has_sec_filings
+  const hasPoliticalGiving = output.philanthropy.political_giving.total > 0
+  const hasFoundations = output.philanthropy.foundation_affiliations.length > 0
+  const hasBoards = output.philanthropy.nonprofit_boards.length > 0
+  const hasCareer = output.background.career_summary &&
+    output.background.career_summary.length > 20 &&
+    !output.background.career_summary.includes("could not be structured")
+  const hasSources = output.sources.length > 0
+
+  return hasProperty || hasBusiness || hasSecFilings || hasPoliticalGiving ||
+    hasFoundations || hasBoards || hasCareer || hasSources
+}
+
+/**
+ * Merge two research outputs, keeping the best data from each
+ */
+function mergeResearchOutputs(
+  primary: ProspectResearchOutput,
+  secondary: ProspectResearchOutput
+): ProspectResearchOutput {
+  return {
+    metrics: {
+      estimated_net_worth_low: primary.metrics.estimated_net_worth_low || secondary.metrics.estimated_net_worth_low,
+      estimated_net_worth_high: primary.metrics.estimated_net_worth_high || secondary.metrics.estimated_net_worth_high,
+      estimated_gift_capacity: primary.metrics.estimated_gift_capacity || secondary.metrics.estimated_gift_capacity,
+      capacity_rating: primary.metrics.capacity_rating !== "ANNUAL" ? primary.metrics.capacity_rating : secondary.metrics.capacity_rating,
+      romy_score: Math.max(primary.metrics.romy_score, secondary.metrics.romy_score),
+      recommended_ask: primary.metrics.recommended_ask || secondary.metrics.recommended_ask,
+      confidence_level: primary.metrics.confidence_level === "HIGH" ? "HIGH" :
+        secondary.metrics.confidence_level === "HIGH" ? "HIGH" :
+          primary.metrics.confidence_level === "MEDIUM" ? "MEDIUM" :
+            secondary.metrics.confidence_level,
+    },
+    wealth: {
+      real_estate: {
+        total_value: primary.wealth.real_estate.total_value || secondary.wealth.real_estate.total_value,
+        properties: [...primary.wealth.real_estate.properties, ...secondary.wealth.real_estate.properties]
+          .filter((p, i, arr) => arr.findIndex(x => x.address === p.address) === i), // dedupe by address
+      },
+      business_ownership: [...primary.wealth.business_ownership, ...secondary.wealth.business_ownership]
+        .filter((b, i, arr) => arr.findIndex(x => x.company === b.company) === i), // dedupe by company
+      securities: {
+        has_sec_filings: primary.wealth.securities.has_sec_filings || secondary.wealth.securities.has_sec_filings,
+        insider_at: [...new Set([...primary.wealth.securities.insider_at, ...secondary.wealth.securities.insider_at])],
+        source: primary.wealth.securities.source || secondary.wealth.securities.source,
+      },
+    },
+    philanthropy: {
+      political_giving: {
+        total: Math.max(primary.philanthropy.political_giving.total, secondary.philanthropy.political_giving.total),
+        party_lean: primary.philanthropy.political_giving.total >= secondary.philanthropy.political_giving.total
+          ? primary.philanthropy.political_giving.party_lean
+          : secondary.philanthropy.political_giving.party_lean,
+        source: primary.philanthropy.political_giving.source || secondary.philanthropy.political_giving.source,
+      },
+      foundation_affiliations: [...new Set([...primary.philanthropy.foundation_affiliations, ...secondary.philanthropy.foundation_affiliations])],
+      nonprofit_boards: [...new Set([...primary.philanthropy.nonprofit_boards, ...secondary.philanthropy.nonprofit_boards])],
+      known_major_gifts: [...primary.philanthropy.known_major_gifts, ...secondary.philanthropy.known_major_gifts]
+        .filter((g, i, arr) => arr.findIndex(x => x.organization === g.organization && x.amount === g.amount) === i),
+    },
+    background: {
+      age: primary.background.age || secondary.background.age,
+      education: [...new Set([...primary.background.education, ...secondary.background.education])],
+      career_summary: (primary.background.career_summary && !primary.background.career_summary.includes("could not be structured"))
+        ? primary.background.career_summary
+        : secondary.background.career_summary,
+      family: {
+        spouse: primary.background.family.spouse || secondary.background.family.spouse,
+        children_count: primary.background.family.children_count || secondary.background.family.children_count,
+      },
+    },
+    strategy: primary.strategy.readiness !== "NOT_READY" ? primary.strategy : secondary.strategy,
+    sources: [...primary.sources, ...secondary.sources]
+      .filter((s, i, arr) => arr.findIndex(x => x.url === s.url) === i), // dedupe by URL
+    executive_summary: (primary.executive_summary && !primary.executive_summary.includes("structured data extraction failed"))
+      ? primary.executive_summary
+      : secondary.executive_summary,
+  }
+}
+
+/**
+ * Single Perplexity search call
+ */
+async function singlePerplexitySearch(
+  userPrompt: string,
+  apiKey?: string
+): Promise<{ output: ProspectResearchOutput | null; tokensUsed: number }> {
+  const openrouter = createOpenRouter({
+    apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+  })
+
+  const result = await withRetry(async () => {
+    return await generateText({
+      model: openrouter.chat("perplexity/sonar-pro"),
+      system: SONAR_PRO_SYSTEM_PROMPT,
+      prompt: userPrompt,
+      maxTokens: 4000,
+      temperature: 0.1,
+    })
+  }, 3, 2000)
+
+  const tokensUsed = (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0)
+  const output = parseJsonResponse(result.text.trim())
+
+  return { output, tokensUsed }
+}
+
+/**
+ * Generate prospect research using Perplexity Sonar Pro with multi-pass strategy
  * Returns structured JSON with grounded citations
  */
 async function researchWithPerplexitySonar(
@@ -269,71 +404,126 @@ async function researchWithPerplexitySonar(
   apiKey?: string
 ): Promise<PerplexityResearchResult> {
   const startTime = Date.now()
+  let totalTokensUsed = 0
 
   try {
-    // Build search context from prospect data
-    const prospectInfo = buildProspectQueryString(prospect)
+    const queries = buildEnhancedSearchQueries(prospect)
     const additionalInfo = Object.entries(prospect)
       .filter(([key]) => !["name", "address", "city", "state", "zip", "full_address"].includes(key))
       .filter(([, value]) => value)
       .map(([key, value]) => `${key}: ${value}`)
       .join("\n")
 
-    const userPrompt = `Research this prospect and return structured JSON:
+    // ========== PASS 1: Comprehensive initial search ==========
+    const primaryPrompt = `Research this prospect thoroughly and return structured JSON:
 
-**Prospect:** ${prospectInfo}
+**Prospect:** ${queries.primary}
 ${additionalInfo ? `\n**Additional Context:**\n${additionalInfo}` : ""}
 
-Search thoroughly for:
-1. Property values at their address (Zillow, Redfin, county assessor)
-2. Business ownership (LinkedIn, state registries, news)
-3. SEC insider filings (if public company executive)
-4. FEC political contributions
-5. Foundation connections (ProPublica 990s)
-6. News, biography, education
+IMPORTANT: Search AGGRESSIVELY for this person. Try multiple search strategies:
+1. Search their exact name + address for property records on Zillow, Redfin, or county assessor sites
+2. Search their name + city/state on LinkedIn for business roles
+3. Search their name on FEC.gov for political contributions
+4. Search their name + "foundation" or "board" for philanthropic activity
+5. Search SEC EDGAR for any Form 3/4/5 filings under their name
+
+If the name is common, use the address to disambiguate. If address is partial, search property records in likely cities.
 
 Return ONLY the JSON object matching the schema. No other text.`
 
-    console.log(`[BatchProcessor] Starting Perplexity Sonar Pro research for: ${prospect.name}`)
+    console.log(`[BatchProcessor] Pass 1: Comprehensive search for ${prospect.name}`)
 
-    // Use Perplexity Sonar Pro via OpenRouter with retry logic
-    const openrouter = createOpenRouter({
-      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-    })
+    const pass1 = await singlePerplexitySearch(primaryPrompt, apiKey)
+    totalTokensUsed += pass1.tokensUsed
 
-    const result = await withRetry(async () => {
-      return await generateText({
-        model: openrouter.chat("perplexity/sonar-pro"),
-        system: SONAR_PRO_SYSTEM_PROMPT,
-        prompt: userPrompt,
-        maxTokens: 4000,
-        temperature: 0.1, // Low temperature for factual accuracy
-      })
-    }, 3, 2000)
+    let output = pass1.output
 
-    const responseText = result.text.trim()
-    const tokensUsed = (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0)
+    // ========== PASS 2: Targeted follow-up if Pass 1 was weak ==========
+    if (output && !hasMinimalData(output)) {
+      console.log(`[BatchProcessor] Pass 1 returned weak data, initiating Pass 2 for ${prospect.name}`)
+
+      // Determine what's missing and search specifically for it
+      const missingData: string[] = []
+      if (!output.wealth.real_estate.total_value) missingData.push("property")
+      if (output.wealth.business_ownership.length === 0) missingData.push("business")
+      if (output.philanthropy.political_giving.total === 0) missingData.push("political giving")
+
+      // Try a more targeted search focusing on what's missing
+      const targetedPrompt = `I need more detailed research on this specific person. The initial search didn't find ${missingData.join(", ")}.
+
+**Person:** ${prospect.name}
+**Address:** ${queries.primary}
+
+SEARCH STRATEGIES TO TRY:
+${!output.wealth.real_estate.total_value ? `
+- Property: Search "${prospect.name}" on county property appraiser/assessor for ${prospect.city || "the area"}
+- Try Zillow/Redfin search for the exact address: ${prospect.address || prospect.full_address || "address not provided"}
+- Look for property tax records` : ""}
+${output.wealth.business_ownership.length === 0 ? `
+- Business: Search LinkedIn for "${prospect.name}" in ${prospect.city || prospect.state || ""}
+- Search state Secretary of State business registry for their name
+- Look for news articles mentioning "${prospect.name}" as CEO, founder, owner, president` : ""}
+${output.philanthropy.political_giving.total === 0 ? `
+- Political: Search FEC.gov individual contributions for "${prospect.name}" in ${prospect.state || "any state"}` : ""}
+
+Return ONLY the JSON object. Include any NEW information found.`
+
+      const pass2 = await singlePerplexitySearch(targetedPrompt, apiKey)
+      totalTokensUsed += pass2.tokensUsed
+
+      if (pass2.output) {
+        // Merge pass 1 and pass 2 results
+        output = mergeResearchOutputs(output, pass2.output)
+        console.log(`[BatchProcessor] Pass 2 complete, merged results for ${prospect.name}`)
+      }
+    }
+
+    // ========== PASS 3: Name variation search if still no data ==========
+    if (output && !hasMinimalData(output) && prospect.name.split(" ").length >= 2) {
+      console.log(`[BatchProcessor] Pass 2 still weak, trying name variations for ${prospect.name}`)
+
+      const nameParts = prospect.name.split(" ")
+      const firstName = nameParts[0]
+      const lastName = nameParts[nameParts.length - 1]
+
+      // Try with just first + last name (no middle)
+      const simplifiedName = `${firstName} ${lastName}`
+
+      const nameVariationPrompt = `Search for this person using a simplified name:
+
+**Name:** ${simplifiedName}
+**Location:** ${prospect.city ? `${prospect.city}, ` : ""}${prospect.state || ""}
+**Address hint:** ${prospect.address || prospect.full_address || "not provided"}
+
+The person's full name might be "${prospect.name}" but records might be under "${simplifiedName}".
+
+Search for:
+1. Property records under ${simplifiedName} near the address
+2. Business ownership under ${simplifiedName}
+3. FEC contributions from ${simplifiedName} in ${prospect.state || "any state"}
+
+Return ONLY the JSON object.`
+
+      const pass3 = await singlePerplexitySearch(nameVariationPrompt, apiKey)
+      totalTokensUsed += pass3.tokensUsed
+
+      if (pass3.output && hasMinimalData(pass3.output)) {
+        output = mergeResearchOutputs(output, pass3.output)
+        console.log(`[BatchProcessor] Pass 3 found additional data for ${prospect.name}`)
+      }
+    }
+
     const processingTime = Date.now() - startTime
 
-    console.log(`[BatchProcessor] Perplexity response received in ${processingTime}ms, tokens: ${tokensUsed}`)
-
-    // Parse JSON from response
-    let output = parseJsonResponse(responseText)
-
     if (!output) {
-      console.warn("[BatchProcessor] Failed to parse JSON, attempting fallback extraction")
-      console.log("[BatchProcessor] Raw response:", responseText.substring(0, 500))
-
-      // Create a minimal valid output from the raw text response
-      output = createFallbackOutput(prospect, responseText)
-
+      output = createFallbackOutput(prospect, "Multi-pass search returned no parseable results")
       if (!output) {
         return {
           success: false,
-          tokens_used: tokensUsed,
+          tokens_used: totalTokensUsed,
           model_used: "perplexity/sonar-pro",
           processing_duration_ms: processingTime,
-          error_message: "Failed to parse JSON response from Perplexity",
+          error_message: "Failed to parse JSON response from Perplexity after multiple passes",
         }
       }
     }
@@ -345,14 +535,15 @@ Return ONLY the JSON object matching the schema. No other text.`
       `[BatchProcessor] Research complete for ${prospect.name}: ` +
       `Net Worth: $${output.metrics.estimated_net_worth_low?.toLocaleString() || "?"}-$${output.metrics.estimated_net_worth_high?.toLocaleString() || "?"}, ` +
       `Rating: ${output.metrics.capacity_rating}, ` +
-      `Sources: ${output.sources.length}`
+      `Sources: ${output.sources.length}, ` +
+      `Total tokens: ${totalTokensUsed}`
     )
 
     return {
       success: true,
       output,
       report_markdown: reportMarkdown,
-      tokens_used: tokensUsed,
+      tokens_used: totalTokensUsed,
       model_used: "perplexity/sonar-pro",
       processing_duration_ms: processingTime,
     }
@@ -362,7 +553,7 @@ Return ONLY the JSON object matching the schema. No other text.`
 
     return {
       success: false,
-      tokens_used: 0,
+      tokens_used: totalTokensUsed,
       model_used: "perplexity/sonar-pro",
       processing_duration_ms: processingTime,
       error_message: error instanceof Error ? error.message : "Research failed",
@@ -516,9 +707,112 @@ function isValidProspectOutput(obj: unknown): obj is ProspectResearchOutput {
 // ============================================================================
 
 /**
+ * Check if research returned insufficient data to generate a useful report
+ */
+function hasInsufficientData(data: ProspectResearchOutput): boolean {
+  const { metrics, wealth, philanthropy, background, sources } = data
+
+  // No sources found = likely couldn't find anyone
+  const noSources = sources.length === 0
+
+  // No wealth indicators
+  const noWealthData =
+    !wealth.real_estate.total_value &&
+    wealth.real_estate.properties.length === 0 &&
+    wealth.business_ownership.length === 0 &&
+    !wealth.securities.has_sec_filings
+
+  // No philanthropy data
+  const noPhilanthropyData =
+    philanthropy.political_giving.total === 0 &&
+    philanthropy.foundation_affiliations.length === 0 &&
+    philanthropy.nonprofit_boards.length === 0 &&
+    philanthropy.known_major_gifts.length === 0
+
+  // No background data
+  const noBackgroundData =
+    !background.age &&
+    background.education.length === 0 &&
+    (!background.career_summary || background.career_summary.includes("could not be structured"))
+
+  // No metrics calculated
+  const noMetrics =
+    !metrics.estimated_net_worth_low &&
+    !metrics.estimated_net_worth_high &&
+    !metrics.estimated_gift_capacity &&
+    metrics.romy_score === 0
+
+  // Insufficient if we have no sources AND no data in major categories
+  return noSources && noWealthData && noPhilanthropyData && noBackgroundData && noMetrics
+}
+
+/**
+ * Format a compact "Insufficient Data" report when no useful information found
+ */
+function formatInsufficientDataReport(name: string, data: ProspectResearchOutput): string {
+  const lines: string[] = []
+
+  lines.push(`# ${name} | Insufficient Data`)
+  lines.push("")
+  lines.push("⚠️ **Research Status: Unable to Verify**")
+  lines.push("")
+  lines.push("Public records searches did not yield verifiable information for this prospect.")
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+  lines.push("## What Was Searched")
+  lines.push("")
+  lines.push("- Property records (county assessor, Zillow, Redfin)")
+  lines.push("- Business registrations (state SOS databases)")
+  lines.push("- SEC insider filings (Form 3/4/5)")
+  lines.push("- FEC political contributions")
+  lines.push("- Foundation/nonprofit 990 filings (ProPublica)")
+  lines.push("- News and biographical sources")
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+  lines.push("## Possible Reasons")
+  lines.push("")
+  lines.push("1. **Incomplete address** - Missing city, state, or ZIP code")
+  lines.push("2. **Common name** - Multiple individuals match without additional identifiers")
+  lines.push("3. **Privacy-conscious** - Individual may use trusts, LLCs, or other privacy structures")
+  lines.push("4. **New to area** - Recent move may not appear in databases yet")
+  lines.push("5. **Different name** - May use maiden name, nickname, or middle name professionally")
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+  lines.push("## Next Steps")
+  lines.push("")
+  lines.push("To improve research results, provide any of the following:")
+  lines.push("")
+  lines.push("- [ ] **Full address** with city, state, and ZIP code")
+  lines.push("- [ ] **Employer or job title**")
+  lines.push("- [ ] **Spouse name** (if applicable)")
+  lines.push("- [ ] **LinkedIn profile URL**")
+  lines.push("- [ ] **Known philanthropic affiliations**")
+  lines.push("- [ ] **Approximate age** or graduation year")
+  lines.push("")
+  lines.push("---")
+  lines.push("")
+  lines.push("## Research Notes")
+  lines.push("")
+  if (data.executive_summary && !data.executive_summary.includes("structured data extraction failed")) {
+    lines.push(data.executive_summary)
+  } else {
+    lines.push("*No additional context was extracted from public sources.*")
+  }
+
+  return lines.join("\n")
+}
+
+/**
  * Format structured JSON output into table-first markdown report
  */
 function formatReportMarkdown(name: string, data: ProspectResearchOutput): string {
+  // Check if we have insufficient data for a full report
+  if (hasInsufficientData(data)) {
+    return formatInsufficientDataReport(name, data)
+  }
   const { metrics, wealth, philanthropy, background, strategy, sources, executive_summary } = data
 
   // Format currency with null handling
@@ -654,20 +948,30 @@ function formatReportMarkdown(name: string, data: ProspectResearchOutput): strin
   // Background
   lines.push("## Background")
   lines.push("")
-  if (background.age) {
-    lines.push(`**Age:** ${background.age}`)
-  }
-  if (background.education.length > 0) {
-    lines.push(`**Education:** ${background.education.join("; ")}`)
-  }
-  if (background.career_summary) {
-    lines.push(`**Career:** ${background.career_summary}`)
-  }
-  if (background.family.spouse) {
-    lines.push(`**Spouse:** ${background.family.spouse}`)
-  }
-  if (background.family.children_count) {
-    lines.push(`**Children:** ${background.family.children_count}`)
+  const hasBackgroundData = background.age ||
+    background.education.length > 0 ||
+    (background.career_summary && !background.career_summary.includes("could not be structured")) ||
+    background.family.spouse ||
+    background.family.children_count
+
+  if (hasBackgroundData) {
+    if (background.age) {
+      lines.push(`**Age:** ${background.age}`)
+    }
+    if (background.education.length > 0) {
+      lines.push(`**Education:** ${background.education.join("; ")}`)
+    }
+    if (background.career_summary && !background.career_summary.includes("could not be structured")) {
+      lines.push(`**Career:** ${background.career_summary}`)
+    }
+    if (background.family.spouse) {
+      lines.push(`**Spouse:** ${background.family.spouse}`)
+    }
+    if (background.family.children_count) {
+      lines.push(`**Children:** ${background.family.children_count}`)
+    }
+  } else {
+    lines.push("*No biographical information found in public records. Consider checking LinkedIn or organizational directories.*")
   }
   lines.push("")
   lines.push("---")
@@ -705,8 +1009,12 @@ function formatReportMarkdown(name: string, data: ProspectResearchOutput): strin
   // Sources
   lines.push("## Sources")
   lines.push("")
-  for (const source of sources) {
-    lines.push(`- [${source.title}](${source.url}) - ${source.data_provided}`)
+  if (sources.length > 0) {
+    for (const source of sources) {
+      lines.push(`- [${source.title}](${source.url}) - ${source.data_provided}`)
+    }
+  } else {
+    lines.push("*No verifiable sources found. Public records, property databases, and government filings did not return matches for this name and address combination. Additional identifying information (employer, full address with city/state, spouse name) may improve results.*")
   }
 
   return lines.join("\n")
