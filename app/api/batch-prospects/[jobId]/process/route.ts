@@ -118,7 +118,26 @@ export async function POST(
 
     let nextItem: BatchProspectItem | null = pendingItems?.[0] || null
 
-    // If no pending items, check for failed items that can be retried
+    // If no pending items, check for stale "processing" items (stuck for >5 min)
+    if (!nextItem && !itemError) {
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+      const { data: staleItems } = await (supabase as any)
+        .from("batch_prospect_items")
+        .select("*")
+        .eq("job_id", jobId)
+        .eq("user_id", user.id)
+        .eq("status", "processing")
+        .lt("processing_started_at", fiveMinutesAgo)  // Stuck for >5 min
+        .order("item_index", { ascending: true })
+        .limit(1) as { data: BatchProspectItem[] | null }
+
+      nextItem = staleItems?.[0] || null
+      if (nextItem) {
+        console.log(`[BatchProcess] Found stale processing item: ${nextItem.prospect_name} (started ${nextItem.processing_started_at})`)
+      }
+    }
+
+    // If no pending or stale items, check for failed items that can be retried
     if (!nextItem && !itemError) {
       const { data: failedItems } = await (supabase as any)
         .from("batch_prospect_items")
