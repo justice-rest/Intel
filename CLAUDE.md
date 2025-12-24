@@ -308,43 +308,49 @@ User sends message
 - `/migrations/006_add_memory_system.sql` - Database schema
 
 ### Web Search Integration
-**Linkup-Powered Prospect Research** with curated domains:
+**Perplexity Sonar Pro-Powered Prospect Research** with grounded citations:
 
 | Mode | When | Search Method |
 |------|------|---------------|
-| Search enabled | `enableSearch=true` | Linkup tool (`searchWeb`) |
+| Search enabled | `enableSearch=true` | Perplexity Sonar Pro (`perplexity_prospect_research`) |
 | Search disabled | `enableSearch=false` | No web search |
 
-**Linkup Search Tool** (`/lib/tools/linkup-search.ts`)
-- Uses `linkup-sdk` package with `sourcedAnswer` output mode
-- Returns pre-synthesized answers with source citations
-- Searches curated domains (SEC, FEC, foundation 990s, property records, etc.)
-- 60-second timeout, deep search by default
+**Perplexity Prospect Research Tool** (`/lib/tools/perplexity-prospect-research.ts`)
+- Uses Perplexity Sonar Pro via OpenRouter API
+- Autonomous multi-step research with grounded citations
+- Searches real estate, business ownership, philanthropy, securities, biography
+- 60-second timeout, comprehensive research by default
+- **Cost**: ~$0.10 per call
 
 **Search Flow**:
 ```
 User toggles search button
   → enableSearch=true sent to API
-  → AI calls searchWeb for curated domain search
+  → AI calls perplexity_prospect_research for comprehensive research
+  → Grounded results with citations returned
   → Sources displayed in SourcesList
 ```
 
-**Person-to-Nonprofit Research Workflow**:
+**Prospect Research Workflow**:
 ```
-1. searchWeb("John Smith foundation board nonprofit")
-   → Discovers: "Smith Family Foundation", board at "XYZ Charity"
+1. perplexity_prospect_research("John Smith", address, context)
+   → Comprehensive research with citations covering:
+   - Real estate holdings and property values
+   - Business ownership and executive positions
+   - Philanthropic activity and foundation boards
+   - Securities holdings (public company roles)
+   - Biographical information
 
-2. Extract organization names and EINs from results
+2. fec_contributions("John Smith")
+   → Verified political contribution records
 
-3. propublica_nonprofit_search(query="XYZ Charity")
+3. propublica_nonprofit_search(query="Foundation Name")
    → propublica_nonprofit_details(ein="12-3456789")
-
-4. Return detailed 990 data (revenue, assets, officer compensation)
+   → Detailed 990 data (revenue, assets, officer compensation)
 ```
 
 **Key Files**:
-- `/lib/tools/linkup-search.ts` - Linkup tool (prospect research)
-- `/lib/linkup/config.ts` - Linkup API key and defaults
+- `/lib/tools/perplexity-prospect-research.ts` - Perplexity tool
 - `/app/api/chat/route.ts` - Tool integration
 
 ### USAspending Awards Tool
@@ -415,46 +421,6 @@ usaspending_awards({ query: "Microsoft", awardType: "all" })
 
 **Key Files**:
 - `/lib/tools/sec-insider.ts` - Both insider and proxy search tools
-- `/app/api/chat/route.ts` - Tool registration
-
-### Wikidata Tool
-**Biographical research from Wikidata knowledge graph** - FREE, no API key required:
-
-| Tool | Purpose | Best For |
-|------|---------|----------|
-| `wikidata_search` | Search for people/orgs by name | Finding Wikidata QIDs for entities |
-| `wikidata_entity` | Get detailed entity data by QID | Biographical data, education, employers, net worth |
-
-**Wikidata Search Tool** (`/lib/tools/wikidata.ts`)
-- Uses MediaWiki `wbsearchentities` API
-- Filters by type: "person", "organization", or "any"
-- Returns QIDs, labels, descriptions
-
-**Wikidata Entity Tool** (`/lib/tools/wikidata.ts`)
-- Uses MediaWiki `wbgetentities` API
-- Resolves entity IDs to labels automatically
-- Extracts key properties for prospect research:
-  - P106: occupation
-  - P108: employer
-  - P39: position held
-  - P69: educated at
-  - P2218: net worth
-  - P166: awards received
-  - P463: member of
-
-**Usage Examples**:
-```typescript
-// Search for a person
-wikidata_search({ query: "Elon Musk", type: "person" })
-// Returns: [{ id: "Q317521", label: "Elon Musk", description: "..." }]
-
-// Get full biographical data
-wikidata_entity({ entityId: "Q317521" })
-// Returns: education, employers, positions, net worth, awards, etc.
-```
-
-**Key Files**:
-- `/lib/tools/wikidata.ts` - Both search and entity tools
 - `/app/api/chat/route.ts` - Tool registration
 
 ### CRM Integrations (Bloomerang, Virtuous, Neon CRM)

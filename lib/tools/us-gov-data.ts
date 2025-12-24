@@ -431,7 +431,7 @@ export const usaspendingAwardsTool = tool({
   description:
     "Search USAspending.gov for federal contracts, grants, and loans received by companies and organizations. " +
     "Search by COMPANY or ORGANIZATION name (e.g., 'Microsoft', 'Gates Foundation', 'Lockheed Martin') to find government funding. " +
-    "NOT for individual donor wealth research - for individuals use Yahoo Finance, FEC contributions, SEC Edgar, ProPublica nonprofits, or Wikidata instead.",
+    "NOT for individual donor wealth research - for individuals use perplexity_prospect_research, FEC contributions, SEC Edgar, or ProPublica nonprofits instead.",
   parameters: usaspendingSchema,
   execute: async (params: UsaspendingParams): Promise<UsaspendingResult> => {
     console.log("[USAspending] Request:", params.query)

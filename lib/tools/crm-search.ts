@@ -35,7 +35,7 @@ const crmSearchSchema = z.object({
 export const crmSearchTool = tool({
   description:
     "ALWAYS call this tool FIRST when researching a named donor or prospect. " +
-    "Execute BEFORE any external research (yahoo_finance, sec_edgar, propublica, etc). " +
+    "Execute BEFORE any external research (perplexity_prospect_research, sec_edgar, propublica, etc). " +
     "Searches connected CRMs (Bloomerang, Virtuous, Neon CRM, DonorPerfect) for: " +
     "(1) existing donor records, (2) giving history & lifetime value, (3) contact info & address. " +
     "Use when: user asks about a specific person/donor, user says 'look up [name]', " +

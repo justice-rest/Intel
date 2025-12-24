@@ -67,7 +67,6 @@ const SOURCE_CONFIDENCE_RANK: Record<string, number> = {
   // Structured data APIs - high confidence
   "Wikidata": 70,
   "OpenCorporates": 75,
-  "Yahoo Finance": 75,
   "GLEIF LEI": 80,
 
   // Web sources - medium confidence
@@ -495,7 +494,6 @@ export const Sources = {
   stateRegistry: (state: string, url: string) =>
     createSource(`${state} Secretary of State`, url, "official_record"),
   wikidata: (url: string) => createSource("Wikidata", url, "api_response"),
-  yahooFinance: (url: string) => createSource("Yahoo Finance", url, "api_response"),
   zillow: (url: string) => createSource("Zillow", url, "web_search"),
   redfin: (url: string) => createSource("Redfin", url, "web_search"),
   linkup: (url: string) => createSource("Linkup", url, "web_search"),

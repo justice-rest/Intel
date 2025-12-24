@@ -16,16 +16,15 @@ export function getSources(parts: MessageAISDK["parts"]) {
       ) {
         const result = part.toolInvocation.result
 
-        // Handle Linkup search tool results (sourcedAnswer format)
+        // Handle Perplexity prospect research tool results
         if (
-          part.toolInvocation.toolName === "searchWeb" &&
+          part.toolInvocation.toolName === "perplexity_prospect_research" &&
           result?.sources
         ) {
-          // Map Linkup's source format to our standard format
-          return result.sources.map((source: { name?: string; url: string; snippet?: string }) => ({
-            title: source.name || "Untitled",
+          return result.sources.map((source: { name?: string; url: string }) => ({
+            title: source.name || "Source",
             url: source.url,
-            text: source.snippet || "",
+            text: "",
           }))
         }
 
@@ -216,32 +215,6 @@ export function getSources(parts: MessageAISDK["parts"]) {
             title: s.name || "Wikidata",
             url: s.url,
             text: "Biographical data from Wikidata",
-          }))
-        }
-
-        // Handle Yahoo Finance tools
-        if (
-          (part.toolInvocation.toolName === "yahoo_finance_quote" ||
-           part.toolInvocation.toolName === "yahoo_finance_search" ||
-           part.toolInvocation.toolName === "yahoo_finance_profile") &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Yahoo Finance",
-            url: s.url,
-            text: "Financial data from Yahoo Finance",
-          }))
-        }
-
-        // Handle OpenSanctions screening
-        if (
-          part.toolInvocation.toolName === "opensanctions_screening" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "OpenSanctions",
-            url: s.url,
-            text: "Sanctions/PEP screening data",
           }))
         }
 

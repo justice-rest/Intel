@@ -55,7 +55,7 @@ export function SubscriptionProductCard({ features }: SubscriptionProductCardPro
       price: 29.0,
       credits: 100,
       messages: "100 messages",
-      description: "File uploads, email support, 10 batch researches",
+      description: "File uploads, email support, 100 batch researches",
     },
     pro: {
       id: "pro",
@@ -63,7 +63,7 @@ export function SubscriptionProductCard({ features }: SubscriptionProductCardPro
       price: 89.0,
       credits: "unlimited",
       messages: "unlimited messages",
-      description: "Dedicated support, 50 batch researches, everything in Growth",
+      description: "Dedicated support, 500 batch researches, everything in Growth",
     },
     scale: {
       id: "scale",
@@ -71,7 +71,7 @@ export function SubscriptionProductCard({ features }: SubscriptionProductCardPro
       price: 200.0,
       credits: "unlimited",
       messages: "unlimited messages",
-      description: "Document search (RAG), fundraising consultation, 100 batch researches, everything in Pro",
+      description: "Document search (RAG), fundraising consultation, 1000 batch researches, everything in Pro",
     },
   }
 

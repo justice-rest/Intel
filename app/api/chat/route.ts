@@ -6,12 +6,6 @@ import { createRagSearchTool } from "@/lib/tools/rag-search"
 import { createMemorySearchTool } from "@/lib/tools/memory-tool"
 import { createBatchReportsSearchTool } from "@/lib/tools/batch-reports-search"
 import {
-  yahooFinanceQuoteTool,
-  yahooFinanceSearchTool,
-  yahooFinanceProfileTool,
-  shouldEnableYahooFinanceTools,
-} from "@/lib/tools/yahoo-finance"
-import {
   propublicaNonprofitSearchTool,
   propublicaNonprofitDetailsTool,
   shouldEnableProPublicaTools,
@@ -25,18 +19,13 @@ import {
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
 import {
-  wikidataSearchTool,
-  wikidataEntityTool,
-  shouldEnableWikidataTools,
-} from "@/lib/tools/wikidata"
+  perplexityProspectResearchTool,
+  shouldEnablePerplexityTools,
+} from "@/lib/tools/perplexity-prospect-research"
 import {
   rentalInvestmentTool,
   shouldEnableRentalInvestmentTool,
 } from "@/lib/tools/rental-investment-tool"
-import {
-  opensanctionsScreeningTool,
-  shouldEnableOpenSanctionsTools,
-} from "@/lib/tools/opensanctions"
 import {
   courtSearchTool,
   judgeSearchTool,
@@ -54,33 +43,13 @@ import {
   shouldEnableNeonCRMTools,
 } from "@/lib/tools/neon-crm"
 import {
-  countyAssessorTool,
-  shouldEnableCountyAssessorTool,
-} from "@/lib/tools/county-assessor"
-import {
-  professionalLicenseTool,
-  shouldEnableProfessionalLicenseTool,
-} from "@/lib/tools/professional-license"
-import {
   stateContractsTool,
   shouldEnableStateContractsTool,
 } from "@/lib/tools/state-contracts"
 import {
-  faaAircraftTool,
-  shouldEnableFAAAircraftTool,
-} from "@/lib/tools/faa-aircraft"
-import {
-  uscgVesselTool,
-  shouldEnableUSCGVesselTool,
-} from "@/lib/tools/uscg-vessels"
-import {
   npiRegistryTool,
   shouldEnableNPIRegistryTool,
 } from "@/lib/tools/npi-registry"
-import {
-  finraBrokerCheckTool,
-  shouldEnableFINRABrokerCheckTool,
-} from "@/lib/tools/finra-brokercheck"
 import {
   usptoSearchTool,
   shouldEnableUSPTOSearchTool,
@@ -368,21 +337,15 @@ You have access to **search_memory** to recall past conversations and user conte
       if (shouldEnableSecInsiderTools()) dataTools.push("sec_insider_search (verify if person is officer/director at public company via Form 4)")
       if (shouldEnableSecInsiderTools()) dataTools.push("sec_proxy_search (DEF 14A proxy statements - lists all directors/officers)")
       if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
-      if (shouldEnableYahooFinanceTools()) dataTools.push("yahoo_finance_* (stock quotes, company profiles, insider holdings)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
-      if (shouldEnableWikidataTools()) dataTools.push("wikidata_search/entity (biographical data: education, employers, positions, net worth, awards)")
+      if (shouldEnablePerplexityTools()) dataTools.push("perplexity_prospect_research (comprehensive prospect research with grounded citations - real estate, business, philanthropy, securities, biography)")
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
       if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
       if (shouldEnableNeonCRMTools()) dataTools.push("neon_crm_* (Neon CRM integration: search accounts/donors, get donor details, search donations - requires API key)")
-      if (shouldEnableOpenSanctionsTools()) dataTools.push("opensanctions_screening (PEP/sanctions screening - OFAC, EU, UN sanctions + politically exposed persons)")
       if (shouldEnableCourtListenerTools()) dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
-      if (shouldEnableProfessionalLicenseTool()) dataTools.push("professional_license (verify credentials: MD, JD, CPA, Real Estate - CA, NY, TX, FL, IL)")
       if (shouldEnableStateContractsTool()) dataTools.push("state_contracts (state government contracts - CA, NY, TX, FL, IL, OH, CO, MA)")
-      if (shouldEnableFAAAircraftTool()) dataTools.push("faa_aircraft (FAA N-Number registry - aircraft ownership - ULTRA-HIGH wealth indicator)")
-      if (shouldEnableUSCGVesselTool()) dataTools.push("uscg_vessels (USCG vessel documentation - boat/yacht ownership - HIGH wealth indicator)")
       if (shouldEnableNPIRegistryTool()) dataTools.push("npi_registry (CMS NPI Registry - healthcare providers - income by specialty)")
-      if (shouldEnableFINRABrokerCheckTool()) dataTools.push("finra_brokercheck (FINRA BrokerCheck - financial advisors - HIGH income profession)")
       if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
       if (dataTools.length > 0) {
@@ -393,41 +356,18 @@ You have built-in web search capabilities through Perplexity Sonar Reasoning. Us
 ### Data API Tools
 ${dataTools.join("\n")}
 
-**Usage:**
-- sec_edgar_filings: Public company financials, 10-K/10-Q, executive compensation
-- sec_insider_search: Verify board membership - search Form 3/4/5 by person name
-- sec_proxy_search: Get DEF 14A proxy statements listing all directors/officers
-- fec_contributions: Political contribution history by individual name
-- yahoo_finance_*: Stock data, company profiles, insider holdings
-- propublica_nonprofit_*: Foundation 990s, nonprofit financials (search by ORG name)
-- usaspending_awards: Federal contracts/grants by company/org name
-- wikidata_search/entity: Biographical data (education, employers, net worth)
-- rental_investment: Rental analysis - estimates monthly rent and investment returns
-- gleif_search: Search Global LEI database for corporate entities (2.5M+ entities)
-- gleif_lookup: Get LEI details with ownership chain (direct/ultimate parent)
-- opensanctions_screening: PEP & sanctions check - returns risk level (HIGH/MEDIUM/LOW/CLEAR)
-- federal_lobbying: Federal lobbying disclosures with income/expense data
-- court_search: Federal court opinions and dockets by party name or case
-- judge_search: Judge biographical data, positions, appointers, education
-- neon_crm_search_accounts: Search donors in Neon CRM by name/email
-- neon_crm_get_account: Get detailed donor profile and giving history from Neon CRM
-- neon_crm_search_donations: Search donations in Neon CRM by date, amount, campaign
-- professional_license: Verify credentials (MD, JD, CPA, Real Estate) - wealth indicator from profession
-- state_contracts: State government contracts - $1M+ contracts suggest successful business
-- faa_aircraft: FAA aircraft registry - ULTRA-HIGH wealth ($500K-$70M+ aircraft)
-- uscg_vessels: USCG vessel documentation - yacht/boat ownership ($25K-$50M+)
-- npi_registry: Healthcare provider credentials - income estimates by specialty ($100K-$900K)
-- finra_brokercheck: Financial advisor credentials - HIGH income ($80K-$1M+)
-- uspto_search: Patent/trademark search by inventor or assignee - IP wealth indicator
+**Key Tools:**
+- **perplexity_prospect_research**: PRIMARY tool for comprehensive prospect research. Searches real estate, business ownership, philanthropy, securities, and biography with grounded citations. Use this FIRST for most research requests.
+- **fec_contributions**: Political contribution history by individual name (structured FEC data)
+- **propublica_nonprofit_***: Foundation 990s, nonprofit financials (search by ORG name)
+- **sec_edgar_filings**: Public company financials, 10-K/10-Q, executive compensation
+- **sec_insider_search / sec_proxy_search**: Verify board membership via SEC filings
 
 ### Research Strategy
-1. Use your **built-in web search** for general prospect research (property values, business affiliations, philanthropy)
-2. Use **data API tools** to get detailed structured data from authoritative sources
-3. **propublica workflow**: Search web for nonprofit names → propublica_nonprofit_search with ORG name
-4. **compliance screening**: ALWAYS run opensanctions_screening for major donor prospects (PEP/sanctions check)
-5. **wealth screening**: Run **faa_aircraft** + **uscg_vessels** for luxury asset discovery
-6. **professional verification**: Run **npi_registry** (doctors) or **finra_brokercheck** (finance)
-7. Run tools in parallel when possible. Be thorough.
+1. **Start with perplexity_prospect_research** - comprehensive search with citations covering property, business, philanthropy
+2. **Use structured tools for specific data**: FEC for political giving, ProPublica for 990s, SEC for public company roles
+3. **Run tools in parallel** when gathering data from multiple sources
+4. **propublica workflow**: Search perplexity for nonprofit names → propublica_nonprofit_search with ORG name for 990 details
 
 ### Board & Officer Validation (PUBLIC COMPANIES)
 When asked to verify if someone is on a board, is a director, officer, or executive:
@@ -435,37 +375,13 @@ When asked to verify if someone is on a board, is a director, officer, or execut
 2. **sec_proxy_search("[company name]")** - Gets DEF 14A proxy statement listing ALL directors and officers.
 Use BOTH tools: insider search confirms the person files as insider, proxy shows full board composition.
 
-### Wealth Indicator Tools (USE PROACTIVELY)
-These tools reveal high-value prospects. Run them during comprehensive research:
-
-**Luxury Assets (ULTRA-HIGH wealth signals):**
-- **faa_aircraft** - Aircraft ownership ($500K-$70M+). Run for any suspected high-net-worth prospect.
-- **uscg_vessels** - Yacht/boat ownership ($25K-$50M+). Run alongside faa_aircraft for complete picture.
-
-**High-Income Professions (verify profession + estimate income):**
-- **npi_registry** - Healthcare providers. If prospect is MD/DO/NP, run this for specialty and income estimate ($100K-$900K).
-- **finra_brokercheck** - Financial advisors. If prospect works in finance, run this for CRD#, licenses, disclosures ($80K-$1M+).
-- **federal_lobbying** - Federal lobbyists. High-income profession with disclosed compensation.
-
-**Business & IP Research:**
-- **uspto_search** - Patents/trademarks. Inventors and IP holders = wealth indicator.
-
-### Professional Verification Workflow
-When researching someone's profession:
-1. **Doctor/Healthcare**: Run **npi_registry** first - authoritative NPI number + specialty + income estimate
-2. **Financial Advisor**: Run **finra_brokercheck** - CRD number, licenses, disclosures, firm history
-3. **Attorney**: Run **professional_license** with "attorney" type
-4. **Federal Lobbyist**: Run **federal_lobbying** for lobbying disclosures + compensation
-
-### Due Diligence Workflow
-For comprehensive prospect due diligence:
-1. **opensanctions_screening** - Check for sanctions/PEP status (REQUIRED for major gifts)
-2. **sec_insider_search** + **sec_proxy_search** - Find public company roles via SEC
-3. **court_search** - Check for litigation history
-4. **federal_lobbying** - Discover lobbying connections
-5. **fec_contributions** - Political giving history
-6. **faa_aircraft** + **uscg_vessels** - Luxury asset screening (aircraft, yachts)
-7. **npi_registry** / **finra_brokercheck** - Professional credential verification if applicable`
+### Comprehensive Prospect Research Workflow
+For full donor research:
+1. **perplexity_prospect_research** - Get comprehensive profile with citations (property, business, philanthropy, biography)
+2. **fec_contributions** - Political giving history (structured data)
+3. **propublica_nonprofit_search** - If philanthropist, get 990 details for foundations they're connected to
+4. **sec_insider_search** - If suspected public company executive, verify via SEC
+5. **giving_capacity_calculator** - Calculate capacity from gathered wealth data`
       }
     }
 
@@ -515,15 +431,6 @@ For comprehensive prospect due diligence:
             search_prospects: createBatchReportsSearchTool(userId),
           }
         : {}),
-      // Add Yahoo Finance tools for stock data, executive profiles, and insider transactions
-      // Available to all users (no API key required)
-      ...(enableSearch && shouldEnableYahooFinanceTools()
-        ? {
-            yahoo_finance_quote: yahooFinanceQuoteTool,
-            yahoo_finance_search: yahooFinanceSearchTool,
-            yahoo_finance_profile: yahooFinanceProfileTool,
-          }
-        : {}),
       // Add ProPublica Nonprofit Explorer tools for foundation/nonprofit research
       // Free API - no key required. Provides 990 financial data, EIN lookup
       ...(enableSearch && shouldEnableProPublicaTools()
@@ -561,12 +468,11 @@ For comprehensive prospect due diligence:
             usaspending_awards: usGovDataTool,
           }
         : {}),
-      // Add Wikidata tools for biographical research (education, employers, net worth, etc.)
-      // Free API - no key required
-      ...(enableSearch && shouldEnableWikidataTools()
+      // Add Perplexity Sonar Pro for comprehensive prospect research
+      // Grounded web search with citations - real estate, business, philanthropy, securities, biography
+      ...(enableSearch && shouldEnablePerplexityTools()
         ? {
-            wikidata_search: wikidataSearchTool,
-            wikidata_entity: wikidataEntityTool,
+            perplexity_prospect_research: perplexityProspectResearchTool,
           }
         : {}),
       // Add Rental Investment tool for rental valuation and investment analysis
@@ -574,13 +480,6 @@ For comprehensive prospect due diligence:
       ...(enableSearch && shouldEnableRentalInvestmentTool()
         ? {
             rental_investment: rentalInvestmentTool,
-          }
-        : {}),
-      // Add OpenSanctions tool for PEP and sanctions screening
-      // COMPLETELY FREE - open source sanctions database
-      ...(enableSearch && shouldEnableOpenSanctionsTools()
-        ? {
-            opensanctions_screening: opensanctionsScreeningTool,
           }
         : {}),
       // Add CourtListener tools for court records and judge information
@@ -608,20 +507,6 @@ For comprehensive prospect due diligence:
             neon_crm_search_donations: neonCRMSearchDonationsTool,
           }
         : {}),
-      // Add County Property Assessor Tool - Official government property records
-      // FREE Socrata APIs - Supports major counties (LA, Cook, Miami-Dade, etc.)
-      ...(enableSearch && shouldEnableCountyAssessorTool()
-        ? {
-            county_assessor: countyAssessorTool,
-          }
-        : {}),
-      // Add Professional License Search - State licensing databases
-      // Verifies credentials for MD, JD, CPA, Real Estate, etc.
-      ...(enableSearch && shouldEnableProfessionalLicenseTool()
-        ? {
-            professional_license: professionalLicenseTool,
-          }
-        : {}),
       // Add State Contracts Search - State/local government contracts
       // Reveals business-government relationships and contract values
       ...(enableSearch && shouldEnableStateContractsTool()
@@ -629,32 +514,11 @@ For comprehensive prospect due diligence:
             state_contracts: stateContractsTool,
           }
         : {}),
-      // Add FAA Aircraft Registry Tool - Aircraft ownership lookup
-      // Ultra-high wealth indicator ($500K-$70M+ for jets)
-      ...(enableSearch && shouldEnableFAAAircraftTool()
-        ? {
-            faa_aircraft: faaAircraftTool,
-          }
-        : {}),
-      // Add USCG Vessel Documentation Tool - Boat/yacht ownership
-      // High wealth indicator ($25K-$50M+ for yachts)
-      ...(enableSearch && shouldEnableUSCGVesselTool()
-        ? {
-            uscg_vessels: uscgVesselTool,
-          }
-        : {}),
       // Add NPI Registry Tool - Healthcare provider credentials
       // Authoritative source for MD, DO, NP, PA credentials with income estimates
       ...(enableSearch && shouldEnableNPIRegistryTool()
         ? {
             npi_registry: npiRegistryTool,
-          }
-        : {}),
-      // Add FINRA BrokerCheck Tool - Financial advisor credentials
-      // CRD number, licenses, disclosures, income estimates
-      ...(enableSearch && shouldEnableFINRABrokerCheckTool()
-        ? {
-            finra_brokercheck: finraBrokerCheckTool,
           }
         : {}),
       // Add USPTO Search Tool - Patent and trademark search

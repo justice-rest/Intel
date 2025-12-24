@@ -1,15 +1,15 @@
 /**
  * Batch Prospect Report Generator
- * Generates comprehensive prospect research reports using Grok 4.1 Fast with Exa web search
+ * Generates comprehensive prospect research reports using Grok 4.1 Fast with Perplexity Sonar Pro
  *
  * Two modes:
  * - Standard: Fast research for quick prioritization (~600-800 word summaries)
  * - Comprehensive: Thorough multi-source research (~15-section reports)
  *
  * Uses Grok 4.1 Fast via OpenRouter with:
- * - Exa web search plugin for curated domain research
+ * - Perplexity Sonar Pro for grounded web search with citations
  * - High-effort reasoning for comprehensive analysis
- * - Native tool calling support (if needed in future)
+ * - Native tool calling support
  */
 
 import { streamText } from "ai"

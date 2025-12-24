@@ -46,8 +46,8 @@ export const DEFAULT_CONCURRENT_LIMIT = 3
  * Change these values to adjust how many rows each plan can process
  */
 export const PLAN_ROW_LIMITS: Record<string, number> = {
-  growth: 10,
-  pro: 50,
+  growth: 100,
+  pro: 500,
   scale: 1000,
 }
 

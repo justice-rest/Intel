@@ -5,16 +5,12 @@
 
 // Tool execution time estimates (in seconds) based on typical response times
 export const TOOL_TIME_ESTIMATES: Record<string, number> = {
-  searchWeb: 8, // Linkup - 60s timeout, usually ~5-10s
-  exaSearch: 5, // Exa - 30s timeout, usually ~3-7s
-  tavilySearch: 4, // Tavily - 15s timeout, usually ~3-5s
-  firecrawlSearch: 6, // Firecrawl - 15s timeout, usually ~4-8s
+  perplexity_prospect_research: 15, // Perplexity Sonar Pro - 60s timeout, usually ~10-15s
   propublica_nonprofit_search: 3,
   propublica_nonprofit_details: 3,
-  yahoo_finance_quote: 2,
-  yahoo_finance_search: 2,
-  yahoo_finance_profile: 3,
   sec_edgar_filings: 5,
+  sec_insider_search: 4,
+  sec_proxy_search: 4,
   fec_contributions: 4,
   us_gov_data: 4,
   rag_search: 3,

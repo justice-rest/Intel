@@ -30,32 +30,28 @@ const TRANSITION = {
  * Maps internal tool names to user-friendly display names
  */
 const TOOL_DISPLAY_NAMES: Record<string, string> = {
-  searchWeb: "Web Search",
-  exaSearch: "Web Search: Additional",
-  tavilySearch: "News Search",
-  firecrawlSearch: "Documents & Socials",
+  // Primary research tool
+  perplexity_prospect_research: "Web Search",
+  // Nonprofit tools
   propublica_nonprofit_search: "Nonprofit Search",
   propublica_nonprofit_details: "Nonprofit Details",
-  yahoo_finance_quote: "Stock Quote",
-  yahoo_finance_search: "Stock Search",
-  yahoo_finance_profile: "Company Profile",
+  // Document tools
   rag_search: "Document Search",
   list_documents: "List Documents",
   search_memory: "Memory Search",
+  // SEC tools
   sec_edgar_filings: "SEC Filings",
   sec_insider_search: "SEC Insider Filings",
   sec_proxy_search: "SEC Proxy Statements",
+  // Political/Government tools
   fec_contributions: "Political Contributions",
   us_gov_data: "US Government Data",
   usaspending_awards: "Federal Awards",
-  wikidata_search: "Wikidata Search",
-  wikidata_entity: "Wikidata Profile",
-  opensanctions_screening: "Sanctions Screening",
+  // Court tools
   court_search: "Court Cases",
   judge_search: "Judge Profile",
+  // Other tools
   rental_investment: "Rental Analysis",
-  county_assessor: "County Property Records",
-  faa_registry: "FAA Aircraft Registry",
   crm_search: "CRM Search",
   neon_crm_search_accounts: "CRM Accounts",
   neon_crm_get_account: "CRM Account",
@@ -1286,259 +1282,112 @@ function SingleToolCard({
       )
     }
 
-    // Handle Yahoo Finance quote results
+    // Handle Perplexity Prospect Research results
     if (
-      toolName === "yahoo_finance_quote" &&
+      toolName === "perplexity_prospect_research" &&
       typeof parsedResult === "object" &&
       parsedResult !== null &&
-      "symbol" in parsedResult &&
-      "rawContent" in parsedResult
+      "prospectName" in parsedResult
     ) {
-      const quoteResult = parsedResult as {
-        symbol: string
-        shortName?: string
-        longName?: string
-        regularMarketPrice?: number
-        regularMarketChange?: number
-        regularMarketChangePercent?: number
-        marketCap?: number
-        currency?: string
-        rawContent: string
+      const perplexityResult = parsedResult as {
+        prospectName: string
+        research: string
         sources: Array<{ name: string; url: string }>
+        focusAreas: string[]
         error?: string
       }
 
-      if (quoteResult.error) {
-        return <div className="text-muted-foreground">{quoteResult.error}</div>
-      }
-
-      const formatCurrency = (amount?: number, currency = "USD") => {
-        if (amount === undefined) return "—"
-        if (amount >= 1e12) return `${currency} ${(amount / 1e12).toFixed(2)}T`
-        if (amount >= 1e9) return `${currency} ${(amount / 1e9).toFixed(2)}B`
-        if (amount >= 1e6) return `${currency} ${(amount / 1e6).toFixed(2)}M`
-        return new Intl.NumberFormat("en-US", {
-          style: "currency",
-          currency,
-          minimumFractionDigits: 2,
-        }).format(amount)
-      }
-
-      return (
-        <div className="space-y-4">
-          <div>
-            <div className="font-medium text-foreground text-lg">
-              {quoteResult.longName || quoteResult.shortName || quoteResult.symbol}
-            </div>
-            <div className="text-muted-foreground text-sm font-mono">
-              {quoteResult.symbol}
-            </div>
-          </div>
-
-          {quoteResult.regularMarketPrice !== undefined && (
-            <div className="flex items-baseline gap-3">
-              <span className="font-medium text-foreground text-2xl">
-                {formatCurrency(quoteResult.regularMarketPrice, quoteResult.currency)}
-              </span>
-              {quoteResult.regularMarketChange !== undefined && (
-                <span className={cn(
-                  "text-sm font-medium",
-                  quoteResult.regularMarketChange >= 0 ? "text-green-600" : "text-red-600"
-                )}>
-                  {quoteResult.regularMarketChange >= 0 ? "+" : ""}
-                  {quoteResult.regularMarketChange.toFixed(2)} ({quoteResult.regularMarketChangePercent?.toFixed(2)}%)
-                </span>
-              )}
-            </div>
-          )}
-
-          {quoteResult.marketCap !== undefined && (
-            <div className="text-muted-foreground text-sm">
-              Market Cap: {formatCurrency(quoteResult.marketCap, quoteResult.currency)}
-            </div>
-          )}
-
-          {quoteResult.sources && quoteResult.sources.length > 0 && (
-            <div className="pt-2">
-              {quoteResult.sources.map((source, index) => (
-                <a
-                  key={index}
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary group flex items-center gap-1 text-sm hover:underline"
-                >
-                  {source.name}
-                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
-                </a>
-              ))}
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    // Handle Yahoo Finance search results
-    if (
-      toolName === "yahoo_finance_search" &&
-      typeof parsedResult === "object" &&
-      parsedResult !== null &&
-      "results" in parsedResult &&
-      "query" in parsedResult
-    ) {
-      const searchResult = parsedResult as {
-        results: Array<{
-          symbol: string
-          shortname?: string
-          longname?: string
-          exchDisp?: string
-          typeDisp?: string
-        }>
-        query: string
-        rawContent: string
-        sources: Array<{ name: string; url: string }>
-        error?: string
-      }
-
-      if (searchResult.error) {
-        return <div className="text-muted-foreground">{searchResult.error}</div>
-      }
-
-      if (searchResult.results.length === 0) {
+      if (perplexityResult.error) {
         return (
           <div className="text-muted-foreground">
-            No stocks found matching &quot;{searchResult.query}&quot;
+            {perplexityResult.error}
           </div>
         )
       }
 
-      return (
-        <div className="space-y-3">
-          <div className="text-muted-foreground text-xs">
-            Found {searchResult.results.length} result{searchResult.results.length !== 1 ? "s" : ""} for &quot;{searchResult.query}&quot;
-          </div>
-          {searchResult.results.map((result, index) => (
-            <div key={index} className="border-border border-b pb-2 last:border-0 last:pb-0">
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="font-medium text-foreground">
-                    {result.longname || result.shortname || result.symbol}
-                  </span>
-                  <span className="text-muted-foreground ml-2 font-mono text-sm">
-                    {result.symbol}
-                  </span>
-                </div>
-              </div>
-              {(result.exchDisp || result.typeDisp) && (
-                <div className="text-muted-foreground text-xs mt-1">
-                  {[result.exchDisp, result.typeDisp].filter(Boolean).join(" • ")}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    // Handle Yahoo Finance profile results
-    if (
-      toolName === "yahoo_finance_profile" &&
-      typeof parsedResult === "object" &&
-      parsedResult !== null &&
-      "symbol" in parsedResult &&
-      "rawContent" in parsedResult
-    ) {
-      const profileResult = parsedResult as {
-        symbol: string
-        industry?: string
-        sector?: string
-        website?: string
-        employees?: number
-        executives?: Array<{
-          name: string
-          title: string
-          totalPay?: number
-        }>
-        marketCap?: number
-        rawContent: string
-        sources: Array<{ name: string; url: string }>
-        error?: string
-      }
-
-      if (profileResult.error) {
-        return <div className="text-muted-foreground">{profileResult.error}</div>
-      }
-
-      const formatCurrency = (amount?: number) => {
-        if (amount === undefined) return "—"
-        if (amount >= 1e12) return `$${(amount / 1e12).toFixed(2)}T`
-        if (amount >= 1e9) return `$${(amount / 1e9).toFixed(2)}B`
-        if (amount >= 1e6) return `$${(amount / 1e6).toFixed(2)}M`
-        if (amount >= 1e3) return `$${(amount / 1e3).toFixed(0)}K`
-        return `$${amount.toLocaleString()}`
+      // Format focus areas for display
+      const formatFocusArea = (area: string) => {
+        switch (area) {
+          case "real_estate":
+            return "Real Estate"
+          case "business_ownership":
+            return "Business"
+          case "philanthropy":
+            return "Philanthropy"
+          case "securities":
+            return "Securities"
+          case "biography":
+            return "Biography"
+          default:
+            return area
+        }
       }
 
       return (
         <div className="space-y-4">
-          <div>
-            <div className="font-medium text-foreground text-lg">{profileResult.symbol}</div>
-            {(profileResult.industry || profileResult.sector) && (
-              <div className="text-muted-foreground text-sm">
-                {[profileResult.sector, profileResult.industry].filter(Boolean).join(" • ")}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            {profileResult.marketCap && (
-              <div>
-                <span className="text-muted-foreground">Market Cap:</span>{" "}
-                <span className="font-mono">{formatCurrency(profileResult.marketCap)}</span>
-              </div>
-            )}
-            {profileResult.employees && (
-              <div>
-                <span className="text-muted-foreground">Employees:</span>{" "}
-                <span className="font-mono">{profileResult.employees.toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-
-          {profileResult.executives && profileResult.executives.length > 0 && (
+          {/* Header */}
+          <div className="flex items-start justify-between">
             <div>
-              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-                Key Executives
+              <div className="font-medium text-foreground text-lg">
+                {perplexityResult.prospectName}
               </div>
-              <div className="space-y-2">
-                {profileResult.executives.slice(0, 5).map((exec, index) => (
-                  <div key={index} className="text-sm">
-                    <span className="font-medium">{exec.name}</span>
-                    <span className="text-muted-foreground"> — {exec.title}</span>
-                    {exec.totalPay && (
-                      <span className="text-muted-foreground ml-2 font-mono text-xs">
-                        {formatCurrency(exec.totalPay)}
-                      </span>
-                    )}
-                  </div>
-                ))}
+              {perplexityResult.focusAreas && perplexityResult.focusAreas.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {perplexityResult.focusAreas.map((area, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-950/30 dark:text-blue-400"
+                    >
+                      {formatFocusArea(area)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Research content - render as formatted text */}
+          {perplexityResult.research && (
+            <div className="border-border rounded-md border bg-muted/30 p-4">
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-foreground">
+                  {perplexityResult.research}
+                </pre>
               </div>
             </div>
           )}
 
-          {profileResult.sources && profileResult.sources.length > 0 && (
-            <div className="pt-2">
-              {profileResult.sources.map((source, index) => (
-                <a
-                  key={index}
-                  href={source.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary group flex items-center gap-1 text-sm hover:underline"
-                >
-                  {source.name}
-                  <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
-                </a>
-              ))}
+          {/* Sources */}
+          {perplexityResult.sources && perplexityResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources ({perplexityResult.sources.length})
+              </div>
+              <div className="space-y-1">
+                {perplexityResult.sources.slice(0, 10).map((source, index) => (
+                  <a
+                    key={index}
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 text-sm hover:underline"
+                  >
+                    {source.name}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                ))}
+                {perplexityResult.sources.length > 10 && (
+                  <div className="text-muted-foreground text-xs">
+                    ...and {perplexityResult.sources.length - 10} more sources
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!perplexityResult.research && (
+            <div className="text-muted-foreground">
+              No research results found for &quot;{perplexityResult.prospectName}&quot;
             </div>
           )}
         </div>
