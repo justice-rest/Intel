@@ -1,6 +1,5 @@
 "use client"
 
-import { startTransition } from "react"
 import { TransitionRouter } from "next-transition-router"
 import { gsap, initializeGSAP } from "./gsap-config"
 import { DURATION, EASING, prefersReducedMotion } from "./animation-config"
@@ -13,7 +12,6 @@ initializeGSAP()
  * Targets the main content area for smooth page transitions
  */
 function getTransitionTarget(): HTMLElement | null {
-  // Target main element for content transitions
   return document.querySelector("main")
 }
 
@@ -28,7 +26,7 @@ function getTransitionTarget(): HTMLElement | null {
  * - Fast exit (0.15s) + smooth enter (0.25s) = premium feel
  * - Respects prefers-reduced-motion
  * - Cleanup functions prevent memory leaks
- * - Uses React's startTransition for better performance
+ * - Safe fallbacks ensure content is never left invisible
  */
 export function TransitionProvider({
   children,
@@ -39,7 +37,7 @@ export function TransitionProvider({
     <TransitionRouter
       auto
       leave={(next) => {
-        // Respect reduced motion preference
+        // Respect reduced motion preference or skip if no target
         if (prefersReducedMotion()) {
           next()
           return () => {}
@@ -47,6 +45,7 @@ export function TransitionProvider({
 
         const target = getTransitionTarget()
 
+        // If no main element (e.g., batch pages), skip animation
         if (!target) {
           next()
           return () => {}
@@ -60,9 +59,12 @@ export function TransitionProvider({
           onComplete: next,
         })
 
-        // Return cleanup function
         return () => {
           tween.kill()
+          // Safety: ensure element is visible if animation was interrupted
+          if (target) {
+            gsap.set(target, { opacity: 1 })
+          }
         }
       }}
       enter={(next) => {
@@ -74,36 +76,31 @@ export function TransitionProvider({
 
         const target = getTransitionTarget()
 
+        // If no main element, just proceed
         if (!target) {
           next()
           return () => {}
         }
 
-        // Scroll to top during transition (instant scroll while faded out)
+        // Scroll to top during transition
         window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
 
-        // Use requestAnimationFrame for optimal timing
-        let tween: gsap.core.Tween
+        // Set initial state BEFORE animation
+        gsap.set(target, { opacity: 0 })
 
-        requestAnimationFrame(() => {
-          // Set initial state
-          gsap.set(target, { opacity: 0 })
-
-          // Smooth fade in
-          tween = gsap.to(target, {
-            opacity: 1,
-            duration: DURATION.enter,
-            ease: EASING.enter,
-            onComplete: () => {
-              startTransition(next)
-            },
-          })
+        // Smooth fade in
+        const tween = gsap.to(target, {
+          opacity: 1,
+          duration: DURATION.enter,
+          ease: EASING.enter,
+          onComplete: next,
         })
 
-        // Return cleanup function
         return () => {
-          if (tween) {
-            tween.kill()
+          tween.kill()
+          // Safety: ALWAYS ensure element is visible after cleanup
+          if (target) {
+            gsap.set(target, { opacity: 1, clearProps: "opacity" })
           }
         }
       }}

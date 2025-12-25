@@ -16,20 +16,22 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useUser } from "@/lib/user-store/provider"
+import { useChats } from "@/lib/chat-store/chats/provider"
+import { useMessages } from "@/lib/chat-store/messages/provider"
+import { clearAllIndexedDBStores } from "@/lib/chat-store/persist"
 import { InstagramLogoIcon, LinkedinLogoIcon, SignOut } from "@phosphor-icons/react"
 import { useState, useEffect, useRef } from "react"
 import { useCustomer } from "autumn-js/react"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
 import { AppInfoTrigger } from "./app-info/app-info-trigger"
 import { FeedbackTrigger } from "./feedback/feedback-trigger"
 import { SettingsTrigger } from "./settings/settings-trigger"
 import type { TabType } from "./settings/settings-content"
 
 export function UserMenu() {
-  const { user, updateUser } = useUser()
+  const { user, updateUser, signOut } = useUser()
+  const { resetChats } = useChats()
+  const { resetMessages } = useMessages()
   const { customer } = useCustomer()
-  const router = useRouter()
   const [isMenuOpen, setMenuOpen] = useState(false)
   const [isSettingsOpen, setSettingsOpen] = useState(false)
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<TabType>("general")
@@ -87,12 +89,19 @@ export function UserMenu() {
   }
 
   const handleSignOut = async () => {
-    const supabase = createClient()
-    if (!supabase) return
-
-    await supabase.auth.signOut()
-    router.push("/auth")
-    router.refresh()
+    try {
+      // Clear React state first for immediate UI feedback
+      await resetMessages()
+      await resetChats()
+      // Sign out from Supabase + clear user context
+      await signOut()
+      // Clear all IndexedDB caches to prevent stale data
+      await clearAllIndexedDBStores()
+      // Use synchronous redirect to prevent flash of guest view
+      window.location.href = "/auth"
+    } catch (error) {
+      console.error("Sign out failed:", error)
+    }
   }
 
   // Use cached subscription data from user first, fall back to customer data

@@ -29,10 +29,10 @@ import { useChatSession } from "@/lib/chat-store/session/provider"
 import type { Chats } from "@/lib/chat-store/types"
 import { useChatPreview } from "@/lib/hooks/use-chat-preview"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
+import { useTransitionRouter } from "@/lib/transitions"
 import { cn } from "@/lib/utils"
 import { Check, PencilSimple, TrashSimple, X } from "@phosphor-icons/react"
 import { Pin, PinOff } from "lucide-react"
-import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useRef, useState } from "react"
 import { ChatPreviewPanel } from "./chat-preview-panel"
 import { CommandFooter } from "./command-footer"
@@ -338,7 +338,7 @@ export function CommandHistory({
   hasPopover = true,
 }: CommandHistoryProps) {
   const { chatId } = useChatSession()
-  const router = useRouter()
+  const router = useTransitionRouter()
   const { preferences } = useUserPreferences()
   const hasPrefetchedRef = useRef(false)
 
@@ -505,7 +505,7 @@ export function CommandHistory({
               "data-[selected=true]:bg-transparent",
             isSelected && preferences.showConversationPreviews && "bg-accent/50"
           )}
-          value={chat.id}
+          value={`${chat.id} ${chat.title || ""}`}
           onMouseEnter={() => {
             handleChatHover(chat.id)
           }}

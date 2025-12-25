@@ -103,20 +103,10 @@ export function MessageUser({
 
   const handleSave = async () => {
     if (!editInput.trim()) return
-    const UUIDLength = 36
 
     try {
-      // Skip UUID validation for optimistic messages (they haven't synced yet)
-      const isOptimisticId = id?.startsWith("optimistic-")
-      if (isSupabaseEnabled && id && !isOptimisticId && id.length !== UUIDLength) {
-        // Message IDs failed to sync
-        toast({
-          title: "Oops, something went wrong",
-          description: "Please refresh your browser and try again.",
-          status: "error",
-        })
-        return
-      }
+      // Allow editing with any ID - let the backend handle validation
+      // Optimistic IDs and database UUIDs are both valid for editing
       onEdit?.(id, editInput)
     } catch {
       setEditInput(children) // Reset on failure

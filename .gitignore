@@ -68,3 +68,23 @@ models.dev/
 pure-css-book-loader/
 dashboard-ui/
 dark-uibank-dashboard-concept/
+
+# External repos / WIP
+supermemory/
+bublr/
+
+# WIP memory/rag files (not ready)
+lib/memory/hot-cache.ts
+lib/memory/hybrid-search.ts
+lib/memory/kg-extractor.ts
+lib/memory/memory-manager.ts
+lib/memory/chat-integration.ts
+lib/rag/agentic-pipeline.ts
+lib/rag/query-refiner.ts
+lib/rag/relevance-grader.ts
+lib/rag/reranker.ts
+lib/rag/semantic-chunker.ts
+lib/rag/structure-detector.ts
+app/api/kg/
+app/api/memories/profile/
+migrations/007_enhanced_memory_system.sql

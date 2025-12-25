@@ -23,5 +23,27 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "chaterface", "zola", "gemini-chatbot", "models.dev", "openai-fm"]
+  "exclude": [
+    "node_modules",
+    "chaterface",
+    "zola",
+    "gemini-chatbot",
+    "models.dev",
+    "openai-fm",
+    "supermemory",
+    "bublr",
+    "app/api/kg",
+    "app/api/memories/profile",
+    "lib/memory/hot-cache.ts",
+    "lib/memory/hybrid-search.ts",
+    "lib/memory/kg-extractor.ts",
+    "lib/memory/memory-manager.ts",
+    "lib/memory/chat-integration.ts",
+    "lib/rag/agentic-pipeline.ts",
+    "lib/rag/query-refiner.ts",
+    "lib/rag/relevance-grader.ts",
+    "lib/rag/reranker.ts",
+    "lib/rag/semantic-chunker.ts",
+    "lib/rag/structure-detector.ts"
+  ]
 }
