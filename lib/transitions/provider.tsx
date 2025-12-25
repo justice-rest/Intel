@@ -3,12 +3,7 @@
 import { startTransition } from "react"
 import { TransitionRouter } from "next-transition-router"
 import { gsap, initializeGSAP } from "./gsap-config"
-import {
-  DURATION,
-  EASING,
-  getTransitionType,
-  prefersReducedMotion,
-} from "./animation-config"
+import { DURATION, EASING, prefersReducedMotion } from "./animation-config"
 
 // Ensure GSAP is initialized
 initializeGSAP()
@@ -28,16 +23,14 @@ function getTransitionTarget(): HTMLElement | null {
  * TransitionProvider - Smooth page transitions using GSAP
  *
  * Uses next-transition-router for App Router compatibility.
- * Supports different transition types based on navigation paths.
+ * Premium fade transitions for all navigation - simple, fast, polished.
  *
  * Features:
- * - Crossfade for general navigation
- * - Slide for chat-to-chat and batch-to-batch
- * - Scale for home <-> batch transitions
+ * - Consistent smooth fade for ALL page transitions
+ * - Fast exit (0.15s) + smooth enter (0.25s) = premium feel
  * - Respects prefers-reduced-motion
  * - Cleanup functions prevent memory leaks
  * - Uses React's startTransition for better performance
- * - GPU-accelerated transforms
  * - Animates entire page container (including sidebar)
  */
 export function TransitionProvider({
@@ -48,14 +41,13 @@ export function TransitionProvider({
   return (
     <TransitionRouter
       auto
-      leave={(next, from, to) => {
+      leave={(next) => {
         // Respect reduced motion preference
         if (prefersReducedMotion()) {
           next()
           return () => {}
         }
 
-        const transitionType = getTransitionType(from ?? "/", to ?? "/")
         const target = getTransitionTarget()
 
         if (!target) {
@@ -63,57 +55,26 @@ export function TransitionProvider({
           return () => {}
         }
 
-        // Create the leave animation based on transition type
-        // Using force3D for GPU acceleration
-        let tween: gsap.core.Tween
-
-        switch (transitionType) {
-          case "slide":
-            tween = gsap.to(target, {
-              opacity: 0,
-              x: -20,
-              duration: DURATION.normal,
-              ease: EASING.exit,
-              force3D: true,
-              onComplete: next,
-            })
-            break
-
-          case "scale":
-            tween = gsap.to(target, {
-              opacity: 0,
-              scale: 0.98,
-              duration: DURATION.fast,
-              ease: EASING.exit,
-              force3D: true,
-              onComplete: next,
-            })
-            break
-
-          case "crossfade":
-          default:
-            tween = gsap.to(target, {
-              opacity: 0,
-              duration: DURATION.fast,
-              ease: EASING.exit,
-              onComplete: next,
-            })
-            break
-        }
+        // Simple, fast fade out
+        const tween = gsap.to(target, {
+          opacity: 0,
+          duration: DURATION.leave,
+          ease: EASING.leave,
+          onComplete: next,
+        })
 
         // Return cleanup function
         return () => {
           tween.kill()
         }
       }}
-      enter={(next, from, to) => {
+      enter={(next) => {
         // Respect reduced motion preference
         if (prefersReducedMotion()) {
           next()
           return () => {}
         }
 
-        const transitionType = getTransitionType(from ?? "/", to ?? "/")
         const target = getTransitionTarget()
 
         if (!target) {
@@ -124,58 +85,22 @@ export function TransitionProvider({
         // Scroll to top during transition (instant scroll while faded out)
         window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
 
-        // Create the enter animation based on transition type
         // Use requestAnimationFrame for optimal timing
         let tween: gsap.core.Tween
 
         requestAnimationFrame(() => {
-          switch (transitionType) {
-            case "slide":
-              // Set initial state
-              gsap.set(target, { opacity: 0, x: 20 })
-              tween = gsap.to(target, {
-                opacity: 1,
-                x: 0,
-                duration: DURATION.normal,
-                ease: EASING.enter,
-                force3D: true,
-                clearProps: "x,transform",
-                onComplete: () => {
-                  startTransition(next)
-                },
-              })
-              break
+          // Set initial state
+          gsap.set(target, { opacity: 0 })
 
-            case "scale":
-              // Set initial state
-              gsap.set(target, { opacity: 0, scale: 0.98 })
-              tween = gsap.to(target, {
-                opacity: 1,
-                scale: 1,
-                duration: DURATION.slow,
-                ease: EASING.premium,
-                force3D: true,
-                clearProps: "scale,transform",
-                onComplete: () => {
-                  startTransition(next)
-                },
-              })
-              break
-
-            case "crossfade":
-            default:
-              // Set initial state
-              gsap.set(target, { opacity: 0 })
-              tween = gsap.to(target, {
-                opacity: 1,
-                duration: DURATION.slow,
-                ease: EASING.enter,
-                onComplete: () => {
-                  startTransition(next)
-                },
-              })
-              break
-          }
+          // Smooth fade in
+          tween = gsap.to(target, {
+            opacity: 1,
+            duration: DURATION.enter,
+            ease: EASING.enter,
+            onComplete: () => {
+              startTransition(next)
+            },
+          })
         })
 
         // Return cleanup function

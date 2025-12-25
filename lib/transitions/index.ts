@@ -5,9 +5,6 @@ export {
   DURATION,
   EASING,
   STAGGER,
-  PAGE_TRANSITIONS,
-  getTransitionType,
   prefersReducedMotion,
-  type TransitionType,
 } from "./animation-config"
 export { useTransitionRouter, useTransitionState } from "./hooks"
