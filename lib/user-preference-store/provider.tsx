@@ -8,13 +8,11 @@ import {
   defaultPreferences,
   type LayoutType,
   type UserPreferences,
-  type OnboardingData,
 } from "./utils"
 
 export {
   type LayoutType,
   type UserPreferences,
-  type OnboardingData,
   convertFromApiFormat,
   convertToApiFormat,
 }
@@ -30,7 +28,6 @@ interface UserPreferencesContextType {
   setShowConversationPreviews: (enabled: boolean) => void
   toggleModelVisibility: (modelId: string) => void
   isModelHidden: (modelId: string) => boolean
-  setOnboardingData: (data: OnboardingData) => void
   isLoading: boolean
 }
 
@@ -222,10 +219,6 @@ export function UserPreferencesProvider({
     return (preferences.hiddenModels || []).includes(modelId)
   }
 
-  const setOnboardingData = (data: OnboardingData) => {
-    updatePreferences({ onboarding: data })
-  }
-
   return (
     <UserPreferencesContext.Provider
       value={{
@@ -236,7 +229,6 @@ export function UserPreferencesProvider({
         setShowConversationPreviews,
         toggleModelVisibility,
         isModelHidden,
-        setOnboardingData,
         isLoading,
       }}
     >

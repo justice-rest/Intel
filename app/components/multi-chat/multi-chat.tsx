@@ -10,7 +10,6 @@ import { SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
 import { useModel } from "@/lib/model-store/provider"
 import { useUser } from "@/lib/user-store/provider"
 import { cn } from "@/lib/utils"
-import { createClient } from "@/lib/supabase/client"
 import { Message as MessageType } from "@ai-sdk/react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -36,7 +35,6 @@ export function MultiChat() {
   const [files, setFiles] = useState<File[]>([])
   const [multiChatId, setMultiChatId] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [onboardingFirstName, setOnboardingFirstName] = useState<string | null>(null)
 
   const { user } = useUser()
   const { models } = useModel()
@@ -44,26 +42,6 @@ export function MultiChat() {
   const { messages: persistedMessages, isLoading: messagesLoading } =
     useMessages()
   const { createNewChat } = useChats()
-
-  // Fetch first name from onboarding data
-  useEffect(() => {
-    const fetchOnboardingName = async () => {
-      if (!user?.id) return
-
-      const supabase = createClient()
-      if (!supabase) return
-
-      const { data } = await supabase
-        .from("onboarding_data")
-        .select("first_name")
-        .eq("user_id", user.id)
-        .single()
-
-      setOnboardingFirstName(data?.first_name || null)
-    }
-
-    fetchOnboardingName()
-  }, [user?.id])
 
   const availableModels = useMemo(() => {
     return models.map((model) => ({
@@ -384,10 +362,10 @@ export function MultiChat() {
   const showOnboarding = messageGroups.length === 0 && !messagesLoading
 
   const firstName = useMemo(() => {
-    // Use onboarding first_name if available, otherwise fall back to display_name
-    const name = onboardingFirstName || user?.display_name
+    // Use first_name if available, otherwise fall back to display_name
+    const name = user?.first_name || user?.display_name
     return name?.split(' ')[0] || ''
-  }, [onboardingFirstName, user?.display_name])
+  }, [user?.first_name, user?.display_name])
 
   return (
     <div

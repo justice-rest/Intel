@@ -33,27 +33,6 @@ export function UserMenu() {
   const [isMenuOpen, setMenuOpen] = useState(false)
   const [isSettingsOpen, setSettingsOpen] = useState(false)
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<TabType>("general")
-  const [onboardingFirstName, setOnboardingFirstName] = useState<string | null>(null)
-
-  // Fetch full name from onboarding data
-  useEffect(() => {
-    const fetchOnboardingName = async () => {
-      if (!user?.id) return
-
-      const supabase = createClient()
-      if (!supabase) return
-
-      const { data } = await supabase
-        .from("onboarding_data")
-        .select("first_name")
-        .eq("user_id", user.id)
-        .single()
-
-      setOnboardingFirstName(data?.first_name || null)
-    }
-
-    fetchOnboardingName()
-  }, [user?.id])
 
   // Listen for custom event to open settings with a specific tab
   useEffect(() => {
@@ -73,8 +52,8 @@ export function UserMenu() {
 
   if (!user) return null
 
-  // Use onboarding full first_name if available, otherwise fall back to display_name
-  const displayName = onboardingFirstName || user?.display_name
+  // Use first_name if available, otherwise fall back to display_name
+  const displayName = user?.first_name || user?.display_name
 
   const handleSettingsOpenChange = (isOpen: boolean) => {
     setSettingsOpen(isOpen)

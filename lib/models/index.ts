@@ -17,7 +17,7 @@ const MODEL_ID_MIGRATIONS: Record<string, string> = {
   "openrouter:perplexity/sonar-reasoning-pro": "openrouter:x-ai/grok-4.1-fast",
   "openrouter:perplexity/sonar-deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
   // Gemini → Grok 4.1 Fast migration (2025-12)
-  // Grok 4.1 Fast with Exa web search for curated domain research
+  // Grok 4.1 Fast with native web search (includes X/Twitter)
   "openrouter:google/gemini-3-flash-preview": "openrouter:x-ai/grok-4.1-fast",
   "openrouter:google/gemini-3-pro-preview": "openrouter:x-ai/grok-4.1-fast-thinking",
 }

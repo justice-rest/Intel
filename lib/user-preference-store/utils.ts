@@ -1,19 +1,5 @@
 export type LayoutType = "sidebar" | "fullscreen"
 
-export type OnboardingData = {
-  firstName?: string
-  email?: string
-  nonprofit?: string
-  location?: string
-  sector?: string
-  annualBudget?: string
-  donorCount?: string
-  isFundraisingPrimary?: boolean
-  purpose?: string
-  assistantName?: string
-  completedAt?: string
-}
-
 export type UserPreferences = {
   layout: LayoutType
   promptSuggestions: boolean
@@ -21,7 +7,6 @@ export type UserPreferences = {
   showConversationPreviews: boolean
   multiModelEnabled: boolean
   hiddenModels: string[]
-  onboarding?: OnboardingData
 }
 
 export const defaultPreferences: UserPreferences = {
@@ -31,7 +16,6 @@ export const defaultPreferences: UserPreferences = {
   showConversationPreviews: true,
   multiModelEnabled: false,
   hiddenModels: [],
-  onboarding: undefined,
 }
 
 // Helper functions to convert between API format (snake_case) and frontend format (camelCase)
@@ -43,7 +27,6 @@ export function convertFromApiFormat(apiData: any): UserPreferences {
     showConversationPreviews: apiData.show_conversation_previews ?? true,
     multiModelEnabled: apiData.multi_model_enabled ?? false,
     hiddenModels: apiData.hidden_models || [],
-    onboarding: apiData.onboarding || undefined,
   }
 }
 
@@ -60,7 +43,5 @@ export function convertToApiFormat(preferences: Partial<UserPreferences>) {
     apiData.multi_model_enabled = preferences.multiModelEnabled
   if (preferences.hiddenModels !== undefined)
     apiData.hidden_models = preferences.hiddenModels
-  if (preferences.onboarding !== undefined)
-    apiData.onboarding = preferences.onboarding
   return apiData
 }

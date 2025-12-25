@@ -16,7 +16,7 @@ Built with Next.js 15, powered by Grok via OpenRouter, with BYOK (Bring Your Own
 4. [Architecture Overview](#architecture-overview)
 5. [AI Provider Integration](#ai-provider-integration)
 6. [AI Memory System](#ai-memory-system)
-7. [Web Search (Exa)](#web-search-exa)
+7. [Web Search (Linkup)](#web-search-linkup)
 8. [Subscriptions (Autumn)](#subscriptions-autumn)
 9. [Analytics (PostHog)](#analytics-posthog)
 10. [Onboarding System](#onboarding-system)

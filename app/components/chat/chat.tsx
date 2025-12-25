@@ -55,17 +55,13 @@ const QuizPopup = dynamic(
 const QUIZ_POPUP_DELAY = 15000 // 15 seconds
 
 interface ChatProps {
-  showWelcome?: boolean
   firstName?: string | null
-  onWelcomeDismiss?: () => void
   /** Override chatId for split view panels */
   chatIdOverride?: string | null
 }
 
 export function Chat({
-  showWelcome,
   firstName,
-  onWelcomeDismiss,
   chatIdOverride,
 }: ChatProps = {}) {
   const contextChatId = useChatId()
@@ -305,9 +301,7 @@ export function Chat({
       researchMode,
       setResearchMode,
       quotedText,
-      showWelcome,
       firstName,
-      onWelcomeDismiss,
       hasActiveSubscription,
     }),
     [
@@ -329,9 +323,7 @@ export function Chat({
       researchMode,
       setResearchMode,
       quotedText,
-      showWelcome,
       firstName,
-      onWelcomeDismiss,
       hasActiveSubscription,
     ]
   )

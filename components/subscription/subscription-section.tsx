@@ -5,7 +5,6 @@ import { TrendingUp } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { SubscriptionProductCard } from "./subscription-product-card"
-import { createClient } from "@/lib/supabase/client"
 import { useUser } from "@/lib/user-store/provider"
 
 /**
@@ -19,27 +18,6 @@ export function SubscriptionSection() {
   const { user } = useUser()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [dataLoadedAt, setDataLoadedAt] = useState<number>(Date.now())
-  const [userName, setUserName] = useState<string | null>(null)
-
-  // Fetch user's name from onboarding data
-  useEffect(() => {
-    const fetchUserName = async () => {
-      if (!user?.id) return
-
-      const supabase = createClient()
-      if (!supabase) return
-
-      const { data } = await supabase
-        .from("onboarding_data")
-        .select("first_name")
-        .eq("user_id", user.id)
-        .single()
-
-      setUserName(data?.first_name || null)
-    }
-
-    fetchUserName()
-  }, [user?.id])
 
   // Auto-refresh subscription data on mount to ensure fresh data
   useEffect(() => {

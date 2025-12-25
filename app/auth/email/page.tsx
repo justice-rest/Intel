@@ -104,9 +104,9 @@ export default function EmailAuthPage() {
         }
 
         // Check if user record exists in database
-        const { data: userData, error: userError } = await supabase
+        const { error: userError } = await supabase
           .from("users")
-          .select("onboarding_completed")
+          .select("id")
           .eq("id", user.id)
           .single()
 
@@ -121,20 +121,16 @@ export default function EmailAuthPage() {
             message_count: 0,
             premium: false,
             favorite_models: [MODEL_DEFAULT],
-            onboarding_completed: false,
+            welcome_completed: false,
           })
 
           if (insertError && insertError.code !== "23505") {
             console.error("Error creating user record:", insertError)
           }
-
-          // New user needs onboarding
-          router.push("/onboarding")
-        } else {
-          // Existing user, check if they need onboarding
-          const needsOnboarding = !userData?.onboarding_completed
-          router.push(needsOnboarding ? "/onboarding" : "/")
         }
+
+        // Redirect to home (welcome popup will show if needed)
+        router.push("/")
       }
     } catch (err: unknown) {
       console.error("Auth error:", err)

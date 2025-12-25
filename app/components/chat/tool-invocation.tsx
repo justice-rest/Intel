@@ -492,14 +492,14 @@ function SingleToolCard({
       )
     }
 
-    // Handle Exa exaSearch results
+    // Handle Grok grokSearch results
     if (
-      toolName === "exaSearch" &&
+      toolName === "grokSearch" &&
       typeof parsedResult === "object" &&
       parsedResult !== null &&
       "results" in parsedResult
     ) {
-      const exaResult = parsedResult as {
+      const grokResult = parsedResult as {
         results: Array<{ title: string; url: string; snippet: string; publishedDate?: string }>
         query?: string
       }
@@ -507,13 +507,13 @@ function SingleToolCard({
       return (
         <div className="space-y-4">
           {/* Results section */}
-          {exaResult.results && exaResult.results.length > 0 ? (
+          {grokResult.results && grokResult.results.length > 0 ? (
             <div>
               <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-                Results ({exaResult.results.length})
+                Results ({grokResult.results.length})
               </div>
               <div className="space-y-3">
-                {exaResult.results.map((result, index) => (
+                {grokResult.results.map((result, index) => (
                   <div
                     key={index}
                     className="border-border border-b pb-3 last:border-0 last:pb-0"
@@ -546,7 +546,7 @@ function SingleToolCard({
             </div>
           ) : (
             <div className="text-muted-foreground">
-              No results found for this semantic search.
+              No results found for this search.
             </div>
           )}
         </div>

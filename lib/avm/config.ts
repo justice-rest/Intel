@@ -20,7 +20,7 @@ import type { HedonicCoefficients } from "./types"
  * AVM uses existing search infrastructure, so always enabled
  */
 export function isAVMEnabled(): boolean {
-  return true // Uses existing Linkup/Exa search infrastructure
+  return true // Uses existing Linkup/Grok search infrastructure
 }
 
 // ============================================================================

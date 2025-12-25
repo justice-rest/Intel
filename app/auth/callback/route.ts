@@ -1,5 +1,4 @@
 import { MODEL_DEFAULT } from "@/lib/config"
-import { scheduleOnboardingSequence } from "@/lib/email"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { createClient } from "@/lib/supabase/server"
 import { createGuestServerClient } from "@/lib/supabase/server-guest"
@@ -47,8 +46,6 @@ export async function GET(request: Request) {
     )
   }
 
-  let isNewUser = false
-
   try {
     // Try to insert user only if not exists
     const { error: insertError } = await supabaseAdmin.from("users").insert({
@@ -58,58 +55,21 @@ export async function GET(request: Request) {
       message_count: 0,
       premium: false,
       favorite_models: [MODEL_DEFAULT],
-      onboarding_completed: false,
+      welcome_completed: false,
     })
 
     if (insertError && insertError.code !== "23505") {
       console.error("Error inserting user:", insertError)
-    } else if (!insertError) {
-      // Successfully inserted new user
-      isNewUser = true
-
-      // Schedule onboarding email sequence for new users
-      // Extract first name from user metadata or email
-      const firstName =
-        user.user_metadata?.full_name?.split(" ")[0] ||
-        user.user_metadata?.name?.split(" ")[0] ||
-        user.email.split("@")[0]
-
-      // Fire and forget - don't block auth flow for email scheduling
-      scheduleOnboardingSequence(user.email, firstName).then((result) => {
-        if (result.success) {
-          console.log(
-            `[Onboarding] Scheduled ${result.scheduledEmails} emails for ${user.email}`
-          )
-        } else {
-          console.warn(
-            `[Onboarding] Failed to schedule emails for ${user.email}:`,
-            result.errors
-          )
-        }
-      })
     }
   } catch (err) {
     console.error("Unexpected user insert error:", err)
   }
 
-  // Check if user needs onboarding
-  let needsOnboarding = isNewUser
-  if (!isNewUser) {
-    const { data: userData } = await supabaseAdmin
-      .from("users")
-      .select("onboarding_completed")
-      .eq("id", user.id)
-      .single()
-
-    needsOnboarding = !userData?.onboarding_completed
-  }
-
   const host = request.headers.get("host")
   const protocol = host?.includes("localhost") ? "http" : "https"
 
-  // Redirect to onboarding if needed, otherwise to the requested page
-  const redirectPath = needsOnboarding ? "/onboarding" : next
-  const redirectUrl = `${protocol}://${host}${redirectPath}`
+  // Redirect to the requested page (welcome popup will show on home if needed)
+  const redirectUrl = `${protocol}://${host}${next}`
 
   return NextResponse.redirect(redirectUrl)
 }

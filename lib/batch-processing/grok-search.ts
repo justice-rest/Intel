@@ -1,16 +1,16 @@
 /**
- * Exa Batch Search Module
- * Optimized Exa integration for batch prospect research using Grok 4.1 Fast
+ * Grok Native Web Search Module
+ * Uses Grok 4.1 Fast with native web search (includes X/Twitter search)
  *
- * Uses OpenRouter's Exa plugin with Grok for semantic web search
- * Provides 10+ high-quality sources per prospect
+ * Key advantage: Native engine provides both web search AND X (Twitter) search
+ * in a single call, with structured annotations for reliable source extraction.
  */
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface ExaBatchResult {
+export interface GrokSearchResult {
   answer: string
   sources: Array<{
     name: string
@@ -32,20 +32,28 @@ export interface ProspectInput {
   state?: string
 }
 
+// OpenRouter native search annotation format
+interface SearchAnnotation {
+  url: string
+  title?: string
+  content?: string
+  start_index?: number
+  end_index?: number
+}
+
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-const EXA_BATCH_TIMEOUT_MS = 45000 // 45s for batch (Grok + Exa)
+const GROK_BATCH_TIMEOUT_MS = 45000 // 45s for batch
 const MAX_RETRIES = 3
 const BASE_RETRY_DELAY_MS = 2000
-const EXA_MAX_RESULTS = 12
 const MAX_OUTPUT_TOKENS = 4000
 
 /**
- * Check if Exa (via OpenRouter) is available for batch processing
+ * Check if Grok search (via OpenRouter) is available for batch processing
  */
-export function isExaAvailable(apiKey?: string): boolean {
+export function isGrokSearchAvailable(apiKey?: string): boolean {
   return !!(apiKey || process.env.OPENROUTER_API_KEY)
 }
 
@@ -54,10 +62,10 @@ export function isExaAvailable(apiKey?: string): boolean {
 // ============================================================================
 
 /**
- * Build a HIGHLY optimized query for Exa semantic search
+ * Build a HIGHLY optimized query for Grok native search
  * Engineered for MAXIMUM data extraction with prospect research focus
  */
-export function buildOptimizedExaQuery(prospect: ProspectInput): string {
+export function buildOptimizedGrokQuery(prospect: ProspectInput): string {
   const { name, address, employer, title, city, state } = prospect
 
   // Build comprehensive location context
@@ -150,7 +158,7 @@ async function withRetry<T>(
       }
 
       const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500
-      console.log(`[Exa Batch] Retry ${attempt + 1}/${maxRetries} in ${Math.round(delay)}ms`)
+      console.log(`[Grok Search] Retry ${attempt + 1}/${maxRetries} in ${Math.round(delay)}ms`)
       await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
@@ -172,12 +180,41 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
 // ============================================================================
 
 /**
- * Extract sources from Exa/Grok response text
- * Parses URLs and creates structured source objects
+ * Extract sources from Grok response
+ * Prefers structured annotations (native format), falls back to regex extraction
  */
-function extractSources(text: string): Array<{ name: string; url: string; snippet?: string }> {
+function extractSources(
+  text: string,
+  annotations?: SearchAnnotation[]
+): Array<{ name: string; url: string; snippet?: string }> {
   const sources: Array<{ name: string; url: string; snippet?: string }> = []
   const seenUrls = new Set<string>()
+
+  // If annotations provided (native format), use them preferentially
+  if (annotations && annotations.length > 0) {
+    for (const annotation of annotations) {
+      if (!annotation.url) continue
+
+      const normalizedUrl = annotation.url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "")
+      if (seenUrls.has(normalizedUrl)) continue
+      seenUrls.add(normalizedUrl)
+
+      try {
+        const domain = new URL(annotation.url).hostname.replace("www.", "")
+        sources.push({
+          name: annotation.title || domain,
+          url: annotation.url,
+          snippet: annotation.content,
+        })
+      } catch {
+        // Skip invalid URLs
+      }
+    }
+
+    return sources.slice(0, 20)
+  }
+
+  // Fallback: Extract URLs from response text using regex
   const urlRegex = /https?:\/\/[^\s\)>\]"']+/g
   const matches = text.match(urlRegex)
 
@@ -212,18 +249,18 @@ function extractSources(text: string): Array<{ name: string; url: string; snippe
 // ============================================================================
 
 /**
- * Execute Exa search via Grok 4.1 Fast for batch processing
+ * Execute Grok native web search for batch processing
  *
  * Key features:
- * - Uses OpenRouter's Exa plugin with Grok model
- * - Returns 12 high-quality semantic search results
- * - Optimized query format for prospect research
+ * - Uses OpenRouter's native web search plugin with Grok model
+ * - Includes both web search AND X (Twitter) search
+ * - Returns structured annotations for reliable source extraction
  * - 45s timeout with retry logic
  */
-export async function exaBatchSearch(
+export async function grokBatchSearch(
   prospect: ProspectInput,
   apiKey?: string
-): Promise<ExaBatchResult> {
+): Promise<GrokSearchResult> {
   const startTime = Date.now()
   const key = apiKey || process.env.OPENROUTER_API_KEY
 
@@ -238,8 +275,8 @@ export async function exaBatchSearch(
     }
   }
 
-  const query = buildOptimizedExaQuery(prospect)
-  console.log(`[Exa Batch] Starting search for: ${prospect.name}`)
+  const query = buildOptimizedGrokQuery(prospect)
+  console.log(`[Grok Search] Starting search for: ${prospect.name}`)
 
   try {
     const data = await withRetry(async () => {
@@ -250,7 +287,7 @@ export async function exaBatchSearch(
             "Authorization": `Bearer ${key}`,
             "Content-Type": "application/json",
             "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://getromy.app",
-            "X-Title": "Romy Batch Research - Exa",
+            "X-Title": "Romy Batch Research - Grok Native",
           },
           body: JSON.stringify({
             model: "x-ai/grok-4.1-fast",
@@ -262,12 +299,12 @@ export async function exaBatchSearch(
             ],
             max_tokens: MAX_OUTPUT_TOKENS,
             temperature: 0.1,
-            plugins: [{ id: "web", engine: "exa", max_results: EXA_MAX_RESULTS }],
+            plugins: [{ id: "web", engine: "native" }],
             reasoning: { effort: "high" },
           }),
         }),
-        EXA_BATCH_TIMEOUT_MS,
-        `Exa batch search timed out after ${EXA_BATCH_TIMEOUT_MS / 1000}s`
+        GROK_BATCH_TIMEOUT_MS,
+        `Grok search timed out after ${GROK_BATCH_TIMEOUT_MS / 1000}s`
       )
 
       if (!response.ok) {
@@ -280,13 +317,16 @@ export async function exaBatchSearch(
 
     const durationMs = Date.now() - startTime
     const answer = data.choices?.[0]?.message?.content || ""
-    const sources = extractSources(answer)
+
+    // Extract sources - prefer annotations if available, fallback to regex
+    const annotations = data.annotations as SearchAnnotation[] | undefined
+    const sources = extractSources(answer, annotations)
 
     // Calculate tokens used
     const tokensUsed = (data.usage?.total_tokens) ||
       Math.ceil((query.length + answer.length) / 4)
 
-    console.log(`[Exa Batch] Completed in ${durationMs}ms, ${sources.length} sources`)
+    console.log(`[Grok Search] Completed in ${durationMs}ms, ${sources.length} sources`)
 
     return {
       answer,
@@ -298,7 +338,7 @@ export async function exaBatchSearch(
   } catch (error) {
     const durationMs = Date.now() - startTime
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    console.error(`[Exa Batch] Failed for ${prospect.name}:`, errorMessage)
+    console.error(`[Grok Search] Failed for ${prospect.name}:`, errorMessage)
 
     return {
       answer: "",
@@ -316,16 +356,16 @@ export async function exaBatchSearch(
 // ============================================================================
 
 /**
- * Merge Exa results with existing sources (Perplexity + LinkUp)
+ * Merge Grok results with existing sources (Perplexity + LinkUp)
  * Deduplicates by URL and extracts unique insights
  */
-export function mergeExaWithResults(
-  exaResult: ExaBatchResult,
+export function mergeGrokWithResults(
+  grokResult: GrokSearchResult,
   existingSources: Array<{ url: string; title?: string; name?: string }>
 ): {
   mergedSources: Array<{ name: string; url: string; snippet?: string }>
-  exaContribution: string
-  exaUniqueInsights: string[]
+  grokContribution: string
+  grokUniqueInsights: string[]
 } {
   const existingUrls = new Set(
     existingSources.map((s) =>
@@ -333,40 +373,44 @@ export function mergeExaWithResults(
     )
   )
 
-  // Find unique sources from Exa
-  const uniqueSources = exaResult.sources.filter((source) => {
+  // Find unique sources from Grok
+  const uniqueSources = grokResult.sources.filter((source) => {
     const normalizedUrl = source.url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "")
     return !existingUrls.has(normalizedUrl)
   })
 
   // Generate contribution summary
-  let exaContribution = ""
+  let grokContribution = ""
   if (uniqueSources.length > 0) {
-    exaContribution = `Exa found ${uniqueSources.length} additional sources`
-  } else if (exaResult.sources.length > 0) {
-    exaContribution = "Exa corroborated existing sources"
+    grokContribution = `Grok found ${uniqueSources.length} additional sources`
+  } else if (grokResult.sources.length > 0) {
+    grokContribution = "Grok corroborated existing sources"
   }
 
   // Extract unique insights (simple keyword extraction)
-  const exaUniqueInsights: string[] = []
-  const answer = exaResult.answer.toLowerCase()
+  const grokUniqueInsights: string[] = []
+  const answer = grokResult.answer.toLowerCase()
 
   if (answer.includes("property") || answer.includes("real estate")) {
-    exaUniqueInsights.push("Property data found")
+    grokUniqueInsights.push("Property data found")
   }
   if (answer.includes("business") || answer.includes("company") || answer.includes("ceo")) {
-    exaUniqueInsights.push("Business affiliation found")
+    grokUniqueInsights.push("Business affiliation found")
   }
   if (answer.includes("foundation") || answer.includes("philanthrop") || answer.includes("donor")) {
-    exaUniqueInsights.push("Philanthropic activity found")
+    grokUniqueInsights.push("Philanthropic activity found")
   }
   if (answer.includes("sec") || answer.includes("insider") || answer.includes("form 4")) {
-    exaUniqueInsights.push("SEC filing found")
+    grokUniqueInsights.push("SEC filing found")
+  }
+  // New: Check for X/Twitter content
+  if (answer.includes("twitter") || answer.includes("x.com") || answer.includes("tweet")) {
+    grokUniqueInsights.push("X/Twitter data found")
   }
 
   return {
     mergedSources: uniqueSources,
-    exaContribution,
-    exaUniqueInsights,
+    grokContribution,
+    grokUniqueInsights,
   }
 }

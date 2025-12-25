@@ -206,8 +206,8 @@ export type Database = {
           daily_pro_message_count: number | null
           daily_pro_reset: string | null
           system_prompt: string | null
-          onboarding_completed: boolean | null
-          onboarding_completed_at: string | null
+          first_name: string | null
+          welcome_completed: boolean | null
         }
         Insert: {
           anonymous?: boolean | null
@@ -225,8 +225,8 @@ export type Database = {
           daily_pro_message_count?: number | null
           daily_pro_reset?: string | null
           system_prompt?: string | null
-          onboarding_completed?: boolean | null
-          onboarding_completed_at?: string | null
+          first_name?: string | null
+          welcome_completed?: boolean | null
         }
         Update: {
           anonymous?: boolean | null
@@ -244,8 +244,8 @@ export type Database = {
           daily_pro_message_count?: number | null
           daily_pro_reset?: string | null
           system_prompt?: string | null
-          onboarding_completed?: boolean | null
-          onboarding_completed_at?: string | null
+          first_name?: string | null
+          welcome_completed?: boolean | null
         }
         Relationships: []
       }
@@ -313,65 +313,6 @@ export type Database = {
           },
         ]
       }
-      onboarding_data: {
-        Row: {
-          user_id: string
-          first_name: string | null
-          nonprofit_name: string | null
-          nonprofit_location: string | null
-          nonprofit_sector: string | null
-          annual_budget: string | null
-          donor_count: string | null
-          fundraising_primary: boolean | null
-          prior_tools: string[] | null
-          purpose: string | null
-          agent_name: string | null
-          additional_context: string | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          user_id: string
-          first_name?: string | null
-          nonprofit_name?: string | null
-          nonprofit_location?: string | null
-          nonprofit_sector?: string | null
-          annual_budget?: string | null
-          donor_count?: string | null
-          fundraising_primary?: boolean | null
-          prior_tools?: string[] | null
-          purpose?: string | null
-          agent_name?: string | null
-          additional_context?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          user_id?: string
-          first_name?: string | null
-          nonprofit_name?: string | null
-          nonprofit_location?: string | null
-          nonprofit_sector?: string | null
-          annual_budget?: string | null
-          donor_count?: string | null
-          fundraising_primary?: boolean | null
-          prior_tools?: string[] | null
-          purpose?: string | null
-          agent_name?: string | null
-          additional_context?: string | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "onboarding_data_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_preferences: {
         Row: {
           user_id: string
@@ -381,7 +322,6 @@ export type Database = {
           show_conversation_previews: boolean | null
           multi_model_enabled: boolean | null
           hidden_models: string[] | null
-          onboarding: Json | null
           created_at: string | null
           updated_at: string | null
         }
@@ -393,7 +333,6 @@ export type Database = {
           show_conversation_previews?: boolean | null
           multi_model_enabled?: boolean | null
           hidden_models?: string[] | null
-          onboarding?: Json | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -405,7 +344,6 @@ export type Database = {
           show_conversation_previews?: boolean | null
           multi_model_enabled?: boolean | null
           hidden_models?: string[] | null
-          onboarding?: Json | null
           created_at?: string | null
           updated_at?: string | null
         }

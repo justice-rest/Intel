@@ -55,7 +55,7 @@ const RESEARCH_MODES: ResearchModeOption[] = [
   {
     id: "research",
     name: "Research",
-    description: "Fast, real-time web research with Exa search. Best for quick prospect lookups and single-step queries.",
+    description: "Fast, real-time web research with native Grok search including X (Twitter). Best for quick prospect lookups.",
     speed: "Fast (~10s)",
     depth: "Standard",
     model: "Grok 4.1 Fast",

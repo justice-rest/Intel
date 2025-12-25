@@ -1,47 +1,68 @@
 "use client"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { useUser } from "@/lib/user-store/provider"
-import { User } from "@phosphor-icons/react"
-import { useQuery } from "@tanstack/react-query"
-import { createClient } from "@/lib/supabase/client"
+import { User, Pencil, Check, X } from "@phosphor-icons/react"
+import { useState } from "react"
+import { toast } from "sonner"
 
 export function UserProfile() {
-  const { user } = useUser()
-
-  // Use React Query for caching - prevents glitch when switching tabs
-  const { data: onboardingFirstName } = useQuery({
-    queryKey: ["onboarding-first-name", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null
-
-      const supabase = createClient()
-      if (!supabase) return null
-
-      const { data } = await supabase
-        .from("onboarding_data")
-        .select("first_name")
-        .eq("user_id", user.id)
-        .single()
-
-      return data?.first_name || null
-    },
-    enabled: !!user?.id,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
-    refetchOnWindowFocus: false,
-  })
+  const { user, updateUser } = useUser()
+  const [isEditing, setIsEditing] = useState(false)
+  const [firstName, setFirstName] = useState(user?.first_name || "")
+  const [isSaving, setIsSaving] = useState(false)
 
   if (!user) return null
 
-  // Use onboarding first_name if available, fall back to display_name
-  const displayName = onboardingFirstName || user?.display_name
+  const displayName = user.first_name || user.display_name
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      await updateUser({ first_name: firstName.trim() || null })
+      setIsEditing(false)
+      toast.success("Profile updated")
+    } catch (error) {
+      console.error("Failed to update profile:", error)
+      toast.error("Failed to update profile")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleCancel = () => {
+    setFirstName(user.first_name || "")
+    setIsEditing(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave()
+    } else if (e.key === "Escape") {
+      handleCancel()
+    }
+  }
 
   return (
     <div>
-      <h3 className="mb-3 text-sm font-medium">Profile</h3>
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-medium">Profile</h3>
+        {!isEditing && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsEditing(true)}
+            className="h-8 w-8 p-0"
+          >
+            <Pencil className="size-4" />
+          </Button>
+        )}
+      </div>
       <div className="flex items-center space-x-4">
         <div className="bg-muted flex items-center justify-center overflow-hidden rounded-full">
-          {user?.profile_image ? (
+          {user.profile_image ? (
             <Avatar className="size-12">
               <AvatarImage src={user.profile_image} className="object-cover" />
               <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
@@ -50,9 +71,46 @@ export function UserProfile() {
             <User className="text-muted-foreground size-12" />
           )}
         </div>
-        <div>
-          <h4 className="text-sm font-medium">{displayName}</h4>
-          <p className="text-muted-foreground text-sm">{user?.email}</p>
+        <div className="flex-1">
+          {isEditing ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Enter your name"
+                className="h-8 max-w-[180px]"
+                autoFocus
+                disabled={isSaving}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleSave}
+                disabled={isSaving}
+                className="h-8 w-8 p-0"
+              >
+                <Check className="size-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleCancel}
+                disabled={isSaving}
+                className="h-8 w-8 p-0"
+              >
+                <X className="size-4" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <h4 className="text-sm font-medium">{displayName}</h4>
+              <p className="text-muted-foreground text-sm">{user.email}</p>
+            </>
+          )}
+          {isEditing && (
+            <p className="text-muted-foreground mt-1 text-sm">{user.email}</p>
+          )}
         </div>
       </div>
     </div>

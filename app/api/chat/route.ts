@@ -88,7 +88,6 @@ import {
   deductDeepResearchCredits,
   type DeepResearchCreditCheck,
 } from "@/lib/subscription/autumn-client"
-import { getSystemPromptWithContext } from "@/lib/onboarding-context"
 import { optimizeMessagePayload, estimateTokens } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
 import { Message as MessageAISDK, streamText, smoothStream, ToolSet, tool } from "ai"
@@ -187,14 +186,8 @@ export async function POST(req: Request) {
       }),
       // 2. Get all models config (needed for streaming)
       getAllModels(),
-      // 3. Get system prompt with onboarding context (cached after first request)
-      (async () => {
-        const baseSystemPrompt = systemPrompt || SYSTEM_PROMPT_DEFAULT
-        return await getSystemPromptWithContext(
-          isAuthenticated ? userId : null,
-          baseSystemPrompt
-        )
-      })(),
+      // 3. Get system prompt
+      systemPrompt || SYSTEM_PROMPT_DEFAULT,
       // 4. Get user API key if authenticated (needed for streaming)
       (async () => {
         if (!isAuthenticated || !userId) return undefined

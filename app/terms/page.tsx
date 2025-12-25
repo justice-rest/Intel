@@ -164,7 +164,7 @@ export default function TermsOfService() {
           </p>
           <ul>
             <li>AI model provider (xAI)</li>
-            <li>Search services (Exa, Linkup)</li>
+            <li>Search services (Linkup)</li>
             <li>Analytics (PostHog)</li>
             <li>Authentication (Google)</li>
             <li>Cloud storage (Supabase)</li>

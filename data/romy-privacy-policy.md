@@ -75,7 +75,7 @@ When you sign in with Google:
 
 ### 1.9 Third-Party Service Data
 
-When you use the Service with integrated search or data services (e.g., Exa, Linkup):
+When you use the Service with integrated search or data services (e.g., xAI Grok, Linkup):
 - Search queries and prompts sent through these integrations
 - Results returned by third-party search providers
 - Donor wealth data or other third-party data returned to the Service
@@ -175,7 +175,7 @@ We do not sell, rent, or trade your personal information. However, we may share 
 | **Google** | OAuth authentication, sign-in | Email, name, profile picture | https://policies.google.com/privacy |
 | **xAI (Grok)** | AI model inference and responses | Prompts, chat content, context | https://grok.com/privacy |
 | **PostHog** | Usage analytics and product insights | Anonymized usage patterns, event data | https://posthog.com/privacy |
-| **Exa / Linkup** | Third-party search and data enrichment | Search queries, donor data requests | See third-party terms |
+| **Linkup** | Third-party search and data enrichment | Search queries, donor data requests | See third-party terms |
 
 ### 6.2 Vendor Responsibility
 
@@ -367,7 +367,7 @@ You are not subject to fully automated decision-making that produces legal or si
 ### 9.4 Web Search Integration
 
 When you enable web search features (if available):
-- Your search queries may be sent to third-party search providers (e.g., Exa, Linkup)
+- Your search queries may be sent to third-party search providers (e.g., xAI Grok, Linkup)
 - Results are returned and stored in your chat history
 - Third-party providers may log your search queries subject to their privacy policies
 

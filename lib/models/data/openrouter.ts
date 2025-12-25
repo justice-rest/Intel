@@ -3,7 +3,7 @@ import { ModelConfig } from "../types"
 
 export const openrouterModels: ModelConfig[] = [
   // Grok 4.1 Fast - Fast reasoning model for Research mode
-  // xAI's best agentic tool calling model with Exa web search
+  // xAI's best agentic tool calling model with native web search (includes X/Twitter)
   {
     id: "openrouter:x-ai/grok-4.1-fast",
     name: "Grok 4.1 Fast",
@@ -36,14 +36,14 @@ export const openrouterModels: ModelConfig[] = [
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
         extraBody: {
-          // Enable Exa web search when requested
+          // Enable native web search when requested (includes X/Twitter)
           ...(opts?.enableSearch && {
-            plugins: [{ id: "web", engine: "exa", max_results: 12 }],
+            plugins: [{ id: "web", engine: "native" }],
           }),
           // High reasoning effort for research mode
           reasoning: { effort: "high" },
         },
-      }).chat("x-ai/grok-4.1-fast"),
+      }).chat("x-ai/grok-4.1-fast:nitro"),
   },
   // Grok 4.1 Fast (Thinking) - High-effort reasoning for Deep Research mode
   // Extended thinking for comprehensive multi-step analysis
@@ -79,16 +79,16 @@ export const openrouterModels: ModelConfig[] = [
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
         extraBody: {
-          // Enable Exa web search when requested
+          // Enable native web search when requested (includes X/Twitter)
           ...(opts?.enableSearch && {
-            plugins: [{ id: "web", engine: "exa", max_results: 15 }],
+            plugins: [{ id: "web", engine: "native" }],
           }),
           // Enable high-effort reasoning for deep research
           ...(opts?.enableReasoning !== false && {
             reasoning: { effort: "high" },
           }),
         },
-      }).chat("x-ai/grok-4.1-fast"),
+      }).chat("x-ai/grok-4.1-fast:nitro"),
   },
   // GPT-5-Nano - Used internally for two-stage architecture (tool execution)
   // Ultra-fast, ultra-cheap model optimized for low latency tool calling
