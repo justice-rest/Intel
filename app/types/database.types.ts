@@ -565,6 +565,429 @@ export type Database = {
           },
         ]
       }
+      // V2 Enterprise Memory Tables
+      memories_v2: {
+        Row: {
+          id: string
+          user_id: string
+          content: string
+          memory_tier: "hot" | "warm" | "cold"
+          memory_kind: "episodic" | "semantic" | "procedural" | "profile"
+          is_static: boolean
+          version: number
+          is_latest: boolean
+          parent_memory_id: string | null
+          root_memory_id: string | null
+          is_forgotten: boolean
+          forget_after: string | null
+          forget_reason: string | null
+          source_count: number
+          is_inference: boolean
+          source_chat_id: string | null
+          source_message_id: number | null
+          importance_score: number
+          access_count: number
+          access_velocity: number
+          embedding: string | null
+          embedding_model: string | null
+          metadata: Json
+          tags: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          content: string
+          memory_tier?: "hot" | "warm" | "cold"
+          memory_kind?: "episodic" | "semantic" | "procedural" | "profile"
+          is_static?: boolean
+          version?: number
+          is_latest?: boolean
+          parent_memory_id?: string | null
+          root_memory_id?: string | null
+          is_forgotten?: boolean
+          forget_after?: string | null
+          forget_reason?: string | null
+          source_count?: number
+          is_inference?: boolean
+          source_chat_id?: string | null
+          source_message_id?: number | null
+          importance_score?: number
+          access_count?: number
+          access_velocity?: number
+          embedding?: string | null
+          embedding_model?: string | null
+          metadata?: Json
+          tags?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          content?: string
+          memory_tier?: "hot" | "warm" | "cold"
+          memory_kind?: "episodic" | "semantic" | "procedural" | "profile"
+          is_static?: boolean
+          version?: number
+          is_latest?: boolean
+          parent_memory_id?: string | null
+          root_memory_id?: string | null
+          is_forgotten?: boolean
+          forget_after?: string | null
+          forget_reason?: string | null
+          source_count?: number
+          is_inference?: boolean
+          source_chat_id?: string | null
+          source_message_id?: number | null
+          importance_score?: number
+          access_count?: number
+          access_velocity?: number
+          embedding?: string | null
+          embedding_model?: string | null
+          metadata?: Json
+          tags?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memories_v2_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memories_v2_source_chat_id_fkey"
+            columns: ["source_chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kg_entities: {
+        Row: {
+          id: string
+          user_id: string
+          entity_type: "person" | "organization" | "foundation" | "company" | "location" | "concept" | "event"
+          canonical_name: string
+          display_name: string
+          aliases: string[]
+          description: string | null
+          embedding: string | null
+          embedding_model: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          entity_type: "person" | "organization" | "foundation" | "company" | "location" | "concept" | "event"
+          canonical_name: string
+          display_name: string
+          aliases?: string[]
+          description?: string | null
+          embedding?: string | null
+          embedding_model?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          entity_type?: "person" | "organization" | "foundation" | "company" | "location" | "concept" | "event"
+          canonical_name?: string
+          display_name?: string
+          aliases?: string[]
+          description?: string | null
+          embedding?: string | null
+          embedding_model?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kg_entities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kg_relations: {
+        Row: {
+          id: string
+          source_entity_id: string
+          target_entity_id: string
+          relation_type: string
+          strength: number
+          source_memory_id: string | null
+          valid_from: string | null
+          valid_until: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          source_entity_id: string
+          target_entity_id: string
+          relation_type: string
+          strength?: number
+          source_memory_id?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          source_entity_id?: string
+          target_entity_id?: string
+          relation_type?: string
+          strength?: number
+          source_memory_id?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kg_relations_source_entity_id_fkey"
+            columns: ["source_entity_id"]
+            isOneToOne: false
+            referencedRelation: "kg_entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kg_relations_target_entity_id_fkey"
+            columns: ["target_entity_id"]
+            isOneToOne: false
+            referencedRelation: "kg_entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_sync_logs: {
+        Row: {
+          id: string
+          user_id: string
+          provider: "bloomerang" | "virtuous" | "neoncrm"
+          sync_type: "full" | "incremental"
+          status: "pending" | "in_progress" | "completed" | "failed"
+          records_synced: number
+          records_failed: number
+          started_at: string
+          completed_at: string | null
+          error_message: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          provider: "bloomerang" | "virtuous" | "neoncrm"
+          sync_type: "full" | "incremental"
+          status?: "pending" | "in_progress" | "completed" | "failed"
+          records_synced?: number
+          records_failed?: number
+          started_at?: string
+          completed_at?: string | null
+          error_message?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          provider?: "bloomerang" | "virtuous" | "neoncrm"
+          sync_type?: "full" | "incremental"
+          status?: "pending" | "in_progress" | "completed" | "failed"
+          records_synced?: number
+          records_failed?: number
+          started_at?: string
+          completed_at?: string | null
+          error_message?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_sync_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_constituents: {
+        Row: {
+          id: string
+          user_id: string
+          provider: "bloomerang" | "virtuous" | "neoncrm"
+          external_id: string
+          first_name: string | null
+          last_name: string | null
+          full_name: string | null
+          email: string | null
+          phone: string | null
+          street_address: string | null
+          city: string | null
+          state: string | null
+          zip_code: string | null
+          country: string | null
+          total_lifetime_giving: number | null
+          largest_gift: number | null
+          last_gift_amount: number | null
+          last_gift_date: string | null
+          first_gift_date: string | null
+          gift_count: number
+          custom_fields: Json
+          raw_data: Json
+          synced_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          provider: "bloomerang" | "virtuous" | "neoncrm"
+          external_id: string
+          first_name?: string | null
+          last_name?: string | null
+          full_name?: string | null
+          email?: string | null
+          phone?: string | null
+          street_address?: string | null
+          city?: string | null
+          state?: string | null
+          zip_code?: string | null
+          country?: string | null
+          total_lifetime_giving?: number | null
+          largest_gift?: number | null
+          last_gift_amount?: number | null
+          last_gift_date?: string | null
+          first_gift_date?: string | null
+          gift_count?: number
+          custom_fields?: Json
+          raw_data?: Json
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          provider?: "bloomerang" | "virtuous" | "neoncrm"
+          external_id?: string
+          first_name?: string | null
+          last_name?: string | null
+          full_name?: string | null
+          email?: string | null
+          phone?: string | null
+          street_address?: string | null
+          city?: string | null
+          state?: string | null
+          zip_code?: string | null
+          country?: string | null
+          total_lifetime_giving?: number | null
+          largest_gift?: number | null
+          last_gift_amount?: number | null
+          last_gift_date?: string | null
+          first_gift_date?: string | null
+          gift_count?: number
+          custom_fields?: Json
+          raw_data?: Json
+          synced_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_constituents_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_donations: {
+        Row: {
+          id: string
+          user_id: string
+          provider: "bloomerang" | "virtuous" | "neoncrm"
+          external_id: string
+          constituent_external_id: string
+          amount: number
+          donation_date: string | null
+          donation_type: string | null
+          campaign_name: string | null
+          fund_name: string | null
+          payment_method: string | null
+          status: string | null
+          notes: string | null
+          custom_fields: Json
+          raw_data: Json
+          synced_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          provider: "bloomerang" | "virtuous" | "neoncrm"
+          external_id: string
+          constituent_external_id: string
+          amount: number
+          donation_date?: string | null
+          donation_type?: string | null
+          campaign_name?: string | null
+          fund_name?: string | null
+          payment_method?: string | null
+          status?: string | null
+          notes?: string | null
+          custom_fields?: Json
+          raw_data?: Json
+          synced_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          provider?: "bloomerang" | "virtuous" | "neoncrm"
+          external_id?: string
+          constituent_external_id?: string
+          amount?: number
+          donation_date?: string | null
+          donation_type?: string | null
+          campaign_name?: string | null
+          fund_name?: string | null
+          payment_method?: string | null
+          status?: string | null
+          notes?: string | null
+          custom_fields?: Json
+          raw_data?: Json
+          synced_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_donations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

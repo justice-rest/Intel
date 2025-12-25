@@ -136,6 +136,51 @@ See `INSTALL.md` for full SQL schema with RLS policies.
 - **Auth Verification**: All protected endpoints check session
 - **RLS**: Supabase Row Level Security policies (must be configured)
 
+### Supabase Auth Email Configuration (CRITICAL)
+
+For email confirmation to work, the Supabase Dashboard must be configured correctly:
+
+**1. Site URL & Redirect URLs** (Authentication → URL Configuration):
+```
+Site URL: https://intel.getromy.app
+
+Redirect URLs (add all):
+- https://intel.getromy.app/auth/callback
+- https://intel.getromy.app/auth/reset-password
+- http://localhost:3000/auth/callback (for development)
+- http://localhost:3000/auth/reset-password (for development)
+```
+
+**2. Email Templates** (Authentication → Email Templates):
+- Ensure "Confirm signup" template has `{{ .ConfirmationURL }}` placeholder
+- Ensure "Reset Password" template has `{{ .ConfirmationURL }}` placeholder
+
+**3. SMTP Configuration** (Project Settings → Auth → SMTP Settings):
+Supabase's default email service has **extremely low rate limits** (~3-4 emails/hour).
+For production, configure a custom SMTP provider:
+
+| Provider | Free Tier | Setup |
+|----------|-----------|-------|
+| **Resend** | 3,000/month | Recommended - easiest setup |
+| **SendGrid** | 100/day | Good for higher volume |
+| **Mailgun** | 5,000/month | Enterprise-ready |
+| **Postmark** | 100/month | Best deliverability |
+
+**4. Email Confirmation Setting**:
+- Authentication → Providers → Email → "Confirm email" must be **ON**
+
+**Troubleshooting Missing Confirmation Emails:**
+1. Check Supabase Dashboard → Auth → Users for user status
+2. Verify redirect URLs match exactly (no trailing slashes)
+3. Check spam/junk folder
+4. Monitor Supabase logs for email errors
+5. If using default SMTP, wait 15-20 min between signups (rate limit)
+
+**Code Reference:**
+- Auth redirect URLs use `APP_DOMAIN` from `/lib/config.ts`
+- Signup: `/app/auth/email/page.tsx`
+- OAuth callback: `/app/auth/callback/route.ts`
+
 ## Key API Routes
 
 | Route | Method | Purpose |

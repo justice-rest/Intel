@@ -56,8 +56,20 @@ SELECT
     false, -- is_forgotten
     1, -- source_count
     (um.memory_type != 'explicit'), -- is_inference (auto-extracted = inference)
-    (um.metadata->>'source_chat_id')::UUID,
-    (um.metadata->>'source_message_id')::INTEGER,
+    -- Only set source_chat_id if the chat still exists (avoid FK violation)
+    CASE
+        WHEN um.metadata->>'source_chat_id' IS NOT NULL
+             AND EXISTS (SELECT 1 FROM chats c WHERE c.id = (um.metadata->>'source_chat_id')::UUID)
+        THEN (um.metadata->>'source_chat_id')::UUID
+        ELSE NULL
+    END,
+    -- Only set source_message_id if we have a valid source_chat_id
+    CASE
+        WHEN um.metadata->>'source_chat_id' IS NOT NULL
+             AND EXISTS (SELECT 1 FROM chats c WHERE c.id = (um.metadata->>'source_chat_id')::UUID)
+        THEN (um.metadata->>'source_message_id')::INTEGER
+        ELSE NULL
+    END,
     um.importance_score,
     um.access_count,
     -- Calculate access velocity (accesses per day since creation)
@@ -68,7 +80,11 @@ SELECT
     END,
     um.embedding,
     um.metadata,
-    COALESCE((um.metadata->>'tags')::TEXT[], ARRAY[]::TEXT[]),
+    CASE
+        WHEN um.metadata->'tags' IS NOT NULL AND jsonb_typeof(um.metadata->'tags') = 'array'
+        THEN ARRAY(SELECT jsonb_array_elements_text(um.metadata->'tags'))
+        ELSE ARRAY[]::TEXT[]
+    END,
     um.created_at,
     COALESCE(um.updated_at, um.created_at)
 FROM user_memories um
@@ -89,8 +105,12 @@ BEGIN
     RAISE NOTICE 'Migration complete: % memories in V1, % memories in V2', v1_count, v2_count;
 END $$;
 
--- Step 3: Create view for backward compatibility (optional)
-CREATE OR REPLACE VIEW user_memories_compat AS
+-- Step 3: Create view for backward compatibility with security_invoker
+-- security_invoker=true ensures RLS policies on memories_v2 are applied
+DROP VIEW IF EXISTS user_memories_compat;
+CREATE VIEW user_memories_compat
+WITH (security_invoker = true)
+AS
 SELECT
     id,
     user_id,
@@ -109,7 +129,7 @@ SELECT
 FROM memories_v2
 WHERE is_latest = true AND is_forgotten = false;
 
-COMMENT ON VIEW user_memories_compat IS 'Backward-compatible view mapping memories_v2 to user_memories schema';
+COMMENT ON VIEW user_memories_compat IS 'Backward-compatible view mapping memories_v2 to user_memories schema. Uses security_invoker=true to enforce RLS.';
 
 -- Step 4: Update RLS policies for memories_v2 (if not already set)
 ALTER TABLE memories_v2 ENABLE ROW LEVEL SECURITY;

@@ -264,6 +264,7 @@ export interface UserMemoryV2 {
   content: string
   memory_tier: MemoryTier
   memory_kind: MemoryKind
+  memory_type?: "auto" | "explicit"
   is_static: boolean
   version: number
   is_latest: boolean
@@ -282,9 +283,10 @@ export interface UserMemoryV2 {
   importance_score: number
   access_count: number
   access_velocity: number
-  embedding: number[] | string
+  last_accessed_at?: string | null
+  embedding: number[] | string | null
   embedding_model?: string | null
-  matryoshka_embedding?: string | null
+  matryoshka_embedding?: number[] | string | null
   metadata: Json
   tags: string[]
   created_at: string
@@ -298,45 +300,25 @@ export interface MemorySearchResultV2 {
   memory_kind: MemoryKind
   memory_tier: MemoryTier
   is_static: boolean
-  is_latest: boolean
-  is_forgotten: boolean
+  is_latest?: boolean
+  is_forgotten?: boolean
   importance_score: number
-  access_count: number
-  access_velocity: number
+  access_count?: number
+  access_velocity?: number
   created_at: string | Date
-  updated_at: string | Date
+  updated_at?: string | Date
+  last_accessed_at?: string | null
   metadata?: Record<string, unknown> | Json | null
   tags?: string[]
+  // Search scores
   similarity_score?: number
+  vector_similarity?: number
   lexical_score?: number
+  rrf_score?: number
   final_score?: number
-}
-
-/** Knowledge graph entity */
-export interface KGEntity {
-  id: string
-  user_id: string
-  canonical_name: string
-  entity_type: EntityType
-  aliases: string[]
-  embedding?: string | null
-  metadata?: Record<string, unknown> | null
-  created_at: string
-  updated_at: string
-}
-
-/** Knowledge graph relation */
-export interface KGRelation {
-  id: string
-  user_id: string
-  source_entity_id: string
-  target_entity_id: string
-  relation_type: RelationType
-  source_memory_id?: string | null
-  metadata?: Record<string, unknown> | null
-  valid_from?: string | null
-  valid_until?: string | null
-  created_at: string
+  // Source tracking
+  source_chat_id?: string | null
+  is_inference?: boolean
 }
 
 /** RAG chunk V2 */
@@ -432,23 +414,24 @@ export interface ProfileSearchParams {
 /** Profile search response */
 export interface ProfileSearchResponse {
   profile: MemoryProfile
+  searchResults?: MemorySearchResultV2[]
   timing?: {
     staticMs?: number
     dynamicMs?: number
-    totalMs?: number
     searchMs?: number
+    totalMs?: number
   }
 }
 
 /** Memory profile */
 export interface MemoryProfile {
-  static: MemorySearchResultV2[]
-  dynamic: MemorySearchResultV2[]
+  static: UserMemoryV2[]
+  dynamic: UserMemoryV2[]
 }
 
 /** Hot cache entry */
 export interface HotCacheEntry {
-  memories: MemorySearchResultV2[]
+  memories: UserMemoryV2[]
   loadedAt: number
   lastAccessedAt: number
   accessCount: number
@@ -459,17 +442,18 @@ export interface HotCacheConfig {
   maxPerUser: number
   globalMax: number
   ttlMs: number
-  refreshIntervalMs: number
   cleanupIntervalMs: number
 }
 
 /** Cache statistics */
 export interface CacheStats {
-  totalUsers: number
-  totalMemories: number
   totalEntries: number
+  totalMemories: number
   hitRate: number
-  avgLoadTimeMs: number
+  missRate: number
+  avgAccessTime: number
+  oldestEntry: number | null
+  newestEntry: number | null
 }
 
 /** Rerank input */
@@ -497,7 +481,188 @@ export interface RerankResult {
 /** Rerank API response */
 export interface RerankResponse {
   results: Array<{
-    index: number
-    relevance_score: number
+    id: string
+    content: string
+    score: number
+    originalRank: number
+    newRank: number
+    metadata?: Record<string, unknown>
   }>
+  model?: string
+  timing?: { totalMs: number }
+}
+
+// ============================================================================
+// V2 KNOWLEDGE GRAPH TYPES
+// ============================================================================
+
+/** Knowledge graph entity type */
+export type KGEntityType = "person" | "organization" | "foundation" | "company" | "location" | "concept" | "event"
+
+/** Knowledge graph entity (database row) */
+export interface KGEntity {
+  id: string
+  user_id: string
+  entity_type: KGEntityType
+  canonical_name: string
+  display_name: string
+  aliases: string[]
+  description: string | null
+  embedding: number[] | string | null
+  embedding_model: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+  updated_at: string
+}
+
+/** Create knowledge graph entity */
+export interface CreateKGEntity {
+  user_id: string
+  entity_type: KGEntityType
+  canonical_name: string
+  display_name: string
+  aliases?: string[]
+  description?: string | null
+  embedding?: number[]
+  embedding_model?: string
+  metadata?: Record<string, unknown>
+}
+
+/** Knowledge graph relation (database row) */
+export interface KGRelation {
+  id: string
+  source_entity_id: string
+  target_entity_id: string
+  relation_type: string
+  strength: number
+  source_memory_id: string | null
+  metadata: Record<string, unknown> | null
+  valid_from: string | null
+  valid_until: string | null
+  created_at: string
+}
+
+/** Create knowledge graph relation */
+export interface CreateKGRelation {
+  source_entity_id: string
+  target_entity_id: string
+  relation_type: string
+  strength?: number
+  source_memory_id?: string | null
+  metadata?: Record<string, unknown>
+  valid_from?: string | null
+  valid_until?: string | null
+}
+
+/** Knowledge graph traversal result */
+export interface KGTraversalResult {
+  entity_id: string
+  entity_type: KGEntityType
+  entity_name: string
+  relation_path: string[]
+  depth: number
+}
+
+// ============================================================================
+// V2 MEMORY MANAGER TYPES
+// ============================================================================
+
+/** Create memory V2 input */
+export interface CreateMemoryV2 {
+  user_id: string
+  content: string
+  memory_tier?: MemoryTier
+  memory_kind?: MemoryKind
+  memory_type?: "auto" | "explicit"
+  is_static?: boolean
+  is_inference?: boolean
+  importance_score?: number
+  source_chat_id?: string | null
+  source_message_id?: number | null
+  event_timestamp?: string | null
+  valid_until?: string | null
+  forget_after?: string | null
+  embedding?: number[]
+  embedding_model?: string
+  matryoshka_embedding?: number[] | null
+  metadata?: Record<string, unknown>
+  tags?: string[]
+}
+
+/** Update memory V2 input */
+export interface UpdateMemoryV2 {
+  content?: string
+  memory_tier?: MemoryTier
+  memory_kind?: MemoryKind
+  is_static?: boolean
+  is_inference?: boolean
+  importance_score?: number
+  valid_until?: string | null
+  forget_after?: string | null
+  forget_reason?: string | null
+  embedding?: number[]
+  metadata?: Record<string, unknown>
+  tags?: string[]
+}
+
+/** Consolidation candidate */
+export interface ConsolidationCandidate {
+  memories: UserMemoryV2[]
+  similarity: number
+  suggestedContent: string
+  suggestedImportance: number
+}
+
+/** Consolidation result */
+export interface ConsolidationResult {
+  merged: UserMemoryV2
+  sourceIds: string[]
+  similarity: number
+}
+
+/** Consolidation options */
+export interface ConsolidationOptions {
+  similarityThreshold?: number
+  maxBatchSize?: number
+  dryRun?: boolean
+}
+
+/** Decay configuration */
+export interface DecayConfig {
+  dailyDecayRate: number
+  minImportance: number
+  accessBoost: number
+  maxImportance: number
+}
+
+/** Tier promotion/demotion criteria */
+export interface TierCriteria {
+  hotVelocityThreshold: number
+  coldVelocityThreshold: number
+  coldInactiveDays: number
+  hotMinImportance: number
+}
+
+/** Memory statistics V2 */
+export interface MemoryStatsV2 {
+  total_memories: number
+  hot_memories: number
+  warm_memories: number
+  cold_memories: number
+  episodic_count: number
+  semantic_count: number
+  procedural_count: number
+  profile_count: number
+  auto_count: number
+  explicit_count: number
+  inference_count: number
+  static_count: number
+  avg_importance: number
+  avg_access_velocity: number
+  most_recent_memory: string | null
+  oldest_memory: string | null
+  forgotten_count: number
+  expiring_soon_count: number
+  entity_count: number
+  relation_count: number
 }

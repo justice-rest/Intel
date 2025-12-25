@@ -4,12 +4,30 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
-import { MODEL_DEFAULT } from "@/lib/config"
+import { MODEL_DEFAULT, APP_DOMAIN } from "@/lib/config"
 import { CaretLeft, ArrowUpRight } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
+
+/**
+ * Gets the correct base URL for auth redirects.
+ * Uses APP_DOMAIN in production to ensure consistency with Supabase's configured redirect URLs.
+ * Falls back to window.location.origin for local development.
+ */
+function getAuthRedirectUrl(): string {
+  const isDev = process.env.NODE_ENV === "development"
+
+  if (isDev) {
+    // In development, use current origin (localhost)
+    return typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"
+  }
+
+  // In production, ALWAYS use APP_DOMAIN to match Supabase redirect URL configuration
+  // This prevents issues with preview deployments, www vs non-www, etc.
+  return APP_DOMAIN
+}
 
 export default function EmailAuthPage() {
   const [isSignUp, setIsSignUp] = useState(false)
@@ -50,7 +68,7 @@ export default function EmailAuthPage() {
       if (showResetPassword) {
         // Handle password reset
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/auth/reset-password`,
+          redirectTo: `${getAuthRedirectUrl()}/auth/reset-password`,
         })
 
         if (error) throw error
@@ -72,7 +90,7 @@ export default function EmailAuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/auth/callback`,
+            emailRedirectTo: `${getAuthRedirectUrl()}/auth/callback`,
           },
         })
 

@@ -116,20 +116,27 @@ export async function updateChatModel(chatId: string, model: string) {
 }
 
 /**
+ * Gets the correct base URL for auth redirects.
+ * Uses APP_DOMAIN in production to ensure consistency with Supabase's configured redirect URLs.
+ * This prevents issues with preview deployments, www vs non-www, etc.
+ */
+function getAuthRedirectUrl(): string {
+  const isDev = process.env.NODE_ENV === "development"
+
+  if (isDev) {
+    return "http://localhost:3000"
+  }
+
+  // In production, ALWAYS use APP_DOMAIN to match Supabase redirect URL configuration
+  return APP_DOMAIN
+}
+
+/**
  * Signs in user with Google OAuth via Supabase
  */
 export async function signInWithGoogle(supabase: SupabaseClient) {
   try {
-    const isDev = process.env.NODE_ENV === "development"
-
-    // Get base URL dynamically (will work in both browser and server environments)
-    const baseUrl = isDev
-      ? "http://localhost:3000"
-      : typeof window !== "undefined"
-        ? window.location.origin
-        : process.env.NEXT_PUBLIC_VERCEL_URL
-          ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-          : APP_DOMAIN
+    const baseUrl = getAuthRedirectUrl()
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",

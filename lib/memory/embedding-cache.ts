@@ -78,3 +78,55 @@ export function cleanExpiredCache(): void {
 export function getCacheStats(): { size: number; maxSize: number } {
   return { size: cache.size, maxSize: MAX_CACHE_SIZE }
 }
+
+/**
+ * Generate embedding for text using OpenRouter
+ * Uses caching to avoid redundant API calls
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  // Check cache first
+  const cached = getCachedEmbedding(text)
+  if (cached) return cached
+
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY not configured")
+  }
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_VERCEL_URL || "http://localhost:3000",
+        "X-Title": "Romy Memory System",
+      },
+      body: JSON.stringify({
+        model: "openai/text-embedding-3-small",
+        input: text,
+      }),
+      signal: AbortSignal.timeout(30000),
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Embedding failed: ${response.status} ${errorText}`)
+    }
+
+    const data = await response.json()
+    const embedding = data.data?.[0]?.embedding
+
+    if (!embedding || !Array.isArray(embedding)) {
+      throw new Error("Invalid embedding response")
+    }
+
+    // Cache the result
+    setCachedEmbedding(text, embedding)
+
+    return embedding
+  } catch (error) {
+    console.error("[embedding-cache] Generation failed:", error)
+    throw error
+  }
+}

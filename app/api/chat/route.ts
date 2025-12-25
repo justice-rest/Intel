@@ -195,34 +195,33 @@ export async function POST(req: Request) {
         const provider = getProviderForModel(normalizedModel)
         return (await getEffectiveApiKey(userId, provider as ProviderWithoutOllama)) || undefined
       })(),
-      // 5. MEMORY RETRIEVAL - Now runs in parallel with everything else!
+      // 5. MEMORY RETRIEVAL - Uses V2 hybrid search with automatic V1 fallback
       (async (): Promise<string | null> => {
         if (!shouldInjectMemory) return null
 
         try {
-          const { getMemoriesForAutoInject, formatMemoriesForPrompt, buildConversationContext, isMemoryEnabled } = await import("@/lib/memory")
+          const { getChatMemories, isMemoryEnabled } = await import("@/lib/memory")
+          const { createClient } = await import("@/lib/supabase/server")
 
           if (!isMemoryEnabled()) return null
 
-          const conversationContext = buildConversationContext(
-            messages.slice(-3).map((m) => ({ role: m.role, content: String(m.content) }))
-          )
+          // Use the unified V2 chat integration (auto-fallback to V1)
+          const supabaseClient = await createClient()
+          if (!supabaseClient) return null
 
-          if (!conversationContext) return null
+          const memoryContext = await getChatMemories(supabaseClient, {
+            userId,
+            conversationMessages: messages.slice(-3).map((m) => ({
+              role: m.role,
+              content: String(m.content),
+            })),
+            count: 5, // V2 uses more memories with better relevance scoring
+            minImportance: 0.4,
+          })
 
-          // Use env key since user key isn't available yet in parallel
-          const relevantMemories = await getMemoriesForAutoInject(
-            {
-              conversationContext,
-              userId,
-              count: 3,
-              minImportance: 0.4,
-            },
-            process.env.OPENROUTER_API_KEY || ""
-          )
-
-          if (relevantMemories.length > 0) {
-            return formatMemoriesForPrompt(relevantMemories)
+          if (memoryContext.formattedMemories) {
+            console.log(`[Memory] Retrieved ${memoryContext.memories.length} memories using ${memoryContext.systemUsed} system (${memoryContext.timing.totalMs}ms)`)
+            return memoryContext.formattedMemories
           }
           return null
         } catch (error) {

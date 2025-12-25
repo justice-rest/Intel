@@ -132,52 +132,64 @@ ALTER TABLE crm_constituents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE crm_donations ENABLE ROW LEVEL SECURITY;
 
 -- Sync logs policies
+DROP POLICY IF EXISTS "Users can view own CRM sync logs" ON crm_sync_logs;
 CREATE POLICY "Users can view own CRM sync logs"
   ON crm_sync_logs FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can create own CRM sync logs" ON crm_sync_logs;
 CREATE POLICY "Users can create own CRM sync logs"
   ON crm_sync_logs FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own CRM sync logs" ON crm_sync_logs;
 CREATE POLICY "Users can update own CRM sync logs"
   ON crm_sync_logs FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own CRM sync logs" ON crm_sync_logs;
 CREATE POLICY "Users can delete own CRM sync logs"
   ON crm_sync_logs FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Constituents policies
+DROP POLICY IF EXISTS "Users can view own CRM constituents" ON crm_constituents;
 CREATE POLICY "Users can view own CRM constituents"
   ON crm_constituents FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own CRM constituents" ON crm_constituents;
 CREATE POLICY "Users can insert own CRM constituents"
   ON crm_constituents FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own CRM constituents" ON crm_constituents;
 CREATE POLICY "Users can update own CRM constituents"
   ON crm_constituents FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own CRM constituents" ON crm_constituents;
 CREATE POLICY "Users can delete own CRM constituents"
   ON crm_constituents FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Donations policies
+DROP POLICY IF EXISTS "Users can view own CRM donations" ON crm_donations;
 CREATE POLICY "Users can view own CRM donations"
   ON crm_donations FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own CRM donations" ON crm_donations;
 CREATE POLICY "Users can insert own CRM donations"
   ON crm_donations FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update own CRM donations" ON crm_donations;
 CREATE POLICY "Users can update own CRM donations"
   ON crm_donations FOR UPDATE
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete own CRM donations" ON crm_donations;
 CREATE POLICY "Users can delete own CRM donations"
   ON crm_donations FOR DELETE
   USING (auth.uid() = user_id);
@@ -207,7 +219,12 @@ CREATE TRIGGER crm_constituents_updated_at
 -- ============================================================================
 
 -- View for constituent summaries with donation counts
-CREATE OR REPLACE VIEW crm_constituent_summaries AS
+-- CRITICAL: security_invoker=true ensures RLS on underlying tables is enforced
+-- Without this, ANY authenticated user could see ALL users' CRM data
+DROP VIEW IF EXISTS crm_constituent_summaries;
+CREATE VIEW crm_constituent_summaries
+WITH (security_invoker = true)
+AS
 SELECT
   c.id,
   c.user_id,
@@ -230,5 +247,5 @@ LEFT JOIN crm_donations d ON c.user_id = d.user_id
   AND c.external_id = d.constituent_external_id
 GROUP BY c.id;
 
--- Grant access to the view
+-- Grant access to the view (RLS still enforced via security_invoker)
 GRANT SELECT ON crm_constituent_summaries TO authenticated;

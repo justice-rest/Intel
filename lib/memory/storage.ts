@@ -302,6 +302,53 @@ export async function getMemoryStats(userId: string): Promise<MemoryStats> {
   }
 }
 
+/**
+ * Check if a similar memory already exists
+ * Uses semantic search to find duplicates
+ *
+ * @param content - Memory content to check
+ * @param userId - User ID
+ * @param apiKey - API key for embedding generation
+ * @param threshold - Similarity threshold (default 0.9)
+ * @returns True if similar memory exists
+ */
+export async function memoryExists(
+  content: string,
+  userId: string,
+  apiKey: string,
+  threshold: number = 0.9
+): Promise<boolean> {
+  try {
+    const supabase = await createClient()
+    if (!supabase) {
+      console.error("Supabase not configured")
+      return false
+    }
+
+    // Generate embedding for the content
+    const { generateEmbedding } = await import("@/lib/rag/embeddings")
+    const { embedding } = await generateEmbedding(content, apiKey)
+
+    // Search for similar memories (embedding must be passed as array for the DB function)
+    const { data, error } = await supabase.rpc("search_user_memories", {
+      query_embedding: embedding as unknown as string, // RPC accepts vector type
+      match_user_id: userId,
+      match_count: 1,
+      similarity_threshold: threshold,
+    })
+
+    if (error) {
+      console.error("Error checking for duplicate memory:", error)
+      return false
+    }
+
+    return data && data.length > 0
+  } catch (error) {
+    console.error("Failed to check for duplicate memory:", error)
+    return false
+  }
+}
+
 // ============================================================================
 // UPDATE OPERATIONS
 // ============================================================================
