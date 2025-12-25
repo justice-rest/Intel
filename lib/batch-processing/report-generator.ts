@@ -318,7 +318,7 @@ function hasMinimalData(output: ProspectResearchOutput): boolean {
 /**
  * Merge two research outputs, keeping the best data from each
  */
-function mergeResearchOutputs(
+export function mergeResearchOutputs(
   primary: ProspectResearchOutput,
   secondary: ProspectResearchOutput
 ): ProspectResearchOutput {
@@ -413,7 +413,7 @@ async function singlePerplexitySearch(
  * Generate prospect research using Perplexity Sonar Pro with multi-pass strategy
  * Returns structured JSON with grounded citations
  */
-async function researchWithPerplexitySonar(
+export async function researchWithPerplexitySonar(
   prospect: ProspectInputData,
   apiKey?: string
 ): Promise<PerplexityResearchResult> {
@@ -583,7 +583,7 @@ Return ONLY the JSON object.`
  * Integrate extracted LinkUp data into Perplexity's structured output
  * Fills in gaps where Perplexity didn't find data but LinkUp did
  */
-function integrateExtractedLinkupData(
+export function integrateExtractedLinkupData(
   output: ProspectResearchOutput,
   extractedData: ExtractedLinkupData
 ): ProspectResearchOutput {
