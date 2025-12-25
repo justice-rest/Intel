@@ -228,11 +228,8 @@
   }
 
   /* Page transition performance optimizations */
-  .transition-container {
-    will-change: opacity, transform;
-    backface-visibility: hidden;
-    transform: translateZ(0); /* GPU acceleration */
-    min-height: 100dvh;
+  main {
+    will-change: opacity;
   }
 
   /* Reduced motion support - respects user preferences */
@@ -246,9 +243,8 @@
       scroll-behavior: auto !important;
     }
 
-    .transition-container {
+    main {
       will-change: auto;
-      transform: none;
     }
   }
 }

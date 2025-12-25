@@ -8,15 +8,13 @@ import { DURATION, EASING, prefersReducedMotion } from "./animation-config"
 // Ensure GSAP is initialized
 initializeGSAP()
 
-// CSS ID for the transition container
-const TRANSITION_CONTAINER_ID = "page-transition-container"
-
 /**
  * Get the transition target element
- * Targets the entire page container to include sidebar in transitions
+ * Targets the main content area for smooth page transitions
  */
 function getTransitionTarget(): HTMLElement | null {
-  return document.getElementById(TRANSITION_CONTAINER_ID)
+  // Target main element for content transitions
+  return document.querySelector("main")
 }
 
 /**
@@ -31,7 +29,6 @@ function getTransitionTarget(): HTMLElement | null {
  * - Respects prefers-reduced-motion
  * - Cleanup functions prevent memory leaks
  * - Uses React's startTransition for better performance
- * - Animates entire page container (including sidebar)
  */
 export function TransitionProvider({
   children,
@@ -111,12 +108,7 @@ export function TransitionProvider({
         }
       }}
     >
-      <div
-        id={TRANSITION_CONTAINER_ID}
-        className="transition-container"
-      >
-        {children}
-      </div>
+      {children}
     </TransitionRouter>
   )
 }
