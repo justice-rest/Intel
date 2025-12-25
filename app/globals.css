@@ -226,6 +226,30 @@
   [type="reset"]:disabled {
     cursor: not-allowed;
   }
+
+  /* Page transition performance optimizations */
+  main {
+    will-change: opacity, transform;
+    backface-visibility: hidden;
+    transform: translateZ(0); /* GPU acceleration */
+  }
+
+  /* Reduced motion support - respects user preferences */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    main {
+      will-change: auto;
+      transform: none;
+    }
+  }
 }
 
 code {

@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { useTransitionRouter } from "@/lib/transitions"
 import { BatchJobProgress } from "@/app/components/batch-processing/batch-job-progress"
 import type { BatchProspectJob, BatchProspectItem, BatchJobDetailResponse } from "@/lib/batch-processing"
 import { Spinner } from "@phosphor-icons/react"
@@ -12,7 +13,7 @@ interface BatchJobDetailViewProps {
 }
 
 export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
-  const router = useRouter()
+  const router = useTransitionRouter()
   const [job, setJob] = useState<BatchProspectJob | null>(null)
   const [items, setItems] = useState<BatchProspectItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -51,15 +52,15 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
       <div className="batch-app-container">
         <header className="batch-header">
           <div className="batch-header-left">
-            <a href="/" className="batch-logo-link group/logo">
+            <Link href="/" className="batch-logo-link group/logo">
               <span className="batch-logo-wrapper">
                 <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo batch-logo-default" />
                 <img src="/PFPs/2.png" alt="Rōmy" className="batch-logo batch-logo-hover" />
               </span>
               <span className="batch-logo-text">Rōmy</span>
-            </a>
+            </Link>
             <span className="batch-header-divider">/</span>
-            <a href="/batch" className="batch-nav-link">Batch Research</a>
+            <Link href="/batch" className="batch-nav-link">Batch Research</Link>
           </div>
         </header>
         <div className="flex h-[60vh] items-center justify-center">
@@ -74,15 +75,15 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
       <div className="batch-app-container">
         <header className="batch-header">
           <div className="batch-header-left">
-            <a href="/" className="batch-logo-link group/logo">
+            <Link href="/" className="batch-logo-link group/logo">
               <span className="batch-logo-wrapper">
                 <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo batch-logo-default" />
                 <img src="/PFPs/2.png" alt="Rōmy" className="batch-logo batch-logo-hover" />
               </span>
               <span className="batch-logo-text">Rōmy</span>
-            </a>
+            </Link>
             <span className="batch-header-divider">/</span>
-            <a href="/batch" className="batch-nav-link">Batch Research</a>
+            <Link href="/batch" className="batch-nav-link">Batch Research</Link>
           </div>
         </header>
         <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
@@ -103,22 +104,22 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
       {/* Header */}
       <header className="batch-header">
         <div className="batch-header-left">
-          <a href="/" className="batch-logo-link group/logo">
+          <Link href="/" className="batch-logo-link group/logo">
             <span className="batch-logo-wrapper">
               <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo batch-logo-default" />
               <img src="/PFPs/2.png" alt="Rōmy" className="batch-logo batch-logo-hover" />
             </span>
             <span className="batch-logo-text">Rōmy</span>
-          </a>
+          </Link>
           <span className="batch-header-divider">/</span>
-          <a href="/batch" className="batch-nav-link">Batch Research</a>
+          <Link href="/batch" className="batch-nav-link">Batch Research</Link>
           <span className="batch-header-divider">/</span>
           <h1>{job.name}</h1>
         </div>
         <div className="batch-header-right">
-          <a href="/batch" className="flat-button">
+          <Link href="/batch" className="flat-button">
             All Batches
-          </a>
+          </Link>
         </div>
       </header>
 

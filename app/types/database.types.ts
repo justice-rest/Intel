@@ -208,6 +208,8 @@ export type Database = {
           system_prompt: string | null
           first_name: string | null
           welcome_completed: boolean | null
+          subscription_status: string | null
+          subscription_tier: string | null
         }
         Insert: {
           anonymous?: boolean | null
@@ -227,6 +229,8 @@ export type Database = {
           system_prompt?: string | null
           first_name?: string | null
           welcome_completed?: boolean | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
         }
         Update: {
           anonymous?: boolean | null
@@ -246,6 +250,8 @@ export type Database = {
           system_prompt?: string | null
           first_name?: string | null
           welcome_completed?: boolean | null
+          subscription_status?: string | null
+          subscription_tier?: string | null
         }
         Relationships: []
       }

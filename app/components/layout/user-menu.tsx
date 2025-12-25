@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/tooltip"
 import { useUser } from "@/lib/user-store/provider"
 import { InstagramLogoIcon, LinkedinLogoIcon, SignOut } from "@phosphor-icons/react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useCustomer } from "autumn-js/react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
@@ -27,12 +27,13 @@ import { SettingsTrigger } from "./settings/settings-trigger"
 import type { TabType } from "./settings/settings-content"
 
 export function UserMenu() {
-  const { user } = useUser()
+  const { user, updateUser } = useUser()
   const { customer } = useCustomer()
   const router = useRouter()
   const [isMenuOpen, setMenuOpen] = useState(false)
   const [isSettingsOpen, setSettingsOpen] = useState(false)
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<TabType>("general")
+  const hasSyncedRef = useRef(false)
 
   // Listen for custom event to open settings with a specific tab
   useEffect(() => {
@@ -49,6 +50,27 @@ export function UserMenu() {
       window.removeEventListener("open-settings", handleOpenSettings as EventListener)
     }
   }, [])
+
+  // Sync subscription status to user record when customer data loads
+  useEffect(() => {
+    if (!user || !customer || hasSyncedRef.current) return
+
+    const productStatus = customer.products?.[0]?.status
+    const productId = customer.products?.[0]?.id
+    const tier = productId?.replace("-yearly", "") || null
+
+    // Only sync if different from cached values
+    if (
+      user.subscription_status !== productStatus ||
+      user.subscription_tier !== tier
+    ) {
+      hasSyncedRef.current = true
+      updateUser({
+        subscription_status: productStatus || null,
+        subscription_tier: tier,
+      })
+    }
+  }, [customer, user, updateUser])
 
   if (!user) return null
 
@@ -73,14 +95,19 @@ export function UserMenu() {
     router.refresh()
   }
 
+  // Use cached subscription data from user first, fall back to customer data
+  const cachedStatus = user.subscription_status
+  const cachedTier = user.subscription_tier
+
   // Check if user has an active subscription (any paid plan, including trials)
-  const productStatus = customer?.products?.[0]?.status
+  // Use cached data immediately, customer data if available
+  const productStatus = customer?.products?.[0]?.status ?? cachedStatus
   const hasActiveSubscription =
     productStatus === "active" || productStatus === "trialing"
 
-  // Get the subscription tier
+  // Get the subscription tier - use cached or customer data
   const currentProductId = customer?.products?.[0]?.id
-  const planType = currentProductId?.replace("-yearly", "")
+  const planType = currentProductId?.replace("-yearly", "") ?? cachedTier
   const isPremiumTier = planType === "pro" || planType === "scale"
 
   return (

@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useRef, useCallback, useEffect } from "react"
+import Link from "next/link"
+import { useTransitionRouter } from "@/lib/transitions"
 import { cn, formatRelativeTime } from "@/lib/utils"
 import {
   UsersThree,
@@ -110,12 +112,12 @@ function ServiceTile({
           <span>{subtitle}</span>
         </h3>
       </div>
-      <a href={href}>
+      <Link href={href}>
         <span>Start Research</span>
         <span className="icon-button">
           <CaretRight weight="bold" />
         </span>
-      </a>
+      </Link>
     </article>
   )
 }
@@ -743,6 +745,7 @@ function ColumnMappingDialog({
 // Main batch view component
 export function BatchView() {
   const queryClient = useQueryClient()
+  const router = useTransitionRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [batchLimit, setBatchLimit] = useState(10)
   const [planName, setPlanName] = useState("Growth")
@@ -859,9 +862,9 @@ export function BatchView() {
       setIsMappingDialogOpen(false)
       setParsedFileData(null)
 
-      // Redirect to the job detail page
+      // Navigate to the job detail page with smooth transition
       if (data.job?.id) {
-        window.location.href = `/batch/${data.job.id}`
+        router.push(`/batch/${data.job.id}`)
       }
     } catch (err) {
       throw err
@@ -892,20 +895,20 @@ export function BatchView() {
       {/* Header */}
       <header className="batch-header">
         <div className="batch-header-left">
-          <a href="/" className="batch-logo-link group/logo">
+          <Link href="/" className="batch-logo-link group/logo">
             <span className="batch-logo-wrapper">
               <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo batch-logo-default" />
               <img src="/PFPs/2.png" alt="Rōmy" className="batch-logo batch-logo-hover" />
             </span>
             <span className="batch-logo-text">Rōmy</span>
-          </a>
+          </Link>
           <span className="batch-header-divider">/</span>
           <h1>Batch Research</h1>
         </div>
         <div className="batch-header-right">
-          <a href="/" className="flat-button">
+          <Link href="/" className="flat-button">
             Back to Chat
-          </a>
+          </Link>
         </div>
       </header>
 
@@ -991,7 +994,7 @@ export function BatchView() {
                       key={job.id}
                       job={job}
                       onDelete={(id) => deleteMutation.mutateAsync(id)}
-                      onView={(id) => window.location.href = `/batch/${id}`}
+                      onView={(id) => router.push(`/batch/${id}`)}
                       onExport={(id) => window.open(`/api/batch-prospects/${id}/export?format=csv`, "_blank")}
                     />
                   ))}

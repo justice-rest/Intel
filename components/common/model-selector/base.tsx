@@ -2,7 +2,6 @@
 
 import { PopoverContentAuth } from "@/app/components/chat-input/popover-content-auth"
 import { useBreakpoint } from "@/app/hooks/use-breakpoint"
-import { useKeyShortcut } from "@/app/hooks/use-key-shortcut"
 import { Button } from "@/components/ui/button"
 import {
   Drawer,
@@ -89,17 +88,6 @@ export function ResearchSelector({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const currentOption = RESEARCH_OPTIONS.find((opt) => opt.id === selectedMode)
-
-  useKeyShortcut(
-    (e) => (e.key === "r" || e.key === "R") && e.metaKey && e.shiftKey,
-    () => {
-      if (isMobile) {
-        setIsDrawerOpen((prev) => !prev)
-      } else {
-        setIsDropdownOpen((prev) => !prev)
-      }
-    }
-  )
 
   const trigger = (
     <Button
@@ -265,7 +253,7 @@ export function ResearchSelector({
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
           </TooltipTrigger>
-          <TooltipContent>Switch research mode ⌘⇧R</TooltipContent>
+          <TooltipContent>Switch research mode</TooltipContent>
           <DropdownMenuContent
             className="flex w-[200px] flex-col space-y-0.5 overflow-visible p-1"
             align="start"

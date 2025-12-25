@@ -14,7 +14,8 @@ import { UsersThree, Plus, CheckCircle, Spinner, Clock, CloudArrowUp, FileCsv, X
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
+import { useTransitionRouter } from "@/lib/transitions"
 import { cn } from "@/lib/utils"
 import {
   parseProspectFile,
@@ -79,7 +80,7 @@ function BatchUploadDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
-  const router = useRouter()
+  const router = useTransitionRouter()
   const queryClient = useQueryClient()
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -383,7 +384,8 @@ export function SidebarBatch() {
     },
     staleTime: 30000, // 30 seconds
     refetchInterval: 60000, // Refetch every minute
-    refetchOnMount: false, // Don't refetch on route changes - prevents glitching
+    // refetchOnMount: true (default) ensures data loads after RSC navigation
+    // placeholderData prevents glitching by showing cached data while refetching
     refetchOnWindowFocus: false, // Don't refetch on window focus
     placeholderData: keepPreviousData, // Keep showing previous data during refetch
   })
