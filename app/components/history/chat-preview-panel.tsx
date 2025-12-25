@@ -1,8 +1,9 @@
 import { MessageContent } from "@/components/prompt-kit/message"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { gsap } from "@/lib/transitions"
 import { AlertCircle, Loader2, RefreshCw } from "lucide-react"
-import { useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState, useEffect } from "react"
 
 type ChatPreviewPanelProps = {
   chatId: string | null
@@ -184,8 +185,10 @@ export function ChatPreviewPanel({
 }: ChatPreviewPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const [lastChatId, setLastChatId] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [isTransitioning, setIsTransitioning] = useState(false)
   const maxRetries = 3
 
   const shouldFetch = chatId && chatId !== lastChatId
@@ -202,6 +205,27 @@ export function ChatPreviewPanel({
       onFetchPreview(chatId)
     }
   }
+
+  // Smooth GSAP fade transition when chatId changes
+  useEffect(() => {
+    if (!contentRef.current) return
+
+    // When chatId changes, fade in the new content
+    if (chatId !== lastChatId || !isTransitioning) {
+      gsap.fromTo(
+        contentRef.current,
+        { opacity: 0, y: 8 },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.2,
+          ease: "power2.out",
+          onStart: () => setIsTransitioning(true),
+          onComplete: () => setIsTransitioning(false),
+        }
+      )
+    }
+  }, [chatId, messages.length, isLoading, error])
 
   // Immediately scroll to bottom when chatId changes or messages load
   useLayoutEffect(() => {
@@ -220,9 +244,8 @@ export function ChatPreviewPanel({
       className="bg-background col-span-3 border-l"
       onMouseEnter={() => onHover?.(true)}
       onMouseLeave={() => onHover?.(false)}
-      key={chatId}
     >
-      <div className="h-[480px]">
+      <div ref={contentRef} className="h-[480px]">
         {!chatId && <DefaultState />}
         {chatId && isLoading && <LoadingState />}
         {chatId && error && !isLoading && (
