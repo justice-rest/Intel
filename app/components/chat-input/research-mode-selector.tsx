@@ -405,9 +405,9 @@ export function ResearchModeSelector({
             </DropdownMenuItem>
           ))}
 
-          {/* Submenu positioned absolutely */}
+          {/* Submenu positioned absolutely - bottom-aligned so it grows upward */}
           {hoveredModeData && (
-            <div className="absolute top-0 left-[calc(100%+8px)]">
+            <div className="absolute bottom-0 left-[calc(100%+8px)]">
               <ResearchModeSubMenu mode={hoveredModeData} />
             </div>
           )}
