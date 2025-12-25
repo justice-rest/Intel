@@ -300,10 +300,10 @@ export async function POST(
       const city = getNonEmpty(nextItem.input_data?.city, nextItem.prospect_city)
       const state = getNonEmpty(nextItem.input_data?.state, nextItem.prospect_state)
       const zip = getNonEmpty(nextItem.input_data?.zip, nextItem.prospect_zip)
-      const existingFullAddress = getNonEmpty(nextItem.input_data?.full_address, undefined)
 
-      // Construct full_address from components if not already provided
-      const constructedFullAddress = existingFullAddress || [address, city, state, zip].filter(Boolean).join(", ")
+      // ALWAYS construct full_address from components - don't trust existing full_address
+      // because it might be incomplete (e.g., just street address without city/state/zip)
+      const constructedFullAddress = [address, city, state, zip].filter(Boolean).join(", ")
 
       const enrichedProspect = {
         ...nextItem.input_data,
