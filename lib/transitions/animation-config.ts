@@ -93,15 +93,18 @@ export function getTransitionType(from: string, to: string): TransitionType {
     return "slide"
   }
 
-  // Batch job to batch job - use slide
-  if (from.startsWith("/batch/") && to.startsWith("/batch/")) {
+  // Batch navigation (any batch route to any batch route) - use slide
+  // This handles: /batch → /batch/[id], /batch/[id] → /batch, /batch/[id] → /batch/[id2]
+  const isFromBatch = from === "/batch" || from.startsWith("/batch/")
+  const isToBatch = to === "/batch" || to.startsWith("/batch/")
+  if (isFromBatch && isToBatch && from !== to) {
     return "slide"
   }
 
   // Home to batch or batch to home - scale
   if (
-    (from === "/" && to.startsWith("/batch")) ||
-    (from.startsWith("/batch") && to === "/")
+    (from === "/" && (to === "/batch" || to.startsWith("/batch/"))) ||
+    ((from === "/batch" || from.startsWith("/batch/")) && to === "/")
   ) {
     return "scale"
   }

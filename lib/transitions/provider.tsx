@@ -13,6 +13,17 @@ import {
 // Ensure GSAP is initialized
 initializeGSAP()
 
+// CSS ID for the transition container
+const TRANSITION_CONTAINER_ID = "page-transition-container"
+
+/**
+ * Get the transition target element
+ * Targets the entire page container to include sidebar in transitions
+ */
+function getTransitionTarget(): HTMLElement | null {
+  return document.getElementById(TRANSITION_CONTAINER_ID)
+}
+
 /**
  * TransitionProvider - Smooth page transitions using GSAP
  *
@@ -27,6 +38,7 @@ initializeGSAP()
  * - Cleanup functions prevent memory leaks
  * - Uses React's startTransition for better performance
  * - GPU-accelerated transforms
+ * - Animates entire page container (including sidebar)
  */
 export function TransitionProvider({
   children,
@@ -44,9 +56,9 @@ export function TransitionProvider({
         }
 
         const transitionType = getTransitionType(from ?? "/", to ?? "/")
-        const main = document.querySelector("main")
+        const target = getTransitionTarget()
 
-        if (!main) {
+        if (!target) {
           next()
           return () => {}
         }
@@ -57,7 +69,7 @@ export function TransitionProvider({
 
         switch (transitionType) {
           case "slide":
-            tween = gsap.to(main, {
+            tween = gsap.to(target, {
               opacity: 0,
               x: -20,
               duration: DURATION.normal,
@@ -68,7 +80,7 @@ export function TransitionProvider({
             break
 
           case "scale":
-            tween = gsap.to(main, {
+            tween = gsap.to(target, {
               opacity: 0,
               scale: 0.98,
               duration: DURATION.fast,
@@ -80,7 +92,7 @@ export function TransitionProvider({
 
           case "crossfade":
           default:
-            tween = gsap.to(main, {
+            tween = gsap.to(target, {
               opacity: 0,
               duration: DURATION.fast,
               ease: EASING.exit,
@@ -102,9 +114,9 @@ export function TransitionProvider({
         }
 
         const transitionType = getTransitionType(from ?? "/", to ?? "/")
-        const main = document.querySelector("main")
+        const target = getTransitionTarget()
 
-        if (!main) {
+        if (!target) {
           next()
           return () => {}
         }
@@ -120,8 +132,8 @@ export function TransitionProvider({
           switch (transitionType) {
             case "slide":
               // Set initial state
-              gsap.set(main, { opacity: 0, x: 20 })
-              tween = gsap.to(main, {
+              gsap.set(target, { opacity: 0, x: 20 })
+              tween = gsap.to(target, {
                 opacity: 1,
                 x: 0,
                 duration: DURATION.normal,
@@ -136,8 +148,8 @@ export function TransitionProvider({
 
             case "scale":
               // Set initial state
-              gsap.set(main, { opacity: 0, scale: 0.98 })
-              tween = gsap.to(main, {
+              gsap.set(target, { opacity: 0, scale: 0.98 })
+              tween = gsap.to(target, {
                 opacity: 1,
                 scale: 1,
                 duration: DURATION.slow,
@@ -153,8 +165,8 @@ export function TransitionProvider({
             case "crossfade":
             default:
               // Set initial state
-              gsap.set(main, { opacity: 0 })
-              tween = gsap.to(main, {
+              gsap.set(target, { opacity: 0 })
+              tween = gsap.to(target, {
                 opacity: 1,
                 duration: DURATION.slow,
                 ease: EASING.enter,
@@ -174,7 +186,12 @@ export function TransitionProvider({
         }
       }}
     >
-      {children}
+      <div
+        id={TRANSITION_CONTAINER_ID}
+        className="transition-container"
+      >
+        {children}
+      </div>
     </TransitionRouter>
   )
 }
