@@ -31,6 +31,18 @@ const CONFIDENCE_TOOLTIPS = {
 }
 
 /**
+ * Strip model-specific artifacts that shouldn't be rendered
+ * (e.g., Grok's </grok:render> tags)
+ */
+function stripModelArtifacts(content: string): string {
+  return content
+    // Remove Grok render tags
+    .replace(/<\/?grok:[^>]*>/gi, '')
+    // Remove any other model-specific XML-like tags (claude:, gemini:, etc.)
+    .replace(/<\/?(?:claude|gemini|anthropic|openai):[^>]*>/gi, '')
+}
+
+/**
  * Preprocess markdown to convert confidence tags into styled HTML spans with tooltips
  *
  * Handles patterns like:
@@ -40,7 +52,8 @@ const CONFIDENCE_TOOLTIPS = {
  * - [Estimated] or [Estimated - methodology] → badge "Estimated" + text "- methodology"
  */
 function preprocessConfidenceTags(content: string): string {
-  let processed = content
+  // First strip any model-specific artifacts
+  let processed = stripModelArtifacts(content)
 
   // [Verified] or [Verified - source] → badge only (source info usually redundant with link)
   processed = processed.replace(
