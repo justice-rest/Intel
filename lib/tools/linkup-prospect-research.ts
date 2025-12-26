@@ -299,8 +299,7 @@ async function executeLinkupSearch(
       depth,
       outputType: "sourcedAnswer",
       includeInlineCitations: true,
-      // NEW: maxResults parameter for comprehensive source gathering
-      // @ts-expect-error - maxResults is a new LinkUp API parameter
+      // maxResults: maximum sources to gather for comprehensive research
       maxResults: depth === "deep" ? 25 : 15,
     })
 
