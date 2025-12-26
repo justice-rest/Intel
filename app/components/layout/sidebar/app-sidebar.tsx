@@ -10,11 +10,14 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Badge } from "@/components/ui/badge"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useSplitView } from "@/lib/split-view-store/provider"
+import { useDrafts } from "@/app/components/drafts"
 import { APP_NAME } from "@/lib/config"
 import {
   ChatTeardropText,
+  Envelope,
   InstagramLogo,
   MagnifyingGlass,
   NotePencilIcon,
@@ -39,6 +42,7 @@ export function AppSidebar() {
   const { setOpenMobile } = useSidebar()
   const { chats, pinnedChats, isLoading } = useChats()
   const { isActive: isSplitActive } = useSplitView()
+  const { pendingDraftsCount, openDraftsModal } = useDrafts()
   const params = useParams<{ chatId: string }>()
   const pathname = usePathname()
   const currentChatId = params.chatId
@@ -164,6 +168,24 @@ export function AppSidebar() {
               }
               hasPopover={false}
             />
+            <button
+              className="hover:bg-accent/80 hover:text-foreground text-primary group/drafts relative inline-flex w-full items-center rounded-md bg-transparent px-2 py-2 text-sm transition-colors"
+              type="button"
+              onClick={openDraftsModal}
+            >
+              <div className="flex items-center gap-2">
+                <Envelope size={20} />
+                Drafts
+                {pendingDraftsCount > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] justify-center px-1.5 text-xs">
+                    {pendingDraftsCount}
+                  </Badge>
+                )}
+              </div>
+              <div className="text-muted-foreground ml-auto text-xs opacity-0 duration-150 group-hover/drafts:opacity-100">
+                ⌘⇧D
+              </div>
+            </button>
           </div>
           <SidebarBatch />
           <SidebarProject />

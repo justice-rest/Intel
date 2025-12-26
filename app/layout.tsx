@@ -17,6 +17,7 @@ import { getUserProfile } from "@/lib/user/api"
 import { PostHogProvider } from "@/lib/posthog/provider"
 import { MemoryProvider } from "@/lib/memory-store"
 import { TransitionProvider } from "@/lib/transitions"
+import { DraftsWrapper } from "@/app/components/drafts"
 import { ThemeProvider } from "next-themes"
 import Script from "next/script"
 import { Suspense } from "react"
@@ -87,9 +88,11 @@ export default async function RootLayout({
                                 >
                                   <SidebarProvider defaultOpen>
                                     <Toaster position="top-center" />
-                                    <TransitionProvider>
-                                      {children}
-                                    </TransitionProvider>
+                                    <DraftsWrapper>
+                                      <TransitionProvider>
+                                        {children}
+                                      </TransitionProvider>
+                                    </DraftsWrapper>
                                   </SidebarProvider>
                                 </ThemeProvider>
                               </TooltipProvider>

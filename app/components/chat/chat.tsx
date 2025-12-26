@@ -6,6 +6,7 @@ import { LoaderOverlay } from "@/app/components/chat/loader-overlay"
 import { DropZone } from "@/app/components/split-view"
 import { useModel } from "@/app/components/chat/use-model"
 import { useChatDraft } from "@/app/hooks/use-chat-draft"
+import { useSlashCommand } from "@/app/components/drafts"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useMessages } from "@/lib/chat-store/messages/provider"
 import { useChatId } from "@/lib/chat-store/session/use-chat-id"
@@ -104,6 +105,7 @@ export function Chat({
   // Quiz popup only shows for Growth plan users
   const isGrowthPlan = productId === "growth"
   const { draftValue, clearDraft } = useChatDraft(chatId)
+  const { processSlashCommand } = useSlashCommand()
 
   // File upload functionality
   const {
@@ -148,6 +150,15 @@ export function Chat({
       setQuotedText({ text, messageId })
     },
     []
+  )
+
+  // Handle slash commands (e.g., /draft, /drafts)
+  const handleSlashCommand = useCallback(
+    (command: string): boolean => {
+      const result = processSlashCommand(command)
+      return result.handled
+    },
+    [processSlashCommand]
   )
 
   // Chat operations (utils + handlers) - created first
@@ -303,6 +314,7 @@ export function Chat({
       quotedText,
       firstName,
       hasActiveSubscription,
+      onSlashCommand: handleSlashCommand,
     }),
     [
       input,
@@ -325,6 +337,7 @@ export function Chat({
       quotedText,
       firstName,
       hasActiveSubscription,
+      handleSlashCommand,
     ]
   )
 

@@ -82,6 +82,14 @@ import {
   searchCRMConstituents,
   hasCRMConnections,
 } from "@/lib/tools/crm-search"
+import {
+  createGmailTools,
+  shouldEnableGmailTools,
+} from "@/lib/tools/gmail-tools"
+import {
+  createDriveTools,
+  shouldEnableDriveTools,
+} from "@/lib/tools/drive-rag-tools"
 import type { ProviderWithoutOllama } from "@/lib/user-keys"
 import {
   preCheckDeepResearchCredits,
@@ -178,6 +186,8 @@ export async function POST(req: Request) {
       batchReportsResult,
       hasCRM,
       deepResearchCreditCheck,
+      hasGmail,
+      hasDrive,
     ] = await Promise.all([
       // 1. Validate user and check rate limits (critical - blocks streaming)
       validateAndTrackUsage({
@@ -300,6 +310,28 @@ export async function POST(req: Request) {
         if (researchMode !== "deep-research" || !isAuthenticated) return null
         return await preCheckDeepResearchCredits(userId)
       })(),
+      // 9. GMAIL ACCESS CHECK - Check if user has Gmail connected
+      (async (): Promise<boolean> => {
+        if (!isAuthenticated || !shouldEnableGmailTools()) return false
+        try {
+          const { hasUserGmailAccess } = await import("@/lib/tools/gmail-tools")
+          return await hasUserGmailAccess(userId)
+        } catch (error) {
+          console.error("Failed to check Gmail access:", error)
+          return false
+        }
+      })(),
+      // 10. DRIVE ACCESS CHECK - Check if user has Drive connected
+      (async (): Promise<boolean> => {
+        if (!isAuthenticated || !shouldEnableDriveTools()) return false
+        try {
+          const { hasUserDriveAccess } = await import("@/lib/tools/drive-rag-tools")
+          return await hasUserDriveAccess(userId)
+        } catch (error) {
+          console.error("Failed to check Drive access:", error)
+          return false
+        }
+      })(),
     ])
 
     // Verify model config exists
@@ -414,6 +446,51 @@ ALWAYS call crm_search FIRST when researching a named donor/prospect.
 CRM data = verified baseline; external research supplements, never replaces.
 
 [/CRM INTEGRATION]`
+    }
+
+    // Add Gmail guidance when user has Gmail connected
+    if (hasGmail) {
+      finalSystemPrompt += `
+
+---
+
+## [GMAIL INTEGRATION]
+
+[CAPABILITY]
+Access to user's Gmail:
+- **gmail_read_inbox**: Read recent emails (with optional search query)
+- **gmail_read_thread**: Read full email conversations
+- **gmail_search**: Search emails with Gmail query syntax
+- **gmail_list_drafts**: List pending email drafts
+- **gmail_create_draft**: Create email drafts (NEVER sends automatically)
+
+[HARD CONSTRAINTS]
+1. You can ONLY create DRAFTS - you CANNOT send emails directly
+2. After creating a draft, remind user: "Check your Gmail Drafts to review and send"
+3. When replying to emails, include threadId to keep conversation together
+4. Use user's writing style when available (style analysis from sent emails)
+
+[/GMAIL INTEGRATION]`
+    }
+
+    // Add Drive guidance when user has Drive connected
+    if (hasDrive) {
+      finalSystemPrompt += `
+
+---
+
+## [GOOGLE DRIVE INTEGRATION]
+
+[CAPABILITY]
+Access to user's indexed Google Drive documents:
+- **drive_search_documents**: Search imported documents by content
+- **drive_list_documents**: List all imported documents
+
+[NOTE]
+Only documents explicitly imported by the user are searchable.
+User can import more documents from Settings > Integrations > Google Drive.
+
+[/GOOGLE DRIVE INTEGRATION]`
     }
 
     // Add memory tool guidance for authenticated users
@@ -739,6 +816,16 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
               },
             }),
           }
+        : {}),
+      // Add Gmail Tools - Read inbox, drafts, search, create drafts
+      // Requires user to have connected Google account with Gmail access
+      ...(isAuthenticated && hasGmail
+        ? createGmailTools(userId, chatId)
+        : {}),
+      // Add Google Drive Tools - Search and list indexed documents
+      // Requires user to have connected Google account with Drive access
+      ...(isAuthenticated && hasDrive
+        ? createDriveTools(userId)
         : {}),
     } as ToolSet
 

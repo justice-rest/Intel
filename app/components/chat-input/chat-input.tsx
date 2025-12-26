@@ -41,6 +41,8 @@ type ChatInputProps = {
   firstName?: string | null
   onWelcomeDismiss?: () => void
   hasActiveSubscription?: boolean
+  /** Callback for slash commands. Returns true if command was handled. */
+  onSlashCommand?: (command: string) => boolean
 }
 
 export function ChatInput({
@@ -66,6 +68,7 @@ export function ChatInput({
   firstName,
   onWelcomeDismiss,
   hasActiveSubscription,
+  onSlashCommand,
 }: ChatInputProps) {
   const isOnlyWhitespace = (text: string) => !/[^\s]/.test(text)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -91,6 +94,14 @@ export function ChatInput({
       return
     }
 
+    // Check for slash command first
+    if (onSlashCommand && value.trim().startsWith("/")) {
+      if (onSlashCommand(value.trim())) {
+        onValueChange("") // Clear input after handling command
+        return
+      }
+    }
+
     // Check subscription before sending (only for authenticated users)
     if (isUserAuthenticated && hasActiveSubscription === false) {
       setIsUpgradeOpen(true)
@@ -98,7 +109,7 @@ export function ChatInput({
     }
 
     onSend()
-  }, [isProcessing, onSend, status, stop, isUserAuthenticated, hasActiveSubscription])
+  }, [isProcessing, onSend, status, stop, isUserAuthenticated, hasActiveSubscription, onSlashCommand, value, onValueChange])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -115,6 +126,14 @@ export function ChatInput({
 
         e.preventDefault()
 
+        // Check for slash command first
+        if (onSlashCommand && value.trim().startsWith("/")) {
+          if (onSlashCommand(value.trim())) {
+            onValueChange("") // Clear input after handling command
+            return
+          }
+        }
+
         // Check subscription before sending (only for authenticated users)
         if (isUserAuthenticated && hasActiveSubscription === false) {
           setIsUpgradeOpen(true)
@@ -124,7 +143,7 @@ export function ChatInput({
         onSend()
       }
     },
-    [isProcessing, onSend, value, isUserAuthenticated, hasActiveSubscription]
+    [isProcessing, onSend, value, isUserAuthenticated, hasActiveSubscription, onSlashCommand, onValueChange]
   )
 
   const handlePaste = useCallback(
