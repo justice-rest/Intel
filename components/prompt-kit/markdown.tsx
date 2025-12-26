@@ -20,47 +20,49 @@ const MermaidDiagram = lazy(() => import("@/components/prompt-kit/mermaid-diagra
 // Converts [Verified], [Unverified], [Corroborated], [Estimated] into styled badges
 // ============================================================================
 
-const CONFIDENCE_TAG_PATTERNS: Array<{
-  pattern: RegExp
-  className: string
-  label: string
-}> = [
-  {
-    pattern: /\[Verified\]/g,
-    className: "confidence-tag confidence-verified",
-    label: "Verified",
-  },
-  {
-    pattern: /\[Corroborated\]/g,
-    className: "confidence-tag confidence-corroborated",
-    label: "Corroborated",
-  },
-  {
-    pattern: /\[Unverified[^\]]*\]/g,
-    className: "confidence-tag confidence-unverified",
-    label: "Unverified",
-  },
-  {
-    pattern: /\[Estimated[^\]]*\]/g,
-    className: "confidence-tag confidence-estimated",
-    label: "Estimated",
-  },
-]
-
 /**
  * Preprocess markdown to convert confidence tags into styled HTML spans
+ *
+ * Handles patterns like:
+ * - [Verified] → badge only
+ * - [Corroborated] → badge only
+ * - [Unverified] or [Unverified - reason] → badge "Unverified" + text "- reason"
+ * - [Estimated] or [Estimated - methodology] → badge "Estimated" + text "- methodology"
  */
 function preprocessConfidenceTags(content: string): string {
   let processed = content
 
-  // Replace each confidence tag pattern with a styled span
-  for (const { pattern, className } of CONFIDENCE_TAG_PATTERNS) {
-    processed = processed.replace(pattern, (match) => {
-      // Extract the label text from the match (e.g., "[Verified]" -> "Verified")
-      const label = match.slice(1, -1) // Remove [ and ]
-      return `<span class="${className}">${label}</span>`
-    })
-  }
+  // Simple tags (no extra content)
+  processed = processed.replace(
+    /\[Verified\]/g,
+    '<span class="confidence-tag confidence-verified">Verified</span>'
+  )
+
+  processed = processed.replace(
+    /\[Corroborated\]/g,
+    '<span class="confidence-tag confidence-corroborated">Corroborated</span>'
+  )
+
+  // Tags with optional extra content - badge the type, keep the rest as text
+  // [Unverified] or [Unverified - Single Source] → badge + text
+  processed = processed.replace(
+    /\[Unverified([^\]]*)\]/g,
+    (_, extra) => {
+      const badge = '<span class="confidence-tag confidence-unverified">Unverified</span>'
+      // If there's extra content after "Unverified", show it as regular text
+      return extra ? `${badge}<span class="confidence-detail">${extra}</span>` : badge
+    }
+  )
+
+  // [Estimated] or [Estimated - Methodology: X] → badge + text
+  processed = processed.replace(
+    /\[Estimated([^\]]*)\]/g,
+    (_, extra) => {
+      const badge = '<span class="confidence-tag confidence-estimated">Estimated</span>'
+      // If there's extra content (methodology), show it as regular text
+      return extra ? `${badge}<span class="confidence-detail">${extra}</span>` : badge
+    }
+  )
 
   return processed
 }
@@ -246,6 +248,17 @@ function MarkdownComponent({
           background-color: rgba(168, 85, 247, 0.2);
           color: rgb(192, 132, 252);
           border: 1px solid rgba(168, 85, 247, 0.4);
+        }
+
+        /* Detail text after badges (methodology, reasons, etc.) */
+        .confidence-detail {
+          font-size: 0.8rem;
+          color: rgb(107, 114, 128);
+          margin-left: 0.125rem;
+        }
+
+        .dark .confidence-detail {
+          color: rgb(156, 163, 175);
         }
       `}</style>
       <Streamdown
