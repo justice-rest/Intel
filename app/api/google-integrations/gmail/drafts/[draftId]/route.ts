@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server"
 import {
   isGoogleIntegrationEnabled,
   hasGmailAccess,
-  getDraft,
+  getDraftForEdit,
   updateDraft,
   deleteDraft,
   getProfile,
@@ -63,7 +63,7 @@ export async function GET(
       )
     }
 
-    const draft = await getDraft(user.id, draftId)
+    const draft = await getDraftForEdit(user.id, draftId)
 
     return NextResponse.json({
       success: true,

@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   FloppyDisk,
   X,
   ArrowSquareOut,
   Spinner,
 } from "@phosphor-icons/react"
+import { fetchClient } from "@/lib/fetch"
 import type { DraftFormData, GmailDraftRecord } from "./types"
 
 interface DraftEditorProps {
@@ -22,16 +23,52 @@ export function DraftEditor({
   onCancel,
   isSaving,
 }: DraftEditorProps) {
+  const [isLoadingBody, setIsLoadingBody] = useState(true)
   const [formData, setFormData] = useState<DraftFormData>({
     to: draft.to_recipients,
     cc: draft.cc_recipients || [],
     subject: draft.subject,
-    body: "", // Will be fetched from Gmail API
+    body: "",
     threadId: draft.thread_id,
   })
 
   const [toInput, setToInput] = useState(draft.to_recipients.join(", "))
   const [ccInput, setCcInput] = useState((draft.cc_recipients || []).join(", "))
+
+  // Fetch the full draft body from Gmail API
+  useEffect(() => {
+    async function fetchDraftBody() {
+      try {
+        setIsLoadingBody(true)
+        const res = await fetchClient(
+          `/api/google-integrations/gmail/drafts/${draft.draft_id}`
+        )
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && data.draft) {
+            setFormData((prev) => ({
+              ...prev,
+              body: data.draft.body || "",
+              subject: data.draft.subject || prev.subject,
+            }))
+            // Also update to/cc if they differ
+            if (data.draft.to?.length > 0) {
+              setToInput(data.draft.to.join(", "))
+            }
+            if (data.draft.cc?.length > 0) {
+              setCcInput(data.draft.cc.join(", "))
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch draft body:", error)
+      } finally {
+        setIsLoadingBody(false)
+      }
+    }
+
+    fetchDraftBody()
+  }, [draft.draft_id])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,7 +126,7 @@ export function DraftEditor({
           value={toInput}
           onChange={(e) => setToInput(e.target.value)}
           placeholder="recipient@example.com"
-          disabled={isSaving}
+          disabled={isSaving || isLoadingBody}
           className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50"
         />
       </div>
@@ -105,7 +142,7 @@ export function DraftEditor({
           value={ccInput}
           onChange={(e) => setCcInput(e.target.value)}
           placeholder="cc@example.com (optional)"
-          disabled={isSaving}
+          disabled={isSaving || isLoadingBody}
           className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50"
         />
       </div>
@@ -123,7 +160,7 @@ export function DraftEditor({
             setFormData((prev) => ({ ...prev, subject: e.target.value }))
           }
           placeholder="Email subject"
-          disabled={isSaving}
+          disabled={isSaving || isLoadingBody}
           className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50"
         />
       </div>
@@ -133,17 +170,23 @@ export function DraftEditor({
         <label htmlFor="body" className="text-xs font-medium text-gray-600 dark:text-gray-400">
           Message
         </label>
-        <textarea
-          id="body"
-          value={formData.body}
-          onChange={(e) =>
-            setFormData((prev) => ({ ...prev, body: e.target.value }))
-          }
-          placeholder="Email body..."
-          rows={8}
-          disabled={isSaving}
-          className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50 resize-none"
-        />
+        {isLoadingBody ? (
+          <div className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] h-[200px] flex items-center justify-center">
+            <Spinner size={20} className="animate-spin text-gray-400" />
+          </div>
+        ) : (
+          <textarea
+            id="body"
+            value={formData.body}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, body: e.target.value }))
+            }
+            placeholder="Email body..."
+            rows={8}
+            disabled={isSaving}
+            className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50 resize-none"
+          />
+        )}
       </div>
 
       {/* Actions */}
@@ -167,7 +210,7 @@ export function DraftEditor({
         </button>
         <button
           type="submit"
-          disabled={isSaving}
+          disabled={isSaving || isLoadingBody}
           className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded bg-[rgb(255,187,16)] hover:bg-transparent border border-[rgb(255,187,16)] text-black dark:hover:text-white transition-all disabled:opacity-50"
         >
           {isSaving ? (

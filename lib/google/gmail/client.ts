@@ -562,6 +562,36 @@ export async function getDraft(
 }
 
 /**
+ * Get draft parsed for editing (includes body text)
+ */
+export async function getDraftForEdit(
+  userId: string,
+  draftId: string
+): Promise<{
+  id: string
+  to: string[]
+  cc: string[]
+  subject: string
+  body: string
+  threadId: string | null
+}> {
+  const draft = await getDraft(userId, draftId)
+  const headers = draft.message.payload.headers
+
+  const to = getHeader(headers, "To")
+  const cc = getHeader(headers, "Cc")
+
+  return {
+    id: draft.id,
+    to: to ? to.split(",").map((e) => e.trim()) : [],
+    cc: cc ? cc.split(",").map((e) => e.trim()) : [],
+    subject: getHeader(headers, "Subject"),
+    body: extractTextBody(draft.message.payload),
+    threadId: draft.message.threadId || null,
+  }
+}
+
+/**
  * List all drafts
  */
 export async function listDrafts(

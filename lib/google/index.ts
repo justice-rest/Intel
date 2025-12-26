@@ -59,6 +59,7 @@ export {
   updateDraft,
   deleteDraft,
   getDraft,
+  getDraftForEdit,
   listDrafts,
   getProfile,
   searchEmails,
