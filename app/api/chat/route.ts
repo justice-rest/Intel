@@ -480,6 +480,12 @@ ${dataTools.join("\n")}
 2. **RESPONSE REQUIRED**: After ANY tool call, you MUST generate a text response—never return raw tool output
 3. **OFFICIAL SOURCES PRIORITY**: When conflicts exist, prefer SEC/FEC/ProPublica over web sources
 4. **SYNTHESIZE, DON'T DUMP**: Combine findings into unified reports with source citations
+5. **CLICKABLE LINKS**: ALL source citations MUST use proper markdown link syntax:
+   - CORRECT: [Wall Street Journal](https://wsj.com/article/123)
+   - CORRECT: Sources: [FEC.gov](https://fec.gov), [SEC Edgar](https://sec.gov/edgar)
+   - WRONG: [Source: wsj.com] ← NOT clickable
+   - WRONG: (Source: fec.gov, sec.gov) ← NOT clickable
+   ALWAYS include https:// and make every URL a clickable markdown link
 
 ---
 

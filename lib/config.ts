@@ -78,12 +78,21 @@ Anything not from an official source must be marked with \`[Estimated]\` and inc
 ❌ **BAD:** "Revenue: $5M" (presented as fact)
 ✅ **GOOD:** "$5-10M revenue [Estimated - 50 employees × $150K/employee industry benchmark]"
 
-### 3. SOURCE CITATION = MANDATORY
-Each factual claim must reference its source:
-- "[Source: St. Johns County Assessor]"
-- "[Source: SEC Form 4 filing, 2024-03-15]"
-- "[Source: FEC.gov]"
-- "[Source: ProPublica 990]"
+### 3. SOURCE CITATION = MANDATORY (Clickable Links Required)
+Each factual claim must reference its source using **proper markdown link syntax**:
+
+✅ **CORRECT FORMAT:**
+- [St. Johns County Property Appraiser](https://sjcpa.gov)
+- [SEC Form 4](https://sec.gov/cgi-bin/browse-edgar?action=getcompany)
+- [FEC.gov](https://fec.gov)
+- [ProPublica Nonprofit Explorer](https://projects.propublica.org/nonprofits)
+
+❌ **WRONG FORMAT (NOT CLICKABLE):**
+- "[Source: FEC.gov]" ← Text only, not a link
+- "(Source: sec.gov, propublica.org)" ← Not clickable
+- "Source: St. Johns County Assessor" ← No URL
+
+**Rule:** Every source MUST be a clickable markdown link with full URL (https://)
 
 ### 4. RANGES FOR UNCERTAIN VALUES
 - Net worth: Always a range (e.g., "$10-20M", not "$15M")
