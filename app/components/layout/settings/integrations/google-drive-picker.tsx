@@ -46,7 +46,15 @@ declare global {
       picker: GooglePickerAPI
     }
     gapi?: {
-      load: (api: string, callback: () => void) => void
+      load: (
+        api: string,
+        config: (() => void) | {
+          callback: () => void
+          onerror?: () => void
+          timeout?: number
+          ontimeout?: () => void
+        }
+      ) => void
     }
   }
 }
@@ -95,30 +103,83 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
     setIsLoadingPicker(true)
 
     return new Promise<boolean>((resolve) => {
+      // Timeout after 10 seconds
+      const timeout = setTimeout(() => {
+        console.error("[Google Picker] Load timeout")
+        setIsLoadingPicker(false)
+        resolve(false)
+      }, 10000)
+
+      const initPicker = () => {
+        if (!window.gapi) {
+          console.error("[Google Picker] gapi not available")
+          clearTimeout(timeout)
+          setIsLoadingPicker(false)
+          resolve(false)
+          return
+        }
+
+        window.gapi.load("picker", {
+          callback: () => {
+            clearTimeout(timeout)
+            setIsPickerReady(true)
+            setIsLoadingPicker(false)
+            resolve(true)
+          },
+          onerror: () => {
+            console.error("[Google Picker] Failed to load picker module")
+            clearTimeout(timeout)
+            setIsLoadingPicker(false)
+            resolve(false)
+          },
+          timeout: 5000,
+          ontimeout: () => {
+            console.error("[Google Picker] Picker module load timeout")
+            clearTimeout(timeout)
+            setIsLoadingPicker(false)
+            resolve(false)
+          }
+        })
+      }
+
       // Check if script already exists
       const existingScript = document.querySelector(
         'script[src="https://apis.google.com/js/api.js"]'
       )
-
-      const initPicker = () => {
-        if (window.gapi) {
-          window.gapi.load("picker", () => {
-            setIsPickerReady(true)
-            setIsLoadingPicker(false)
-            resolve(true)
-          })
-        }
-      }
 
       if (existingScript && window.gapi) {
         initPicker()
         return
       }
 
+      // If script exists but gapi not ready, wait for it
+      if (existingScript && !window.gapi) {
+        const checkGapi = setInterval(() => {
+          if (window.gapi) {
+            clearInterval(checkGapi)
+            initPicker()
+          }
+        }, 100)
+
+        // Stop checking after 5 seconds
+        setTimeout(() => {
+          clearInterval(checkGapi)
+          if (!window.gapi) {
+            clearTimeout(timeout)
+            setIsLoadingPicker(false)
+            resolve(false)
+          }
+        }, 5000)
+        return
+      }
+
       const script = document.createElement("script")
       script.src = "https://apis.google.com/js/api.js"
+      script.async = true
       script.onload = initPicker
       script.onerror = () => {
+        console.error("[Google Picker] Failed to load gapi script")
+        clearTimeout(timeout)
         setIsLoadingPicker(false)
         resolve(false)
       }
@@ -145,7 +206,7 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
       if (!isPickerReady) {
         const loaded = await loadPickerApi()
         if (!loaded) {
-          throw new Error("Failed to load Google Picker")
+          throw new Error("Failed to load Google Picker. Please check if the Picker API is enabled in Google Cloud Console.")
         }
       }
 

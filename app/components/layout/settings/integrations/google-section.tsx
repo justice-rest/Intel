@@ -11,24 +11,54 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { toast } from "@/components/ui/toast"
 import { fetchClient } from "@/lib/fetch"
 import { cn } from "@/lib/utils"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  Loader2,
-  Trash2,
-  Mail,
-  FileText,
+  Spinner,
+  Trash,
   CheckCircle,
-  AlertCircle,
-  Sparkles,
+  WarningCircle,
+  Sparkle,
   File,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react"
+  CaretDown,
+  CaretUp,
+  GoogleLogo,
+} from "@phosphor-icons/react"
+
+// Official Gmail Icon
+function GmailIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4H20C21.1 4 22 4.9 22 6Z" fill="#F6F6F6"/>
+      <path d="M22 6L12 13L2 6" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2 6L12 13" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M22 6L12 13" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M2 6V18C2 19.1 2.9 20 4 20H6V9L12 13L18 9V20H20C21.1 20 22 19.1 22 18V6L12 13L2 6Z" fill="#EA4335"/>
+      <path d="M6 20V9L12 14L18 9V20" fill="#FFBB33"/>
+      <path d="M2 6L12 13L2 18V6Z" fill="#C5221F"/>
+      <path d="M22 6L12 13L22 18V6Z" fill="#C5221F"/>
+      <path d="M18 9L12 14L6 9V20H18V9Z" fill="#FFBB33"/>
+      <path d="M6 9L12 14L18 9" fill="#F5F5F5"/>
+      <path d="M2 6C2 4.9 2.9 4 4 4H6L12 9L18 4H20C21.1 4 22 4.9 22 6L12 13L2 6Z" fill="#D93025"/>
+    </svg>
+  )
+}
+
+// Official Google Drive Icon
+function DriveIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8.25 2.75L1.5 14.5H7.5L14.25 2.75H8.25Z" fill="#0066DA"/>
+      <path d="M22.5 14.5H16.5L9.75 2.75H15.75L22.5 14.5Z" fill="#00AC47"/>
+      <path d="M1.5 14.5L4.5 20.25H19.5L22.5 14.5H1.5Z" fill="#FFBA00"/>
+      <path d="M8.25 2.75L1.5 14.5L4.5 20.25L11.25 8.5L8.25 2.75Z" fill="#0066DA"/>
+      <path d="M15.75 2.75L9 14.5H22.5L15.75 2.75Z" fill="#00AC47"/>
+      <path d="M4.5 20.25H19.5L16.5 14.5H7.5L4.5 20.25Z" fill="#FFBA00"/>
+    </svg>
+  )
+}
 import { motion, AnimatePresence } from "motion/react"
 import type { GoogleIntegrationStatus, GoogleDriveDocument } from "@/lib/google/types"
 import { GoogleDrivePicker } from "./google-drive-picker"
@@ -216,115 +246,137 @@ export function GoogleIntegrationSection() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        <Spinner className="size-6 animate-spin text-gray-400" />
       </div>
     )
   }
 
   return (
     <div>
-      <h3 className="relative mb-2 flex items-center gap-2 text-lg font-medium">
-        Google Workspace
-        <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-1">
+        <GoogleLogo size={20} weight="bold" className="text-[#4285F4]" />
+        <h3 className="text-base font-semibold text-black dark:text-white">
+          Google Workspace
+        </h3>
+        <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
           NEW
         </span>
-      </h3>
-      <p className="text-muted-foreground text-sm">
-        Connect Gmail and Google Drive to let AI read your emails, draft responses, and search your documents.
-      </p>
-      <p className="text-muted-foreground text-sm mt-1">
-        AI can only create drafts - you must manually send emails from Gmail.
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        Connect Gmail and Drive for AI-powered email drafts and document search.
       </p>
 
-      {/* Connection Status Card */}
-      <div className="mt-4 rounded-lg border p-4">
+      {/* Main Card */}
+      <div className="p-4 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded">
         {isConnected ? (
           <div className="space-y-4">
             {/* Connected Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CheckCircle className="size-5 text-green-500" />
-                <span className="font-medium">Connected</span>
+                <CheckCircle size={18} weight="fill" className="text-green-500" />
+                <span className="text-sm font-medium text-black dark:text-white">Connected</span>
                 {status?.googleEmail && (
-                  <span className="text-muted-foreground text-sm">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     ({status.googleEmail})
                   </span>
                 )}
               </div>
-              <Button
-                variant="outline"
-                size="sm"
+              <button
+                type="button"
                 onClick={() => setDisconnectDialogOpen(true)}
                 disabled={disconnectMutation.isPending}
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
               >
-                <Trash2 className="mr-1 size-4" />
+                <Trash size={12} />
                 Disconnect
-              </Button>
+              </button>
             </div>
 
-            {/* Feature Grid */}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {/* Gmail Feature */}
-              <div
-                className={cn(
-                  "rounded-lg border p-3",
-                  hasGmail ? "border-green-500/30 bg-green-500/5" : "opacity-50"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <Mail className="size-4" />
-                  <span className="font-medium">Gmail</span>
-                  {hasGmail && (
-                    <CheckCircle className="size-3 text-green-500" />
-                  )}
+            <hr className="border-gray-200 dark:border-[#333]" />
+
+            {/* Services Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Gmail */}
+              <div className={cn(
+                "p-3 rounded border",
+                hasGmail
+                  ? "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]"
+                  : "bg-gray-100 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] opacity-60"
+              )}>
+                <div className="flex items-center gap-2 mb-2">
+                  <GmailIcon className="size-4" />
+                  <span className="text-sm font-medium text-black dark:text-white">Gmail</span>
+                  {hasGmail && <CheckCircle size={12} weight="fill" className="text-green-500" />}
                 </div>
                 {hasGmail && (
-                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                    <p>Pending drafts: {status?.pendingDrafts || 0}</p>
-                    {status?.styleAnalyzedAt ? (
-                      <p>
-                        Style analyzed: {formatDate(status.styleAnalyzedAt)} ({status.emailsAnalyzed} emails)
-                      </p>
-                    ) : (
-                      <p className="text-amber-600">Style not analyzed</p>
-                    )}
+                  <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex justify-between">
+                      <span>Pending drafts</span>
+                      <span className="font-medium text-black dark:text-white">{status?.pendingDrafts || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Style analyzed</span>
+                      <span className={cn(
+                        "font-medium",
+                        status?.styleAnalyzedAt
+                          ? "text-black dark:text-white"
+                          : "text-amber-600 dark:text-amber-400"
+                      )}>
+                        {status?.styleAnalyzedAt
+                          ? `${formatDate(status.styleAnalyzedAt)} (${status.emailsAnalyzed})`
+                          : "Not yet"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => analyzeStyleMutation.mutate()}
+                      disabled={analyzeStyleMutation.isPending}
+                      className="w-full mt-2 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded border border-gray-300 dark:border-[#444] text-gray-600 dark:text-gray-400 hover:border-[rgb(255,187,16)] transition-colors disabled:opacity-50"
+                    >
+                      {analyzeStyleMutation.isPending ? (
+                        <Spinner size={12} className="animate-spin" />
+                      ) : (
+                        <Sparkle size={12} weight="fill" />
+                      )}
+                      {status?.styleAnalyzedAt ? "Re-analyze Style" : "Analyze Style"}
+                    </button>
                   </div>
                 )}
               </div>
 
-              {/* Drive Feature */}
-              <div
-                className={cn(
-                  "rounded-lg border p-3",
-                  hasDrive ? "border-green-500/30 bg-green-500/5" : "opacity-50"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <FileText className="size-4" />
-                  <span className="font-medium">Google Drive</span>
-                  {hasDrive && (
-                    <CheckCircle className="size-3 text-green-500" />
-                  )}
+              {/* Drive */}
+              <div className={cn(
+                "p-3 rounded border",
+                hasDrive
+                  ? "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]"
+                  : "bg-gray-100 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] opacity-60"
+              )}>
+                <div className="flex items-center gap-2 mb-2">
+                  <DriveIcon className="size-4" />
+                  <span className="text-sm font-medium text-black dark:text-white">Drive</span>
+                  {hasDrive && <CheckCircle size={12} weight="fill" className="text-green-500" />}
                 </div>
                 {hasDrive && (
-                  <div className="mt-2 space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Indexed documents: {driveDocuments.length}
-                      </span>
-                      {driveDocuments.length > 0 && (
-                        <button
-                          onClick={() => setShowDriveDocuments(!showDriveDocuments)}
-                          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          {showDriveDocuments ? "Hide" : "Show"}
-                          {showDriveDocuments ? (
-                            <ChevronUp className="size-3" />
-                          ) : (
-                            <ChevronDown className="size-3" />
-                          )}
-                        </button>
-                      )}
+                  <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center justify-between">
+                      <span>Indexed documents</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-black dark:text-white">{driveDocuments.length}</span>
+                        {driveDocuments.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowDriveDocuments(!showDriveDocuments)}
+                            className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                          >
+                            {showDriveDocuments ? (
+                              <CaretUp size={12} />
+                            ) : (
+                              <CaretDown size={12} />
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <GoogleDrivePicker
                       onFilesImported={() => {
@@ -343,139 +395,136 @@ export function GoogleIntegrationSection() {
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="rounded-lg border p-3 space-y-2"
+                  className="overflow-hidden"
                 >
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium">Indexed Documents</h4>
-                    <span className="text-xs text-muted-foreground">
-                      {driveDocuments.length} file{driveDocuments.length !== 1 ? "s" : ""}
-                    </span>
-                  </div>
-                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {driveDocuments.map((doc) => (
-                      <div
-                        key={doc.drive_file_id}
-                        className="flex items-center gap-2 text-sm p-2 rounded-md hover:bg-muted/50 group"
-                      >
-                        <File className="size-4 text-muted-foreground flex-shrink-0" />
-                        <span className="flex-1 truncate">{doc.drive_file_name}</span>
-                        <Badge
-                          variant={
+                  <div className="p-3 border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#1a1a1a]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Indexed Documents
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {driveDocuments.length} file{driveDocuments.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+                      {driveDocuments.map((doc) => (
+                        <div
+                          key={doc.drive_file_id}
+                          className="flex items-center gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#222] group"
+                        >
+                          <File size={14} className="text-gray-400 flex-shrink-0" />
+                          <span className="flex-1 truncate text-gray-700 dark:text-gray-300">
+                            {doc.drive_file_name}
+                          </span>
+                          <span className={cn(
+                            "px-1.5 py-0.5 rounded text-[10px] font-medium",
                             doc.status === "ready"
-                              ? "default"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                               : doc.status === "processing"
-                                ? "secondary"
-                                : "destructive"
-                          }
-                          className="text-xs"
-                        >
-                          {doc.status}
-                        </Badge>
-                        <button
-                          onClick={() => {
-                            setDeletingDocId(doc.drive_file_id)
-                            deleteDocumentMutation.mutate(doc.drive_file_id)
-                          }}
-                          disabled={deletingDocId === doc.drive_file_id}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-muted rounded transition-opacity"
-                        >
-                          {deletingDocId === doc.drive_file_id ? (
-                            <Loader2 className="size-3 animate-spin" />
-                          ) : (
-                            <Trash2 className="size-3 text-muted-foreground hover:text-destructive" />
-                          )}
-                        </button>
-                      </div>
-                    ))}
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          )}>
+                            {doc.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeletingDocId(doc.drive_file_id)
+                              deleteDocumentMutation.mutate(doc.drive_file_id)
+                            }}
+                            disabled={deletingDocId === doc.drive_file_id}
+                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-opacity"
+                          >
+                            {deletingDocId === doc.drive_file_id ? (
+                              <Spinner size={12} className="animate-spin" />
+                            ) : (
+                              <Trash size={12} className="text-gray-400 hover:text-red-500" />
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-
-            {/* Actions */}
-            {hasGmail && (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => analyzeStyleMutation.mutate()}
-                  disabled={analyzeStyleMutation.isPending}
-                >
-                  {analyzeStyleMutation.isPending ? (
-                    <Loader2 className="mr-1 size-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-1 size-4" />
-                  )}
-                  {status?.styleAnalyzedAt ? "Re-analyze Style" : "Analyze Writing Style"}
-                </Button>
-              </div>
-            )}
           </div>
         ) : (
-          <div className="flex flex-col items-center py-4 text-center">
+          /* Not Connected State */
+          <div className="text-center py-4">
             {status?.status === "error" || status?.status === "revoked" ? (
               <>
-                <AlertCircle className="size-8 text-amber-500 mb-2" />
-                <p className="font-medium">
-                  {status.status === "revoked"
-                    ? "Access Revoked"
-                    : "Connection Error"}
+                <WarningCircle size={32} weight="fill" className="mx-auto text-amber-500 mb-2" />
+                <p className="text-sm font-medium text-black dark:text-white mb-1">
+                  {status.status === "revoked" ? "Access Revoked" : "Connection Error"}
                 </p>
-                <p className="text-muted-foreground text-sm mt-1 mb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                   {status.errorMessage || "Please reconnect your Google account."}
                 </p>
               </>
             ) : (
               <>
-                <div className="flex gap-2 mb-3">
-                  <Mail className="size-6 text-muted-foreground" />
-                  <FileText className="size-6 text-muted-foreground" />
+                <div className="flex justify-center gap-3 mb-3">
+                  <GmailIcon className="size-6 opacity-50" />
+                  <DriveIcon className="size-6 opacity-50" />
                 </div>
-                <p className="text-muted-foreground text-sm mb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                   Connect your Google account to enable Gmail and Drive features.
                 </p>
               </>
             )}
-            <Button
+            <button
+              type="button"
               onClick={() => connectMutation.mutate()}
               disabled={connectMutation.isPending}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-[rgb(255,187,16)] hover:bg-transparent border border-[rgb(255,187,16)] text-black dark:hover:text-white transition-all disabled:opacity-50"
             >
-              {connectMutation.isPending ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : null}
+              {connectMutation.isPending && (
+                <Spinner size={14} className="animate-spin" />
+              )}
+              <GoogleLogo size={16} weight="bold" />
               Connect Google Account
-            </Button>
+            </button>
           </div>
         )}
       </div>
 
+      {/* Note */}
+      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
+        AI can only create drafts - you must send emails from Gmail.
+      </p>
+
       {/* Disconnect Confirmation Dialog */}
       <AlertDialog open={disconnectDialogOpen} onOpenChange={setDisconnectDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect Google Account</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to disconnect your Google account? This will:
-              <ul className="mt-2 list-disc pl-4 space-y-1">
+            <AlertDialogTitle className="text-black dark:text-white">
+              Disconnect Google Account
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-500 dark:text-gray-400">
+              Are you sure you want to disconnect? This will:
+              <ul className="mt-2 list-disc pl-4 space-y-1 text-xs">
                 <li>Remove access to Gmail and Google Drive</li>
                 <li>Delete your stored writing style profile</li>
                 <li>Remove all indexed Drive documents</li>
               </ul>
-              <p className="mt-2">
+              <p className="mt-2 text-xs">
                 Existing email drafts in Gmail will not be affected.
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-gray-300 dark:border-[#444]">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => disconnectMutation.mutate()}
               disabled={disconnectMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {disconnectMutation.isPending ? (
-                <Loader2 className="mr-2 size-4 animate-spin" />
-              ) : null}
+              {disconnectMutation.isPending && (
+                <Spinner size={14} className="animate-spin mr-2" />
+              )}
               Disconnect
             </AlertDialogAction>
           </AlertDialogFooter>

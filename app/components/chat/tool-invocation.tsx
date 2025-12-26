@@ -52,6 +52,12 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // Court tools
   court_search: "Court Cases",
   judge_search: "Judge Profile",
+  // Gmail tools
+  gmail_read_inbox: "Gmail Inbox",
+  gmail_read_thread: "Email Thread",
+  gmail_create_draft: "Draft Created",
+  gmail_list_drafts: "Gmail Drafts",
+  gmail_search: "Gmail Search",
   // Other tools
   rental_investment: "Rental Analysis",
   crm_search: "CRM Search",
@@ -5269,6 +5275,336 @@ function SingleToolCard({
             <pre className="whitespace-pre-wrap">
               {JSON.stringify(parsedResult, null, 2)}
             </pre>
+          </div>
+        </div>
+      )
+    }
+
+    // ========================================================================
+    // GMAIL TOOLS
+    // ========================================================================
+
+    // Handle Gmail Inbox results
+    if (
+      toolName === "gmail_read_inbox" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "emails" in parsedResult
+    ) {
+      const inboxResult = parsedResult as {
+        success: boolean
+        emails: Array<{
+          id: string
+          threadId: string
+          from: string
+          to: string
+          subject: string
+          date: string
+          snippet: string
+          hasAttachments: boolean
+        }>
+        count: number
+        message?: string
+        error?: string
+      }
+
+      if (!inboxResult.success || inboxResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {inboxResult.error || "Failed to read inbox"}
+          </div>
+        )
+      }
+
+      if (inboxResult.emails.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No emails found
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Inbox ({inboxResult.count})
+          </div>
+          <div className="space-y-2">
+            {inboxResult.emails.slice(0, 10).map((email) => (
+              <div key={email.id} className="border-border border-b pb-2 last:border-0 last:pb-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {email.from}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {new Date(email.date).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="text-sm text-foreground mb-1 truncate">
+                  {email.subject || "(No subject)"}
+                </div>
+                <div className="text-xs text-muted-foreground line-clamp-2">
+                  {email.snippet}
+                </div>
+              </div>
+            ))}
+            {inboxResult.count > 10 && (
+              <div className="text-xs text-muted-foreground">
+                +{inboxResult.count - 10} more emails
+              </div>
+            )}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle Gmail Search results
+    if (
+      toolName === "gmail_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "emails" in parsedResult &&
+      "query" in parsedResult
+    ) {
+      const searchResult = parsedResult as {
+        success: boolean
+        emails: Array<{
+          id: string
+          threadId: string
+          from: string
+          to: string
+          subject: string
+          date: string
+          snippet: string
+          hasAttachments: boolean
+        }>
+        count: number
+        query: string
+        message?: string
+        error?: string
+      }
+
+      if (!searchResult.success || searchResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {searchResult.error || "Search failed"}
+          </div>
+        )
+      }
+
+      if (searchResult.emails.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No emails found for &quot;{searchResult.query}&quot;
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="text-xs text-muted-foreground">
+            Found {searchResult.count} result{searchResult.count !== 1 ? "s" : ""} for &quot;{searchResult.query}&quot;
+          </div>
+          <div className="space-y-2">
+            {searchResult.emails.slice(0, 10).map((email) => (
+              <div key={email.id} className="border-border border-b pb-2 last:border-0 last:pb-0">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {email.from}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {new Date(email.date).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="text-sm text-foreground mb-1 truncate">
+                  {email.subject || "(No subject)"}
+                </div>
+                <div className="text-xs text-muted-foreground line-clamp-2">
+                  {email.snippet}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle Gmail Thread results
+    if (
+      toolName === "gmail_read_thread" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "messages" in parsedResult
+    ) {
+      const threadResult = parsedResult as {
+        success: boolean
+        threadId: string
+        messageCount: number
+        messages: Array<{
+          id: string
+          from: string
+          to: string
+          subject: string
+          date: string
+          body: string
+        }>
+        message?: string
+        error?: string
+      }
+
+      if (!threadResult.success || threadResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {threadResult.error || "Failed to read thread"}
+          </div>
+        )
+      }
+
+      if (!threadResult.messages || threadResult.messages.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            Thread is empty
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Thread ({threadResult.messageCount} message{threadResult.messageCount !== 1 ? "s" : ""})
+          </div>
+          <div className="space-y-3">
+            {threadResult.messages.map((msg, idx) => (
+              <div key={msg.id} className="border-border border rounded p-3 bg-muted/30">
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="text-sm font-medium text-foreground truncate">
+                    {msg.from}
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {new Date(msg.date).toLocaleString()}
+                  </span>
+                </div>
+                {idx === 0 && msg.subject && (
+                  <div className="text-sm font-medium text-foreground mb-2">
+                    {msg.subject}
+                  </div>
+                )}
+                <div className="text-sm text-foreground whitespace-pre-wrap">
+                  {msg.body.slice(0, 500)}
+                  {msg.body.length > 500 && "..."}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle Gmail Create Draft results
+    if (
+      toolName === "gmail_create_draft" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      ("draftId" in parsedResult || "error" in parsedResult)
+    ) {
+      const draftResult = parsedResult as {
+        success: boolean
+        draftId?: string
+        to?: string[]
+        subject?: string
+        message?: string
+        gmailDraftsUrl?: string
+        error?: string
+      }
+
+      if (!draftResult.success || draftResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {draftResult.error || "Failed to create draft"}
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <CheckCircle size={16} weight="fill" className="text-green-500" />
+            <span className="text-sm font-medium text-foreground">Draft Created</span>
+          </div>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <div><span className="font-medium">To:</span> {draftResult.to?.join(", ")}</div>
+            <div><span className="font-medium">Subject:</span> {draftResult.subject}</div>
+          </div>
+          {draftResult.gmailDraftsUrl && (
+            <a
+              href={draftResult.gmailDraftsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            >
+              Open in Gmail
+              <Link size={12} />
+            </a>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Gmail List Drafts results
+    if (
+      toolName === "gmail_list_drafts" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "drafts" in parsedResult
+    ) {
+      const draftsResult = parsedResult as {
+        success: boolean
+        drafts: Array<{
+          id: string
+          to: string
+          subject: string
+          snippet: string
+        }>
+        count: number
+        message?: string
+        error?: string
+      }
+
+      if (!draftsResult.success || draftsResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {draftsResult.error || "Failed to list drafts"}
+          </div>
+        )
+      }
+
+      if (draftsResult.drafts.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No drafts found
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Drafts ({draftsResult.count})
+          </div>
+          <div className="space-y-2">
+            {draftsResult.drafts.map((draft) => (
+              <div key={draft.id} className="border-border border-b pb-2 last:border-0 last:pb-0">
+                <div className="text-xs text-muted-foreground mb-0.5">
+                  To: {draft.to}
+                </div>
+                <div className="text-sm font-medium text-foreground truncate">
+                  {draft.subject || "(No subject)"}
+                </div>
+                <div className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                  {draft.snippet}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )
