@@ -373,6 +373,7 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
         size="sm"
         onClick={openPicker}
         disabled={isLoadingPicker}
+        className="w-full"
       >
         {isLoadingPicker ? (
           <Loader2 className="mr-2 size-4 animate-spin" />

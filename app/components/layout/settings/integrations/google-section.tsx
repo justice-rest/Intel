@@ -25,7 +25,9 @@ import {
   File,
   CaretDown,
   CaretUp,
+  Upload,
 } from "@phosphor-icons/react"
+import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "motion/react"
 import type { GoogleIntegrationStatus, GoogleDriveDocument } from "@/lib/google/types"
 import { GoogleDrivePicker } from "./google-drive-picker"
@@ -272,7 +274,7 @@ export function GoogleIntegrationSection() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Gmail */}
               <div className={cn(
-                "p-3 rounded border",
+                "p-3 rounded border flex flex-col",
                 hasGmail
                   ? "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]"
                   : "bg-gray-100 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] opacity-60"
@@ -281,52 +283,55 @@ export function GoogleIntegrationSection() {
                   <Image
                     src="/svgs/Gmail SVG Icon.svg"
                     alt="Gmail"
-                    width={16}
-                    height={16}
-                    className="size-4"
+                    width={20}
+                    height={20}
+                    className="size-5"
                   />
                   <span className="text-sm font-medium text-black dark:text-white">Gmail</span>
                   {hasGmail && <CheckCircle size={12} weight="fill" className="text-green-500" />}
                 </div>
                 {hasGmail && (
-                  <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex justify-between">
-                      <span>Pending drafts</span>
-                      <span className="font-medium text-black dark:text-white">{status?.pendingDrafts || 0}</span>
+                  <div className="flex-1 flex flex-col">
+                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400 flex-1">
+                      <div className="flex justify-between">
+                        <span>Pending drafts</span>
+                        <span className="font-medium text-black dark:text-white">{status?.pendingDrafts || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Style analyzed</span>
+                        <span className={cn(
+                          "font-medium",
+                          status?.styleAnalyzedAt
+                            ? "text-black dark:text-white"
+                            : "text-amber-600 dark:text-amber-400"
+                        )}>
+                          {status?.styleAnalyzedAt
+                            ? `${formatDate(status.styleAnalyzedAt)} (${status.emailsAnalyzed})`
+                            : "Not yet"}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Style analyzed</span>
-                      <span className={cn(
-                        "font-medium",
-                        status?.styleAnalyzedAt
-                          ? "text-black dark:text-white"
-                          : "text-amber-600 dark:text-amber-400"
-                      )}>
-                        {status?.styleAnalyzedAt
-                          ? `${formatDate(status.styleAnalyzedAt)} (${status.emailsAnalyzed})`
-                          : "Not yet"}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
+                    <Button
+                      variant="outline"
+                      size="sm"
                       onClick={() => analyzeStyleMutation.mutate()}
                       disabled={analyzeStyleMutation.isPending}
-                      className="w-full mt-2 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded border border-gray-300 dark:border-[#444] text-gray-600 dark:text-gray-400 hover:border-[rgb(255,187,16)] transition-colors disabled:opacity-50"
+                      className="w-full mt-3"
                     >
                       {analyzeStyleMutation.isPending ? (
-                        <Spinner size={12} className="animate-spin" />
+                        <Spinner size={16} className="mr-2 animate-spin" />
                       ) : (
-                        <Sparkle size={12} weight="fill" />
+                        <Sparkle size={16} weight="fill" className="mr-2" />
                       )}
                       {status?.styleAnalyzedAt ? "Re-analyze Style" : "Analyze Style"}
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
 
               {/* Drive */}
               <div className={cn(
-                "p-3 rounded border",
+                "p-3 rounded border flex flex-col",
                 hasDrive
                   ? "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]"
                   : "bg-gray-100 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] opacity-60"
@@ -335,39 +340,43 @@ export function GoogleIntegrationSection() {
                   <Image
                     src="/svgs/Drive Color Icon.svg"
                     alt="Drive"
-                    width={16}
-                    height={16}
-                    className="size-4"
+                    width={20}
+                    height={20}
+                    className="size-5"
                   />
                   <span className="text-sm font-medium text-black dark:text-white">Drive</span>
                   {hasDrive && <CheckCircle size={12} weight="fill" className="text-green-500" />}
                 </div>
                 {hasDrive && (
-                  <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="flex items-center justify-between">
-                      <span>Indexed documents</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-black dark:text-white">{driveDocuments.length}</span>
-                        {driveDocuments.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setShowDriveDocuments(!showDriveDocuments)}
-                            className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
-                          >
-                            {showDriveDocuments ? (
-                              <CaretUp size={12} />
-                            ) : (
-                              <CaretDown size={12} />
-                            )}
-                          </button>
-                        )}
+                  <div className="flex-1 flex flex-col">
+                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span>Indexed documents</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-black dark:text-white">{driveDocuments.length}</span>
+                          {driveDocuments.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowDriveDocuments(!showDriveDocuments)}
+                              className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                            >
+                              {showDriveDocuments ? (
+                                <CaretUp size={12} />
+                              ) : (
+                                <CaretDown size={12} />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <GoogleDrivePicker
-                      onFilesImported={() => {
-                        queryClient.invalidateQueries({ queryKey: ["drive-documents"] })
-                      }}
-                    />
+                    <div className="mt-3">
+                      <GoogleDrivePicker
+                        onFilesImported={() => {
+                          queryClient.invalidateQueries({ queryKey: ["drive-documents"] })
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -493,7 +502,7 @@ export function GoogleIntegrationSection() {
       </div>
 
       {/* Note */}
-      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
+      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2 mb-4">
         AI can only create drafts - you must send emails from Gmail.
       </p>
 
