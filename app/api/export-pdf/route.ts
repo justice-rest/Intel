@@ -96,6 +96,31 @@ async function createPdfBrowser(): Promise<Browser> {
   return browser
 }
 
+// Logo caching for performance
+let cachedLogoBase64: string | null = null
+
+/**
+ * Get the Rōmy logo as base64 data URI
+ */
+function getLogoBase64(): string {
+  if (cachedLogoBase64) {
+    return cachedLogoBase64
+  }
+
+  try {
+    const path = require("path")
+    const fs = require("fs")
+    const logoPath = path.join(process.cwd(), "public", "BrandmarkRōmy.png")
+    const logoBuffer = fs.readFileSync(logoPath)
+    cachedLogoBase64 = `data:image/png;base64,${logoBuffer.toString("base64")}`
+    return cachedLogoBase64
+  } catch {
+    // Fallback: return empty string if logo can't be loaded
+    console.warn("[ExportPDF] Could not load logo, using fallback")
+    return ""
+  }
+}
+
 /**
  * Escape HTML special characters
  */
@@ -288,11 +313,12 @@ function generateFullHtml(content: string, title: string, date: string): string 
     }
 
     .logo {
-      font-size: 24pt;
-      font-weight: 700;
-      color: var(--color-accent);
-      letter-spacing: -0.02em;
       margin-bottom: 0.75em;
+    }
+
+    .logo img {
+      height: 36px;
+      width: auto;
     }
 
     .header .date {
@@ -394,7 +420,7 @@ function generateFullHtml(content: string, title: string, date: string): string 
 </head>
 <body>
   <div class="header">
-    <div class="logo">Rōmy</div>
+    <div class="logo">${getLogoBase64() ? `<img src="${getLogoBase64()}" alt="Rōmy" />` : '<span style="font-size: 24pt; font-weight: 700; color: var(--color-accent);">Rōmy</span>'}</div>
     <div class="date">${escapeHtml(date)}</div>
     <h1>${escapeHtml(title)}</h1>
   </div>

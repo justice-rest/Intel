@@ -173,6 +173,7 @@ export async function POST(req: Request) {
       allModels,
       effectiveSystemPrompt,
       apiKey,
+      userName,
       memoryResult,
       batchReportsResult,
       hasCRM,
@@ -195,7 +196,28 @@ export async function POST(req: Request) {
         const provider = getProviderForModel(normalizedModel)
         return (await getEffectiveApiKey(userId, provider as ProviderWithoutOllama)) || undefined
       })(),
-      // 5. MEMORY RETRIEVAL - Uses V2 hybrid search with automatic V1 fallback
+      // 5. USER NAME - Fetch the actual logged-in user's name for AI context
+      (async (): Promise<string | null> => {
+        if (!isAuthenticated || !userId) return null
+        try {
+          const { createClient } = await import("@/lib/supabase/server")
+          const supabaseClient = await createClient()
+          if (!supabaseClient) return null
+
+          const { data } = await supabaseClient
+            .from("users")
+            .select("first_name, display_name")
+            .eq("id", userId)
+            .single()
+
+          // Priority: first_name (from welcome popup) > display_name (from OAuth)
+          return data?.first_name || data?.display_name || null
+        } catch (error) {
+          console.error("Failed to fetch user name:", error)
+          return null
+        }
+      })(),
+      // 6. MEMORY RETRIEVAL - Uses V2 hybrid search with automatic V1 fallback
       (async (): Promise<string | null> => {
         if (!shouldInjectMemory) return null
 
@@ -323,8 +345,17 @@ export async function POST(req: Request) {
 
     const userMessage = messages[messages.length - 1]
 
-    // Combine system prompt with memory and batch reports context (if retrieved)
+    // Combine system prompt with user name, memory and batch reports context (if retrieved)
     let finalSystemPrompt = effectiveSystemPrompt
+
+    // CRITICAL: Inject the actual user's name so AI doesn't confuse them with donors
+    if (userName) {
+      finalSystemPrompt = `${finalSystemPrompt}\n\n## Current User
+You are speaking with **${userName}**. This is the logged-in user's name.
+IMPORTANT: Do NOT confuse the user with any donors or prospects you are researching.
+When addressing the user by name, use "${userName}" - this is the person you are helping, not a donor being researched.`
+    }
+
     if (memoryResult) {
       finalSystemPrompt = `${finalSystemPrompt}\n\n${memoryResult}`
     }

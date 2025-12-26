@@ -1470,6 +1470,246 @@ function SingleToolCard({
       )
     }
 
+    // Handle RAG Document Search results
+    if (
+      toolName === "rag_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "results" in parsedResult &&
+      "query" in parsedResult
+    ) {
+      const ragResult = parsedResult as {
+        success: boolean
+        results: Array<{
+          document: string
+          page: number
+          content: string
+          similarity: number
+          documentId: string
+          chunkId: string
+        }>
+        query: string
+        resultsCount?: number
+        message: string
+        error?: string
+      }
+
+      if (!ragResult.success || ragResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {ragResult.error || "Failed to search documents"}
+          </div>
+        )
+      }
+
+      if (ragResult.results.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No relevant information found in documents for &quot;{ragResult.query}&quot;
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          {/* Header with count */}
+          <div className="flex items-center justify-between">
+            <div className="text-muted-foreground text-xs">
+              <span className="font-medium">{ragResult.results.length} {ragResult.results.length === 1 ? "passage" : "passages"}</span>
+              <span className="mx-1.5">·</span>
+              <span className="italic">&quot;{ragResult.query}&quot;</span>
+            </div>
+          </div>
+
+          {/* Document results */}
+          <div className="space-y-2">
+            {ragResult.results.map((result, index) => (
+              <div
+                key={result.chunkId || index}
+                className="border-border rounded-lg border bg-muted/20 p-3"
+              >
+                {/* Document header */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
+                      <Code className="h-3.5 w-3.5 text-muted-foreground" />
+                      {result.document}
+                    </span>
+                    {result.page && (
+                      <span className="text-xs text-muted-foreground">
+                        Page {result.page}
+                      </span>
+                    )}
+                  </div>
+                  {/* Similarity score */}
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      result.similarity >= 80 ? "bg-green-500" :
+                      result.similarity >= 60 ? "bg-yellow-500" : "bg-gray-400"
+                    )} />
+                    {result.similarity}% match
+                  </span>
+                </div>
+
+                {/* Content excerpt */}
+                <div className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
+                  {result.content.length > 500
+                    ? `${result.content.slice(0, 500)}...`
+                    : result.content}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle Memory Search results
+    if (
+      toolName === "search_memory" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "memories" in parsedResult
+    ) {
+      const memoryResult = parsedResult as {
+        success: boolean
+        memories: Array<{
+          content: string
+          importance: number
+          category: string
+          tags: string[]
+          similarity: number
+          created: string
+          lastAccessed: string | null
+        }>
+        count: number
+        query: string
+        message: string
+        error?: string
+      }
+
+      if (!memoryResult.success || memoryResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {memoryResult.error || "Failed to search memories"}
+          </div>
+        )
+      }
+
+      if (memoryResult.memories.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No relevant memories found for &quot;{memoryResult.query}&quot;
+          </div>
+        )
+      }
+
+      // Category badge colors
+      const getCategoryColor = (category: string) => {
+        switch (category) {
+          case "user_info":
+            return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+          case "preferences":
+            return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+          case "relationships":
+            return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+          case "context":
+            return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+          default:
+            return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+        }
+      }
+
+      // Format category for display
+      const formatCategory = (category: string) => {
+        switch (category) {
+          case "user_info":
+            return "Personal"
+          case "preferences":
+            return "Preference"
+          case "relationships":
+            return "Relationship"
+          case "context":
+            return "Context"
+          default:
+            return category.charAt(0).toUpperCase() + category.slice(1)
+        }
+      }
+
+      return (
+        <div className="space-y-3">
+          {/* Header with count */}
+          <div className="flex items-center justify-between">
+            <div className="text-muted-foreground text-xs">
+              <span className="font-medium">{memoryResult.count} {memoryResult.count === 1 ? "memory" : "memories"}</span>
+              <span className="mx-1.5">·</span>
+              <span className="italic">&quot;{memoryResult.query}&quot;</span>
+            </div>
+          </div>
+
+          {/* Memory cards */}
+          <div className="space-y-2">
+            {memoryResult.memories.map((memory, index) => (
+              <div
+                key={index}
+                className="border-border rounded-lg border bg-muted/20 p-3"
+              >
+                {/* Memory content */}
+                <div className="text-foreground text-sm leading-relaxed">
+                  {memory.content}
+                </div>
+
+                {/* Memory metadata */}
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {/* Category badge */}
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+                      getCategoryColor(memory.category)
+                    )}
+                  >
+                    {formatCategory(memory.category)}
+                  </span>
+
+                  {/* Relevance score */}
+                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <span className={cn(
+                      "h-1.5 w-1.5 rounded-full",
+                      memory.similarity >= 80 ? "bg-green-500" :
+                      memory.similarity >= 60 ? "bg-yellow-500" : "bg-gray-400"
+                    )} />
+                    {memory.similarity}% match
+                  </span>
+
+                  {/* Importance indicator */}
+                  {memory.importance >= 0.8 && (
+                    <span className="text-xs text-amber-600 dark:text-amber-400">
+                      High importance
+                    </span>
+                  )}
+
+                  {/* Tags */}
+                  {memory.tags && memory.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {memory.tags.slice(0, 3).map((tag, tagIndex) => (
+                        <span
+                          key={tagIndex}
+                          className="text-xs text-muted-foreground"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
     // Handle Wikidata search results
     if (
       toolName === "wikidata_search" &&
