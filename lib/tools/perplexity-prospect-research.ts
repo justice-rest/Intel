@@ -108,15 +108,7 @@ async function withRetry<T>(
 
 /**
  * Build a comprehensive prospect research prompt
- *
- * PROMPT ENGINEERING TECHNIQUES APPLIED:
- * 1. Role-Based Constraint Prompting - Expert persona with constraints
- * 2. Multi-Perspective Analysis - 4 perspectives on the prospect
- * 3. Chain-of-Verification (CoVe) - Self-verification before output
- * 4. Few-Shot with Negatives - Good/bad examples
- * 5. Confidence-Weighted Output - Explicit confidence guidance
- * 6. Structured Thinking Protocol - UNDERSTAND→ANALYZE→STRATEGIZE→EXECUTE
- * 7. Context Injection with Boundaries - Clear section demarcation
+ * Uses the original working format - simple role assignment + structured output
  */
 function buildProspectResearchPrompt(
   name: string,
@@ -143,102 +135,49 @@ function buildProspectResearchPrompt(
     }
   }).filter(Boolean).join("\n")
 
-  // Build a QUERY-FOCUSED prompt that leverages Perplexity's search capabilities
-  // The key insight: Perplexity works best with natural language QUESTIONS, not checklists
-  const firstName = name.split(' ')[0]
-  const lastName = name.split(' ').slice(-1)[0]
+  let prompt = `You are a prospect researcher for nonprofit fundraising. Research the following individual and provide comprehensive, factual information with citations.
 
-  const prompt = `Research ${name} comprehensively for nonprofit fundraising prospect research.
+**Prospect Name:** ${name}
+${address ? `**Address:** ${address}` : ""}
+${context ? `**Additional Context:** ${context}` : ""}
 
-${address ? `Known address: ${address}` : ''}
-${context ? `Context: ${context}` : ''}
+## Research Focus Areas
+${focusInstructions}
 
-SEARCH AND ANSWER THESE QUESTIONS:
+## Requirements
+1. **CITE ALL SOURCES** - Every factual claim must include a source URL
+2. **USE RANGES** for estimated values (e.g., "$2-5M" not "$3.5M")
+3. **MARK ESTIMATES** clearly with [Estimated] tag
+4. **VERIFY INFORMATION** - Cross-reference multiple sources when possible
+5. **DO NOT FABRICATE** - If information is not found, say "Not found in public records"
 
-**1. REAL ESTATE & PROPERTY**
-${address ? `- Search St. Johns County Property Appraiser (sjcpa.us) for ${address}. What is the assessed value and sale history?` : `- What properties does ${name} own? Search county property records.`}
-- Search Zillow and Redfin for ${name}'s properties. What are the estimated values?
-- Does ${name} own multiple properties or vacation homes?
+## Output Format
+Provide a structured research report with these sections:
 
-**2. BIOGRAPHICAL INFORMATION**
-- How old is ${name}? Search for "${name} age" and "${name} born" and "${name} birthday"
-- Who is ${name}'s spouse or partner? Search wedding announcements and property records.
-- What is ${name}'s educational background? Search LinkedIn and university alumni records.
-- What is ${name}'s full career history?
+### Executive Summary
+2-3 sentence overview of the prospect's wealth indicators and philanthropic potential.
 
-**3. BUSINESS OWNERSHIP**
-- What companies has ${name} founded or owned? Search Florida Sunbiz (sunbiz.org) and state business registries.
-- What is ${name}'s current role and company? What is the company's estimated revenue?
-- Is ${name} on any corporate boards?
+### Real Estate
+Property holdings with estimated values and sources.
 
-**4. POLITICAL CONTRIBUTIONS**
-- Search FEC.gov for political contributions by ${name}. List all contributions over $200 with dates and recipients.
-- Search for "${name}" and "campaign contribution" and "political donation"
+### Business Interests
+Companies, executive positions, board seats with sources.
 
-**5. PHILANTHROPIC ACTIVITY - SEARCH ALL OF THESE:**
-- Search "${name} Foundation" - any results?
-- Search "${lastName} Family Foundation" - any results?
-- Search "${firstName} and" combined with "Foundation" (for spouse foundations)
-- Search ProPublica Nonprofit Explorer for ${name} as an officer or director
-- Search for ${name} + "board member" + "nonprofit"
-- Search for ${name} + "charitable" OR "philanthropy" OR "donation"
-- **IMPORTANT:** Search for religious/biblical foundation names: "${firstName} 1:16" and "${firstName} 3:16" and "John 1:16 Foundation" (donors often name foundations after scripture)
-- What nonprofit boards does ${name} serve on?
-- Has ${name} made any major gifts ($10,000+) to organizations?
+### Securities & Stock Holdings
+Public company affiliations, insider holdings (if applicable).
 
-**6. SEC & SECURITIES**
-- Search SEC EDGAR for ${name} Form 3, 4, or 5 filings (insider transactions)
-- Is ${name} an officer or director of any public company?
+### Philanthropic Profile
+Foundation board seats, major gifts, nonprofit affiliations.
 
-**7. NEWS & REPUTATION**
-- Search recent news articles about ${name}
-- Any court cases or litigation involving ${name}?
+### Wealth Indicators Summary
+| Indicator | Value | Confidence | Source |
+|-----------|-------|------------|--------|
+| Real Estate | $X-Y | HIGH/MEDIUM/LOW | [Source] |
+| Business | Description | HIGH/MEDIUM/LOW | [Source] |
+| Philanthropy | Description | HIGH/MEDIUM/LOW | [Source] |
 
-FORMAT YOUR RESPONSE AS:
-
-## Executive Summary
-[2-3 sentences: who they are, estimated wealth, philanthropic profile]
-
-## Personal Profile
-- **Age:** [X years old] or [Not found - searched: list what you searched]
-- **Spouse:** [Name] or [Not found]
-- **Location:** [City, State]
-- **Education:** [Degrees/Schools]
-
-## Real Estate
-[List all properties with addresses, estimated values, and sources]
-**Total Real Estate Value:** $X-Y
-
-## Business Interests
-[List companies, roles, estimated revenue/value]
-
-## Political Giving
-[List FEC contributions with dates, amounts, recipients]
-**Total Political Contributions:** $X
-
-## Philanthropic Profile
-**Foundations Found:** [List any foundations, or "None found after searching: [list search terms]"]
-**Nonprofit Boards:** [List boards]
-**Known Major Gifts:** [List gifts]
-
-## Net Worth Estimate
-| Category | Estimate | Methodology |
-|----------|----------|-------------|
-| Real Estate | $X-Y | [Source] |
-| Business Equity | $X-Y | [Revenue × multiple] |
-| Securities | $X-Y | [Source] |
-| **Total** | **$X-Y** | |
-
-## Sources
-[List all URLs used]
-
-IMPORTANT INSTRUCTIONS:
-- Actually SEARCH for this information - don't just say you need to search
-- Cite every source with URLs
-- Use ranges for estimates ($X-Y, not exact numbers)
-- Mark confidence: [Verified] for official records, [Estimated] for calculations
-- If you can't find something, say what you searched for
-- Be thorough - wealthy donors often have information across many sources`
+### Sources
+List all sources used with URLs.`
 
   return prompt
 }
