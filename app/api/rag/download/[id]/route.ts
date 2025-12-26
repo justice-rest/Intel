@@ -39,8 +39,8 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user has Scale plan
-    const customerData = await getCustomerData(user.id)
+    // Check if user has Scale plan (use higher timeout - RAG is not latency-critical)
+    const customerData = await getCustomerData(user.id, 5000)
     const currentProductId = customerData?.products?.[0]?.id
     const planType = normalizePlanId(currentProductId)
 

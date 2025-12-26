@@ -40,7 +40,7 @@ export async function GET(request: Request) {
     console.log(`[RAG Documents] User ID: ${user.id}`)
 
     // Check if user has Scale plan
-    const customerData = await getCustomerData(user.id)
+    const customerData = await getCustomerData(user.id, 5000)
     const currentProductId = customerData?.products?.[0]?.id
     const planType = normalizePlanId(currentProductId)
 
@@ -125,7 +125,7 @@ export async function DELETE(request: Request) {
     }
 
     // Check if user has Scale plan
-    const customerData = await getCustomerData(user.id)
+    const customerData = await getCustomerData(user.id, 5000)
     const currentProductId = customerData?.products?.[0]?.id
     const planType = normalizePlanId(currentProductId)
 
@@ -196,7 +196,7 @@ export async function PATCH(request: Request) {
     }
 
     // Check if user has Scale plan
-    const customerData = await getCustomerData(user.id)
+    const customerData = await getCustomerData(user.id, 5000)
     const currentProductId = customerData?.products?.[0]?.id
     const planType = normalizePlanId(currentProductId)
 
