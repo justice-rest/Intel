@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import Image from "next/image"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,39 +27,6 @@ import {
   CaretUp,
   GoogleLogo,
 } from "@phosphor-icons/react"
-
-// Official Gmail Icon
-function GmailIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M22 6V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V6C2 4.9 2.9 4 4 4H20C21.1 4 22 4.9 22 6Z" fill="#F6F6F6"/>
-      <path d="M22 6L12 13L2 6" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M2 6L12 13" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M22 6L12 13" stroke="#EA4335" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      <path d="M2 6V18C2 19.1 2.9 20 4 20H6V9L12 13L18 9V20H20C21.1 20 22 19.1 22 18V6L12 13L2 6Z" fill="#EA4335"/>
-      <path d="M6 20V9L12 14L18 9V20" fill="#FFBB33"/>
-      <path d="M2 6L12 13L2 18V6Z" fill="#C5221F"/>
-      <path d="M22 6L12 13L22 18V6Z" fill="#C5221F"/>
-      <path d="M18 9L12 14L6 9V20H18V9Z" fill="#FFBB33"/>
-      <path d="M6 9L12 14L18 9" fill="#F5F5F5"/>
-      <path d="M2 6C2 4.9 2.9 4 4 4H6L12 9L18 4H20C21.1 4 22 4.9 22 6L12 13L2 6Z" fill="#D93025"/>
-    </svg>
-  )
-}
-
-// Official Google Drive Icon
-function DriveIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M8.25 2.75L1.5 14.5H7.5L14.25 2.75H8.25Z" fill="#0066DA"/>
-      <path d="M22.5 14.5H16.5L9.75 2.75H15.75L22.5 14.5Z" fill="#00AC47"/>
-      <path d="M1.5 14.5L4.5 20.25H19.5L22.5 14.5H1.5Z" fill="#FFBA00"/>
-      <path d="M8.25 2.75L1.5 14.5L4.5 20.25L11.25 8.5L8.25 2.75Z" fill="#0066DA"/>
-      <path d="M15.75 2.75L9 14.5H22.5L15.75 2.75Z" fill="#00AC47"/>
-      <path d="M4.5 20.25H19.5L16.5 14.5H7.5L4.5 20.25Z" fill="#FFBA00"/>
-    </svg>
-  )
-}
 import { motion, AnimatePresence } from "motion/react"
 import type { GoogleIntegrationStatus, GoogleDriveDocument } from "@/lib/google/types"
 import { GoogleDrivePicker } from "./google-drive-picker"
@@ -305,7 +273,13 @@ export function GoogleIntegrationSection() {
                   : "bg-gray-100 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] opacity-60"
               )}>
                 <div className="flex items-center gap-2 mb-2">
-                  <GmailIcon className="size-4" />
+                  <Image
+                    src="/svgs/Gmail SVG Icon.svg"
+                    alt="Gmail"
+                    width={16}
+                    height={16}
+                    className="size-4"
+                  />
                   <span className="text-sm font-medium text-black dark:text-white">Gmail</span>
                   {hasGmail && <CheckCircle size={12} weight="fill" className="text-green-500" />}
                 </div>
@@ -353,7 +327,13 @@ export function GoogleIntegrationSection() {
                   : "bg-gray-100 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] opacity-60"
               )}>
                 <div className="flex items-center gap-2 mb-2">
-                  <DriveIcon className="size-4" />
+                  <Image
+                    src="/svgs/Drive Color Icon.svg"
+                    alt="Drive"
+                    width={16}
+                    height={16}
+                    className="size-4"
+                  />
                   <span className="text-sm font-medium text-black dark:text-white">Drive</span>
                   {hasDrive && <CheckCircle size={12} weight="fill" className="text-green-500" />}
                 </div>
@@ -465,8 +445,20 @@ export function GoogleIntegrationSection() {
             ) : (
               <>
                 <div className="flex justify-center gap-3 mb-3">
-                  <GmailIcon className="size-6 opacity-50" />
-                  <DriveIcon className="size-6 opacity-50" />
+                  <Image
+                    src="/svgs/Gmail SVG Icon.svg"
+                    alt="Gmail"
+                    width={24}
+                    height={24}
+                    className="size-6 opacity-50"
+                  />
+                  <Image
+                    src="/svgs/Drive Color Icon.svg"
+                    alt="Drive"
+                    width={24}
+                    height={24}
+                    className="size-6 opacity-50"
+                  />
                 </div>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                   Connect your Google account to enable Gmail and Drive features.
