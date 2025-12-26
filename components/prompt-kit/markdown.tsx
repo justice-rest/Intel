@@ -42,35 +42,37 @@ const CONFIDENCE_TOOLTIPS = {
 function preprocessConfidenceTags(content: string): string {
   let processed = content
 
-  // Simple tags (no extra content) - with tooltips
+  // [Verified] or [Verified - source] → badge only (source info usually redundant with link)
   processed = processed.replace(
-    /\[Verified\]/g,
+    /\[Verified([^\]]*)\]/g,
     `<span class="confidence-tag confidence-verified" data-tooltip="${CONFIDENCE_TOOLTIPS.verified}">Verified</span>`
   )
 
+  // [Corroborated] or [Corroborated - source] → badge only
   processed = processed.replace(
-    /\[Corroborated\]/g,
+    /\[Corroborated([^\]]*)\]/g,
     `<span class="confidence-tag confidence-corroborated" data-tooltip="${CONFIDENCE_TOOLTIPS.corroborated}">Corroborated</span>`
   )
 
-  // Tags with optional extra content - badge the type, keep the rest as text
-  // [Unverified] or [Unverified - Single Source] → badge + text
+  // [Unverified] or [Unverified - reason] → badge + reason text
   processed = processed.replace(
     /\[Unverified([^\]]*)\]/g,
     (_, extra) => {
       const badge = `<span class="confidence-tag confidence-unverified" data-tooltip="${CONFIDENCE_TOOLTIPS.unverified}">Unverified</span>`
-      // If there's extra content after "Unverified", show it as regular text
-      return extra ? `${badge}<span class="confidence-detail">${extra}</span>` : badge
+      // Keep reason text if provided (e.g., "- Single Source")
+      const cleanExtra = extra?.trim().replace(/^-\s*/, '')
+      return cleanExtra ? `${badge}<span class="confidence-detail"> - ${cleanExtra}</span>` : badge
     }
   )
 
-  // [Estimated] or [Estimated - Methodology: X] → badge + text
+  // [Estimated] or [Estimated - methodology] → badge + methodology text
   processed = processed.replace(
     /\[Estimated([^\]]*)\]/g,
     (_, extra) => {
       const badge = `<span class="confidence-tag confidence-estimated" data-tooltip="${CONFIDENCE_TOOLTIPS.estimated}">Estimated</span>`
-      // If there's extra content (methodology), show it as regular text
-      return extra ? `${badge}<span class="confidence-detail">${extra}</span>` : badge
+      // Keep methodology text if provided
+      const cleanExtra = extra?.trim().replace(/^-\s*/, '')
+      return cleanExtra ? `${badge}<span class="confidence-detail"> - ${cleanExtra}</span>` : badge
     }
   )
 
