@@ -5148,138 +5148,6 @@ function SingleToolCard({
       )
     }
 
-    // Handle Exa search results specifically
-    if (
-      typeof parsedResult === "object" &&
-      parsedResult !== null &&
-      "results" in parsedResult &&
-      Array.isArray(parsedResult.results)
-    ) {
-      const { results } = parsedResult as {
-        results: Array<{
-          id?: string
-          url: string
-          title: string
-          text?: string
-          content?: string
-        }>
-      }
-      return (
-        <div className="space-y-3">
-          {results.map((item, index) => (
-            <div
-              key={item.id || index}
-              className="border-border border-b pb-3 last:border-0 last:pb-0"
-            >
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary group flex items-center gap-1 font-medium hover:underline"
-              >
-                {item.title}
-                <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
-              </a>
-              <div className="text-muted-foreground mt-1 font-mono text-xs">
-                {item.url}
-              </div>
-              {(item.text || item.content) && (
-                <div className="mt-1 line-clamp-3 text-sm">
-                  {item.text || item.content}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    // Handle array of items with url, title, and snippet (like search results)
-    if (Array.isArray(parsedResult) && parsedResult.length > 0) {
-      // Check if items look like search results
-      if (
-        parsedResult[0] &&
-        typeof parsedResult[0] === "object" &&
-        "url" in parsedResult[0] &&
-        "title" in parsedResult[0]
-      ) {
-        return (
-          <div className="space-y-3">
-            {parsedResult.map(
-              (
-                item: { url: string; title: string; snippet?: string },
-                index: number
-              ) => (
-                <div
-                  key={index}
-                  className="border-border border-b pb-3 last:border-0 last:pb-0"
-                >
-                  <a
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary group flex items-center gap-1 font-medium hover:underline"
-                  >
-                    {item.title}
-                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
-                  </a>
-                  <div className="text-muted-foreground mt-1 font-mono text-xs">
-                    {item.url}
-                  </div>
-                  {item.snippet && (
-                    <div className="mt-1 line-clamp-2 text-sm">
-                      {item.snippet}
-                    </div>
-                  )}
-                </div>
-              )
-            )}
-          </div>
-        )
-      }
-
-      // Generic array display
-      return (
-        <div className="font-mono text-xs">
-          <pre className="whitespace-pre-wrap">
-            {JSON.stringify(parsedResult, null, 2)}
-          </pre>
-        </div>
-      )
-    }
-
-    // Handle object results
-    if (typeof parsedResult === "object" && parsedResult !== null) {
-      const resultObj = parsedResult as Record<string, unknown>
-      const title = typeof resultObj.title === "string" ? resultObj.title : null
-      const htmlUrl =
-        typeof resultObj.html_url === "string" ? resultObj.html_url : null
-
-      return (
-        <div>
-          {title && <div className="mb-2 font-medium">{title}</div>}
-          {htmlUrl && (
-            <div className="mb-2">
-              <a
-                href={htmlUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary flex items-center gap-1 hover:underline"
-              >
-                <span className="font-mono">{htmlUrl}</span>
-                <Link className="h-3 w-3 opacity-70" />
-              </a>
-            </div>
-          )}
-          <div className="font-mono text-xs">
-            <pre className="whitespace-pre-wrap">
-              {JSON.stringify(parsedResult, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )
-    }
-
     // ========================================================================
     // GMAIL TOOLS
     // ========================================================================
@@ -5605,6 +5473,138 @@ function SingleToolCard({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle Exa search results specifically
+    if (
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "results" in parsedResult &&
+      Array.isArray(parsedResult.results)
+    ) {
+      const { results } = parsedResult as {
+        results: Array<{
+          id?: string
+          url: string
+          title: string
+          text?: string
+          content?: string
+        }>
+      }
+      return (
+        <div className="space-y-3">
+          {results.map((item, index) => (
+            <div
+              key={item.id || index}
+              className="border-border border-b pb-3 last:border-0 last:pb-0"
+            >
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary group flex items-center gap-1 font-medium hover:underline"
+              >
+                {item.title}
+                <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+              </a>
+              <div className="text-muted-foreground mt-1 font-mono text-xs">
+                {item.url}
+              </div>
+              {(item.text || item.content) && (
+                <div className="mt-1 line-clamp-3 text-sm">
+                  {item.text || item.content}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    // Handle array of items with url, title, and snippet (like search results)
+    if (Array.isArray(parsedResult) && parsedResult.length > 0) {
+      // Check if items look like search results
+      if (
+        parsedResult[0] &&
+        typeof parsedResult[0] === "object" &&
+        "url" in parsedResult[0] &&
+        "title" in parsedResult[0]
+      ) {
+        return (
+          <div className="space-y-3">
+            {parsedResult.map(
+              (
+                item: { url: string; title: string; snippet?: string },
+                index: number
+              ) => (
+                <div
+                  key={index}
+                  className="border-border border-b pb-3 last:border-0 last:pb-0"
+                >
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                  >
+                    {item.title}
+                    <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                  </a>
+                  <div className="text-muted-foreground mt-1 font-mono text-xs">
+                    {item.url}
+                  </div>
+                  {item.snippet && (
+                    <div className="mt-1 line-clamp-2 text-sm">
+                      {item.snippet}
+                    </div>
+                  )}
+                </div>
+              )
+            )}
+          </div>
+        )
+      }
+
+      // Generic array display
+      return (
+        <div className="font-mono text-xs">
+          <pre className="whitespace-pre-wrap">
+            {JSON.stringify(parsedResult, null, 2)}
+          </pre>
+        </div>
+      )
+    }
+
+    // Handle object results
+    if (typeof parsedResult === "object" && parsedResult !== null) {
+      const resultObj = parsedResult as Record<string, unknown>
+      const title = typeof resultObj.title === "string" ? resultObj.title : null
+      const htmlUrl =
+        typeof resultObj.html_url === "string" ? resultObj.html_url : null
+
+      return (
+        <div>
+          {title && <div className="mb-2 font-medium">{title}</div>}
+          {htmlUrl && (
+            <div className="mb-2">
+              <a
+                href={htmlUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary flex items-center gap-1 hover:underline"
+              >
+                <span className="font-mono">{htmlUrl}</span>
+                <Link className="h-3 w-3 opacity-70" />
+              </a>
+            </div>
+          )}
+          <div className="font-mono text-xs">
+            <pre className="whitespace-pre-wrap">
+              {JSON.stringify(parsedResult, null, 2)}
+            </pre>
           </div>
         </div>
       )
