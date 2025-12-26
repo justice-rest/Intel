@@ -277,44 +277,46 @@ function MarkdownComponent({
           cursor: help;
         }
 
-        .confidence-tag[data-tooltip]::before,
-        .confidence-tag[data-tooltip]::after {
+        .confidence-tag[data-tooltip]::before {
+          content: attr(data-tooltip);
           position: absolute;
+          bottom: calc(100% + 8px);
           left: 50%;
           transform: translateX(-50%);
+          padding: 6px 12px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          line-height: 1.4;
+          white-space: nowrap;
+          max-width: 240px;
+          white-space: normal;
+          text-align: center;
+          background-color: rgb(24, 24, 27);
+          color: rgb(250, 250, 250);
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
           opacity: 0;
           visibility: hidden;
           transition: opacity 0.15s ease, visibility 0.15s ease;
           pointer-events: none;
-          z-index: 50;
-        }
-
-        /* Tooltip box */
-        .confidence-tag[data-tooltip]::before {
-          content: attr(data-tooltip);
-          bottom: calc(100% + 6px);
-          padding: 0.375rem 0.75rem;
-          border-radius: 0.375rem;
-          font-size: 0.75rem;
-          font-weight: 500;
-          line-height: 1.4;
-          white-space: nowrap;
-          max-width: 280px;
-          white-space: normal;
-          text-align: center;
-          background-color: hsl(var(--primary));
-          color: hsl(var(--primary-foreground));
+          z-index: 9999;
         }
 
         /* Arrow */
         .confidence-tag[data-tooltip]::after {
           content: '';
-          bottom: calc(100% + 2px);
-          width: 10px;
-          height: 10px;
-          background-color: hsl(var(--primary));
+          position: absolute;
+          bottom: calc(100% + 4px);
+          left: 50%;
           transform: translateX(-50%) rotate(45deg);
-          border-radius: 2px;
+          width: 8px;
+          height: 8px;
+          background-color: rgb(24, 24, 27);
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.15s ease, visibility 0.15s ease;
+          pointer-events: none;
+          z-index: 9999;
         }
 
         /* Show on hover */
@@ -322,6 +324,15 @@ function MarkdownComponent({
         .confidence-tag[data-tooltip]:hover::after {
           opacity: 1;
           visibility: visible;
+        }
+
+        /* Light mode tooltip colors */
+        .confidence-tag[data-tooltip]::before {
+          background-color: rgb(24, 24, 27);
+          color: rgb(250, 250, 250);
+        }
+        .confidence-tag[data-tooltip]::after {
+          background-color: rgb(24, 24, 27);
         }
       `}</style>
       <Streamdown
