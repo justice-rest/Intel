@@ -98,23 +98,62 @@ export type QueryIntent =
 const DEFAULT_MODEL = "openai/gpt-4o-mini"
 const DEFAULT_MAX_ALTERNATIVES = 3
 
-// Query analysis prompt
-const ANALYSIS_PROMPT = `Analyze this search query and the poor results to suggest improvements.
+// STRUCTURED THINKING + CONTEXT INJECTION: Query analysis prompt
+const ANALYSIS_PROMPT = `## ROLE DEFINITION
+You are a search query optimizer. Analyze poor retrieval results and recommend improvements.
 
-**Original Query**: {originalQuery}
-**Current Query**: {currentQuery}
-**Iteration**: {iteration}
+---
 
-**Current Results** (with relevance scores):
+## CONTEXT INJECTION
+
+[ORIGINAL QUERY]
+{originalQuery}
+
+[CURRENT QUERY]
+{currentQuery}
+
+[ITERATION]
+{iteration}
+
+[CURRENT RESULTS]
 {results}
 
-Analyze:
-1. What is the user's intent?
-2. What entities are mentioned?
-3. Why are current results insufficient?
-4. What refinement strategy would help?
+---
 
-Respond in this exact JSON format:
+## STRUCTURED THINKING PROTOCOL
+
+### [UNDERSTAND] - Intent Classification
+What is the user trying to find?
+- factual: Specific facts (names, numbers, dates)
+- exploratory: Broad research
+- comparative: Comparing options
+- procedural: How-to steps
+- definitional: What is X?
+- relational: Connections between entities
+
+### [ANALYZE] - Entity Extraction
+What key entities should the search focus on?
+- People, organizations, locations, dates, amounts
+- Rate importance 0-1 for each
+
+### [STRATEGIZE] - Gap Analysis
+Why are current results insufficient?
+- Wrong topic? Missing entities? Too broad/narrow?
+
+### [EXECUTE] - Strategy Selection
+Which refinement approach will help?
+- expansion: Add synonyms/related terms
+- decomposition: Break into sub-queries
+- reformulation: Rephrase for clarity
+- hyde: Generate hypothetical answer
+- entity_focus: Focus on key entities
+- none: Current query is sufficient
+
+---
+
+## OUTPUT FORMAT (JSON)
+
+\`\`\`json
 {
   "intent": "factual|exploratory|comparative|procedural|definitional|relational",
   "entities": [
@@ -122,32 +161,72 @@ Respond in this exact JSON format:
   ],
   "complexity": "simple|moderate|complex",
   "strategy": "expansion|decomposition|reformulation|hyde|entity_focus|none",
-  "gapAnalysis": "<why results are poor>"
-}`
+  "gapAnalysis": "<why results are poor and how strategy will help>"
+}
+\`\`\``
 
-// Query refinement prompt
-const REFINEMENT_PROMPT = `Refine this search query based on the analysis.
+// CONSTRAINT-FIRST + CONFIDENCE-WEIGHTED: Query refinement prompt
+const REFINEMENT_PROMPT = `## ROLE DEFINITION
+You are a search query optimizer. Generate improved queries based on analysis.
 
-**Original Query**: {originalQuery}
-**Current Query**: {currentQuery}
-**Analysis**: {analysis}
+---
 
-**Refinement Strategy**: {strategy}
+## CONTEXT INJECTION
 
-Generate an improved query. Guidelines:
-- For "expansion": Add synonyms, related terms, alternative phrasings
-- For "decomposition": Break into focused sub-queries
-- For "reformulation": Rephrase for clarity and precision
-- For "hyde": Generate a hypothetical answer passage
-- For "entity_focus": Focus on key entities with context
+[ORIGINAL QUERY]
+{originalQuery}
 
-Respond in this exact JSON format:
+[CURRENT QUERY]
+{currentQuery}
+
+[ANALYSIS]
+{analysis}
+
+[SELECTED STRATEGY]
+{strategy}
+
+---
+
+## HARD CONSTRAINTS
+1. Refined query MUST be more specific than original
+2. MUST maintain original intent
+3. Alternatives MUST be distinct approaches, not slight variations
+4. Confidence MUST reflect likelihood of improvement
+
+---
+
+## STRATEGY IMPLEMENTATION
+
+| Strategy | How to Implement |
+|----------|-----------------|
+| **expansion** | Add synonyms, related terms, alternative phrasings |
+| **decomposition** | Break into 2-3 focused sub-queries |
+| **reformulation** | Rephrase for clarity/precision, fix ambiguity |
+| **hyde** | Generate hypothetical answer passage as search query |
+| **entity_focus** | Focus on key entities with surrounding context |
+
+---
+
+## CONFIDENCE-WEIGHTED OUTPUT
+
+Rate your confidence that the refinement will improve results:
+- **0.9-1.0**: High - Strategy clearly addresses gap analysis
+- **0.7-0.8**: Medium-High - Good match but some uncertainty
+- **0.5-0.6**: Medium - Reasonable attempt
+- **<0.5**: Low - Uncertain if this will help (consider "none" strategy)
+
+---
+
+## OUTPUT FORMAT (JSON)
+
+\`\`\`json
 {
   "refinedQuery": "<improved query>",
-  "reasoning": "<why this refinement helps>",
-  "alternatives": ["<alt query 1>", "<alt query 2>"],
-  "confidence": 0.0-1.0
-}`
+  "reasoning": "<why this refinement addresses the gap>",
+  "alternatives": ["<distinct alternative 1>", "<distinct alternative 2>"],
+  "confidence": <0.0-1.0>
+}
+\`\`\``
 
 // ============================================================================
 // MAIN REFINEMENT FUNCTION

@@ -348,43 +348,95 @@ export async function POST(req: Request) {
     // Combine system prompt with user name, memory and batch reports context (if retrieved)
     let finalSystemPrompt = effectiveSystemPrompt
 
+    // =========================================================================
+    // CONTEXT INJECTION WITH BOUNDARIES (Prompt Engineering Technique)
+    // Each context block uses [SECTION] / [/SECTION] boundaries for clarity
+    // =========================================================================
+
     // CRITICAL: Inject the actual user's name so AI doesn't confuse them with donors
     if (userName) {
-      finalSystemPrompt = `${finalSystemPrompt}\n\n## Current User
-You are speaking with **${userName}**. This is the logged-in user's name.
-IMPORTANT: Do NOT confuse the user with any donors or prospects you are researching.
-When addressing the user by name, use "${userName}" - this is the person you are helping, not a donor being researched.`
+      finalSystemPrompt = `${finalSystemPrompt}
+
+---
+
+## [USER CONTEXT]
+**Current User:** ${userName}
+
+[HARD CONSTRAINTS]
+1. ${userName} is the LOGGED-IN USER you are helping
+2. NEVER confuse ${userName} with any donors or prospects being researched
+3. When addressing the user, use "${userName}"—NOT donor names
+
+[/USER CONTEXT]`
     }
 
+    // Memory context injection
     if (memoryResult) {
-      finalSystemPrompt = `${finalSystemPrompt}\n\n${memoryResult}`
+      finalSystemPrompt = `${finalSystemPrompt}
+
+---
+
+## [MEMORY CONTEXT]
+The following are remembered facts about the user from previous conversations:
+
+${memoryResult}
+
+[FOCUS]
+Use this context to personalize responses. Reference prior conversations naturally.
+[/MEMORY CONTEXT]`
     }
+
+    // Batch reports context injection
     if (batchReportsResult) {
-      finalSystemPrompt = `${finalSystemPrompt}\n\n${batchReportsResult}`
+      finalSystemPrompt = `${finalSystemPrompt}
+
+---
+
+## [BATCH REPORTS CONTEXT]
+${batchReportsResult}
+[/BATCH REPORTS CONTEXT]`
     }
 
     // Add CRM guidance when user has connected CRMs
     if (hasCRM) {
-      finalSystemPrompt += `\n\n## CRM Integration
-You have access to the user's connected CRM systems (Bloomerang/Virtuous).
-- **crm_search**: Search synced CRM data for constituent/donor info (name, email, address, giving history)
+      finalSystemPrompt += `
 
-**Best Practice**: ALWAYS use crm_search FIRST when researching a donor who might already be in the CRM.
-This provides existing giving history and contact details before running external prospect research.`
+---
+
+## [CRM INTEGRATION]
+
+[CAPABILITY]
+Access to connected CRM systems (Bloomerang, Virtuous, Neon CRM, DonorPerfect)
+- **crm_search**: Search synced data for constituents, giving history, contact info
+
+[HARD CONSTRAINT]
+ALWAYS call crm_search FIRST when researching a named donor/prospect.
+CRM data = verified baseline; external research supplements, never replaces.
+
+[/CRM INTEGRATION]`
     }
 
     // Add memory tool guidance for authenticated users
     if (isAuthenticated) {
-      finalSystemPrompt += `\n\n## Memory Tool Usage
-You have access to **search_memory** to recall past conversations and user context.
+      finalSystemPrompt += `
 
-**PROACTIVELY call search_memory when:**
-- User says "do you remember...", "we discussed...", "I told you about..."
+---
+
+## [MEMORY TOOL GUIDANCE]
+
+[CAPABILITY]
+**search_memory** - Recall past conversations, user preferences, previous research
+
+[TRIGGER CONDITIONS]
+- "do you remember...", "we discussed...", "I told you about..."
 - User references past conversations or previous research
-- Researching a prospect you may have researched before
-- User mentions their preferences or constraints
+- Researching a prospect from earlier in session
+- User mentions preferences or constraints
 
-**Call search_memory FIRST** before external research to avoid duplicating work.`
+[HARD CONSTRAINT]
+Call search_memory FIRST before external research to avoid duplicating work.
+
+[/MEMORY TOOL GUIDANCE]`
     }
 
     // Add search guidance when search is enabled
@@ -409,55 +461,63 @@ You have access to **search_memory** to recall past conversations and user conte
       if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
       if (dataTools.length > 0) {
-        finalSystemPrompt += `\n\n## Prospect Research Tools
+        finalSystemPrompt += `
 
-You have built-in web search capabilities through Perplexity Sonar Reasoning. Use this naturally to search the web for prospect information - property records, business affiliations, philanthropic activity, news articles, etc.
+---
 
-### Data API Tools
+## [PROSPECT RESEARCH TOOLS]
+
+[CAPABILITY]
+Built-in web search via Perplexity Sonar Reasoning for prospect research.
+
+### Available Data API Tools
 ${dataTools.join("\n")}
 
-**Key Tools:**
-- **perplexity_prospect_research + linkup_prospect_research**: ALWAYS use BOTH IN PARALLEL for comprehensive prospect research. Perplexity provides structured JSON output; LinkUp provides additional sources and coverage. Call both simultaneously for maximum results.
-- **fec_contributions**: Political contribution history by individual name (structured FEC data)
-- **propublica_nonprofit_***: Foundation 990s, nonprofit financials (search by ORG name)
-- **sec_edgar_filings**: Public company financials, 10-K/10-Q, executive compensation
-- **sec_insider_search / sec_proxy_search**: Verify board membership via SEC filings
+---
 
-### Parallel Web Search Strategy (CRITICAL)
-When researching prospects with web search enabled:
-1. **ALWAYS invoke BOTH perplexity_prospect_research AND linkup_prospect_research IN PARALLEL** (single tool call message with both tools)
-2. Wait for both tool results to return
-3. **CRITICAL: After receiving tool results, you MUST generate a comprehensive text response** - DO NOT just return tool results silently
-4. Combine findings from both tools, deduplicate sources, and cross-reference information
-5. Present a unified research report with all sources cited
-6. Flag discrepancies between sources and prefer official sources (SEC, FEC, ProPublica) when conflicts exist
+[HARD CONSTRAINTS]
+1. **PARALLEL EXECUTION**: ALWAYS call perplexity_prospect_research + linkup_prospect_research simultaneously
+2. **RESPONSE REQUIRED**: After ANY tool call, you MUST generate a text response—never return raw tool output
+3. **OFFICIAL SOURCES PRIORITY**: When conflicts exist, prefer SEC/FEC/ProPublica over web sources
+4. **SYNTHESIZE, DON'T DUMP**: Combine findings into unified reports with source citations
 
-### Response Requirement (MANDATORY)
-**After ANY tool call completes, you MUST ALWAYS respond to the user with a complete text message.**
-- Never leave tool results unprocessed - always synthesize them into a response
-- If tools return research data, format it into a readable report for the user
-- If tools return errors, explain the issue and suggest next steps
-- The user should ALWAYS receive a final text response, not just raw tool output
+---
 
-### Research Strategy
-1. **Start with PARALLEL web search** - call perplexity_prospect_research AND linkup_prospect_research simultaneously
-2. **Use structured tools for specific data**: FEC for political giving, ProPublica for 990s, SEC for public company roles
-3. **Run ALL tools in parallel** when gathering data from multiple sources for maximum efficiency
-4. **propublica workflow**: Search perplexity for nonprofit names → propublica_nonprofit_search with ORG name for 990 details
+### Structured Thinking: Research Workflow
+
+**[UNDERSTAND]** - What research is needed?
+- Named prospect → CRM first, then external tools
+- Board verification → SEC insider + proxy search
+- Foundation research → ProPublica 990 data
+
+**[ANALYZE]** - Select tools based on research type:
+| Need | Primary Tool | Secondary Tool |
+|------|--------------|----------------|
+| Comprehensive profile | perplexity_prospect_research | linkup_prospect_research (parallel) |
+| Political giving | fec_contributions | - |
+| Foundation/990 data | propublica_nonprofit_search | propublica_nonprofit_details |
+| Public company exec | sec_insider_search | sec_proxy_search |
+| Giving capacity | giving_capacity_calculator | - |
+
+**[STRATEGIZE]** - Parallel execution plan:
+1. Call perplexity_prospect_research + linkup_prospect_research IN PARALLEL
+2. Follow up with structured tools (FEC, SEC, ProPublica) for verified data
+3. Synthesize all findings into unified report
+
+**[EXECUTE]** - After tool results:
+- Combine findings, deduplicate sources
+- Flag discrepancies, note confidence levels
+- Present formatted report with all sources
+- ALWAYS end with text response to user
+
+---
 
 ### Board & Officer Validation (PUBLIC COMPANIES)
-When asked to verify if someone is on a board, is a director, officer, or executive:
-1. **sec_insider_search("[person name]")** - Searches Form 3/4/5 insider filings. If results found, they ARE an insider.
-2. **sec_proxy_search("[company name]")** - Gets DEF 14A proxy statement listing ALL directors and officers.
-Use BOTH tools: insider search confirms the person files as insider, proxy shows full board composition.
+1. **sec_insider_search("[name]")** - Form 3/4/5 filings → confirms insider status
+2. **sec_proxy_search("[company]")** - DEF 14A → lists ALL directors/officers
+Use BOTH: insider search confirms filings, proxy shows full board composition.
 
-### Comprehensive Prospect Research Workflow
-For full donor research:
-1. **perplexity_prospect_research** - Get comprehensive profile with citations (property, business, philanthropy, biography)
-2. **fec_contributions** - Political giving history (structured data)
-3. **propublica_nonprofit_search** - If philanthropist, get 990 details for foundations they're connected to
-4. **sec_insider_search** - If suspected public company executive, verify via SEC
-5. **giving_capacity_calculator** - Calculate capacity from gathered wealth data`
+[/PROSPECT RESEARCH TOOLS]`
       }
     }
 

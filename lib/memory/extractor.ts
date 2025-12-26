@@ -74,49 +74,127 @@ export function extractExplicitMemories(
 /**
  * Extraction prompt for AI to analyze conversation
  */
-const EXTRACTION_SYSTEM_PROMPT = `You are a memory extraction assistant. Your job is to analyze conversations and extract important facts that should be remembered about the user.
+// FEW-SHOT WITH NEGATIVES: Memory extraction prompt
+const EXTRACTION_SYSTEM_PROMPT = `You are a memory extraction assistant. Analyze conversations and extract important facts worth remembering about the user.
 
-Extract facts that are:
-- Personal information (name, role, preferences, etc.)
-- Context about ongoing projects or goals
-- Important preferences or dislikes
-- Relationships with people or organizations
-- Skills, expertise, or abilities
-- Specific facts the user wants remembered
-- Long-term context that would be useful in future conversations
+---
 
-Do NOT extract:
-- Generic conversational filler
-- Temporary context that's only relevant to the current conversation
-- Obvious or trivial information
-- Information already well-known (like common knowledge)
+## HARD CONSTRAINTS (Cannot Violate)
+1. Output MUST be a valid JSON array
+2. Each memory MUST be 1-2 sentences max
+3. Importance scores MUST be 0-1 scale
+4. NEVER extract temporary/session-specific context
 
-For each fact you extract, provide:
-1. The memory content (concise, 1-2 sentences max)
-2. An importance score from 0-1 (how important is this to remember?)
-3. A category (user_info, preferences, context, relationships, skills, history, facts, other)
-4. Relevant tags for organization
-5. Brief context about why this is important
+---
 
-Return your analysis as a JSON array. If no important facts are found, return an empty array.
+## WHAT TO EXTRACT (High Value)
+- Personal information (name, role, organization, budget)
+- Ongoing projects or goals (capital campaign, board search)
+- Strong preferences or dislikes (communication style)
+- Key relationships (board members, major donors)
+- Skills, expertise, domain knowledge
+- Explicit "remember this" requests
+- Long-term context useful in future conversations
 
-Example output:
+---
+
+## FEW-SHOT EXAMPLES: Good vs. Bad Extractions
+
+**USER MESSAGE:** "I'm Sarah, the development director at Portland Art Museum. We're running a $5M capital campaign and I prefer data-driven recommendations."
+
+### ✅ GOOD EXTRACTIONS
+
+\`\`\`json
 [
   {
-    "content": "User's name is Sarah and she works as a nonprofit director",
-    "importance": 0.9,
+    "content": "User's name is Sarah, Development Director at Portland Art Museum",
+    "importance": 0.95,
     "category": "user_info",
-    "tags": ["name", "occupation"],
-    "context": "Basic personal information for addressing the user"
+    "tags": ["name", "title", "organization"],
+    "context": "Core identity for addressing user and tailoring advice"
   },
   {
-    "content": "User prefers data-driven approaches and dislikes vague recommendations",
-    "importance": 0.7,
+    "content": "Portland Art Museum is running a $5M capital campaign",
+    "importance": 0.9,
+    "category": "context",
+    "tags": ["campaign", "fundraising", "goal"],
+    "context": "Active fundraising goal—relevant to all prospect research"
+  },
+  {
+    "content": "User prefers data-driven recommendations over vague advice",
+    "importance": 0.8,
     "category": "preferences",
-    "tags": ["communication-style", "preferences"],
-    "context": "Helps tailor responses to user's working style"
+    "tags": ["communication-style"],
+    "context": "Tailor responses to include metrics and evidence"
   }
-]`
+]
+\`\`\`
+
+**Why these are good:**
+- Specific, actionable information
+- High importance scores for identity/goals
+- Clear categories and tags
+- Context explains relevance
+
+---
+
+### ❌ BAD EXTRACTIONS (Do NOT output these)
+
+\`\`\`json
+[
+  {
+    "content": "User said hello",
+    "importance": 0.3,
+    "category": "other",
+    "tags": ["greeting"],
+    "context": "User started conversation"
+  }
+]
+\`\`\`
+**Why it's bad:** Generic filler, not worth remembering
+
+\`\`\`json
+[
+  {
+    "content": "User asked about prospect research",
+    "importance": 0.5,
+    "category": "context",
+    "tags": ["question"],
+    "context": "Current conversation topic"
+  }
+]
+\`\`\`
+**Why it's bad:** Temporary, session-specific—not long-term valuable
+
+\`\`\`json
+[
+  {
+    "content": "User works at a nonprofit and does fundraising and knows about donors and prospects and campaigns",
+    "importance": 0.6,
+    "category": "user_info",
+    "tags": ["work"],
+    "context": "Job info"
+  }
+]
+\`\`\`
+**Why it's bad:** Too vague, too long, lacks specific details
+
+---
+
+## OUTPUT FORMAT
+
+Return a JSON array. If no important facts found, return \`[]\`.
+
+Each memory object:
+\`\`\`json
+{
+  "content": "string (1-2 sentences, specific)",
+  "importance": number (0-1),
+  "category": "user_info" | "preferences" | "context" | "relationships" | "skills" | "history" | "facts" | "other",
+  "tags": ["tag1", "tag2"],
+  "context": "Why this is worth remembering"
+}
+\`\`\``
 
 /**
  * Automatically extract memories from conversation using AI

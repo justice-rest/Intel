@@ -263,10 +263,15 @@ function formatContributionsForAI(
  */
 export const fecContributionsTool = tool({
   description:
-    "Search FEC (Federal Election Commission) records for political contributions by an individual. " +
-    "Returns detailed contribution history including amounts, dates, recipients (candidates/committees), " +
-    "employer, and occupation. Essential for prospect research - political giving patterns indicate " +
-    "wealth, civic engagement, and philanthropic capacity. Contributions over $200 are publicly reported.",
+    // CONSTRAINT-FIRST PROMPTING: Official data source
+    "HARD CONSTRAINTS: " +
+    "(1) Execute AFTER memory + CRM checks, (2) Data is HIGH CONFIDENCE [Verified], " +
+    "(3) Only reports contributions >$200 (legal threshold). " +
+    "CAPABILITY: Search FEC.gov for political contributions by individual. " +
+    "RETURNS: Amounts, dates, recipients, employer, occupation. " +
+    "WHY USE: Political giving indicates wealth, civic engagement, philanthropic capacity. " +
+    "Major donors ($2,800+) are 14x more likely to make major charitable gifts. " +
+    "SOURCE: FEC.gov (official government data).",
   parameters: fecContributionsSchema,
   execute: async ({
     contributorName,

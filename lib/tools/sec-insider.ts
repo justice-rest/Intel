@@ -613,11 +613,15 @@ ${methodInfo}**Status:** Found ${filings.length} proxy statement${filings.length
 
 export const secInsiderSearchTool = tool({
   description:
-    "Search SEC Form 3/4/5 insider filings to verify if a person is an officer, director, " +
-    "or 10%+ owner of a PUBLIC company. Supports: (1) name search, (2) multiple aliases/variations, " +
-    "(3) direct CIK lookup. Finding matches CONFIRMS insider status. " +
-    "For nonprofit board research, use web search first to find org names, then use propublica tools. " +
-    "No API key required.",
+    // CONSTRAINT-FIRST PROMPTING: Board validation
+    "HARD CONSTRAINTS: " +
+    "(1) ONLY for PUBLIC company insider verification—use propublica for nonprofits, " +
+    "(2) Finding matches CONFIRMS insider status (HIGH CONFIDENCE), " +
+    "(3) No match ≠ not an insider—may use variations of name. " +
+    "CAPABILITY: Search SEC Form 3/4/5 insider filings by name or CIK. " +
+    "VERIFIES: Officer, director, or 10%+ owner status at public companies. " +
+    "SUPPORTS: Multiple aliases/name variations, direct CIK lookup. " +
+    "SOURCE: SEC EDGAR (official government data). No API key required.",
   parameters: insiderSearchSchema,
   execute: async ({ personName, aliases, cik, limit = 10 }): Promise<InsiderSearchResult> => {
     const startTime = Date.now()
@@ -793,10 +797,15 @@ sec_insider_search({ cik: "0001214128" })
 
 export const secProxySearchTool = tool({
   description:
-    "Search for DEF 14A proxy statements by company name OR CIK. Proxy statements contain " +
-    "the COMPLETE list of directors, executive officers, and their compensation. " +
-    "Use this to find WHO serves on a company's board. Only works for PUBLIC companies. " +
-    "Supports direct CIK lookup for faster results. No API key required.",
+    // CONSTRAINT-FIRST PROMPTING: Board composition lookup
+    "HARD CONSTRAINTS: " +
+    "(1) ONLY for PUBLIC companies—nonprofits use 990 data, " +
+    "(2) Proxy statements are HIGH CONFIDENCE [Verified] official filings. " +
+    "CAPABILITY: Search DEF 14A proxy statements by company name or CIK. " +
+    "RETURNS: COMPLETE list of directors, executive officers, compensation data. " +
+    "USE WHEN: Need to verify WHO serves on a company's board. " +
+    "SUPPORTS: Company name search, direct CIK lookup (faster). " +
+    "SOURCE: SEC EDGAR (official government data). No API key required.",
   parameters: proxySearchSchema,
   execute: async ({ companyName, cik, limit = 5 }): Promise<ProxyStatementResult> => {
     // Validate input

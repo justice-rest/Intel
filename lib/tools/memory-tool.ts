@@ -16,13 +16,18 @@ import { searchMemories } from "@/lib/memory/retrieval"
 export const createMemorySearchTool = (userId: string) =>
   tool({
     description:
-      "PROACTIVELY search user memories for context. Execute this tool IMMEDIATELY when: " +
-      "(1) user says 'do you remember', 'we discussed', 'I told you', or references past conversations, " +
-      "(2) user mentions their preferences, constraints, or personal details, " +
-      "(3) researching a prospect you've researched before in this session, " +
-      "(4) user asks about anything they explicitly asked you to remember. " +
-      "Returns facts, preferences, previous research, and personal context. " +
-      "ALWAYS call this FIRST before external research to avoid duplicate work.",
+      // CONSTRAINT-FIRST PROMPTING: Hard constraints before task
+      "HARD CONSTRAINTS: " +
+      "(1) MUST execute FIRST before any external research tools, " +
+      "(2) MUST call when user references past context—no exceptions, " +
+      "(3) NEVER skip this tool if researching same prospect twice. " +
+      "TRIGGER CONDITIONS: " +
+      "(a) 'do you remember', 'we discussed', 'I told you', 'as I mentioned', " +
+      "(b) user mentions preferences, constraints, personal details, " +
+      "(c) researching a prospect from earlier in session, " +
+      "(d) user asks about anything they asked you to remember. " +
+      "RETURNS: Facts, preferences, previous research findings, personal context. " +
+      "PURPOSE: Prevent duplicate research, retrieve verified prior findings, maintain continuity.",
     parameters: z.object({
       query: z
         .string()

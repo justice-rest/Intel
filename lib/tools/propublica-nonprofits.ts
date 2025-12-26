@@ -358,10 +358,15 @@ function formatDetailsForAI(
  */
 export const propublicaNonprofitSearchTool = tool({
   description:
-    "Search for nonprofit organizations BY ORGANIZATION NAME in the ProPublica Nonprofit Explorer database. " +
-    "IMPORTANT: This searches ORG NAMES only, NOT person names. To find a person's nonprofit affiliations: " +
-    "(1) Use web search to find their nonprofit connections, (2) Then search here with the ORG NAME. " +
-    "Returns EINs, locations, and 990 filing availability. Covers 1.8M+ tax-exempt organizations.",
+    // CONSTRAINT-FIRST PROMPTING: Org search only
+    "HARD CONSTRAINTS: " +
+    "(1) ONLY searches ORGANIZATION NAMES—NOT person names, " +
+    "(2) Execute AFTER finding org names via web search, " +
+    "(3) Results are HIGH CONFIDENCE [Verified] official IRS data. " +
+    "WORKFLOW: (a) Find person's nonprofit affiliations via web search, (b) THEN search here by ORG NAME. " +
+    "RETURNS: EINs, locations, NTEE categories, 990 filing availability. " +
+    "COVERS: 1.8M+ tax-exempt organizations. " +
+    "SOURCE: ProPublica Nonprofit Explorer (IRS 990 data).",
   parameters: nonprofitSearchSchema,
   execute: async ({ query, state, nteeCategory, page }): Promise<NonprofitSearchResult> => {
     console.log("[ProPublica] Searching nonprofits:", { query, state, nteeCategory, page })
@@ -451,10 +456,14 @@ export const propublicaNonprofitSearchTool = tool({
  */
 export const propublicaNonprofitDetailsTool = tool({
   description:
-    "Get detailed information about a nonprofit organization including Form 990 financial data. " +
-    "Returns revenue, expenses, assets, liabilities, and officer compensation percentages. " +
-    "Use this after finding an EIN via search to get full financial history. " +
-    "Essential for researching foundation giving capacity and nonprofit financials.",
+    // CONSTRAINT-FIRST PROMPTING: EIN lookup
+    "HARD CONSTRAINTS: " +
+    "(1) REQUIRES valid EIN—get via propublica_nonprofit_search first, " +
+    "(2) Data is HIGH CONFIDENCE [Verified] from official IRS 990s. " +
+    "RETURNS: Revenue, expenses, assets, liabilities, officer compensation %. " +
+    "USE CASE: Research foundation giving capacity, validate nonprofit financials. " +
+    "CRITICAL: For prospect research—foundations with $10M+ assets indicate major gift potential. " +
+    "SOURCE: IRS Form 990 via ProPublica.",
   parameters: nonprofitDetailsSchema,
   execute: async ({ ein }): Promise<NonprofitDetailsResult> => {
     // Clean EIN - remove hyphens and spaces

@@ -34,13 +34,19 @@ const crmSearchSchema = z.object({
 
 export const crmSearchTool = tool({
   description:
-    "ALWAYS call this tool FIRST when researching a named donor or prospect. " +
-    "Execute BEFORE any external research (perplexity_prospect_research, sec_edgar, propublica, etc). " +
-    "Searches connected CRMs (Bloomerang, Virtuous, Neon CRM, DonorPerfect) for: " +
-    "(1) existing donor records, (2) giving history & lifetime value, (3) contact info & address. " +
-    "Use when: user asks about a specific person/donor, user says 'look up [name]', " +
-    "or when you need to check if prospect is already in the donor database. " +
-    "This prevents duplicate research on existing donors.",
+    // CONSTRAINT-FIRST PROMPTING: Priority execution with clear hierarchy
+    "HARD CONSTRAINTS: " +
+    "(1) MUST execute BEFORE any external research tools (perplexity, SEC, ProPublica, FEC), " +
+    "(2) MUST call when researching ANY named donor/prospect—no exceptions, " +
+    "(3) CRM data = verified baseline; external research supplements, never replaces. " +
+    "TRIGGER CONDITIONS: " +
+    "(a) 'tell me about [name]', 'research [name]', 'look up [name]', " +
+    "(b) any named individual in donor/prospect context, " +
+    "(c) checking giving history or donor status, " +
+    "(d) validating prospect before external research. " +
+    "SEARCHES: Bloomerang, Virtuous, Neon CRM, DonorPerfect for: " +
+    "existing records, lifetime giving, gift history, contact info, addresses. " +
+    "PURPOSE: Prevent duplicate research, leverage verified CRM data as baseline.",
   parameters: crmSearchSchema,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   execute: async (_params, _context) => {

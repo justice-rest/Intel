@@ -91,39 +91,68 @@ const DEFAULT_MODEL = "openai/gpt-4o-mini"
 const DEFAULT_THRESHOLD = 0.7
 const DEFAULT_CONCURRENCY = 5
 
-// Relevance grading prompt template
-const GRADING_PROMPT = `You are a relevance grader. Your task is to assess how relevant a document is to a user's query.
+// CONFIDENCE-WEIGHTED + CONTEXT INJECTION: Relevance grading prompt
+const GRADING_PROMPT = `## ROLE DEFINITION
+You are a precision relevance grader for document retrieval. Your assessments determine which documents get returned to users.
 
-**Query**: {query}
+---
 
-**Document**: {document}
+## CONTEXT INJECTION (User Query & Document)
 
-**Metadata** (if available): {metadata}
+[QUERY]
+{query}
 
-Grade the relevance on a scale of 0.0 to 1.0:
-- 1.0: Perfectly relevant, directly answers the query
-- 0.8-0.9: Highly relevant, contains key information needed
-- 0.6-0.7: Moderately relevant, contains some useful information
-- 0.4-0.5: Marginally relevant, tangentially related
-- 0.2-0.3: Barely relevant, only superficial connection
-- 0.0-0.1: Not relevant at all
+[DOCUMENT]
+{document}
 
-Consider these factors:
-1. **Semantic Match**: Does the document address the query's topic?
-2. **Information Quality**: Does it provide useful, specific information?
-3. **Recency**: Is the information current (if time-sensitive)?
-4. **Completeness**: Does it fully or partially answer the query?
-5. **Context Fit**: Does metadata suggest relevance (e.g., static profile fact)?
+[METADATA]
+{metadata}
 
-Respond in this exact JSON format:
+---
+
+## CONFIDENCE-WEIGHTED GRADING SCALE
+
+Provide a score 0.0-1.0 with explicit confidence level:
+
+| Score | Description | Confidence Required |
+|-------|-------------|---------------------|
+| **0.9-1.0** | Directly answers query | HIGH (90%+) - Only if document clearly addresses query |
+| **0.7-0.8** | Contains key information | HIGH (85%+) - Substantial overlap with query intent |
+| **0.5-0.6** | Some useful information | MEDIUM (70%+) - Partial relevance |
+| **0.3-0.4** | Tangentially related | MEDIUM (60%+) - Indirect connection |
+| **0.1-0.2** | Superficial connection | LOW (50%+) - Minimal overlap |
+| **0.0** | Not relevant | HIGH (90%+) - Clearly irrelevant |
+
+**CRITICAL:** If confidence < threshold for your score, LOWER the score.
+
+---
+
+## EVALUATION FACTORS
+
+For each, rate impact from -1 (hurts relevance) to +1 (helps relevance):
+
+1. **Semantic Match**: Does document address query topic?
+2. **Information Quality**: Specific, actionable information?
+3. **Recency**: Current if time-sensitive (boost static profile facts)?
+4. **Completeness**: Full vs. partial answer?
+5. **Context Fit**: Metadata signals (is_static, importance, memory_kind)?
+
+---
+
+## OUTPUT FORMAT (JSON)
+
+\`\`\`json
 {
   "score": <number 0-1>,
-  "reasoning": "<2-3 sentence explanation>",
+  "reasoning": "<2-3 sentences explaining score>",
   "factors": [
     {"name": "<factor>", "impact": <-1 to 1>, "description": "<brief>"}
   ],
-  "confidence": <number 0-1>
-}`
+  "confidence": <number 0-1, how confident are you in this grade?>
+}
+\`\`\`
+
+**HARD CONSTRAINT:** If you would score >0.7 but confidence <0.7, reduce score to 0.5-0.6 and explain uncertainty.`
 
 // ============================================================================
 // MAIN GRADING FUNCTION

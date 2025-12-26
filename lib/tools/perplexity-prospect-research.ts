@@ -134,39 +134,59 @@ function buildProspectResearchPrompt(
     }
   }).filter(Boolean).join("\n")
 
-  let prompt = `You are a prospect researcher for nonprofit fundraising. Research the following individual and provide comprehensive, factual information with citations.
+  // ROLE-BASED CONSTRAINT PROMPTING: Expert role with specific constraints
+  let prompt = `## ROLE DEFINITION
+You are a senior prospect researcher with 15+ years experience in nonprofit wealth screening and donor research.
 
+**EXPERTISE:** APRA-compliant research, public records analysis, wealth indicator triangulation
+**METHODOLOGY:** Multi-source verification, confidence-weighted reporting, range-based estimates
+
+---
+
+## RESEARCH SUBJECT
 **Prospect Name:** ${name}
 ${address ? `**Address:** ${address}` : ""}
 ${context ? `**Additional Context:** ${context}` : ""}
 
-## Research Focus Areas
+---
+
+## HARD CONSTRAINTS (Non-Negotiable)
+1. **CITE ALL SOURCES** - Every factual claim MUST include a source URL
+2. **USE RANGES** for all estimated values (e.g., "$2-5M" not "$3.5M")
+3. **MARK ALL ESTIMATES** with [Estimated - Methodology: X] tag
+4. **NEVER FABRICATE** - If not found, state "Not found in public records"
+5. **VERIFY CLAIMS** - Cross-reference 2+ sources when possible
+
+## SOFT PREFERENCES
+- Prioritize official sources (county assessors, SEC, FEC) over news articles
+- Include recency dates for all data points
+- Note any identity disambiguation concerns
+
+---
+
+## RESEARCH FOCUS AREAS
 ${focusInstructions}
 
-## Requirements
-1. **CITE ALL SOURCES** - Every factual claim must include a source URL
-2. **USE RANGES** for estimated values (e.g., "$2-5M" not "$3.5M")
-3. **MARK ESTIMATES** clearly with [Estimated] tag
-4. **VERIFY INFORMATION** - Cross-reference multiple sources when possible
-5. **DO NOT FABRICATE** - If information is not found, say "Not found in public records"
+---
 
-## Output Format
-Provide a structured research report with these sections:
+## OUTPUT FORMAT (Follow Exactly)
 
 ### Executive Summary
-2-3 sentence overview of the prospect's wealth indicators and philanthropic potential.
+2-3 sentences: Who they are, primary wealth indicators, philanthropic potential.
 
-### Real Estate
-Property holdings with estimated values and sources.
+### Real Estate Holdings
+| Property | Est. Value | Source | Confidence |
+|----------|------------|--------|------------|
+| [Address] | $X-Y | [Source URL] | HIGH/MEDIUM/LOW |
 
 ### Business Interests
-Companies, executive positions, board seats with sources.
+Companies owned/founded, executive positions, board seats—with sources.
 
 ### Securities & Stock Holdings
-Public company affiliations, insider holdings (if applicable).
+Public company affiliations, SEC filings, insider holdings.
 
 ### Philanthropic Profile
-Foundation board seats, major gifts, nonprofit affiliations.
+Foundation boards, major gifts, nonprofit affiliations.
 
 ### Wealth Indicators Summary
 | Indicator | Value | Confidence | Source |
@@ -176,7 +196,7 @@ Foundation board seats, major gifts, nonprofit affiliations.
 | Philanthropy | Description | HIGH/MEDIUM/LOW | [Source] |
 
 ### Sources
-List all sources used with URLs.`
+All sources used with clickable URLs.`
 
   return prompt
 }
@@ -238,14 +258,26 @@ export function createPerplexityProspectResearchTool(isDeepResearch: boolean = f
 
   return tool({
     description: isDeepResearch
-      ? "Deep prospect research using Perplexity Sonar Deep Research's multi-step autonomous search. " +
-        "Performs comprehensive, multi-step investigation for complex research requests. " +
-        "Returns deeply-researched results with extensive citations. " +
-        "Use for thorough donor investigations requiring maximum depth."
-      : "Comprehensive prospect research using Perplexity Sonar Pro's agentic web search. " +
-        "Searches real estate, business ownership, securities, philanthropy, and biographical data with citations. " +
-        "Returns grounded, factual results from authoritative sources. " +
-        "Use for detailed donor research when you need verified information with sources.",
+      // CONSTRAINT-FIRST PROMPTING: Deep Research variant
+      ? "HARD CONSTRAINTS: " +
+        "(1) Execute ONLY after memory + CRM checks complete, " +
+        "(2) MUST include all sources in output, " +
+        "(3) NEVER present unverified claims without [Unverified] tag. " +
+        "CAPABILITY: Multi-step autonomous investigation using Perplexity Sonar Deep Research. " +
+        "SEARCHES: Real estate, business ownership, securities, philanthropy, biography—with citations. " +
+        "OUTPUT: Comprehensive grounded results with extensive source URLs. " +
+        "USE WHEN: Thorough investigation needed, complex research, maximum depth required. " +
+        "COST: ~$0.10/call | TIMEOUT: 180s"
+      // CONSTRAINT-FIRST PROMPTING: Standard Sonar Pro variant
+      : "HARD CONSTRAINTS: " +
+        "(1) Execute ONLY after memory + CRM checks complete, " +
+        "(2) MUST include all sources in output, " +
+        "(3) NEVER present unverified claims without [Unverified] tag. " +
+        "CAPABILITY: Agentic web search using Perplexity Sonar Pro with grounded citations. " +
+        "SEARCHES: Real estate, business ownership, securities, philanthropy, biography—all with sources. " +
+        "OUTPUT: Factual results from authoritative sources with URLs. " +
+        "USE WHEN: Detailed donor research, need verified information with sources. " +
+        "COST: ~$0.04/call | TIMEOUT: 60s",
     parameters: perplexityProspectResearchSchema,
     execute: async (params): Promise<PerplexityProspectResult> => {
       const { name, address, context, focus_areas } = params
