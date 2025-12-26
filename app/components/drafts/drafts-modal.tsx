@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import Image from "next/image"
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,6 @@ import { toast } from "@/components/ui/toast"
 import { fetchClient } from "@/lib/fetch"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
-  Envelope,
   Spinner,
   ArrowsClockwise,
   Tray,
@@ -177,7 +177,13 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
           {/* Header */}
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-base font-semibold text-black dark:text-white flex items-center gap-2">
-              <Envelope size={20} weight="fill" />
+              <Image
+                src="/svgs/Gmail SVG Icon.svg"
+                alt="Gmail"
+                width={20}
+                height={20}
+                className="size-5"
+              />
               Gmail Drafts
             </h2>
             <button

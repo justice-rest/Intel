@@ -25,7 +25,6 @@ import {
   File,
   CaretDown,
   CaretUp,
-  GoogleLogo,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import type { GoogleIntegrationStatus, GoogleDriveDocument } from "@/lib/google/types"
@@ -223,7 +222,13 @@ export function GoogleIntegrationSection() {
     <div>
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <GoogleLogo size={20} weight="bold" className="text-[#4285F4]" />
+        <Image
+          src="/svgs/Google Color Icon.svg"
+          alt="Google"
+          width={20}
+          height={20}
+          className="size-5"
+        />
         <h3 className="text-base font-semibold text-black dark:text-white">
           Google Workspace
         </h3>
@@ -474,7 +479,13 @@ export function GoogleIntegrationSection() {
               {connectMutation.isPending && (
                 <Spinner size={14} className="animate-spin" />
               )}
-              <GoogleLogo size={16} weight="bold" />
+              <Image
+                src="/svgs/Google Color Icon.svg"
+                alt="Google"
+                width={16}
+                height={16}
+                className="size-4"
+              />
               Connect Google Account
             </button>
           </div>
