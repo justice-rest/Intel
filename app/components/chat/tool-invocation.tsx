@@ -1512,13 +1512,9 @@ function SingleToolCard({
 
       return (
         <div className="space-y-3">
-          {/* Header with count */}
-          <div className="flex items-center justify-between">
-            <div className="text-muted-foreground text-xs">
-              <span className="font-medium">{ragResult.results.length} {ragResult.results.length === 1 ? "passage" : "passages"}</span>
-              <span className="mx-1.5">·</span>
-              <span className="italic">&quot;{ragResult.query}&quot;</span>
-            </div>
+          {/* Header */}
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Results ({ragResult.results.length})
           </div>
 
           {/* Document results */}
@@ -1526,37 +1522,113 @@ function SingleToolCard({
             {ragResult.results.map((result, index) => (
               <div
                 key={result.chunkId || index}
-                className="border-border rounded-lg border bg-muted/20 p-3"
+                className="border-border border-b pb-2 last:border-0 last:pb-0"
               >
                 {/* Document header */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
-                      <Code className="h-3.5 w-3.5 text-muted-foreground" />
-                      {result.document}
-                    </span>
-                    {result.page && (
-                      <span className="text-xs text-muted-foreground">
-                        Page {result.page}
-                      </span>
-                    )}
+                <div className="flex items-center justify-between">
+                  <div className="font-medium text-foreground text-sm">
+                    {result.document}
                   </div>
-                  {/* Similarity score */}
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <span className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      result.similarity >= 80 ? "bg-green-500" :
-                      result.similarity >= 60 ? "bg-yellow-500" : "bg-gray-400"
-                    )} />
+                  <span className="text-xs text-muted-foreground">
                     {result.similarity}% match
                   </span>
                 </div>
 
+                {/* Metadata */}
+                {result.page && (
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Page {result.page}
+                  </div>
+                )}
+
                 {/* Content excerpt */}
-                <div className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
-                  {result.content.length > 500
-                    ? `${result.content.slice(0, 500)}...`
+                <div className="text-foreground text-sm leading-relaxed mt-1">
+                  {result.content.length > 400
+                    ? `${result.content.slice(0, 400)}...`
                     : result.content}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle List Documents results
+    if (
+      toolName === "list_documents" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "documents" in parsedResult
+    ) {
+      const docsResult = parsedResult as {
+        success: boolean
+        documents: Array<{
+          id: string
+          name: string
+          sizeBytes: number
+          sizeFormatted: string
+          pageCount: number
+          wordCount: number
+          language: string
+          status: string
+          tags: string[]
+          uploadedAt: string
+          processedAt: string
+        }>
+        count: number
+        message: string
+        error?: string
+      }
+
+      if (!docsResult.success || docsResult.error) {
+        return (
+          <div className="text-muted-foreground">
+            {docsResult.error || "Failed to list documents"}
+          </div>
+        )
+      }
+
+      if (docsResult.documents.length === 0) {
+        return (
+          <div className="text-muted-foreground">
+            No documents found. Upload a PDF to get started.
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-3">
+          {/* Header */}
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Documents ({docsResult.count})
+          </div>
+
+          {/* Document list */}
+          <div className="space-y-2">
+            {docsResult.documents.map((doc) => (
+              <div
+                key={doc.id}
+                className="border-border border-b pb-2 last:border-0 last:pb-0"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="font-medium text-foreground text-sm truncate">
+                    {doc.name}
+                  </div>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {doc.sizeFormatted}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                  {doc.pageCount && <span>{doc.pageCount} pages</span>}
+                  {doc.wordCount && <span>{doc.wordCount.toLocaleString()} words</span>}
+                  <span className={cn(
+                    doc.status === "ready" ? "text-green-600 dark:text-green-500" :
+                    doc.status === "processing" ? "text-yellow-600 dark:text-yellow-500" :
+                    "text-muted-foreground"
+                  )}>
+                    {doc.status}
+                  </span>
                 </div>
               </div>
             ))}
@@ -1605,22 +1677,6 @@ function SingleToolCard({
         )
       }
 
-      // Category badge colors
-      const getCategoryColor = (category: string) => {
-        switch (category) {
-          case "user_info":
-            return "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
-          case "preferences":
-            return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-          case "relationships":
-            return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-          case "context":
-            return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-          default:
-            return "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-        }
-      }
-
       // Format category for display
       const formatCategory = (category: string) => {
         switch (category) {
@@ -1639,68 +1695,29 @@ function SingleToolCard({
 
       return (
         <div className="space-y-3">
-          {/* Header with count */}
-          <div className="flex items-center justify-between">
-            <div className="text-muted-foreground text-xs">
-              <span className="font-medium">{memoryResult.count} {memoryResult.count === 1 ? "memory" : "memories"}</span>
-              <span className="mx-1.5">·</span>
-              <span className="italic">&quot;{memoryResult.query}&quot;</span>
-            </div>
+          {/* Header */}
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Memories ({memoryResult.count})
           </div>
 
-          {/* Memory cards */}
+          {/* Memory list */}
           <div className="space-y-2">
             {memoryResult.memories.map((memory, index) => (
               <div
                 key={index}
-                className="border-border rounded-lg border bg-muted/20 p-3"
+                className="border-border border-b pb-2 last:border-0 last:pb-0"
               >
                 {/* Memory content */}
                 <div className="text-foreground text-sm leading-relaxed">
                   {memory.content}
                 </div>
 
-                {/* Memory metadata */}
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {/* Category badge */}
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                      getCategoryColor(memory.category)
-                    )}
-                  >
-                    {formatCategory(memory.category)}
-                  </span>
-
-                  {/* Relevance score */}
-                  <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                    <span className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      memory.similarity >= 80 ? "bg-green-500" :
-                      memory.similarity >= 60 ? "bg-yellow-500" : "bg-gray-400"
-                    )} />
-                    {memory.similarity}% match
-                  </span>
-
-                  {/* Importance indicator */}
-                  {memory.importance >= 0.8 && (
-                    <span className="text-xs text-amber-600 dark:text-amber-400">
-                      High importance
-                    </span>
-                  )}
-
-                  {/* Tags */}
+                {/* Memory metadata - minimal */}
+                <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                  <span>{formatCategory(memory.category)}</span>
+                  <span>{memory.similarity}% match</span>
                   {memory.tags && memory.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {memory.tags.slice(0, 3).map((tag, tagIndex) => (
-                        <span
-                          key={tagIndex}
-                          className="text-xs text-muted-foreground"
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
+                    <span>{memory.tags.slice(0, 2).map(t => `#${t}`).join(" ")}</span>
                   )}
                 </div>
               </div>
