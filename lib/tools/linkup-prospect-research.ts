@@ -101,11 +101,8 @@ async function withRetry<T>(
 /**
  * Build an optimized prospect research query for LinkUp
  *
- * PROMPT ENGINEERING TECHNIQUES:
- * 1. Mandatory Search Checklist - Explicit sources to search
- * 2. Exhaustive Foundation Search - All naming patterns
- * 3. Aggressive Wealth Estimation - Proper multiples
- * 4. Confidence Tags - [Verified]/[Unverified]/[Estimated]
+ * Uses QUERY-FOCUSED approach - natural language questions that prompt search
+ * Not checklists that prompt verification
  */
 function buildProspectResearchQuery(
   name: string,
@@ -113,120 +110,54 @@ function buildProspectResearchQuery(
   context?: string,
   focusAreas?: string[]
 ): string {
-  const areas = focusAreas || [
-    "real_estate",
-    "business_ownership",
-    "philanthropy",
-    "securities",
-    "biography",
-  ]
+  const firstName = name.split(' ')[0]
+  const lastName = name.split(' ').slice(-1)[0]
 
-  const focusInstructions = areas
-    .map((area) => {
-      switch (area) {
-        case "real_estate":
-          return "- REAL ESTATE: County tax assessor records, Zillow, Redfin, property values, all properties owned"
-        case "business_ownership":
-          return "- BUSINESS: Companies founded/owned, executive positions, board seats, revenue/employee estimates"
-        case "philanthropy":
-          return "- PHILANTHROPY: Foundation boards, major donations, nonprofit leadership, DAF accounts"
-        case "securities":
-          return "- SECURITIES: SEC Form 4 insider filings, public company boards, stock holdings"
-        case "biography":
-          return "- BIOGRAPHY: Age/DOB, spouse name, education, career history, net worth indicators"
-        default:
-          return ""
-      }
-    })
-    .filter(Boolean)
-    .join("\n")
+  const query = `Research ${name} for nonprofit fundraising prospect research. Find comprehensive information about their wealth, philanthropy, and background.
 
-  // Determine county from address if provided
-  const countySearchInstruction = address
-    ? `CRITICAL: Search "${address.split(',').slice(-2, -1)[0]?.trim() || ''} County" property appraiser/tax assessor records.`
-    : "Find and search the relevant county property appraiser records."
+${address ? `Address: ${address}` : ''}
+${context ? `Context: ${context}` : ''}
 
-  const query = `
-================================================================================
-EXHAUSTIVE PROSPECT RESEARCH: ${name}
-================================================================================
+FIND AND REPORT:
 
-${address ? `ADDRESS: ${address}` : "ADDRESS: Unknown - MUST search for properties"}
-${context ? `CONTEXT: ${context}` : ""}
+**REAL ESTATE:**
+${address ? `- What is the property value at ${address}? Search county property appraiser records.` : `- What properties does ${name} own?`}
+- Search Zillow and Redfin for property values
+- Any additional properties or vacation homes?
 
-================================================================================
-MANDATORY SEARCHES (Complete ALL of these)
-================================================================================
+**BIOGRAPHICAL:**
+- How old is ${name}? (Search "${name} age" and "${name} born")
+- Who is ${name} married to? (spouse name)
+- Education background?
+- Career history and current role?
 
-## 1. REAL ESTATE - MOST IMPORTANT
-${countySearchInstruction}
-- Search: County Property Appraiser, Zillow, Redfin, Realtor.com
-- Find: ALL properties, assessed values, sale prices, sale dates
-- DO NOT skip county assessor - this is the primary official source
+**BUSINESS:**
+- What companies does ${name} own or lead?
+- What is their company's estimated revenue?
+- Any board positions?
 
-## 2. BIOGRAPHICAL DATA - REQUIRED FIELDS
-- AGE/DATE OF BIRTH: Search "${name} age" "${name} born" "${name} birthday"
-- SPOUSE NAME: Check property records, wedding announcements, LinkedIn
-- EDUCATION: LinkedIn, news articles, university mentions
-- Career timeline with dates
+**POLITICAL GIVING:**
+- Search FEC.gov for ${name}'s political contributions
+- Total amount donated and to whom?
 
-## 3. BUSINESS OWNERSHIP
-- LinkedIn profile and experience
-- State business registries (sunbiz.org for FL, etc.)
-- Bloomberg executive profiles
-- Crunchbase for startups
+**PHILANTHROPY:**
+- Search for "${name} Foundation"
+- Search for "${lastName} Family Foundation"
+- Search for "${firstName} 1:16 Foundation" and other religious/biblical foundation names
+- What nonprofit boards does ${name} serve on?
+- Any major charitable gifts?
 
-## 4. PHILANTHROPY - EXHAUSTIVE SEARCH
-Search ALL of these foundation naming patterns:
-- "${name} Foundation"
-- "${name.split(' ').slice(-1)[0]} Family Foundation" (last name)
-- Search first name + Bible verses (e.g., "John 3:16 Foundation", "John 1:16")
-- Spouse name + Foundation
-- Company name + Foundation
-- ProPublica Nonprofit Explorer for 990 officer listings
-- Donor Advised Funds (Fidelity Charitable, Schwab Charitable)
+**SECURITIES:**
+- Any SEC filings for ${name}? (Form 4 insider transactions)
+- Public company roles?
 
-## 5. POLITICAL GIVING
-- FEC.gov individual contributions
-- Search name variations (Robert vs Bob, etc.)
+OUTPUT FORMAT:
+- Cite all sources with URLs
+- Use ranges for estimates ($X-Y million)
+- Mark [Verified] for official records, [Estimated] for calculations
+- If you can't find something, explain what you searched
 
-## 6. SECURITIES
-- SEC EDGAR Form 3/4/5 insider filings
-- DEF 14A proxy statements for board roles
-- Yahoo Finance insider transactions
-
-================================================================================
-REQUIRED DATA POINTS
-================================================================================
-
-${focusInstructions}
-
-================================================================================
-OUTPUT REQUIREMENTS
-================================================================================
-
-1. CITE EVERY SOURCE with URLs
-2. Use RANGES for estimates: "$2-5M" not "$3.5M"
-3. Mark confidence levels:
-   - [Verified] = Official records (SEC, FEC, County Assessor, 990)
-   - [Corroborated] = 2+ independent sources agree
-   - [Unverified] = Single web source
-   - [Estimated] = Calculated (show methodology)
-
-4. REQUIRED FIELDS (find these or explain what you searched):
-   - Age
-   - Spouse name
-   - Primary residence value (from county assessor)
-   - Business ownership details
-   - Foundation affiliations (search ALL naming patterns)
-
-5. NET WORTH: Use aggressive-but-realistic multiples:
-   - $3M+ home + successful business = likely $10M+ net worth
-   - Business value = Revenue × industry multiple (2-5x for most industries)
-   - Include lifestyle indicators (clubs, vehicles, travel)
-
-CRITICAL: If you say "no foundations found" without searching religious/biblical naming patterns, your research is INCOMPLETE.
-`
+Provide a comprehensive research report with all findings.`
 
   return query
 }

@@ -21,26 +21,36 @@ const MermaidDiagram = lazy(() => import("@/components/prompt-kit/mermaid-diagra
 // ============================================================================
 
 /**
- * Preprocess markdown to convert confidence tags into styled HTML spans
+ * Tooltip definitions for each confidence tag type
+ */
+const CONFIDENCE_TOOLTIPS = {
+  verified: "Confirmed via official records (county assessor, SEC, FEC, etc.)",
+  corroborated: "Supported by multiple independent sources",
+  unverified: "Single source only—treat with caution",
+  estimated: "Calculated from available data using industry formulas",
+}
+
+/**
+ * Preprocess markdown to convert confidence tags into styled HTML spans with tooltips
  *
  * Handles patterns like:
- * - [Verified] → badge only
- * - [Corroborated] → badge only
+ * - [Verified] → badge with tooltip
+ * - [Corroborated] → badge with tooltip
  * - [Unverified] or [Unverified - reason] → badge "Unverified" + text "- reason"
  * - [Estimated] or [Estimated - methodology] → badge "Estimated" + text "- methodology"
  */
 function preprocessConfidenceTags(content: string): string {
   let processed = content
 
-  // Simple tags (no extra content)
+  // Simple tags (no extra content) - with tooltips
   processed = processed.replace(
     /\[Verified\]/g,
-    '<span class="confidence-tag confidence-verified">Verified</span>'
+    `<span class="confidence-tag confidence-verified" data-tooltip="${CONFIDENCE_TOOLTIPS.verified}">Verified</span>`
   )
 
   processed = processed.replace(
     /\[Corroborated\]/g,
-    '<span class="confidence-tag confidence-corroborated">Corroborated</span>'
+    `<span class="confidence-tag confidence-corroborated" data-tooltip="${CONFIDENCE_TOOLTIPS.corroborated}">Corroborated</span>`
   )
 
   // Tags with optional extra content - badge the type, keep the rest as text
@@ -48,7 +58,7 @@ function preprocessConfidenceTags(content: string): string {
   processed = processed.replace(
     /\[Unverified([^\]]*)\]/g,
     (_, extra) => {
-      const badge = '<span class="confidence-tag confidence-unverified">Unverified</span>'
+      const badge = `<span class="confidence-tag confidence-unverified" data-tooltip="${CONFIDENCE_TOOLTIPS.unverified}">Unverified</span>`
       // If there's extra content after "Unverified", show it as regular text
       return extra ? `${badge}<span class="confidence-detail">${extra}</span>` : badge
     }
@@ -58,7 +68,7 @@ function preprocessConfidenceTags(content: string): string {
   processed = processed.replace(
     /\[Estimated([^\]]*)\]/g,
     (_, extra) => {
-      const badge = '<span class="confidence-tag confidence-estimated">Estimated</span>'
+      const badge = `<span class="confidence-tag confidence-estimated" data-tooltip="${CONFIDENCE_TOOLTIPS.estimated}">Estimated</span>`
       // If there's extra content (methodology), show it as regular text
       return extra ? `${badge}<span class="confidence-detail">${extra}</span>` : badge
     }
@@ -259,6 +269,59 @@ function MarkdownComponent({
 
         .dark .confidence-detail {
           color: rgb(156, 163, 175);
+        }
+
+        /* CSS-only tooltip - matches Radix tooltip styling */
+        .confidence-tag[data-tooltip] {
+          position: relative;
+          cursor: help;
+        }
+
+        .confidence-tag[data-tooltip]::before,
+        .confidence-tag[data-tooltip]::after {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.15s ease, visibility 0.15s ease;
+          pointer-events: none;
+          z-index: 50;
+        }
+
+        /* Tooltip box */
+        .confidence-tag[data-tooltip]::before {
+          content: attr(data-tooltip);
+          bottom: calc(100% + 6px);
+          padding: 0.375rem 0.75rem;
+          border-radius: 0.375rem;
+          font-size: 0.75rem;
+          font-weight: 500;
+          line-height: 1.4;
+          white-space: nowrap;
+          max-width: 280px;
+          white-space: normal;
+          text-align: center;
+          background-color: hsl(var(--primary));
+          color: hsl(var(--primary-foreground));
+        }
+
+        /* Arrow */
+        .confidence-tag[data-tooltip]::after {
+          content: '';
+          bottom: calc(100% + 2px);
+          width: 10px;
+          height: 10px;
+          background-color: hsl(var(--primary));
+          transform: translateX(-50%) rotate(45deg);
+          border-radius: 2px;
+        }
+
+        /* Show on hover */
+        .confidence-tag[data-tooltip]:hover::before,
+        .confidence-tag[data-tooltip]:hover::after {
+          opacity: 1;
+          visibility: visible;
         }
       `}</style>
       <Streamdown

@@ -143,303 +143,102 @@ function buildProspectResearchPrompt(
     }
   }).filter(Boolean).join("\n")
 
-  const prompt = `
-################################################################################
-#                                                                              #
-#                    PROSPECT RESEARCH: ${name}
-#                                                                              #
-################################################################################
-
-## YOUR IDENTITY
-
-You are the **#1 prospect researcher in America**. Your research has directly led to $2B+ in major gifts. Gift officers fight to work with you because your reports convert at 3x the industry average.
-
-**Why you're the best:** You NEVER miss publicly available information. You search exhaustively. You find the county assessor records. You find the obscure family foundation. You find the age, the spouse, the alma mater. Other researchers give up—you dig deeper.
-
-**Your reputation is on the line with every report.**
-
-================================================================================
-##                    ⚠️  MANDATORY SEARCH CHECKLIST  ⚠️
-##              (You MUST attempt ALL of these searches - NO EXCEPTIONS)
-================================================================================
-
-Before writing your report, you MUST search for ALL of the following. Check each box mentally as you complete it. If you skip ANY search, your report is INCOMPLETE.
-
-### 🏠 REAL ESTATE (MANDATORY - ALL SOURCES)
-${address ? `**Given Address:** ${address}` : "**No address provided - you MUST find their address**"}
-
-□ **COUNTY TAX ASSESSOR** (PRIMARY SOURCE - MOST IMPORTANT)
-  - Identify the county from address (e.g., St. Johns County, Palm Beach County)
-  - Search "[County Name] Property Appraiser" or "[County Name] Tax Assessor"
-  - Get: Assessed value, sale price, sale date, owner name, parcel ID
-  - Florida: Search county property appraiser (e.g., sjcpa.us, bcpa.net, miamidade.gov/pa)
-  - California: Search county assessor (e.g., assessor.lacounty.gov)
-  - New York: Search county tax records
-  - THIS IS YOUR MOST RELIABLE SOURCE - DO NOT SKIP
-
-□ **ZILLOW** - Search for property, get Zestimate
-□ **REDFIN** - Search for property, get estimate + sale history
-□ **REALTOR.COM** - Search for property details
-□ **TRULIA** - Additional property data
-
-**CRITICAL:** If you have an address but don't search the county assessor, YOU HAVE FAILED.
-
-### 👤 BIOGRAPHICAL (MANDATORY - ALL FIELDS)
-
-□ **AGE / DATE OF BIRTH** (REQUIRED - Do NOT skip this)
-  - Search: "${name} age" / "${name} birthday" / "${name} born"
-  - Check: LinkedIn (sometimes shows), Wikipedia, news articles, obituaries of relatives
-  - Voter registration records (some states public)
-  - If spouse known, search spouse's age too
-  - **This is BASIC info - if you can't find it, explain exactly what you searched**
-
-□ **SPOUSE NAME** - Search for spouse/partner
-  - Wedding announcements, society pages, charity event photos
-  - LinkedIn connections, Facebook
-  - Property records often list both names
-
-□ **EDUCATION** - Degrees, universities, graduation years
-  - LinkedIn Education section
-  - University alumni directories
-  - News articles mentioning alma mater
-
-□ **CAREER HISTORY** - Full employment history with dates
-  - LinkedIn Experience section
-  - Company websites, press releases
-  - SEC filings (for executives)
-
-### 🏢 BUSINESS OWNERSHIP (MANDATORY)
-
-□ **LINKEDIN** - Current and past positions, company names
-□ **STATE BUSINESS REGISTRY** - Search state SOS for companies they've founded
-  - Florida: sunbiz.org
-  - Delaware: icis.corp.delaware.gov
-  - California: bizfilesonline.sos.ca.gov
-□ **CRUNCHBASE** - Startup involvement, funding rounds
-□ **BLOOMBERG** - Executive profiles
-□ **PITCHBOOK** - Private company data (if accessible)
-
-### 💰 SECURITIES (MANDATORY FOR EXECUTIVES)
-
-□ **SEC EDGAR FORM 4** - Search by name for insider filings
-□ **SEC PROXY STATEMENTS (DEF 14A)** - Board memberships, compensation
-□ **YAHOO FINANCE** - Insider transactions
-
-### 🗳️ POLITICAL GIVING (MANDATORY)
-
-□ **FEC.GOV** - Search individual contributions
-  - MUST search even if you think they don't donate
-  - Search name variations (Robert vs Bob, etc.)
-  - Note: Only captures contributions >$200
-
-### 🎁 PHILANTHROPY (MANDATORY - EXHAUSTIVE SEARCH)
-
-**⚠️ FOUNDATION SEARCH PATTERNS - Search ALL of these:**
-
-□ **[Full Name] Foundation** - e.g., "John Smith Foundation"
-□ **[Last Name] Family Foundation** - e.g., "Smith Family Foundation"
-□ **[First Name + Spouse Name] Foundation** - e.g., "John and Wendy Smith Foundation"
-□ **[Spouse Last Name] Foundation** - If spouse has different maiden name
-□ **[Company Name] Foundation** - If they own a business
-□ **RELIGIOUS/BIBLICAL NAMES** - Many donors name foundations after scripture:
-  - Search: John 3:16 Foundation, Genesis Foundation, Matthew 25 Foundation
-  - Search first name + chapter:verse patterns (e.g., "John 1:16")
-  - Search religious keywords + their name
-□ **DONOR ADVISED FUNDS** - Check Fidelity Charitable, Schwab Charitable, Vanguard Charitable
-□ **PROPUBLICA NONPROFIT EXPLORER** - Search by name for 990 officer listings
-□ **GUIDESTAR/CANDID** - Foundation and nonprofit affiliations
-□ **COMMUNITY FOUNDATION** - Local community foundation grants
-
-**CRITICAL:** Saying "no private foundations found" when one exists is UNACCEPTABLE.
-
-### 📰 NEWS & REPUTATION
-
-□ **GOOGLE NEWS** - Recent news articles
-□ **GOOGLE SEARCH** - General web presence
-□ **WIKIPEDIA** - If notable enough
-□ **COURT RECORDS** - Any litigation (search "[Name] lawsuit" or "[Name] court")
-
-================================================================================
-##                         NET WORTH ESTIMATION RULES
-##                    (Stop Low-Balling - Use These Multiples)
-================================================================================
-
-**You have been UNDERESTIMATING net worth. Use these aggressive-but-realistic multiples:**
-
-### Real Estate Multiplier
-- Primary residence: Use Zillow Zestimate OR county assessed × 1.2 (whichever higher)
-- Multiple properties: Sum all properties
-- Vacation homes: Often 1.5-2x primary residence value for wealthy individuals
-
-### Business Valuation (Revenue Multiples by Industry)
-| Industry | Revenue Multiple | EBITDA Multiple |
-|----------|-----------------|-----------------|
-| Software/SaaS | 5-10x | 15-25x |
-| Healthcare Services | 2-4x | 8-12x |
-| Professional Services | 1-3x | 5-8x |
-| Construction/Real Estate | 1-2x | 4-6x |
-| Retail/Restaurant | 0.5-1.5x | 3-5x |
-| Manufacturing | 1-2x | 5-8x |
-
-**For private business owners:** If annual revenue unknown, estimate from:
-- Employee count × $150-250K per employee = rough revenue
-- Then apply industry multiple
-
-### Securities Estimation
-- If SEC Form 4 shows holdings: Use current stock price × shares
-- If executive at public company: Assume $1-5M in equity compensation
-- If board member: Assume $100K-500K in stock grants
-
-### Liquid Assets Estimation
-- Assume 10-20% of net worth is liquid (cash, public securities)
-- Successful entrepreneurs: Often 20-40% liquid post-exit
-
-### NET WORTH FORMULA (Use This)
-\`\`\`
-Net Worth = Real Estate + Business Equity + Securities + (Lifestyle Indicator Adjustment)
-
-Lifestyle Indicators (ADD to estimate):
-+ Luxury vehicles (each $100K+): Add $500K-1M to liquid wealth assumption
-+ Private club memberships: Add $500K-2M
-+ Private school tuition (per child): Add $300K-500K to annual income assumption
-+ Vacation properties: Add full value
-+ Boat/yacht ownership: Add $500K-5M depending on size
-+ Private aviation: Add $2-10M
-\`\`\`
-
-**CRITICAL:** If someone owns a $3M home, has a successful business, and donates to political campaigns, their net worth is almost certainly $10M+, not $5M.
-
-================================================================================
-##                              CONFIDENCE TAGS
-================================================================================
-
-Use these EXACT tags in your output:
-
-- **[Verified]** - Official source (county assessor, SEC, FEC, IRS 990)
-- **[Corroborated]** - 2+ independent sources agree
-- **[Unverified]** - Single source, not official
-- **[Estimated]** - Calculated value (always include methodology)
-
-================================================================================
-##                    CHAIN-OF-VERIFICATION (Before Output)
-================================================================================
-
-Before finalizing, verify:
-
-1. ✓ Did I search the COUNTY TAX ASSESSOR for property records?
-2. ✓ Did I find their AGE (or document exactly what I searched)?
-3. ✓ Did I search for foundations using ALL naming patterns (including religious names)?
-4. ✓ Is my net worth estimate realistic given their lifestyle indicators?
-5. ✓ Does every factual claim have a source URL?
-6. ✓ Are all estimates marked with [Estimated] + methodology?
-
-================================================================================
-##                              OUTPUT FORMAT
-================================================================================
-
-### Executive Summary
-3-4 sentences: Who they are, age, primary wealth source, net worth range, capacity.
-
----
-
-### Personal Profile
-| Field | Value | Source | Confidence |
-|-------|-------|--------|------------|
-| **Full Name** | ${name} | - | - |
-| **Age** | [REQUIRED - find this] | [Source] | [Tag] |
-| **Spouse** | [Name or "Not found"] | [Source] | [Tag] |
-| **Location** | [City, State] | [Source] | [Tag] |
-| **Education** | [Degrees, Schools] | [Source] | [Tag] |
-
----
-
-### Real Estate Holdings
-| Property Address | County Assessed | Market Est. | Source | Confidence |
-|-----------------|-----------------|-------------|--------|------------|
-| [Full address] | $X (YYYY) | $X-Y | [County Assessor URL] | [Verified] |
-
-**Total Real Estate:** $X-Y
-
----
-
-### Business Interests
-| Company | Role | Est. Revenue | Est. Equity | Source | Confidence |
-|---------|------|--------------|-------------|--------|------------|
-| [Name] | [Title] | $X-Y | $X-Y | [Source] | [Tag] |
-
-**Business Valuation Methodology:** [Explain your calculation]
-
----
-
-### Securities & Public Company Roles
-- **SEC Filings Found:** [Yes/No - what you searched]
-- **Holdings:** [Details or "None found in SEC EDGAR"]
-
----
-
-### Political Giving (FEC.gov)
-| Recipient | Amount | Date | Source |
-|-----------|--------|------|--------|
-| [Name] | $X | YYYY | [FEC link] |
-
-**Total Political Contributions:** $X (YYYY-YYYY)
-**Party Lean:** [Republican/Democratic/Bipartisan/None found]
-
----
-
-### Philanthropic Profile
-
-**Private Foundations:**
-| Foundation Name | Role | Assets | 990 Link |
-|-----------------|------|--------|----------|
-| [Name] | [Trustee/Director] | $X | [ProPublica link] |
-
-**Foundation Search Methodology:** [List EVERY search pattern you tried]
-- Searched "[Name] Foundation" - [Result]
-- Searched "[Last Name] Family Foundation" - [Result]
-- Searched religious patterns (John 1:16, etc.) - [Result]
-
-**Nonprofit Board Service:**
-[List all boards with sources]
-
-**Known Major Gifts:**
-[List with amounts and sources]
-
----
-
-### Net Worth Analysis
-
-| Category | Low Estimate | High Estimate | Confidence | Source |
-|----------|--------------|---------------|------------|--------|
-| Real Estate | $X | $Y | [Tag] | [Source] |
-| Business Equity | $X | $Y | [Tag] | [Methodology] |
-| Securities | $X | $Y | [Tag] | [Source] |
-| Other Assets | $X | $Y | [Tag] | [Lifestyle indicators] |
-| **TOTAL** | **$X** | **$Y** | [Overall] | - |
-
-**Net Worth Methodology:** [Detailed explanation of how you calculated this]
-
----
-
-### Gift Capacity
-- **Annual Fund Capacity:** $X-Y (1% of liquid assets)
-- **Major Gift Capacity:** $X-Y (3-5% of net worth over 5 years)
-- **Recommended Ask:** $X-Y
-- **Capacity Rating:** [A/B/C/D per TFG Research scale]
-
----
-
-### Research Quality Self-Assessment
-- **Searches Completed:** [X of Y mandatory searches]
-- **Highest Confidence Data:** [What we know for certain]
-- **Gaps Remaining:** [What we couldn't find and why]
-- **Recommended Follow-up:** [Specific next steps]
-
----
-
-### All Sources
-[List every URL you used, organized by category]
-`
+  // Build a QUERY-FOCUSED prompt that leverages Perplexity's search capabilities
+  // The key insight: Perplexity works best with natural language QUESTIONS, not checklists
+  const firstName = name.split(' ')[0]
+  const lastName = name.split(' ').slice(-1)[0]
+
+  const prompt = `Research ${name} comprehensively for nonprofit fundraising prospect research.
+
+${address ? `Known address: ${address}` : ''}
+${context ? `Context: ${context}` : ''}
+
+SEARCH AND ANSWER THESE QUESTIONS:
+
+**1. REAL ESTATE & PROPERTY**
+${address ? `- Search St. Johns County Property Appraiser (sjcpa.us) for ${address}. What is the assessed value and sale history?` : `- What properties does ${name} own? Search county property records.`}
+- Search Zillow and Redfin for ${name}'s properties. What are the estimated values?
+- Does ${name} own multiple properties or vacation homes?
+
+**2. BIOGRAPHICAL INFORMATION**
+- How old is ${name}? Search for "${name} age" and "${name} born" and "${name} birthday"
+- Who is ${name}'s spouse or partner? Search wedding announcements and property records.
+- What is ${name}'s educational background? Search LinkedIn and university alumni records.
+- What is ${name}'s full career history?
+
+**3. BUSINESS OWNERSHIP**
+- What companies has ${name} founded or owned? Search Florida Sunbiz (sunbiz.org) and state business registries.
+- What is ${name}'s current role and company? What is the company's estimated revenue?
+- Is ${name} on any corporate boards?
+
+**4. POLITICAL CONTRIBUTIONS**
+- Search FEC.gov for political contributions by ${name}. List all contributions over $200 with dates and recipients.
+- Search for "${name}" and "campaign contribution" and "political donation"
+
+**5. PHILANTHROPIC ACTIVITY - SEARCH ALL OF THESE:**
+- Search "${name} Foundation" - any results?
+- Search "${lastName} Family Foundation" - any results?
+- Search "${firstName} and" combined with "Foundation" (for spouse foundations)
+- Search ProPublica Nonprofit Explorer for ${name} as an officer or director
+- Search for ${name} + "board member" + "nonprofit"
+- Search for ${name} + "charitable" OR "philanthropy" OR "donation"
+- **IMPORTANT:** Search for religious/biblical foundation names: "${firstName} 1:16" and "${firstName} 3:16" and "John 1:16 Foundation" (donors often name foundations after scripture)
+- What nonprofit boards does ${name} serve on?
+- Has ${name} made any major gifts ($10,000+) to organizations?
+
+**6. SEC & SECURITIES**
+- Search SEC EDGAR for ${name} Form 3, 4, or 5 filings (insider transactions)
+- Is ${name} an officer or director of any public company?
+
+**7. NEWS & REPUTATION**
+- Search recent news articles about ${name}
+- Any court cases or litigation involving ${name}?
+
+FORMAT YOUR RESPONSE AS:
+
+## Executive Summary
+[2-3 sentences: who they are, estimated wealth, philanthropic profile]
+
+## Personal Profile
+- **Age:** [X years old] or [Not found - searched: list what you searched]
+- **Spouse:** [Name] or [Not found]
+- **Location:** [City, State]
+- **Education:** [Degrees/Schools]
+
+## Real Estate
+[List all properties with addresses, estimated values, and sources]
+**Total Real Estate Value:** $X-Y
+
+## Business Interests
+[List companies, roles, estimated revenue/value]
+
+## Political Giving
+[List FEC contributions with dates, amounts, recipients]
+**Total Political Contributions:** $X
+
+## Philanthropic Profile
+**Foundations Found:** [List any foundations, or "None found after searching: [list search terms]"]
+**Nonprofit Boards:** [List boards]
+**Known Major Gifts:** [List gifts]
+
+## Net Worth Estimate
+| Category | Estimate | Methodology |
+|----------|----------|-------------|
+| Real Estate | $X-Y | [Source] |
+| Business Equity | $X-Y | [Revenue × multiple] |
+| Securities | $X-Y | [Source] |
+| **Total** | **$X-Y** | |
+
+## Sources
+[List all URLs used]
+
+IMPORTANT INSTRUCTIONS:
+- Actually SEARCH for this information - don't just say you need to search
+- Cite every source with URLs
+- Use ranges for estimates ($X-Y, not exact numbers)
+- Mark confidence: [Verified] for official records, [Estimated] for calculations
+- If you can't find something, say what you searched for
+- Be thorough - wealthy donors often have information across many sources`
 
   return prompt
 }
