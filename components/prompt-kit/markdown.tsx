@@ -271,7 +271,7 @@ function MarkdownComponent({
           color: rgb(156, 163, 175);
         }
 
-        /* CSS-only tooltip - matches Radix tooltip styling */
+        /* CSS-only tooltip */
         .confidence-tag[data-tooltip] {
           position: relative;
           cursor: help;
@@ -280,24 +280,24 @@ function MarkdownComponent({
         .confidence-tag[data-tooltip]::before {
           content: attr(data-tooltip);
           position: absolute;
-          bottom: calc(100% + 8px);
+          bottom: calc(100% + 12px);
           left: 50%;
           transform: translateX(-50%);
-          padding: 6px 12px;
-          border-radius: 6px;
-          font-size: 12px;
-          font-weight: 500;
-          line-height: 1.4;
-          white-space: nowrap;
-          max-width: 240px;
-          white-space: normal;
+          padding: 10px 16px;
+          border-radius: 8px;
+          font-size: 13px;
+          font-weight: 400;
+          line-height: 1.5;
+          width: max-content;
+          max-width: 300px;
           text-align: center;
           background-color: rgb(24, 24, 27);
           color: rgb(250, 250, 250);
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
           opacity: 0;
           visibility: hidden;
-          transition: opacity 0.15s ease, visibility 0.15s ease;
+          transition: opacity 0.2s ease, visibility 0.2s ease, transform 0.2s ease;
+          transform: translateX(-50%) translateY(4px);
           pointer-events: none;
           z-index: 9999;
         }
@@ -306,33 +306,29 @@ function MarkdownComponent({
         .confidence-tag[data-tooltip]::after {
           content: '';
           position: absolute;
-          bottom: calc(100% + 4px);
+          bottom: calc(100% + 6px);
           left: 50%;
           transform: translateX(-50%) rotate(45deg);
-          width: 8px;
-          height: 8px;
+          width: 10px;
+          height: 10px;
           background-color: rgb(24, 24, 27);
           opacity: 0;
           visibility: hidden;
-          transition: opacity 0.15s ease, visibility 0.15s ease;
+          transition: opacity 0.2s ease, visibility 0.2s ease;
           pointer-events: none;
-          z-index: 9999;
+          z-index: 9998;
         }
 
-        /* Show on hover */
-        .confidence-tag[data-tooltip]:hover::before,
+        /* Show on hover with subtle animation */
+        .confidence-tag[data-tooltip]:hover::before {
+          opacity: 1;
+          visibility: visible;
+          transform: translateX(-50%) translateY(0);
+        }
+
         .confidence-tag[data-tooltip]:hover::after {
           opacity: 1;
           visibility: visible;
-        }
-
-        /* Light mode tooltip colors */
-        .confidence-tag[data-tooltip]::before {
-          background-color: rgb(24, 24, 27);
-          color: rgb(250, 250, 250);
-        }
-        .confidence-tag[data-tooltip]::after {
-          background-color: rgb(24, 24, 27);
         }
       `}</style>
       <Streamdown
