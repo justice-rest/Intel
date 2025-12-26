@@ -15,6 +15,56 @@ import {
 // Lazy load mermaid renderer to avoid bundle bloat
 const MermaidDiagram = lazy(() => import("@/components/prompt-kit/mermaid-diagram"))
 
+// ============================================================================
+// CONFIDENCE TAG STYLING
+// Converts [Verified], [Unverified], [Corroborated], [Estimated] into styled badges
+// ============================================================================
+
+const CONFIDENCE_TAG_PATTERNS: Array<{
+  pattern: RegExp
+  className: string
+  label: string
+}> = [
+  {
+    pattern: /\[Verified\]/g,
+    className: "confidence-tag confidence-verified",
+    label: "Verified",
+  },
+  {
+    pattern: /\[Corroborated\]/g,
+    className: "confidence-tag confidence-corroborated",
+    label: "Corroborated",
+  },
+  {
+    pattern: /\[Unverified[^\]]*\]/g,
+    className: "confidence-tag confidence-unverified",
+    label: "Unverified",
+  },
+  {
+    pattern: /\[Estimated[^\]]*\]/g,
+    className: "confidence-tag confidence-estimated",
+    label: "Estimated",
+  },
+]
+
+/**
+ * Preprocess markdown to convert confidence tags into styled HTML spans
+ */
+function preprocessConfidenceTags(content: string): string {
+  let processed = content
+
+  // Replace each confidence tag pattern with a styled span
+  for (const { pattern, className } of CONFIDENCE_TAG_PATTERNS) {
+    processed = processed.replace(pattern, (match) => {
+      // Extract the label text from the match (e.g., "[Verified]" -> "Verified")
+      const label = match.slice(1, -1) // Remove [ and ]
+      return `<span class="${className}">${label}</span>`
+    })
+  }
+
+  return processed
+}
+
 // Re-export the Components type for consumers
 type Components = StreamdownProps["components"]
 
@@ -130,8 +180,74 @@ function MarkdownComponent({
     return ["github-light", "github-dark"]
   }, [])
 
+  // Preprocess content to style confidence tags
+  const processedContent = useMemo(() => {
+    return preprocessConfidenceTags(children)
+  }, [children])
+
   return (
     <div className={className} key={blockId}>
+      {/* Inline styles for confidence tags */}
+      <style jsx global>{`
+        .confidence-tag {
+          display: inline-flex;
+          align-items: center;
+          padding: 0.125rem 0.5rem;
+          border-radius: 9999px;
+          font-size: 0.75rem;
+          font-weight: 500;
+          margin: 0 0.125rem;
+          white-space: nowrap;
+        }
+
+        .confidence-verified {
+          background-color: rgba(34, 197, 94, 0.15);
+          color: rgb(22, 163, 74);
+          border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .dark .confidence-verified {
+          background-color: rgba(34, 197, 94, 0.2);
+          color: rgb(74, 222, 128);
+          border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+
+        .confidence-corroborated {
+          background-color: rgba(59, 130, 246, 0.15);
+          color: rgb(37, 99, 235);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .dark .confidence-corroborated {
+          background-color: rgba(59, 130, 246, 0.2);
+          color: rgb(96, 165, 250);
+          border: 1px solid rgba(59, 130, 246, 0.4);
+        }
+
+        .confidence-unverified {
+          background-color: rgba(249, 115, 22, 0.15);
+          color: rgb(234, 88, 12);
+          border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .dark .confidence-unverified {
+          background-color: rgba(249, 115, 22, 0.2);
+          color: rgb(251, 146, 60);
+          border: 1px solid rgba(249, 115, 22, 0.4);
+        }
+
+        .confidence-estimated {
+          background-color: rgba(168, 85, 247, 0.15);
+          color: rgb(147, 51, 234);
+          border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .dark .confidence-estimated {
+          background-color: rgba(168, 85, 247, 0.2);
+          color: rgb(192, 132, 252);
+          border: 1px solid rgba(168, 85, 247, 0.4);
+        }
+      `}</style>
       <Streamdown
         components={mergedComponents}
         shikiTheme={shikiTheme}
@@ -144,7 +260,7 @@ function MarkdownComponent({
         mode="streaming"
         parseIncompleteMarkdown={true}
       >
-        {children}
+        {processedContent}
       </Streamdown>
     </div>
   )
