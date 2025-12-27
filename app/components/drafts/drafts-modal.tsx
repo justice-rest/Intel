@@ -250,7 +250,7 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
           {!isEditing && (
             <button
               type="button"
-              className="w-full h-10 rounded bg-white dark:bg-black hover:bg-transparent border border-black dark:border-white text-black dark:text-white hover:text-white dark:hover:text-black font-semibold text-sm transition-all mt-3"
+              className="w-full h-10 rounded bg-white hover:bg-transparent border border-white text-black hover:text-white font-semibold text-sm transition-all mt-3"
               onClick={() => onOpenChange(false)}
             >
               Done
