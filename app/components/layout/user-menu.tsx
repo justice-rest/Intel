@@ -20,6 +20,7 @@ import { useChats } from "@/lib/chat-store/chats/provider"
 import { useMessages } from "@/lib/chat-store/messages/provider"
 import { clearAllIndexedDBStores } from "@/lib/chat-store/persist"
 import { InstagramLogoIcon, LinkedinLogoIcon, SignOut } from "@phosphor-icons/react"
+import { toast } from "@/components/ui/toast"
 import { useState, useEffect, useRef } from "react"
 import { useCustomer } from "autumn-js/react"
 import { AppInfoTrigger } from "./app-info/app-info-trigger"
@@ -50,6 +51,38 @@ export function UserMenu() {
 
     return () => {
       window.removeEventListener("open-settings", handleOpenSettings as EventListener)
+    }
+  }, [])
+
+  // Handle Google OAuth callback params (google_success/google_error)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const params = new URLSearchParams(window.location.search)
+    const success = params.get("google_success")
+    const error = params.get("google_error")
+
+    if (success || error) {
+      // Show toast
+      if (success) {
+        toast({
+          title: "Google Connected",
+          description: success,
+        })
+      } else if (error) {
+        toast({
+          title: "Connection Failed",
+          description: error,
+        })
+      }
+
+      // Open settings modal to integrations tab
+      setSettingsDefaultTab("integrations")
+      setSettingsOpen(true)
+      setMenuOpen(true)
+
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname)
     }
   }, [])
 

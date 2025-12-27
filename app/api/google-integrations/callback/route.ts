@@ -32,13 +32,14 @@ export async function GET(request: NextRequest) {
     ? "http://localhost:3000"
     : APP_DOMAIN
 
-  const settingsUrl = `${baseUrl}/settings?tab=integrations`
+  // Redirect to home with query params - settings is a modal, not a page
+  const redirectUrl = baseUrl
 
   try {
     // Check if integration is enabled
     if (!isGoogleIntegrationEnabled()) {
       return NextResponse.redirect(
-        `${settingsUrl}&google_error=${encodeURIComponent(GOOGLE_ERROR_MESSAGES.notConfigured)}`
+        `${redirectUrl}&google_error=${encodeURIComponent(GOOGLE_ERROR_MESSAGES.notConfigured)}`
       )
     }
 
@@ -54,14 +55,14 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.redirect(
-        `${settingsUrl}&google_error=${encodeURIComponent(errorMessage)}`
+        `${redirectUrl}&google_error=${encodeURIComponent(errorMessage)}`
       )
     }
 
     // Validate required parameters
     if (!code || !state) {
       return NextResponse.redirect(
-        `${settingsUrl}&google_error=${encodeURIComponent("Invalid callback: missing code or state")}`
+        `${redirectUrl}&google_error=${encodeURIComponent("Invalid callback: missing code or state")}`
       )
     }
 
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
     const oauthState = retrieveOAuthState(state)
     if (!oauthState) {
       return NextResponse.redirect(
-        `${settingsUrl}&google_error=${encodeURIComponent("Invalid or expired authorization state. Please try again.")}`
+        `${redirectUrl}&google_error=${encodeURIComponent("Invalid or expired authorization state. Please try again.")}`
       )
     }
 
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     if (!supabase) {
       return NextResponse.redirect(
-        `${settingsUrl}&google_error=${encodeURIComponent("Database not configured")}`
+        `${redirectUrl}&google_error=${encodeURIComponent("Database not configured")}`
       )
     }
 
@@ -88,7 +89,7 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.redirect(
-        `${settingsUrl}&google_error=${encodeURIComponent("Session expired. Please sign in and try again.")}`
+        `${redirectUrl}&google_error=${encodeURIComponent("Session expired. Please sign in and try again.")}`
       )
     }
 
@@ -114,7 +115,7 @@ export async function GET(request: NextRequest) {
       })
 
       return NextResponse.redirect(
-        `${settingsUrl}&google_error=${encodeURIComponent("Security error: user mismatch. Please try again.")}`
+        `${redirectUrl}&google_error=${encodeURIComponent("Security error: user mismatch. Please try again.")}`
       )
     }
 
@@ -141,7 +142,7 @@ export async function GET(request: NextRequest) {
 
     // Redirect to settings with success message
     return NextResponse.redirect(
-      `${settingsUrl}&google_success=${encodeURIComponent(`Connected to ${userInfo.email}`)}`
+      `${redirectUrl}&google_success=${encodeURIComponent(`Connected to ${userInfo.email}`)}`
     )
   } catch (error) {
     console.error("[GoogleCallback] Error:", error)
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
       : "Failed to connect Google account"
 
     return NextResponse.redirect(
-      `${settingsUrl}&google_error=${encodeURIComponent(errorMessage)}`
+      `${redirectUrl}&google_error=${encodeURIComponent(errorMessage)}`
     )
   }
 }

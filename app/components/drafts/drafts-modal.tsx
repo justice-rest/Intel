@@ -11,7 +11,6 @@ import { fetchClient } from "@/lib/fetch"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Spinner,
-  ArrowsClockwise,
   Tray,
 } from "@phosphor-icons/react"
 import { DraftList } from "./draft-list"
@@ -116,14 +115,15 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
       }
       return res.json()
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       toast({
         title: "Draft updated",
         description: "Your changes have been saved to Gmail.",
       })
+      // Refetch to get the updated data before showing the list
+      await refetch()
       setIsEditing(false)
       setSelectedDraftId(null)
-      queryClient.invalidateQueries({ queryKey: ["gmail-drafts"] })
     },
     onError: (error) => {
       toast({
@@ -188,17 +188,6 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
               />
               Gmail Drafts
             </h2>
-            <button
-              type="button"
-              onClick={() => refetch()}
-              disabled={isLoading}
-              className="p-2 rounded hover:bg-gray-100 dark:hover:bg-[#333] transition-colors"
-            >
-              <ArrowsClockwise
-                size={16}
-                className={isLoading ? "animate-spin" : ""}
-              />
-            </button>
           </div>
 
           {/* Stats bar */}

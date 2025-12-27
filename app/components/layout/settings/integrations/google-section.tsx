@@ -541,7 +541,7 @@ export function GoogleIntegrationSection() {
               type="button"
               onClick={() => connectMutation.mutate()}
               disabled={connectMutation.isPending}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-black dark:bg-white hover:bg-transparent border border-black dark:border-white text-white dark:text-black hover:text-black dark:hover:text-white transition-all disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 border border-black dark:border-white text-white dark:text-black transition-colors disabled:opacity-50"
             >
               {connectMutation.isPending && (
                 <Spinner size={14} className="animate-spin" />
