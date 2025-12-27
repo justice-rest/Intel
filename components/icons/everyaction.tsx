@@ -10,24 +10,19 @@ const EveryActionIcon = (props: SVGProps<SVGSVGElement>) => (
     xmlns="http://www.w3.org/2000/svg"
     {...props}
   >
-    {/* EveryAction/NGP VAN inspired icon - stylized EA */}
+    {/* EveryAction / NGP VAN - checkmark in circle (action/advocacy) */}
     <circle
       cx={32}
       cy={32}
       r={28}
-      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth={4}
+      fill="none"
     />
-    {/* E shape */}
+    {/* Checkmark */}
     <path
       fill="currentColor"
-      fillOpacity={0.3}
-      d="M18 20h14v4H22v8h8v4h-8v8h10v4H18V20z"
-    />
-    {/* A shape */}
-    <path
-      fill="currentColor"
-      fillOpacity={0.3}
-      d="M34 48V20l12 28h-5l-2-6h-8l2-4h4l-3-9-6 19h-4l10-28z"
+      d="M27 32l-6-6-4 4 10 10 20-20-4-4-16 16z"
     />
   </svg>
 )
