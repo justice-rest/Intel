@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
     <>
       <div className="mx-auto max-w-3xl px-4 py-12 md:py-24">
         <div className="mb-8 flex items-center justify-center gap-2 text-sm font-medium">
-          <time className="text-foreground">Effective November 28, 2025</time>
+          <time className="text-foreground">Effective December 27, 2024</time>
         </div>
 
         <h1 className="mb-4 text-center text-4xl font-medium tracking-tight md:text-5xl">
@@ -46,490 +46,487 @@ export default function PrivacyPolicy() {
         </div>
 
         <div className="prose dark:prose-invert mt-20 w-full min-w-full">
+          {/* TL;DR Section */}
+          <div className="rounded-lg border-2 border-foreground/20 bg-foreground/5 p-6 mb-12">
+            <h2 className="mt-0 flex items-center gap-2 text-xl">
+              🔒 TL;DR — Privacy at a Glance
+            </h2>
+            <p className="text-sm mb-4">
+              <em>This summary is for convenience only. The full policy below is legally binding.</em>
+            </p>
+            <ul className="text-sm space-y-2 mb-0">
+              <li><strong>We don't sell your data.</strong> Ever. Not to advertisers, not to data brokers, not to anyone.</li>
+              <li><strong>Your donor data stays yours.</strong> We only use it to power the AI features you're paying for.</li>
+              <li><strong>AI providers see your prompts.</strong> When you chat, your messages go to AI providers (xAI, OpenAI, etc.) to generate responses. They have their own privacy policies.</li>
+              <li><strong>Google Workspace access is limited.</strong> We only read what you authorize. Gmail = read emails + create drafts (never send). Drive = only files you pick.</li>
+              <li><strong>CRM data is encrypted.</strong> API keys use AES-256-GCM encryption. Synced data stays in your account only.</li>
+              <li><strong>Analytics are privacy-focused.</strong> We use PostHog. No cross-site tracking. You can opt out.</li>
+              <li><strong>You can delete everything.</strong> Request full data deletion anytime at privacy@getromy.app.</li>
+              <li><strong>We log consent.</strong> When you accept cookies or connect services, we record it with timestamps for compliance.</li>
+              <li><strong>California/EU users:</strong> You have extra rights (access, delete, opt-out). See Sections 10-11.</li>
+              <li><strong>Texas-based company.</strong> GetRomy LLC, Kerrville, TX. Questions? privacy@getromy.app</li>
+            </ul>
+          </div>
+
           <h2>1. Introduction</h2>
           <p>
-            Rōmy ("we," "us," "our," or "Company") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our AI-powered chat platform designed to help small nonprofits find new major donors (the "Service").
+            Rōmy ("we," "us," "our," or "Company"), operated by GetRomy LLC, a Texas limited liability company, is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our AI-powered donor research platform (the "Service").
           </p>
           <p>
-            This policy applies to all users of Rōmy, whether you use the Service with cloud storage (Supabase) or in local-only mode. By accessing and using the Service, you consent to the data practices described in this policy. If you do not agree with this policy, please do not use the Service.
+            <strong>By using Rōmy, you agree to this Privacy Policy.</strong> If you do not agree, please do not use the Service.
           </p>
 
-          <h2>2. Information We Collect</h2>
+          <h2>2. Data We Collect</h2>
+          <p>We believe in transparency. Here's exactly what we collect, why, and how long we keep it:</p>
 
-          <h3>2.1 Account Information</h3>
-          <p>When you create an account using Google authentication, we collect:</p>
+          {/* Data Mapping Table - GDPR/CCPA compliant */}
+          <div className="overflow-x-auto">
+            <table className="text-sm">
+              <thead>
+                <tr>
+                  <th>Data Category</th>
+                  <th>What We Collect</th>
+                  <th>Why (Lawful Basis)</th>
+                  <th>Retention</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Account Info</strong></td>
+                  <td>Name, email, profile picture (from Google OAuth or email signup)</td>
+                  <td>Contract performance — to create and manage your account</td>
+                  <td>Until account deletion + 30 days</td>
+                </tr>
+                <tr>
+                  <td><strong>Chat Content</strong></td>
+                  <td>Messages, prompts, AI responses, conversation history</td>
+                  <td>Contract performance — core service functionality</td>
+                  <td>Until you delete or account closure + 30 days</td>
+                </tr>
+                <tr>
+                  <td><strong>Uploaded Files</strong></td>
+                  <td>PDFs, spreadsheets, documents (donor lists, etc.)</td>
+                  <td>Contract performance — document analysis feature</td>
+                  <td>Until you delete or account closure + 30 days</td>
+                </tr>
+                <tr>
+                  <td><strong>AI Memory</strong></td>
+                  <td>Extracted facts and preferences from conversations</td>
+                  <td>Consent — you enable this feature</td>
+                  <td>Until you disable memory or delete account</td>
+                </tr>
+                <tr>
+                  <td><strong>Gmail Data</strong></td>
+                  <td>Email content, writing style profile, draft metadata</td>
+                  <td>Consent — you connect Google account</td>
+                  <td>Until you disconnect Google or delete account</td>
+                </tr>
+                <tr>
+                  <td><strong>Google Drive</strong></td>
+                  <td>Selected files, document text, embeddings</td>
+                  <td>Consent — you select files via picker</td>
+                  <td>Until you remove documents or disconnect</td>
+                </tr>
+                <tr>
+                  <td><strong>CRM Data</strong></td>
+                  <td>Constituents, donations, contacts (from Bloomerang, Virtuous, Neon)</td>
+                  <td>Consent — you connect your CRM</td>
+                  <td>Until you disconnect CRM or delete account</td>
+                </tr>
+                <tr>
+                  <td><strong>Usage Data</strong></td>
+                  <td>Features used, clicks, session duration, errors</td>
+                  <td>Legitimate interest — product improvement</td>
+                  <td>90 days (anonymized after)</td>
+                </tr>
+                <tr>
+                  <td><strong>Technical Data</strong></td>
+                  <td>IP address, browser, device, OS</td>
+                  <td>Legitimate interest — security, debugging</td>
+                  <td>30 days</td>
+                </tr>
+                <tr>
+                  <td><strong>Payment Info</strong></td>
+                  <td>Card details (via Stripe — we don't store full card numbers)</td>
+                  <td>Contract performance — billing</td>
+                  <td>Per Stripe's retention policy</td>
+                </tr>
+                <tr>
+                  <td><strong>Consent Records</strong></td>
+                  <td>Cookie consent, integration authorizations, timestamps</td>
+                  <td>Legal obligation — GDPR/CCPA compliance</td>
+                  <td>3 years after consent given</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h2>3. How We Use Your Data</h2>
+          <p>We use your information to:</p>
           <ul>
-            <li>Your name and email address from your Google profile</li>
-            <li>Your Google authentication credentials (via OAuth 2.0)</li>
-            <li>Account creation date and last login timestamp</li>
+            <li><strong>Provide the Service:</strong> Power AI conversations, store chats, enable integrations</li>
+            <li><strong>Process AI requests:</strong> Send your prompts to AI providers (xAI, OpenAI, Anthropic, etc.) to generate responses</li>
+            <li><strong>Personalize experience:</strong> Remember your preferences, enable AI Memory (if enabled)</li>
+            <li><strong>Improve the product:</strong> Analyze usage patterns, fix bugs, develop features</li>
+            <li><strong>Communicate:</strong> Send service updates, security notices, respond to support requests</li>
+            <li><strong>Ensure security:</strong> Detect fraud, prevent abuse, enforce Terms of Service</li>
+            <li><strong>Comply with law:</strong> Respond to legal requests, maintain required records</li>
           </ul>
 
-          <h3>2.2 Chat Content and Prompts</h3>
-          <p>We collect and store:</p>
+          <h2>4. Google Workspace Integration</h2>
+          <p>If you connect your Google account, here's exactly what we access:</p>
+
+          <h3>4.1 Gmail Access</h3>
           <ul>
-            <li>All chat messages, prompts, and queries you submit to the Service</li>
-            <li>AI model responses generated in response to your prompts</li>
-            <li>Files, documents, and donor lists you upload to the Service</li>
-            <li>Conversation history associated with your account</li>
+            <li><strong>Scope:</strong> <code>gmail.readonly</code> (read emails) + <code>gmail.compose</code> (create drafts)</li>
+            <li><strong>What we read:</strong> Inbox and sent emails to provide AI context</li>
+            <li><strong>What we create:</strong> Draft emails matching your writing style</li>
+            <li><strong>What we NEVER do:</strong> Send emails, delete emails, or access emails without your request</li>
+            <li><strong>Writing style:</strong> We analyze your sent emails to learn your tone, greetings, and phrasing</li>
           </ul>
 
-          <h3>2.3 Files and Attachments</h3>
-          <p>When you upload files (donor lists, spreadsheets, documents), we collect:</p>
+          <h3>4.2 Google Drive Access</h3>
           <ul>
-            <li>File name, file type, and file size</li>
-            <li>File content and metadata</li>
-            <li>Upload timestamp and associated chat session</li>
-            <li>In some cases, financial data or personally identifiable information (PII) contained in files you provide</li>
+            <li><strong>Scope:</strong> <code>drive.file</code> (per-file access via picker only)</li>
+            <li><strong>What we access:</strong> Only files you explicitly select using the file picker</li>
+            <li><strong>What we do:</strong> Extract text, create embeddings for semantic search</li>
+            <li><strong>What we NEVER do:</strong> Scan your entire Drive or access files you didn't select</li>
           </ul>
 
-          <h3>2.4 User Preferences and Settings</h3>
-          <p>We collect your settings and preferences, including:</p>
-          <ul>
-            <li>Display language and timezone</li>
-            <li>Model preferences and AI configuration choices</li>
-            <li>Feature toggles and personalization settings</li>
-            <li>Notification preferences</li>
-          </ul>
-
-          <h3>2.5 Usage Data</h3>
-          <p>We automatically collect:</p>
-          <ul>
-            <li>Features you access and actions you take within the Service</li>
-            <li>Time spent in the application</li>
-            <li>Button clicks, searches, and interactions</li>
-            <li>Error logs and performance metrics</li>
-            <li>Frequency and duration of Service usage</li>
-          </ul>
-
-          <h3>2.6 Technical Information</h3>
-          <p>We may collect:</p>
-          <ul>
-            <li>IP address and hostname</li>
-            <li>Device type, operating system, and browser information</li>
-            <li>Cookies and similar tracking technologies (see Section 7)</li>
-            <li>Session identifiers and unique device identifiers</li>
-            <li>Referrer URLs and access patterns</li>
-          </ul>
-
-          <h3>2.7 Analytics Data</h3>
-          <p>Through PostHog (optional, when configured):</p>
-          <ul>
-            <li>Anonymous and aggregated usage patterns</li>
-            <li>Feature adoption and product analytics</li>
-            <li>Session recordings and user interaction flows (only when explicitly enabled)</li>
-            <li>Error and crash reporting</li>
-          </ul>
-
-          <h3>2.8 Authentication Provider</h3>
-          <p>When you sign in with Google:</p>
-          <ul>
-            <li>We receive basic profile information (name, email, profile picture URL)</li>
-            <li>Google's servers process authentication; we do not receive or store your Google password</li>
-          </ul>
-
-          <h3>2.9 Third-Party Service Data</h3>
-          <p>When you use the Service with integrated search or data services (e.g., Exa, Linkup):</p>
-          <ul>
-            <li>Search queries and prompts sent through these integrations</li>
-            <li>Results returned by third-party search providers</li>
-            <li>Donor wealth data or other third-party data returned to the Service</li>
-          </ul>
-
-          <h2>3. How We Use Your Information</h2>
-          <p>We use the information we collect to:</p>
-          <ul>
-            <li><strong>Provide and maintain the Service:</strong> Deliver chat functionality, store conversations, and enable account management</li>
-            <li><strong>Personalize your experience:</strong> Tailor the Service to your preferences, settings, and usage patterns</li>
-            <li><strong>Process AI requests:</strong> Send prompts and context to AI model providers (xAI/Grok) to generate responses</li>
-            <li><strong>Improve the Service:</strong> Analyze usage patterns, identify bugs, and develop new features (analytics)</li>
-            <li><strong>Communicate with you:</strong> Send service updates, security notices, and responses to your inquiries</li>
-            <li><strong>Ensure security and compliance:</strong> Detect fraud, prevent abuse, enforce our Terms of Service, and comply with legal obligations</li>
-            <li><strong>Comply with legal requirements:</strong> Respond to lawful requests from government agencies and courts</li>
-            <li><strong>Monitor and audit:</strong> Maintain logs for security, performance, and compliance purposes</li>
-          </ul>
-
-          <h2>4. Legal Basis for Processing (GDPR)</h2>
-          <p>If you are located in the European Economic Area (EEA) or United Kingdom, we process your personal data on the following legal bases:</p>
-          <ul>
-            <li><strong>Performance of a Contract:</strong> Processing necessary to provide the Service and fulfill our obligations to you</li>
-            <li><strong>Legitimate Interests:</strong> Processing for security, fraud prevention, analytics, and service improvement</li>
-            <li><strong>Consent:</strong> Where you explicitly consent to optional processing (e.g., analytics cookies, session recordings)</li>
-            <li><strong>Compliance with Legal Obligations:</strong> Where required by law or court order</li>
-          </ul>
-          <p>You have the right to object to processing based on legitimate interests. See Section 8 for how to exercise this right.</p>
-
-          <h2>5. Data Storage and Retention</h2>
-
-          <h3>5.1 Active Accounts</h3>
-          <p>We retain your data for as long as your account is active or as needed to provide the Service. This includes:</p>
-          <ul>
-            <li>Chat history and conversation data</li>
-            <li>Account information and preferences</li>
-            <li>Uploaded files and attachments</li>
-            <li>Analytics and usage logs</li>
-          </ul>
-
-          <h3>5.2 Inactive Accounts</h3>
+          <h3>4.3 Revocation</h3>
           <p>
-            Accounts inactive for 24 months or longer may be subject to deletion after we provide notice (via email or in-app message). You will have 30 days to reactivate your account before deletion.
+            Disconnect anytime in Settings → Integrations → Google. This immediately revokes access and deletes:
           </p>
-
-          <h3>5.3 Deleted Accounts</h3>
-          <p>When you delete your account, we will:</p>
           <ul>
-            <li>Delete your personal information within 30 days</li>
-            <li>Anonymize or delete chat history and uploaded files</li>
-            <li>Retain only aggregated, anonymized data for analytics</li>
-            <li>Exception: We may retain data where required by law or for legal dispute resolution</li>
+            <li>Writing style profile</li>
+            <li>Draft metadata</li>
+            <li>Indexed Drive documents</li>
+            <li>OAuth tokens</li>
           </ul>
 
-          <h3>5.4 Local Storage</h3>
-          <p>Data stored in your browser's IndexedDB or localStorage remains on your device until you:</p>
+          <h2>5. CRM Integrations</h2>
+          <p>When you connect a CRM (Bloomerang, Virtuous, or Neon CRM):</p>
           <ul>
-            <li>Clear your browser data</li>
-            <li>Delete the application cache</li>
-            <li>Uninstall the application</li>
-          </ul>
-          <p>We do not have access to this locally stored data unless you explicitly sync it to our cloud services (Supabase).</p>
-
-          <h2>6. Data Architecture: Cloud vs. Local Storage</h2>
-
-          <h3>6.1 With Supabase Enabled (Cloud Mode)</h3>
-          <p>When you enable cloud synchronization:</p>
-          <ul>
-            <li>Your chat history, prompts, uploaded files, and account data are encrypted and stored in Supabase (a PostgreSQL cloud database)</li>
-            <li>Your data is backed up and can be accessed across devices</li>
-            <li>Data is subject to Supabase's security and privacy practices (see: <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer">https://supabase.com/privacy</a>)</li>
-            <li>Your data remains encrypted at rest and in transit (TLS 1.3)</li>
+            <li><strong>Credentials:</strong> Your API keys are encrypted with AES-256-GCM before storage</li>
+            <li><strong>Data synced:</strong> Constituents/contacts, donations/gifts, basic metadata</li>
+            <li><strong>Access:</strong> Only you can access your synced CRM data</li>
+            <li><strong>Deletion:</strong> Disconnect in Settings to remove all synced data and credentials</li>
           </ul>
 
-          <h3>6.2 Without Supabase (Local-Only Mode)</h3>
-          <p>When you use local-only mode:</p>
-          <ul>
-            <li>All chat history, uploaded files, and data remain on your device</li>
-            <li>Data is stored only in your browser's IndexedDB</li>
-            <li>We do not collect, store, or access this data on our servers</li>
-            <li>You remain solely responsible for backing up and securing your local data</li>
-          </ul>
+          <h2>6. AI Providers and Data Sharing</h2>
+          <p>When you use Rōmy, your prompts are sent to AI providers to generate responses:</p>
 
-          <h2>7. Data Sharing and Third-Party Service Providers</h2>
-          <p>We do not sell, rent, or trade your personal information. However, we may share your data with trusted service providers who assist us in operating the Service:</p>
-
-          <h3>7.1 Essential Service Providers</h3>
-          <table>
+          <table className="text-sm">
             <thead>
               <tr>
                 <th>Provider</th>
-                <th>Purpose</th>
                 <th>Data Shared</th>
+                <th>Their Privacy Policy</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td><strong>Supabase</strong></td>
-                <td>Cloud database, authentication, data storage</td>
-                <td>Account info, chat history, uploaded files</td>
+                <td>xAI (Grok)</td>
+                <td>Prompts, chat context</td>
+                <td><a href="https://x.ai/legal/privacy-policy" target="_blank" rel="noopener noreferrer">x.ai/privacy</a></td>
               </tr>
               <tr>
-                <td><strong>Google</strong></td>
-                <td>OAuth authentication, sign-in</td>
-                <td>Email, name, profile picture</td>
+                <td>OpenAI</td>
+                <td>Prompts, chat context (via OpenRouter)</td>
+                <td><a href="https://openai.com/privacy" target="_blank" rel="noopener noreferrer">openai.com/privacy</a></td>
               </tr>
               <tr>
-                <td><strong>xAI (Grok)</strong></td>
-                <td>AI model inference and responses</td>
-                <td>Prompts, chat content, context</td>
+                <td>Anthropic</td>
+                <td>Prompts, chat context (via OpenRouter)</td>
+                <td><a href="https://www.anthropic.com/privacy" target="_blank" rel="noopener noreferrer">anthropic.com/privacy</a></td>
               </tr>
               <tr>
-                <td><strong>PostHog</strong></td>
-                <td>Usage analytics and product insights</td>
-                <td>Anonymized usage patterns, event data</td>
+                <td>Google</td>
+                <td>Prompts (Gemini), OAuth data, Gmail/Drive data</td>
+                <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">policies.google.com/privacy</a></td>
               </tr>
               <tr>
-                <td><strong>Exa / Linkup</strong></td>
-                <td>Third-party search and data enrichment</td>
-                <td>Search queries, donor data requests</td>
+                <td>Perplexity</td>
+                <td>Search queries for web research</td>
+                <td><a href="https://www.perplexity.ai/privacy" target="_blank" rel="noopener noreferrer">perplexity.ai/privacy</a></td>
+              </tr>
+              <tr>
+                <td>Supabase</td>
+                <td>All cloud-stored data</td>
+                <td><a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer">supabase.com/privacy</a></td>
+              </tr>
+              <tr>
+                <td>PostHog</td>
+                <td>Usage analytics (anonymized)</td>
+                <td><a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer">posthog.com/privacy</a></td>
+              </tr>
+              <tr>
+                <td>Stripe (via Autumn)</td>
+                <td>Payment information</td>
+                <td><a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer">stripe.com/privacy</a></td>
               </tr>
             </tbody>
           </table>
 
-          <h3>7.2 Vendor Responsibility</h3>
-          <p>We remain responsible for your personal information handled by these third parties on our behalf. All vendors are contractually obligated to:</p>
+          <p><strong>We do NOT:</strong></p>
           <ul>
-            <li>Protect your information using industry-standard security measures</li>
-            <li>Use your information only for specified purposes</li>
-            <li>Not disclose your information to unauthorized parties</li>
-            <li>Comply with applicable data protection laws</li>
+            <li>Sell your data to third parties</li>
+            <li>Share data with advertisers</li>
+            <li>Use your data to train our own AI models</li>
+            <li>Share your donor lists or CRM data with anyone</li>
           </ul>
 
-          <h3>7.3 Other Disclosures</h3>
-          <p>We may disclose your information if required to:</p>
-          <ul>
-            <li>Comply with a legal subpoena, court order, or government request</li>
-            <li>Enforce our Terms of Service and other agreements</li>
-            <li>Protect against fraud, security threats, or illegal activity</li>
-            <li>Protect the rights, privacy, safety, and property of Rōmy, our users, and the public</li>
-          </ul>
+          <h2>7. Cookies and Tracking</h2>
 
-          <h3>7.4 Business Transfers</h3>
-          <p>In the event of a merger, acquisition, bankruptcy, or sale of assets:</p>
-          <ul>
-            <li>Your information may be transferred to the acquiring entity</li>
-            <li>We will provide notice to affected users via email or prominent in-app notification</li>
-            <li>The acquiring entity must comply with this Privacy Policy or provide equivalent protections</li>
-          </ul>
+          <h3>7.1 What We Use</h3>
+          <table className="text-sm">
+            <thead>
+              <tr>
+                <th>Cookie Type</th>
+                <th>Purpose</th>
+                <th>Can You Opt Out?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Essential</strong></td>
+                <td>Authentication, CSRF protection, session management</td>
+                <td>No (required for the app to work)</td>
+              </tr>
+              <tr>
+                <td><strong>Preferences</strong></td>
+                <td>Theme (dark/light), language, UI settings</td>
+                <td>Clearing these resets your preferences</td>
+              </tr>
+              <tr>
+                <td><strong>Analytics (PostHog)</strong></td>
+                <td>Feature usage, product improvement</td>
+                <td>Yes — see below</td>
+              </tr>
+            </tbody>
+          </table>
 
-          <h3>7.5 Aggregated and Anonymized Data</h3>
-          <p>We may share aggregated, anonymized data that does not identify you personally for:</p>
-          <ul>
-            <li>Research and academic purposes</li>
-            <li>Marketing and benchmarking</li>
-            <li>Analytics and industry reports</li>
-            <li>Public statistics about nonprofit fundraising</li>
-          </ul>
-
-          <h2>8. Cookies, Tracking, and Local Storage</h2>
-
-          <h3>8.1 Essential Cookies</h3>
-          <p>Essential cookies are required for basic Service functionality:</p>
-          <ul>
-            <li>Authentication and session management</li>
-            <li>CSRF (Cross-Site Request Forgery) protection</li>
-            <li>User preference storage</li>
-            <li><strong>These cookies are necessary and cannot be disabled without losing core functionality</strong></li>
-          </ul>
-
-          <h3>8.2 Analytics Cookies (Optional)</h3>
-          <p>When PostHog is configured, we use optional cookies to:</p>
-          <ul>
-            <li>Track feature usage and user behavior</li>
-            <li>Analyze aggregate trends and user journeys</li>
-            <li>Improve Service performance</li>
-          </ul>
-          <p><strong>You can opt out of analytics cookies by:</strong></p>
-          <ul>
-            <li>Adjusting your browser's cookie settings</li>
-            <li>Using browser privacy/do-not-track modes</li>
-            <li>Contacting us at <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> to request opt-out</li>
-          </ul>
-
-          <h3>8.3 Preference Cookies</h3>
-          <p>Preference cookies store your settings:</p>
-          <ul>
-            <li>Display language and timezone</li>
-            <li>UI preferences (light/dark mode, layout)</li>
-            <li>Notification settings</li>
-            <li><strong>These are locally stored and do not track across sites</strong></li>
-          </ul>
-
-          <h3>8.4 Local Storage</h3>
-          <p>We use IndexedDB and localStorage to cache data locally for:</p>
-          <ul>
-            <li>Performance optimization and faster load times</li>
-            <li>Offline functionality</li>
-            <li>Chat history and model caching</li>
-            <li>Preference persistence</li>
-          </ul>
-          <p>You can control or clear local storage through your browser developer tools or settings. Clearing storage may affect performance and require re-downloading cached data.</p>
-
-          <h3>8.5 Cookie Control</h3>
-          <p>You can control cookies through your browser settings:</p>
-          <ul>
-            <li>Most browsers allow you to refuse cookies or alert you when cookies are being set</li>
-            <li>Disabling essential cookies may impair Service functionality</li>
-            <li>Disabling analytics cookies will not affect basic Service use</li>
-          </ul>
-          <p>Consult your browser's help documentation for cookie management options.</p>
-
-          <h2>9. Your Privacy Rights and How to Exercise Them</h2>
-          <p>Your rights vary depending on your location. Please see the section(s) applicable to you.</p>
-
-          <h3>9.1 European Economic Area and United Kingdom (GDPR and UK GDPR)</h3>
-          <p>If you are located in the EEA or UK, you have the following rights:</p>
-          <ul>
-            <li><strong>Right of Access:</strong> You can request a copy of your personal data that we hold</li>
-            <li><strong>Right to Rectification:</strong> You can request correction of inaccurate or incomplete information</li>
-            <li><strong>Right to Erasure ("Right to be Forgotten"):</strong> You can request deletion of your personal data, except where we have a legal obligation to retain it</li>
-            <li><strong>Right to Restrict Processing:</strong> You can request that we limit how we use your information</li>
-            <li><strong>Right to Data Portability:</strong> You can request your personal data in a portable, machine-readable format</li>
-            <li><strong>Right to Object:</strong> You can object to processing based on legitimate interests or for direct marketing</li>
-            <li><strong>Right to Withdraw Consent:</strong> If processing is based on consent, you can withdraw consent at any time</li>
-            <li><strong>Right to Lodge a Complaint:</strong> You have the right to lodge a complaint with your local data protection authority</li>
-          </ul>
-          <p><strong>Data Protection Authority contacts:</strong></p>
-          <ul>
-            <li><strong>EU:</strong> <a href="https://edpb.ec.europa.eu/about-edpb/members_en" target="_blank" rel="noopener noreferrer">https://edpb.ec.europa.eu/about-edpb/members_en</a></li>
-            <li><strong>UK:</strong> Information Commissioner's Office (ICO) – <a href="https://ico.org.uk/" target="_blank" rel="noopener noreferrer">https://ico.org.uk/</a></li>
-          </ul>
-
-          <h3>9.2 California Residents (CCPA and CPRA)</h3>
-          <p>California residents have the right to:</p>
-          <ul>
-            <li><strong>Right to Know:</strong> Request what personal information we collect, use, and share</li>
-            <li><strong>Right to Delete:</strong> Request deletion of personal information we hold (with some exceptions)</li>
-            <li><strong>Right to Correct:</strong> Request correction of inaccurate information</li>
-            <li><strong>Right to Opt-Out of "Sales" or "Sharing":</strong> If we engage in targeted advertising or cross-context behavioral advertising, you have the right to opt out</li>
-            <li><strong>Right to Limit Use:</strong> Limit our use of sensitive personal information (SSN, financial account info, geolocation, health data)</li>
-            <li><strong>Right to Non-Discrimination:</strong> We will not discriminate against you for exercising your rights</li>
-          </ul>
-          <p><strong>Current Status:</strong> Rōmy does not engage in "sales" of personal information or cross-context behavioral advertising. We do not "share" personal information for targeted advertising purposes. If this changes, we will update this policy and provide a "Do Not Sell or Share My Personal Information" link.</p>
-
-          <h3>9.3 Other U.S. State Laws</h3>
-          <p>If you reside in Colorado, Connecticut, Delaware, Iowa, Montana, Nebraska, New Hampshire, New Jersey, Oregon, Texas, Utah, Virginia, or other states with comprehensive privacy laws, you may have rights similar to California, including:</p>
-          <ul>
-            <li>Right to access, delete, and correct personal information</li>
-            <li>Right to opt out of targeted advertising and profiling</li>
-            <li>Right to data portability</li>
-            <li>Right to appeal company decisions</li>
-          </ul>
-          <p>Please contact us (see Section 10) to exercise these rights. We will verify your identity and respond within 45 days.</p>
-
-          <h3>9.4 Canada (PIPEDA and Provincial Privacy Laws)</h3>
-          <p>If you are located in Canada, you have rights under the Personal Information Protection and Electronic Documents Act (PIPEDA) and applicable provincial privacy laws:</p>
-          <ul>
-            <li><strong>Right of Access:</strong> You can request access to personal information we hold about you</li>
-            <li><strong>Right to Correction:</strong> You can request correction of inaccurate information</li>
-            <li><strong>Right to Withdraw Consent:</strong> You can withdraw consent for collection, use, or disclosure (except where required by law)</li>
-            <li><strong>Right to Complain:</strong> You can file a complaint with the Office of the Privacy Commissioner of Canada</li>
-          </ul>
-          <p>We remain responsible for personal information handled by our service providers on your behalf. We will facilitate your requests with vendors as needed.</p>
-
-          <h3>9.5 How to Exercise Your Rights</h3>
-          <p>To exercise any of the rights listed above, please contact:</p>
-          <p><strong>Email:</strong> <a href="mailto:privacy@getromy.app">privacy@getromy.app</a></p>
-          <p><strong>Mailing Address:</strong><br />
-            Rōmy (GetRomy LLC)<br />
-            Kerrville, TX 78028<br />
-            United States
+          <h3>7.2 Consent Logging</h3>
+          <p>
+            When you accept cookies or consent to optional features, we log:
           </p>
-          <p><strong>Include in your request:</strong></p>
           <ul>
-            <li>Your name and account email address</li>
-            <li>Specific right(s) you are exercising</li>
-            <li>A description of your request</li>
-            <li>Proof of identity (if required for verification)</li>
+            <li>What you consented to</li>
+            <li>Timestamp of consent</li>
+            <li>Your user ID (if logged in)</li>
+            <li>IP address (hashed)</li>
           </ul>
-          <p><strong>Our Response:</strong></p>
-          <ul>
-            <li>We will acknowledge receipt of your request within 10 business days</li>
-            <li>We will verify your identity and process your request (typically 30–45 days, depending on jurisdiction)</li>
-            <li>We will respond in the manner and format you request (email, downloadable file, etc.)</li>
-            <li>If we cannot fulfill your request, we will explain the reason</li>
-          </ul>
-          <p><strong>Appeal:</strong> If we deny or partially deny your request, you may appeal our decision by sending a written appeal to <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> with the original request reference number.</p>
+          <p>This log allows you to withdraw consent and proves compliance if regulators ask.</p>
 
-          <h2>10. Data Processing and AI Models</h2>
-
-          <h3>10.1 AI Model Processing</h3>
-          <p>When you submit a prompt or content to the Service:</p>
+          <h3>7.3 Opting Out of Analytics</h3>
+          <p>You can opt out of PostHog analytics by:</p>
           <ul>
-            <li>Your prompts and context are sent to xAI's Grok model for processing</li>
-            <li>Your content is sent via our service infrastructure using TLS 1.3 encryption</li>
-            <li>xAI processes your request and returns a generated response</li>
-            <li>We store your prompt, response, and metadata in your chat history</li>
+            <li>Enabling "Do Not Track" in your browser</li>
+            <li>Using a privacy-focused browser (Brave, Firefox with tracking protection)</li>
+            <li>Emailing <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> with "Opt out of analytics"</li>
           </ul>
 
-          <h3>10.2 Model Training</h3>
-          <p><strong>Rōmy's Policy:</strong> We do not use your conversations, prompts, or uploaded files to train our own AI models or create derivative models.</p>
-          <p><strong>xAI's Policy:</strong> xAI may use data processed through their API to improve their models, subject to their own privacy policy. Please review xAI's privacy practices at <a href="https://grok.com/privacy" target="_blank" rel="noopener noreferrer">https://grok.com/privacy</a> for details.</p>
-          <p>You can see which model generated each response in your chat history.</p>
+          <h2>8. Data Storage and Security</h2>
 
-          <h3>10.3 Automated Decision-Making</h3>
-          <p>You are not subject to fully automated decision-making that produces legal or similarly significant effects without human oversight. While our Service uses AI to generate suggestions and donor insights, all AI-generated recommendations should be reviewed and verified by you before use in donor identification or fundraising decisions.</p>
-
-          <h3>10.4 Web Search Integration</h3>
-          <p>When you enable web search features (if available):</p>
+          <h3>8.1 Where Data Lives</h3>
           <ul>
-            <li>Your search queries may be sent to third-party search providers (e.g., Exa, Linkup)</li>
-            <li>Results are returned and stored in your chat history</li>
-            <li>Third-party providers may log your search queries subject to their privacy policies</li>
+            <li><strong>Cloud mode:</strong> Data stored in Supabase (AWS infrastructure, US regions)</li>
+            <li><strong>Local mode:</strong> Data stays in your browser's IndexedDB — we never see it</li>
           </ul>
 
-          <h2>11. Security Measures</h2>
-          <p>We implement industry-standard security measures to protect your information:</p>
+          <h3>8.2 Security Measures</h3>
           <ul>
-            <li><strong>Encryption in Transit:</strong> All data transmitted between your device and our servers uses TLS 1.3 encryption</li>
-            <li><strong>Encryption at Rest:</strong> Sensitive data stored in Supabase is encrypted using AES-256 encryption</li>
-            <li><strong>Access Controls:</strong> Only authorized employees with a legitimate business need have access to personal data</li>
-            <li><strong>Authentication:</strong> Google OAuth 2.0 authentication with secure session management</li>
-            <li><strong>Audit Logging:</strong> We maintain logs of system access and data handling for security monitoring</li>
-            <li><strong>Intrusion Detection:</strong> We monitor for unauthorized access attempts and security threats</li>
-            <li><strong>Vendor Security:</strong> We require service providers to maintain SOC 2 Type II or equivalent certifications</li>
+            <li><strong>Encryption in transit:</strong> TLS 1.3 for all connections</li>
+            <li><strong>Encryption at rest:</strong> AES-256 for database, AES-256-GCM for API keys</li>
+            <li><strong>Authentication:</strong> OAuth 2.0, secure session tokens</li>
+            <li><strong>Access control:</strong> Row-level security (RLS) — users only see their own data</li>
+            <li><strong>Audit logging:</strong> Security events logged for monitoring</li>
           </ul>
-          <p><strong>Limitations:</strong> However, no system is completely secure. You use the Service at your own risk. We cannot guarantee absolute security of data transmitted over the internet. Please take appropriate precautions with sensitive information and use strong, unique passwords.</p>
 
-          <h2>12. International Data Transfers</h2>
-          <p>Your information may be transferred to, stored in, and processed in countries other than your country of residence, including the United States. These countries may have different data protection laws than your jurisdiction.</p>
-          <p><strong>When we transfer data internationally, we ensure appropriate safeguards are in place:</strong></p>
+          <h3>8.3 Data Retention</h3>
           <ul>
-            <li><strong>Standard Contractual Clauses (SCCs):</strong> We use EU Standard Contractual Clauses for transfers involving EU/EEA data subjects to the United States and other countries</li>
-            <li><strong>Adequacy Decisions:</strong> We rely on countries with EU adequacy determinations where applicable</li>
-            <li><strong>Contractual Protections:</strong> We require data processors to commit to equivalent protection standards</li>
-            <li><strong>Your Consent:</strong> By using the Service, you consent to the transfer, storage, and processing of your information as described in this policy</li>
+            <li><strong>Active accounts:</strong> Data kept while your account is active</li>
+            <li><strong>Inactive accounts:</strong> Accounts inactive 24+ months may be deleted (with 30-day notice)</li>
+            <li><strong>Deleted accounts:</strong> Data deleted within 30 days (except legal holds)</li>
+            <li><strong>Backups:</strong> Retained up to 30 days, then purged</li>
           </ul>
-          <p>If you have concerns about international transfers, please contact us at <a href="mailto:privacy@getromy.app">privacy@getromy.app</a>.</p>
+
+          <h2>9. Your Rights — Everyone</h2>
+          <p>Regardless of where you live, you can:</p>
+          <ul>
+            <li><strong>Access:</strong> Request a copy of your data</li>
+            <li><strong>Delete:</strong> Request deletion of your account and data</li>
+            <li><strong>Export:</strong> Download your data in standard formats (JSON, CSV)</li>
+            <li><strong>Correct:</strong> Update inaccurate information</li>
+            <li><strong>Disconnect:</strong> Revoke access to Google, CRMs, and third-party integrations</li>
+          </ul>
+          <p>
+            <strong>To exercise these rights:</strong> Email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> with your request. We'll respond within 10 business days and complete requests within 30 days.
+          </p>
+
+          <h2>10. California Residents (CCPA/CPRA)</h2>
+          <div className="rounded-lg border-2 border-blue-500/30 bg-blue-500/5 p-4">
+            <p className="font-semibold text-blue-600 dark:text-blue-400">🇺🇸 California Privacy Rights</p>
+
+            <p><strong>Your Rights:</strong></p>
+            <ul>
+              <li><strong>Right to Know:</strong> What personal information we collect, use, and share</li>
+              <li><strong>Right to Delete:</strong> Request deletion of your personal information</li>
+              <li><strong>Right to Correct:</strong> Fix inaccurate personal information</li>
+              <li><strong>Right to Opt-Out of Sale/Sharing:</strong> See below</li>
+              <li><strong>Right to Limit Use:</strong> Restrict use of sensitive personal information</li>
+              <li><strong>Right to Non-Discrimination:</strong> We won't penalize you for exercising your rights</li>
+            </ul>
+
+            <p><strong>Do We Sell or Share Your Data?</strong></p>
+            <p>
+              <strong>No.</strong> Rōmy does not sell personal information. We do not share personal information for cross-context behavioral advertising.
+            </p>
+            <p>
+              We share data only with service providers who help us operate the Service (AI providers, hosting, analytics). This is not a "sale" or "sharing" under CCPA because these providers are contractually prohibited from using your data for their own purposes.
+            </p>
+            <p>
+              <strong>If this ever changes</strong>, we will update this policy and add a "Do Not Sell or Share My Personal Information" link.
+            </p>
+
+            <p><strong>Categories of PI Collected:</strong></p>
+            <ul>
+              <li>Identifiers (name, email, IP address)</li>
+              <li>Commercial information (subscription, usage)</li>
+              <li>Internet activity (browsing, interactions)</li>
+              <li>Inferences (AI-generated insights)</li>
+              <li>Sensitive: None collected beyond what you voluntarily provide</li>
+            </ul>
+          </div>
+
+          <h2>11. European Users (GDPR)</h2>
+          <div className="rounded-lg border-2 border-purple-500/30 bg-purple-500/5 p-4">
+            <p className="font-semibold text-purple-600 dark:text-purple-400">🇪🇺 EU/EEA/UK Privacy Rights</p>
+
+            <p><strong>Legal Bases for Processing:</strong></p>
+            <ul>
+              <li><strong>Contract:</strong> Account creation, core service functionality</li>
+              <li><strong>Consent:</strong> Optional features (AI Memory, Google integration, analytics)</li>
+              <li><strong>Legitimate Interest:</strong> Security, fraud prevention, product improvement</li>
+              <li><strong>Legal Obligation:</strong> Tax records, compliance requests</li>
+            </ul>
+
+            <p><strong>Your GDPR Rights:</strong></p>
+            <ul>
+              <li>Right of Access (Art. 15)</li>
+              <li>Right to Rectification (Art. 16)</li>
+              <li>Right to Erasure / Right to be Forgotten (Art. 17)</li>
+              <li>Right to Restrict Processing (Art. 18)</li>
+              <li>Right to Data Portability (Art. 20)</li>
+              <li>Right to Object (Art. 21)</li>
+              <li>Right to Withdraw Consent (Art. 7)</li>
+            </ul>
+
+            <p><strong>International Transfers:</strong></p>
+            <p>
+              Your data may be transferred to the United States. We use Standard Contractual Clauses (SCCs) approved by the European Commission to ensure adequate protection.
+            </p>
+
+            <p><strong>Complaints:</strong></p>
+            <p>
+              You may lodge a complaint with your local Data Protection Authority:
+            </p>
+            <ul>
+              <li><strong>EU:</strong> <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank" rel="noopener noreferrer">Find your DPA</a></li>
+              <li><strong>UK:</strong> <a href="https://ico.org.uk/" target="_blank" rel="noopener noreferrer">ICO</a></li>
+            </ul>
+          </div>
+
+          <h2>12. Other Jurisdictions</h2>
+
+          <h3>12.1 Texas (TDPSA)</h3>
+          <p>
+            Texas residents have rights under the Texas Data Privacy and Security Act, including access, deletion, correction, and opt-out of targeted advertising. Contact us at <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> to exercise these rights.
+          </p>
+
+          <h3>12.2 Canada (PIPEDA)</h3>
+          <p>
+            Canadian users have rights under PIPEDA, including access to and correction of personal information. You may file complaints with the <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener noreferrer">Office of the Privacy Commissioner of Canada</a>.
+          </p>
+
+          <h3>12.3 Other US States</h3>
+          <p>
+            If you reside in Colorado, Connecticut, Delaware, Iowa, Montana, Nebraska, New Hampshire, New Jersey, Oregon, Utah, Virginia, or other states with privacy laws, you likely have similar rights to California residents. Contact us to exercise them.
+          </p>
 
           <h2>13. Children's Privacy</h2>
-          <p><strong>Rōmy is not intended for children under 13 years of age</strong> (or 16 in the European Economic Area). We do not knowingly collect personal information from children under these ages.</p>
-          <p>If you believe we have collected information from a child under the applicable age threshold, please contact us immediately at <a href="mailto:privacy@getromy.app">privacy@getromy.app</a>, and we will delete the information within 30 days.</p>
-          <p><strong>Note:</strong> If you are a nonprofit staff member or volunteer under 13 or 16 using the Service on behalf of your organization, please alert your organization's account administrator, and we will work to address it.</p>
+          <p>
+            <strong>Rōmy is not for children under 18.</strong> We do not knowingly collect personal information from anyone under 18 (or 16 in the EEA). If you believe a child has provided us data, contact <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> immediately. We will delete it within 30 days.
+          </p>
 
-          <h2>14. Third-Party Links and Services</h2>
-          <p>The Service may contain links to third-party websites, services, and applications. We are not responsible for the privacy practices of these third parties. We encourage you to review the privacy policies of any third-party sites or services before providing any information or using their services.</p>
-          <p>This Privacy Policy applies only to information collected through Rōmy. Third-party services are governed by their own terms and privacy policies.</p>
+          <h2>14. Data Deletion and Export</h2>
+          <p>You have the right to delete your data and export it before deletion.</p>
 
-          <h2>15. Transparency: Open-Source Code</h2>
-          <p><strong>Rōmy is open-source software.</strong> You can review our code, data handling practices, and security implementations in our public repository on GitHub. This transparency allows independent verification of our privacy practices and security measures.</p>
+          <h3>14.1 How to Delete Your Account</h3>
+          <ol>
+            <li>Go to Settings → Account</li>
+            <li>Click "Delete Account"</li>
+            <li>Confirm deletion</li>
+          </ol>
+          <p>Or email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> with subject "Delete My Account".</p>
 
-          <h2>16. Changes to This Privacy Policy</h2>
-          <p>We may update this Privacy Policy from time to time to reflect:</p>
+          <h3>14.2 What Gets Deleted</h3>
           <ul>
-            <li>Changes in our data practices</li>
-            <li>New technologies and security measures</li>
-            <li>Evolving legal requirements</li>
-            <li>Feedback from users and regulators</li>
-          </ul>
-          <p><strong>Notice of Changes:</strong></p>
-          <p>We will notify you of material changes by:</p>
-          <ul>
-            <li>Posting an updated policy on our website with a new "Last updated" date</li>
-            <li>Sending an email notification to your registered email address</li>
-            <li>Displaying a prominent in-app notification</li>
-          </ul>
-          <p><strong>Your Rights:</strong></p>
-          <ul>
-            <li>Material changes will be effective 30 days after notice</li>
-            <li>Your continued use of the Service after changes become effective constitutes acceptance of the updated Privacy Policy</li>
-            <li>If you do not agree with material changes, you may delete your account before the changes take effect</li>
+            <li>Account information</li>
+            <li>All chat history</li>
+            <li>Uploaded files</li>
+            <li>AI memories</li>
+            <li>Google integration data (writing style, drafts, indexed docs)</li>
+            <li>CRM data and credentials</li>
+            <li>Preferences and settings</li>
           </ul>
 
-          <h2>17. Contact Us</h2>
-          <p>For privacy-related inquiries, concerns, or requests, please contact our team:</p>
-          <p><strong>Email:</strong> <a href="mailto:privacy@getromy.app">privacy@getromy.app</a></p>
-          <p><strong>Mailing Address:</strong><br />
-            Rōmy (GetRomy LLC)<br />
+          <h3>14.3 What We May Retain</h3>
+          <ul>
+            <li>Anonymized, aggregated analytics</li>
+            <li>Billing records (legal requirement)</li>
+            <li>Data subject to legal holds</li>
+          </ul>
+
+          <h3>14.4 Export Your Data</h3>
+          <p>
+            Before deleting, you can request a full export of your data. Email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> with subject "Data Export Request". We'll provide a download link within 30 days.
+          </p>
+
+          <h2>15. Changes to This Policy</h2>
+          <p>We may update this Privacy Policy. When we do:</p>
+          <ul>
+            <li>We'll update the "Effective" date at the top</li>
+            <li>For material changes, we'll email you and/or show an in-app notification</li>
+            <li>Material changes take effect 30 days after notice</li>
+            <li>Continued use after the effective date = acceptance</li>
+          </ul>
+
+          <h2>16. Contact Us</h2>
+          <p>Questions, concerns, or requests? Contact us:</p>
+          <p>
+            <strong>Email:</strong> <a href="mailto:privacy@getromy.app">privacy@getromy.app</a><br />
+            <strong>Security issues:</strong> <a href="mailto:security@getromy.app">security@getromy.app</a><br />
+            <strong>Legal/Terms:</strong> <a href="mailto:legal@getromy.app">legal@getromy.app</a>
+          </p>
+          <p>
+            <strong>Mailing Address:</strong><br />
+            GetRomy LLC<br />
             Kerrville, TX 78028<br />
             United States
           </p>
-          <p><strong>Response Time:</strong> We will acknowledge your inquiry within 10 business days and provide a substantive response within 30–45 days.</p>
-          <p><strong>For EU/EEA Residents:</strong> If you have concerns about our privacy practices and wish to escalate, you may lodge a complaint with your national data protection authority:</p>
-          <ul>
-            <li><strong>EU:</strong> <a href="https://edpb.ec.europa.eu/about-edpb/members_en" target="_blank" rel="noopener noreferrer">https://edpb.ec.europa.eu/about-edpb/members_en</a></li>
-            <li><strong>UK:</strong> <a href="https://ico.org.uk/" target="_blank" rel="noopener noreferrer">https://ico.org.uk/</a></li>
-          </ul>
-          <p><strong>For Canadian Residents:</strong> You may lodge a complaint with the Office of the Privacy Commissioner of Canada:</p>
-          <ul>
-            <li><strong>Website:</strong> <a href="https://www.priv.gc.ca/" target="_blank" rel="noopener noreferrer">https://www.priv.gc.ca/</a></li>
-            <li><strong>Telephone:</strong> 1-800-282-1376</li>
-          </ul>
+          <p>
+            <strong>Response Time:</strong> We acknowledge requests within 10 business days and complete them within 30-45 days depending on complexity and jurisdiction.
+          </p>
 
-          <h2>18. Acknowledgment</h2>
-          <p>By using Rōmy, you consent to this Privacy Policy and agree to its terms. If you do not agree with this policy, please do not use the Service.</p>
-          <p>If you have questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us using the information in Section 17.</p>
+          <h2>17. Open Source Transparency</h2>
+          <p>
+            Rōmy is open-source. You can review our code, data handling, and security implementations on GitHub. This transparency allows independent verification of our privacy practices.
+          </p>
 
           <div className="mt-12 border-t border-border pt-6 text-sm text-muted-foreground">
-            <p>Last updated: November 28, 2025</p>
-            <p>Version: 2.0 (Multi-jurisdiction)</p>
+            <p>Last updated: December 27, 2024</p>
+            <p>Version: 3.0</p>
           </div>
         </div>
       </div>
