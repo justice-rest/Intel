@@ -207,12 +207,14 @@ export const DRIVE_PROCESSING_CONFIG = {
     "application/pdf",
     "application/vnd.google-apps.document", // Google Docs
     "application/vnd.google-apps.spreadsheet", // Google Sheets
+    "application/vnd.google-apps.presentation", // Google Slides
     "text/plain",
     "text/csv",
     "text/markdown",
     "application/json",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // .xlsx
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation", // .pptx
   ] as const,
 
   // Export formats for Google Workspace files

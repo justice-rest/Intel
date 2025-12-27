@@ -93,7 +93,7 @@ export function GoogleIntegrationSection() {
     refetchOnWindowFocus: true,
   })
 
-  // Fetch drive documents
+  // Fetch drive documents with auto-refresh
   const { data: driveDocsData } = useQuery({
     queryKey: ["drive-documents"],
     queryFn: async () => {
@@ -102,7 +102,9 @@ export function GoogleIntegrationSection() {
       return res.json() as Promise<{ documents: GoogleDriveDocument[]; count: number }>
     },
     enabled: status?.connected === true && status?.scopes?.some((s) => s.includes("drive")),
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
+    staleTime: 5000, // Consider data stale after 5 seconds
   })
 
   const driveDocuments = driveDocsData?.documents || []
@@ -254,7 +256,7 @@ export function GoogleIntegrationSection() {
         <h3 className="text-base font-semibold text-black dark:text-white">
           Google Workspace
         </h3>
-        <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+        <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
           BETA
         </span>
         {!hasEligiblePlan && (
@@ -291,7 +293,7 @@ export function GoogleIntegrationSection() {
                 // Open subscription settings
                 window.dispatchEvent(new CustomEvent("open-settings", { detail: { tab: "subscription" } }))
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded bg-[rgb(255,187,16)] hover:bg-transparent border border-[rgb(255,187,16)] text-black dark:hover:text-white transition-all"
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded bg-black dark:bg-white hover:bg-transparent border border-black dark:border-white text-white dark:text-black hover:text-black dark:hover:text-white transition-all"
             >
               Upgrade Plan
               <ArrowUpRight size={14} />
@@ -463,11 +465,11 @@ export function GoogleIntegrationSection() {
                           className="flex items-center gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#222] group"
                         >
                           <File size={14} className="text-gray-400 flex-shrink-0" />
-                          <span className="flex-1 truncate text-gray-700 dark:text-gray-300">
+                          <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300" title={doc.drive_file_name}>
                             {doc.drive_file_name}
                           </span>
                           <span className={cn(
-                            "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                            "px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0",
                             doc.status === "ready"
                               ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                               : doc.status === "processing"
@@ -483,7 +485,7 @@ export function GoogleIntegrationSection() {
                               deleteDocumentMutation.mutate(doc.drive_file_id)
                             }}
                             disabled={deletingDocId === doc.drive_file_id}
-                            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-opacity"
+                            className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
                           >
                             {deletingDocId === doc.drive_file_id ? (
                               <Spinner size={12} className="animate-spin" />
@@ -539,7 +541,7 @@ export function GoogleIntegrationSection() {
               type="button"
               onClick={() => connectMutation.mutate()}
               disabled={connectMutation.isPending}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-[rgb(255,187,16)] hover:bg-transparent border border-[rgb(255,187,16)] text-black dark:hover:text-white transition-all disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-black dark:bg-white hover:bg-transparent border border-black dark:border-white text-white dark:text-black hover:text-black dark:hover:text-white transition-all disabled:opacity-50"
             >
               {connectMutation.isPending && (
                 <Spinner size={14} className="animate-spin" />

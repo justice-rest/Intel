@@ -36,7 +36,7 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
     }
   }, [open])
 
-  // Fetch drafts
+  // Fetch drafts with auto-refresh
   const {
     data: draftsData,
     isLoading,
@@ -57,6 +57,8 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
     },
     enabled: open,
     refetchOnWindowFocus: true,
+    refetchInterval: open ? 5000 : false, // Auto-refresh every 5 seconds when modal is open
+    staleTime: 2000, // Consider data stale after 2 seconds
   })
 
   const drafts = draftsData?.drafts || []
@@ -259,7 +261,7 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
           {!isEditing && (
             <button
               type="button"
-              className="w-full h-10 rounded bg-[rgb(255,187,16)] hover:bg-transparent border border-[rgb(255,187,16)] text-black dark:hover:text-white font-semibold text-sm transition-all mt-3"
+              className="w-full h-10 rounded bg-black dark:bg-white hover:bg-transparent border border-black dark:border-white text-white dark:text-black hover:text-black dark:hover:text-white font-semibold text-sm transition-all mt-3"
               onClick={() => onOpenChange(false)}
             >
               Done

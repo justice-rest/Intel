@@ -9,6 +9,34 @@ import {
   hasDriveAccess,
   getIndexedDocuments,
 } from "@/lib/google"
+import { createClient } from "@/lib/supabase/server"
+
+/**
+ * Format document for display
+ */
+function formatDocument(doc: {
+  name: string
+  mimeType: string
+  status: string
+  lastSynced: string
+}): string {
+  const typeMap: Record<string, string> = {
+    "application/vnd.google-apps.document": "Google Doc",
+    "application/vnd.google-apps.spreadsheet": "Google Sheet",
+    "application/vnd.google-apps.presentation": "Google Slides",
+    "application/pdf": "PDF",
+    "text/plain": "Text File",
+    "text/csv": "CSV",
+    "text/markdown": "Markdown",
+    "application/json": "JSON",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word Doc",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel",
+  }
+  const type = typeMap[doc.mimeType] || doc.mimeType
+  const date = new Date(doc.lastSynced).toLocaleDateString()
+  const statusEmoji = doc.status === "ready" ? "✓" : doc.status === "processing" ? "⏳" : "✗"
+  return `${statusEmoji} ${doc.name} (${type}) - synced ${date}`
+}
 
 // ============================================================================
 // TOOL FACTORIES
@@ -21,7 +49,7 @@ export const createDriveSearchTool = (userId: string) =>
   tool({
     description:
       "Search the user's indexed Google Drive documents. " +
-      "Returns relevant content chunks from documents imported via the Google Drive integration. " +
+      "Returns relevant content from documents imported via the Google Drive integration. " +
       "Use this when the user asks about their documents, files, or information stored in Drive. " +
       "This searches documents that have been specifically imported by the user.",
     parameters: z.object({
@@ -46,10 +74,9 @@ export const createDriveSearchTool = (userId: string) =>
         const hasAccess = await hasDriveAccess(userId)
         if (!hasAccess) {
           return {
+            rawContent: "Google Drive is not connected. Please connect your Google account in Settings.",
             success: false,
-            error:
-              "Google Drive is not connected. Please connect your Google account in Settings.",
-            results: [],
+            error: "Not connected",
           }
         }
 
@@ -58,11 +85,8 @@ export const createDriveSearchTool = (userId: string) =>
 
         if (documents.length === 0) {
           return {
+            rawContent: "No documents have been imported from Google Drive yet.\n\nTo import documents:\n1. Go to Settings → Integrations → Google Workspace\n2. Click 'Browse Drive Files'\n3. Select files to import",
             success: true,
-            message:
-              "No documents have been imported from Google Drive yet. " +
-              "Import documents from Settings > Integrations > Google Drive.",
-            results: [],
             count: 0,
           }
         }
@@ -77,36 +101,73 @@ export const createDriveSearchTool = (userId: string) =>
           )
         }
 
-        // For now, return document metadata
-        // Full RAG search would integrate with existing RAG infrastructure
-        const results = filteredDocs.slice(0, limit).map((doc) => ({
-          documentName: doc.name,
-          mimeType: doc.mimeType,
-          status: doc.status,
-          lastSynced: doc.lastSynced,
-          relevance: "Based on document metadata - full content search via RAG system",
-        }))
+        // Search for content in the database
+        // Drive documents store their content when processed
+        const supabase = await createClient()
+        let contentResults: Array<{
+          documentName: string
+          content: string
+          relevance: string
+        }> = []
+
+        if (supabase) {
+          try {
+            // Search in google_drive_documents content field
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const { data: driveResults } = await (supabase as any)
+              .from("google_drive_documents")
+              .select("drive_file_name, drive_mime_type, status, last_synced_at")
+              .eq("user_id", userId)
+              .ilike("drive_file_name", `%${query}%`)
+              .limit(limit)
+
+            if (driveResults && driveResults.length > 0) {
+              contentResults = driveResults.map((doc: any) => ({
+                documentName: doc.drive_file_name,
+                content: `Document: ${doc.drive_file_name}\nType: ${doc.drive_mime_type}\nStatus: ${doc.status}`,
+                relevance: "Name match",
+              }))
+            }
+          } catch (searchError) {
+            console.error("[DriveSearchTool] Search error:", searchError)
+          }
+        }
+
+        // Build human-readable output
+        let rawContent = `**Search Results for "${query}"**\n\n`
+
+        if (contentResults.length > 0) {
+          rawContent += `Found ${contentResults.length} matching document(s):\n\n`
+          contentResults.forEach((result, idx) => {
+            rawContent += `${idx + 1}. **${result.documentName}**\n`
+            rawContent += `   ${result.relevance}\n\n`
+          })
+        } else if (filteredDocs.length > 0) {
+          rawContent += `Found ${filteredDocs.length} indexed document(s):\n\n`
+          filteredDocs.slice(0, limit).forEach((doc, idx) => {
+            rawContent += `${idx + 1}. **${doc.name}**\n`
+            rawContent += `   Type: ${doc.mimeType}\n`
+            rawContent += `   Status: ${doc.status}\n\n`
+          })
+          rawContent += `\n*Note: Content search requires documents to be fully indexed.*`
+        } else {
+          rawContent += "No documents matched your search query.\n\n"
+          rawContent += `You have ${documents.length} document(s) imported. Try a different search term.`
+        }
 
         return {
+          rawContent,
           success: true,
-          results,
-          count: results.length,
+          count: contentResults.length || filteredDocs.length,
           totalDocuments: documents.length,
           query,
-          message:
-            results.length > 0
-              ? `Found ${results.length} document${results.length === 1 ? "" : "s"} matching your criteria.`
-              : "No matching documents found.",
         }
       } catch (error) {
         console.error("[DriveSearchTool] Error:", error)
         return {
+          rawContent: `Failed to search Drive documents: ${error instanceof Error ? error.message : "Unknown error"}`,
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to search Drive documents",
-          results: [],
+          error: error instanceof Error ? error.message : "Search failed",
         }
       }
     },
@@ -135,10 +196,9 @@ export const createDriveListDocumentsTool = (userId: string) =>
         const hasAccess = await hasDriveAccess(userId)
         if (!hasAccess) {
           return {
+            rawContent: "Google Drive is not connected. Please connect your Google account in Settings.",
             success: false,
-            error:
-              "Google Drive is not connected. Please connect your Google account in Settings.",
-            documents: [],
+            error: "Not connected",
           }
         }
 
@@ -152,38 +212,44 @@ export const createDriveListDocumentsTool = (userId: string) =>
         if (filteredDocs.length === 0) {
           const noDocsMessage =
             status === "all"
-              ? "No documents have been imported from Google Drive yet."
+              ? "No documents have been imported from Google Drive yet.\n\nTo import documents:\n1. Go to Settings → Integrations → Google Workspace\n2. Click 'Browse Drive Files'\n3. Select files to import"
               : `No documents with status '${status}' found.`
 
           return {
+            rawContent: noDocsMessage,
             success: true,
-            message: noDocsMessage,
-            documents: [],
             count: 0,
           }
         }
 
+        // Build human-readable output
+        let rawContent = `**Your Imported Drive Documents**\n\n`
+        rawContent += `Total: ${filteredDocs.length} document(s)`
+        if (status !== "all") {
+          rawContent += ` with status "${status}"`
+        }
+        rawContent += `\n\n`
+
+        filteredDocs.forEach((doc, idx) => {
+          rawContent += `${idx + 1}. ${formatDocument(doc)}\n`
+        })
+
+        if (documents.length > filteredDocs.length && status !== "all") {
+          rawContent += `\n*${documents.length - filteredDocs.length} other document(s) filtered out*`
+        }
+
         return {
+          rawContent,
           success: true,
-          documents: filteredDocs.map((doc) => ({
-            name: doc.name,
-            type: doc.mimeType,
-            status: doc.status,
-            lastSynced: doc.lastSynced,
-          })),
           count: filteredDocs.length,
           totalDocuments: documents.length,
-          message: `Found ${filteredDocs.length} indexed document${filteredDocs.length === 1 ? "" : "s"}.`,
         }
       } catch (error) {
         console.error("[DriveListDocumentsTool] Error:", error)
         return {
+          rawContent: `Failed to list Drive documents: ${error instanceof Error ? error.message : "Unknown error"}`,
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Failed to list Drive documents",
-          documents: [],
+          error: error instanceof Error ? error.message : "Failed to list documents",
         }
       }
     },

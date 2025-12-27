@@ -128,7 +128,7 @@ export function DraftEditor({
           onChange={(e) => setToInput(e.target.value)}
           placeholder="recipient@example.com"
           disabled={isSaving || isLoadingBody}
-          className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50"
+          className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white disabled:opacity-50"
         />
       </div>
 
@@ -144,7 +144,7 @@ export function DraftEditor({
           onChange={(e) => setCcInput(e.target.value)}
           placeholder="cc@example.com (optional)"
           disabled={isSaving || isLoadingBody}
-          className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50"
+          className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white disabled:opacity-50"
         />
       </div>
 
@@ -162,7 +162,7 @@ export function DraftEditor({
           }
           placeholder="Email subject"
           disabled={isSaving || isLoadingBody}
-          className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50"
+          className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white disabled:opacity-50"
         />
       </div>
 
@@ -185,7 +185,7 @@ export function DraftEditor({
             placeholder="Email body..."
             rows={8}
             disabled={isSaving}
-            className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)] disabled:opacity-50 resize-none"
+            className="w-full px-2.5 py-2 text-sm border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white disabled:opacity-50 resize-none"
           />
         )}
       </div>
@@ -195,7 +195,7 @@ export function DraftEditor({
         <button
           type="button"
           onClick={openInGmail}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded border border-gray-300 dark:border-[#444] text-gray-600 dark:text-gray-400 hover:border-[rgb(255,187,16)] transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded border border-gray-300 dark:border-[#444] text-gray-600 dark:text-gray-400 hover:border-black dark:hover:border-white transition-colors"
         >
           <ArrowSquareOut size={14} />
           Open in Gmail
@@ -205,14 +205,14 @@ export function DraftEditor({
           type="button"
           onClick={onCancel}
           disabled={isSaving}
-          className="px-3 py-2 text-xs font-medium rounded border border-gray-300 dark:border-[#444] text-gray-600 dark:text-gray-400 hover:border-[rgb(255,187,16)] transition-colors disabled:opacity-50"
+          className="px-3 py-2 text-xs font-medium rounded border border-gray-300 dark:border-[#444] text-gray-600 dark:text-gray-400 hover:border-black dark:hover:border-white transition-colors disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isSaving || isLoadingBody}
-          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded bg-[rgb(255,187,16)] hover:bg-transparent border border-[rgb(255,187,16)] text-black dark:hover:text-white transition-all disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded bg-black dark:bg-white hover:bg-transparent border border-black dark:border-white text-white dark:text-black hover:text-black dark:hover:text-white transition-all disabled:opacity-50"
         >
           {isSaving ? (
             <Spinner size={14} className="animate-spin" />

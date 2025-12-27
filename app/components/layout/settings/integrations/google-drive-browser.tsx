@@ -294,7 +294,7 @@ export function GoogleDriveBrowser({ onFilesImported }: GoogleDriveBrowserProps)
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search files..."
-                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-[rgb(255,187,16)]"
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#222] text-black dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-black dark:focus:ring-white focus:border-black dark:focus:border-white"
                 />
               </div>
 
@@ -334,12 +334,12 @@ export function GoogleDriveBrowser({ onFilesImported }: GoogleDriveBrowserProps)
                           type="button"
                           onClick={() => toggleFileSelection(file)}
                           className={`w-full flex items-center gap-3 p-3 text-left hover:bg-gray-100 dark:hover:bg-[#333] transition-colors ${
-                            isSelected ? "bg-amber-50 dark:bg-amber-900/10" : ""
+                            isSelected ? "bg-gray-100 dark:bg-[#333]" : ""
                           }`}
                         >
                           <div className={`flex-shrink-0 size-5 rounded border flex items-center justify-center transition-colors ${
                             isSelected
-                              ? "bg-[rgb(255,187,16)] border-[rgb(255,187,16)] text-black"
+                              ? "bg-black dark:bg-white border-black dark:border-white text-white dark:text-black"
                               : "border-gray-300 dark:border-[#555]"
                           }`}>
                             {isSelected && <Check className="size-3" />}

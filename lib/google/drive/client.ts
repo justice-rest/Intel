@@ -238,13 +238,40 @@ export async function extractTextContent(
     return file.content as string
   }
 
-  // For PDFs and Office docs, we'd need additional processing
-  // Return raw content for now (would need pdf-parse or similar)
+  // Ensure we have a Buffer for binary processing
+  const contentBuffer = Buffer.isBuffer(file.content)
+    ? file.content
+    : Buffer.from(file.content, "utf-8")
+
+  // For PDFs, use the existing PDF processor
   if (file.mimeType.includes("pdf")) {
-    // TODO: Integrate with existing PDF processing pipeline
-    return `[PDF content from ${file.name} - size: ${file.size} bytes]`
+    try {
+      const { processPDF } = await import("@/lib/rag/pdf-processor")
+      const pdfResult = await processPDF(contentBuffer)
+      return pdfResult.text
+    } catch (error) {
+      console.error("[DriveClient] PDF processing failed:", error)
+      return `[Failed to extract PDF content from ${file.name}]`
+    }
   }
 
+  // For Office formats (pptx, docx, xlsx), use the office processor
+  const officeFormats = [
+    "application/vnd.openxmlformats-officedocument",
+    "application/vnd.oasis.opendocument",
+  ]
+  if (officeFormats.some((f) => file.mimeType.includes(f))) {
+    try {
+      const { processOfficeDocument } = await import("@/lib/rag/office-processor")
+      const officeResult = await processOfficeDocument(contentBuffer, file.mimeType, file.name)
+      return officeResult.text
+    } catch (error) {
+      console.error("[DriveClient] Office processing failed:", error)
+      return `[Failed to extract content from ${file.name}]`
+    }
+  }
+
+  // Fallback for any remaining formats
   return Buffer.isBuffer(file.content)
     ? file.content.toString("utf-8")
     : String(file.content)

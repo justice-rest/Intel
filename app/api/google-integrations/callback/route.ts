@@ -13,6 +13,7 @@ import {
   GOOGLE_ERROR_MESSAGES,
 } from "@/lib/google"
 import { retrieveOAuthState } from "@/lib/google/oauth/state-manager"
+import { APP_DOMAIN } from "@/lib/config"
 
 // ============================================================================
 // GET - Handle OAuth callback
@@ -25,12 +26,11 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get("error")
   const errorDescription = searchParams.get("error_description")
 
-  // Base URL for redirects
+  // Base URL for redirects - ALWAYS use APP_DOMAIN in production
+  // to avoid redirecting to preview deployments
   const baseUrl = process.env.NODE_ENV === "development"
     ? "http://localhost:3000"
-    : process.env.NEXT_PUBLIC_VERCEL_URL
-      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-      : "https://intel.getromy.app"
+    : APP_DOMAIN
 
   const settingsUrl = `${baseUrl}/settings?tab=integrations`
 

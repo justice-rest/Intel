@@ -59,7 +59,19 @@ export function UserMenu() {
 
     const productStatus = customer.products?.[0]?.status
     const productId = customer.products?.[0]?.id
-    const tier = productId?.replace("-yearly", "") || null
+
+    // Normalize tier to match database constraint ('starter', 'pro', 'scale', or null)
+    let tier: string | null = null
+    if (productId) {
+      const normalizedId = productId.toLowerCase()
+      if (normalizedId.includes("scale")) {
+        tier = "scale"
+      } else if (normalizedId.includes("pro")) {
+        tier = "pro"
+      } else if (normalizedId.includes("starter")) {
+        tier = "starter"
+      }
+    }
 
     // Only sync if different from cached values
     if (
