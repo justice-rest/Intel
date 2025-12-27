@@ -74,7 +74,6 @@ export const CRM_PROVIDERS: CRMProviderConfig[] = [
     description: "Connect Salesforce NPSP to sync contacts and opportunities.",
     secondaryPlaceholder: "Enter your Salesforce instance URL (e.g., https://yourorg.my.salesforce.com)",
     secondaryLabel: "Instance URL",
-    beta: true,
   },
   {
     id: "blackbaud",
@@ -89,7 +88,6 @@ export const CRM_PROVIDERS: CRMProviderConfig[] = [
     description: "Connect Raiser's Edge NXT via SKY API to sync constituents and gifts.",
     secondaryPlaceholder: "Enter your SKY API subscription key",
     secondaryLabel: "Subscription Key",
-    beta: true,
   },
   {
     id: "everyaction",
@@ -103,7 +101,6 @@ export const CRM_PROVIDERS: CRMProviderConfig[] = [
     description: "Connect EveryAction (NGP VAN) to sync people and contributions.",
     secondaryPlaceholder: "Enter your application name",
     secondaryLabel: "Application Name",
-    beta: true,
   },
 ]
 

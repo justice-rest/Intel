@@ -3,6 +3,13 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
+import BloomerangIcon from "@/components/icons/bloomerang"
+import VirtuousIcon from "@/components/icons/virtuous"
+import NeonCRMIcon from "@/components/icons/neoncrm"
+import DonorPerfectIcon from "@/components/icons/donorperfect"
+import SalesforceIcon from "@/components/icons/salesforce"
+import BlackbaudIcon from "@/components/icons/blackbaud"
+import EveryActionIcon from "@/components/icons/everyaction"
 
 export const metadata: Metadata = {
   title: "Integration Documentation - Rōmy",
@@ -59,9 +66,9 @@ export default function IntegrationDocs() {
               <li><a href="#virtuous">Virtuous Setup</a></li>
               <li><a href="#neoncrm">Neon CRM Setup</a></li>
               <li><a href="#donorperfect">DonorPerfect Setup</a></li>
-              <li><a href="#salesforce">Salesforce NPSP Setup</a> <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></li>
-              <li><a href="#blackbaud">Raiser's Edge NXT Setup</a> <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></li>
-              <li><a href="#everyaction">EveryAction Setup</a> <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></li>
+              <li><a href="#salesforce">Salesforce NPSP Setup</a></li>
+              <li><a href="#blackbaud">Raiser's Edge NXT Setup</a></li>
+              <li><a href="#everyaction">EveryAction Setup</a></li>
               <li><a href="#syncing">Syncing Your Data</a></li>
               <li><a href="#troubleshooting">Troubleshooting</a></li>
               <li><a href="#security">Security & Privacy</a></li>
@@ -97,52 +104,81 @@ export default function IntegrationDocs() {
           </ul>
 
           <h3>Supported CRMs</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>CRM</th>
-                <th>Status</th>
-                <th>Auth Method</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Bloomerang</strong></td>
-                <td>Stable</td>
-                <td>API Key</td>
-              </tr>
-              <tr>
-                <td><strong>Virtuous</strong></td>
-                <td>Stable</td>
-                <td>API Key (Bearer Token)</td>
-              </tr>
-              <tr>
-                <td><strong>Neon CRM</strong></td>
-                <td>Stable</td>
-                <td>Org ID + API Key</td>
-              </tr>
-              <tr>
-                <td><strong>DonorPerfect</strong></td>
-                <td>Beta</td>
-                <td>API Key</td>
-              </tr>
-              <tr>
-                <td><strong>Salesforce NPSP</strong></td>
-                <td>Beta</td>
-                <td>Instance URL + Access Token (OAuth 2.0)</td>
-              </tr>
-              <tr>
-                <td><strong>Raiser's Edge NXT</strong></td>
-                <td>Beta</td>
-                <td>Subscription Key + Access Token (OAuth 2.0)</td>
-              </tr>
-              <tr>
-                <td><strong>EveryAction</strong></td>
-                <td>Beta</td>
-                <td>Application Name + API Key</td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="not-prose overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="py-3 pr-4 text-left font-medium">CRM</th>
+                  <th className="py-3 px-4 text-left font-medium">Auth Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-border/50">
+                  <td className="py-3 pr-4">
+                    <span className="flex items-center gap-2">
+                      <BloomerangIcon className="size-5" />
+                      <strong>Bloomerang</strong>
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">API Key</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-3 pr-4">
+                    <span className="flex items-center gap-2">
+                      <VirtuousIcon className="size-5" />
+                      <strong>Virtuous</strong>
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">API Key (Bearer Token)</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-3 pr-4">
+                    <span className="flex items-center gap-2">
+                      <NeonCRMIcon className="size-5" />
+                      <strong>Neon CRM</strong>
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">Org ID + API Key</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-3 pr-4">
+                    <span className="flex items-center gap-2">
+                      <DonorPerfectIcon className="size-5" />
+                      <strong>DonorPerfect</strong>
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">API Key</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-3 pr-4">
+                    <span className="flex items-center gap-2">
+                      <SalesforceIcon className="size-5" />
+                      <strong>Salesforce NPSP</strong>
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">Instance URL + Access Token (OAuth 2.0)</td>
+                </tr>
+                <tr className="border-b border-border/50">
+                  <td className="py-3 pr-4">
+                    <span className="flex items-center gap-2">
+                      <BlackbaudIcon className="size-5" />
+                      <strong>Raiser's Edge NXT</strong>
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">Subscription Key + Access Token (OAuth 2.0)</td>
+                </tr>
+                <tr>
+                  <td className="py-3 pr-4">
+                    <span className="flex items-center gap-2">
+                      <EveryActionIcon className="size-5" />
+                      <strong>EveryAction</strong>
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">Application Name + API Key</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <hr className="my-12" />
 
@@ -372,7 +408,7 @@ export default function IntegrationDocs() {
           <hr className="my-12" />
 
           {/* Salesforce NPSP */}
-          <h2 id="salesforce">Salesforce NPSP Setup <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></h2>
+          <h2 id="salesforce">Salesforce NPSP Setup</h2>
           <p>
             <a href="https://www.salesforce.org/nonprofit/nonprofit-success-pack/" target="_blank" rel="noopener noreferrer">Salesforce NPSP</a> (Nonprofit Success Pack) is an enterprise-grade CRM built on the Salesforce platform. NPSP extends Salesforce with nonprofit-specific features like donation tracking, household management, and engagement plans.
           </p>
@@ -445,7 +481,7 @@ export default function IntegrationDocs() {
           <hr className="my-12" />
 
           {/* Blackbaud / Raiser's Edge NXT */}
-          <h2 id="blackbaud">Raiser's Edge NXT Setup <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></h2>
+          <h2 id="blackbaud">Raiser's Edge NXT Setup</h2>
           <p>
             <a href="https://www.blackbaud.com/products/blackbaud-raisers-edge-nxt" target="_blank" rel="noopener noreferrer">Raiser's Edge NXT</a> by Blackbaud is one of the most widely-used enterprise fundraising platforms. It uses the <strong>Blackbaud SKY API</strong> for integrations.
           </p>
@@ -514,7 +550,7 @@ export default function IntegrationDocs() {
           <hr className="my-12" />
 
           {/* EveryAction */}
-          <h2 id="everyaction">EveryAction Setup <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></h2>
+          <h2 id="everyaction">EveryAction Setup</h2>
           <p>
             <a href="https://www.everyaction.com" target="_blank" rel="noopener noreferrer">EveryAction</a> (part of NGP VAN/Bonterra) is a powerful platform for progressive organizations, combining fundraising, advocacy, and voter contact tools.
           </p>
