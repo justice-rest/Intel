@@ -26,17 +26,37 @@ import {
   CaretDown,
   CaretUp,
   Upload,
+  Lock,
+  ArrowUpRight,
 } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "motion/react"
 import type { GoogleIntegrationStatus, GoogleDriveDocument } from "@/lib/google/types"
 import { GoogleDrivePicker } from "./google-drive-picker"
+import { useCustomer } from "autumn-js/react"
+
+/**
+ * Check if a plan ID is Pro or Scale (eligible for Google Workspace)
+ */
+function isEligiblePlan(productId?: string): boolean {
+  if (!productId) return false
+  const lower = productId.toLowerCase()
+  // Check if plan contains "pro" or "scale" as a word
+  return /(?:^|[-_])(?:pro|scale)(?:[-_]|$)/i.test(lower) || lower === "pro" || lower === "scale"
+}
 
 export function GoogleIntegrationSection() {
   const queryClient = useQueryClient()
+  const { customer } = useCustomer()
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false)
   const [showDriveDocuments, setShowDriveDocuments] = useState(false)
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
+
+  // Check if user is on an eligible plan (Pro or Scale)
+  const activeProduct = customer?.products?.find(
+    (p: { status: string }) => p.status === "active" || p.status === "trialing"
+  )
+  const hasEligiblePlan = isEligiblePlan(activeProduct?.id)
 
   // Check URL params for success/error messages from OAuth callback
   useEffect(() => {
@@ -234,17 +254,53 @@ export function GoogleIntegrationSection() {
         <h3 className="text-base font-semibold text-black dark:text-white">
           Google Workspace
         </h3>
-        <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-          NEW
+        <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+          BETA
         </span>
+        {!hasEligiblePlan && (
+          <span className="rounded px-1.5 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+            PRO
+          </span>
+        )}
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
         Connect Gmail and Drive for AI-powered email drafts and document search.
+        {!hasEligiblePlan && (
+          <span className="text-amber-600 dark:text-amber-400"> Requires Pro or Scale plan.</span>
+        )}
       </p>
 
       {/* Main Card */}
       <div className="p-4 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded">
-        {isConnected ? (
+        {!hasEligiblePlan ? (
+          /* Locked State - Requires Pro or Scale plan */
+          <div className="text-center py-6">
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 dark:bg-[#333] mb-3">
+              <Lock size={24} className="text-gray-400" />
+            </div>
+            <h4 className="text-sm font-semibold text-black dark:text-white mb-1">
+              Upgrade to Unlock
+            </h4>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 max-w-[280px] mx-auto">
+              Google Workspace integration is available on Pro and Scale plans.
+              Connect Gmail for AI-powered email drafts and Drive for document search.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                // Open subscription settings
+                window.dispatchEvent(new CustomEvent("open-settings", { detail: { tab: "subscription" } }))
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded bg-[rgb(255,187,16)] hover:bg-transparent border border-[rgb(255,187,16)] text-black dark:hover:text-white transition-all"
+            >
+              Upgrade Plan
+              <ArrowUpRight size={14} />
+            </button>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-3">
+              Currently in beta. Rolling out to all Pro & Scale users soon.
+            </p>
+          </div>
+        ) : isConnected ? (
           <div className="space-y-4">
             {/* Connected Header */}
             <div className="flex items-center justify-between">

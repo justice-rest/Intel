@@ -1,6 +1,8 @@
 /**
  * Google OAuth Connect Route
  * POST: Initiate OAuth flow, returns authorization URL
+ *
+ * IMPORTANT: Requires Pro or Scale subscription plan
  */
 
 import { NextResponse } from "next/server"
@@ -18,6 +20,23 @@ import {
 } from "@/lib/google"
 import { storeOAuthState } from "@/lib/google/oauth/state-manager"
 import type { GoogleOAuthState } from "@/lib/google"
+import { getCustomerData, normalizePlanId } from "@/lib/subscription/autumn-client"
+
+/**
+ * Check if user is on Pro or Scale plan
+ */
+async function isEligiblePlan(userId: string): Promise<boolean> {
+  const customerData = await getCustomerData(userId, 2000)
+  if (!customerData?.products) return false
+
+  const activeProduct = customerData.products.find(
+    (p: { status: string }) => p.status === "active" || p.status === "trialing"
+  )
+  if (!activeProduct) return false
+
+  const planId = normalizePlanId(activeProduct.id)
+  return planId === "pro" || planId === "scale"
+}
 
 // ============================================================================
 // POST - Initiate OAuth flow
@@ -63,6 +82,15 @@ export async function POST(request: Request) {
     if (!isUserInRollout(user.id)) {
       return NextResponse.json(
         { error: "Google integration is not yet available for your account" },
+        { status: 403 }
+      )
+    }
+
+    // Check if user is on Pro or Scale plan
+    const hasEligiblePlan = await isEligiblePlan(user.id)
+    if (!hasEligiblePlan) {
+      return NextResponse.json(
+        { error: "Google Workspace integration requires a Pro or Scale subscription plan." },
         { status: 403 }
       )
     }
