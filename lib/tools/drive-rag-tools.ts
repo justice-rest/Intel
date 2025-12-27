@@ -13,12 +13,13 @@ import { createClient } from "@/lib/supabase/server"
 
 /**
  * Format document for display
+ * Uses snake_case to match GoogleDriveDocument type from API
  */
 function formatDocument(doc: {
-  name: string
-  mimeType: string
+  drive_file_name: string
+  drive_mime_type: string
   status: string
-  lastSynced: string
+  last_synced_at: string
 }): string {
   const typeMap: Record<string, string> = {
     "application/vnd.google-apps.document": "Google Doc",
@@ -32,10 +33,10 @@ function formatDocument(doc: {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "Word Doc",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "Excel",
   }
-  const type = typeMap[doc.mimeType] || doc.mimeType
-  const date = new Date(doc.lastSynced).toLocaleDateString()
+  const type = typeMap[doc.drive_mime_type] || doc.drive_mime_type
+  const date = new Date(doc.last_synced_at).toLocaleDateString()
   const statusEmoji = doc.status === "ready" ? "✓" : doc.status === "processing" ? "⏳" : "✗"
-  return `${statusEmoji} ${doc.name} (${type}) - synced ${date}`
+  return `${statusEmoji} ${doc.drive_file_name} (${type}) - synced ${date}`
 }
 
 // ============================================================================
@@ -96,7 +97,7 @@ export const createDriveSearchTool = (userId: string) =>
         if (documentNames && documentNames.length > 0) {
           filteredDocs = documents.filter((doc) =>
             documentNames.some((name) =>
-              doc.name.toLowerCase().includes(name.toLowerCase())
+              doc.drive_file_name.toLowerCase().includes(name.toLowerCase())
             )
           )
         }
@@ -145,8 +146,8 @@ export const createDriveSearchTool = (userId: string) =>
         } else if (filteredDocs.length > 0) {
           rawContent += `Found ${filteredDocs.length} indexed document(s):\n\n`
           filteredDocs.slice(0, limit).forEach((doc, idx) => {
-            rawContent += `${idx + 1}. **${doc.name}**\n`
-            rawContent += `   Type: ${doc.mimeType}\n`
+            rawContent += `${idx + 1}. **${doc.drive_file_name}**\n`
+            rawContent += `   Type: ${doc.drive_mime_type}\n`
             rawContent += `   Status: ${doc.status}\n\n`
           })
           rawContent += `\n*Note: Content search requires documents to be fully indexed.*`

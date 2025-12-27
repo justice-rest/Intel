@@ -107,7 +107,7 @@ export function AccountManagement() {
           <p className="text-muted-foreground text-xs">Download all your data as JSON</p>
         </div>
         <Button
-          variant="outline"
+          variant="default"
           size="sm"
           className="flex items-center gap-2"
           onClick={handleExport}

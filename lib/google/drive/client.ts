@@ -351,17 +351,18 @@ export async function updateDocumentStatus(
 
 /**
  * Get user's indexed documents
+ * Returns snake_case to match GoogleDriveDocument type
  */
 export async function getIndexedDocuments(
   userId: string
 ): Promise<
   Array<{
     id: string
-    driveFileId: string
-    name: string
-    mimeType: string
+    drive_file_id: string
+    drive_file_name: string
+    drive_mime_type: string
     status: DriveProcessingStatus
-    lastSynced: string
+    last_synced_at: string
   }>
 > {
   if (!isSupabaseEnabled) return []
@@ -382,23 +383,8 @@ export async function getIndexedDocuments(
 
     if (error || !data) return []
 
-    return data.map(
-      (doc: {
-        id: string
-        drive_file_id: string
-        drive_file_name: string
-        drive_mime_type: string
-        status: DriveProcessingStatus
-        last_synced_at: string
-      }) => ({
-        id: doc.id,
-        driveFileId: doc.drive_file_id,
-        name: doc.drive_file_name,
-        mimeType: doc.drive_mime_type,
-        status: doc.status,
-        lastSynced: doc.last_synced_at,
-      })
-    )
+    // Return raw snake_case from DB to match GoogleDriveDocument type
+    return data
   } catch (error) {
     console.error("[DriveClient] Failed to get indexed documents:", error)
     return []
