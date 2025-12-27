@@ -16,6 +16,28 @@ import {
   GMAIL_CONFIG,
 } from "@/lib/google"
 
+// Simple email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Validate email format
+ */
+function isValidEmail(email: string): boolean {
+  return EMAIL_REGEX.test(email.trim())
+}
+
+/**
+ * Sanitize email body to prevent potential issues
+ * Removes script tags and other dangerous content
+ */
+function sanitizeEmailBody(body: string): string {
+  return body
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+}
+
 // ============================================================================
 // GET - List all drafts
 // ============================================================================
@@ -187,6 +209,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate email formats for all recipients
+    const invalidEmails = body.to.filter((email) => !isValidEmail(email))
+    if (invalidEmails.length > 0) {
+      return NextResponse.json(
+        { error: `Invalid email format: ${invalidEmails.join(", ")}` },
+        { status: 400 }
+      )
+    }
+
+    // Validate CC emails if provided
+    if (body.cc && body.cc.length > 0) {
+      const invalidCcEmails = body.cc.filter((email) => !isValidEmail(email))
+      if (invalidCcEmails.length > 0) {
+        return NextResponse.json(
+          { error: `Invalid CC email format: ${invalidCcEmails.join(", ")}` },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Validate BCC emails if provided
+    if (body.bcc && body.bcc.length > 0) {
+      const invalidBccEmails = body.bcc.filter((email) => !isValidEmail(email))
+      if (invalidBccEmails.length > 0) {
+        return NextResponse.json(
+          { error: `Invalid BCC email format: ${invalidBccEmails.join(", ")}` },
+          { status: 400 }
+        )
+      }
+    }
+
     if (!body.subject) {
       return NextResponse.json(
         { error: "Subject is required" },
@@ -215,8 +268,37 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check hourly rate limit
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { count, error: countError } = await (supabase as any)
+        .from("gmail_drafts")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .gte("created_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
+
+      if (!countError && count !== null && count >= GMAIL_CONFIG.maxDraftsPerHour) {
+        return NextResponse.json(
+          { error: `Rate limit exceeded. Maximum ${GMAIL_CONFIG.maxDraftsPerHour} drafts per hour.` },
+          { status: 429 }
+        )
+      }
+    } catch (rateLimitError) {
+      console.error("[Gmail Drafts API] Rate limit check error:", rateLimitError)
+      // Continue if rate limit check fails - don't block user
+    }
+
     // Get user's email address
     const profile = await getProfile(user.id)
+    if (!profile?.emailAddress) {
+      return NextResponse.json(
+        { error: "Could not retrieve your Gmail profile. Please reconnect your account." },
+        { status: 500 }
+      )
+    }
+
+    // Sanitize email body
+    const sanitizedBody = sanitizeEmailBody(body.body)
 
     // Create draft
     const draft = await createDraft(
@@ -226,31 +308,56 @@ export async function POST(request: NextRequest) {
         cc: body.cc,
         bcc: body.bcc,
         subject: body.subject,
-        body: body.body,
+        body: sanitizedBody,
         threadId: body.threadId,
       },
       profile.emailAddress
     )
 
     // Store draft record in database
+    let dbSaveSuccess = true
     try {
       // Using 'any' cast as table is not yet in generated types
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from("gmail_drafts").insert({
+      const { error: insertError } = await (supabase as any).from("gmail_drafts").insert({
         user_id: user.id,
         draft_id: draft.id,
         thread_id: body.threadId || null,
         to_recipients: body.to,
         cc_recipients: body.cc || [],
         subject: body.subject,
-        body_preview: body.body.slice(0, 200),
+        body_preview: sanitizedBody.slice(0, 200),
         chat_id: body.chatId || null,
         created_by_ai: false, // Created via API, not AI
         status: "pending",
       })
+
+      if (insertError) {
+        console.error("[Gmail Drafts API] DB insert error:", insertError)
+        dbSaveSuccess = false
+      }
     } catch (dbError) {
       console.error("[Gmail Drafts API] DB Error:", dbError)
-      // Don't fail the request if DB insert fails
+      dbSaveSuccess = false
+    }
+
+    // Log the action to audit log
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from("google_integration_audit_log").insert({
+        user_id: user.id,
+        action: "draft_create",
+        status: "success",
+        metadata: {
+          draft_id: draft.id,
+          to_count: body.to.length,
+          has_thread: !!body.threadId,
+          db_saved: dbSaveSuccess,
+        },
+      })
+    } catch (auditError) {
+      // Don't fail the request if audit logging fails
+      console.error("[Gmail Drafts API] Audit log error:", auditError)
     }
 
     return NextResponse.json({
@@ -258,7 +365,10 @@ export async function POST(request: NextRequest) {
       draftId: draft.id,
       to: body.to,
       subject: body.subject,
-      message: "Draft created successfully",
+      message: dbSaveSuccess
+        ? "Draft created successfully"
+        : "Draft created in Gmail but may not appear in draft list. Please check Gmail directly.",
+      dbSaved: dbSaveSuccess,
     })
   } catch (error) {
     console.error("[Gmail Drafts API] POST Error:", error)

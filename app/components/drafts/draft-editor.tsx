@@ -84,7 +84,8 @@ export function DraftEditor({
       .map((e) => e.trim())
       .filter((e) => e.length > 0)
 
-    await onSave(draft.id, {
+    // IMPORTANT: Use draft.draft_id (Gmail's ID), not draft.id (database UUID)
+    await onSave(draft.draft_id, {
       ...formData,
       to: toEmails,
       cc: ccEmails.length > 0 ? ccEmails : undefined,

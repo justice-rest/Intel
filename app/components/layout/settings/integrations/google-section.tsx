@@ -32,7 +32,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "motion/react"
 import type { GoogleIntegrationStatus, GoogleDriveDocument } from "@/lib/google/types"
-import { GoogleDrivePicker } from "./google-drive-picker"
+import { GoogleDriveBrowser } from "./google-drive-browser"
 import { useCustomer } from "autumn-js/react"
 
 /**
@@ -427,7 +427,7 @@ export function GoogleIntegrationSection() {
                       </div>
                     </div>
                     <div className="mt-3">
-                      <GoogleDrivePicker
+                      <GoogleDriveBrowser
                         onFilesImported={() => {
                           queryClient.invalidateQueries({ queryKey: ["drive-documents"] })
                         }}

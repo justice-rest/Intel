@@ -120,7 +120,7 @@ export function DraftCard({
               </button>
               <button
                 type="button"
-                onClick={() => onDiscard(draft.id)}
+                onClick={() => onDiscard(draft.draft_id)}
                 disabled={isDiscarding}
                 className="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors text-red-500 dark:text-red-400 disabled:opacity-50"
                 title="Discard"

@@ -121,8 +121,9 @@ export const DEFAULT_GMAIL_SCOPES = [
 ]
 
 // Default scopes for Drive integration
+// Using drive.readonly for full file browsing (RESTRICTED scope - requires Google verification)
 export const DEFAULT_DRIVE_SCOPES = [
-  GOOGLE_SCOPES.drive.file,
+  GOOGLE_SCOPES.drive.readonly,
   GOOGLE_SCOPES.profile.email,
 ]
 
@@ -130,7 +131,7 @@ export const DEFAULT_DRIVE_SCOPES = [
 export const ALL_GOOGLE_SCOPES = [
   GOOGLE_SCOPES.gmail.readonly,
   GOOGLE_SCOPES.gmail.compose,
-  GOOGLE_SCOPES.drive.file,
+  GOOGLE_SCOPES.drive.readonly,
   GOOGLE_SCOPES.profile.email,
 ]
 
