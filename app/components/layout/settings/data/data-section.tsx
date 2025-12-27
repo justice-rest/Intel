@@ -7,6 +7,7 @@ import { normalizePlanId } from "@/lib/subscription/autumn-client"
 import { formatBytes } from "@/lib/rag/config"
 import { DocumentUpload } from "./document-upload"
 import { DocumentList } from "./document-list"
+import { DocumentPreviewModal } from "./document-preview-modal"
 import { UpgradePrompt } from "./upgrade-prompt"
 import { toast } from "@/components/ui/toast"
 import type { RAGDocument, RAGStorageUsage } from "@/lib/rag/types"
@@ -22,6 +23,7 @@ export function DataSection() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [isUploading, setIsUploading] = useState(false)
+  const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null)
 
   // Check if user has Scale plan
   const currentProductId = customer?.products?.[0]?.id
@@ -170,12 +172,8 @@ export function DataSection() {
   }
 
   // Handle preview
-  const handlePreview = (_documentId: string) => {
-    // TODO: Implement preview modal
-    toast({
-      title: "Preview",
-      description: "Preview feature coming soon",
-    })
+  const handlePreview = (documentId: string) => {
+    setPreviewDocumentId(documentId)
   }
 
   // Handle download
@@ -252,6 +250,13 @@ export function DataSection() {
         onPreview={handlePreview}
         onDownload={handleDownload}
         isLoading={isLoading}
+      />
+
+      {/* Preview Modal */}
+      <DocumentPreviewModal
+        documentId={previewDocumentId}
+        onClose={() => setPreviewDocumentId(null)}
+        onDownload={handleDownload}
       />
     </div>
   )
