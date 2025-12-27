@@ -190,16 +190,31 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
   // Open the picker
   const openPicker = useCallback(async () => {
     try {
+      console.log("[Google Picker] Starting picker flow...")
+
       // Fetch picker token and configuration
       const tokenRes = await fetchClient("/api/google-integrations/drive/picker-token")
+      console.log("[Google Picker] Token response status:", tokenRes.status)
+
       if (!tokenRes.ok) {
         const errorData = await tokenRes.json()
+        console.error("[Google Picker] Token error:", errorData)
         const errorMessage = errorData.details
           ? `${errorData.error}\n\n${errorData.details}`
           : errorData.error || "Failed to get picker token"
         throw new Error(errorMessage)
       }
-      const { accessToken, developerKey, appId } = await tokenRes.json()
+
+      const tokenData = await tokenRes.json()
+      const { accessToken, developerKey, appId } = tokenData
+
+      console.log("[Google Picker] Token data received:", {
+        hasAccessToken: !!accessToken,
+        accessTokenLength: accessToken?.length || 0,
+        hasDeveloperKey: !!developerKey,
+        developerKeyPrefix: developerKey?.substring(0, 10) + "...",
+        appId,
+      })
 
       if (!accessToken) {
         throw new Error("No access token received")
@@ -228,8 +243,11 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
       }
 
       // Ensure picker API is loaded
+      console.log("[Google Picker] Picker ready state:", isPickerReady)
       if (!isPickerReady) {
+        console.log("[Google Picker] Loading picker API...")
         const loaded = await loadPickerApi()
+        console.log("[Google Picker] Picker API loaded:", loaded)
         if (!loaded) {
           throw new Error(
             "Failed to load Google Picker API.\n\n" +
@@ -244,18 +262,18 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
       // Build and show picker
       const google = window.google
       if (!google?.picker) {
+        console.error("[Google Picker] window.google.picker not available")
         throw new Error("Google Picker not available after loading")
       }
 
-      console.log("[Google Picker] Configuration:", {
-        hasAccessToken: !!accessToken,
-        hasDeveloperKey: !!developerKey,
+      console.log("[Google Picker] Building picker with config:", {
         appId,
+        origin: window.location.origin,
       })
 
       // Create the callback handler
       const pickerCallback = (data: GooglePickerResponse) => {
-        console.log("[Google Picker] Callback:", data.action)
+        console.log("[Google Picker] Callback received:", data)
         if (data.action === google.picker.Action.PICKED && data.docs) {
           const files: SelectedFile[] = data.docs.map((doc) => ({
             id: doc.id,
@@ -266,6 +284,8 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
           }))
           setSelectedFiles(files)
           setIsOpen(true)
+        } else if (data.action === google.picker.Action.CANCEL) {
+          console.log("[Google Picker] User cancelled")
         }
       }
 
@@ -275,13 +295,15 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
         .setIncludeFolders(false)
         .setSelectFolderEnabled(false)
         .setMimeTypes(SUPPORTED_MIME_TYPES)
-        .setMode(google.picker.DocsViewMode.LIST) // LIST mode works without thumbnail permissions
+        .setMode(google.picker.DocsViewMode.LIST)
 
       // Build the picker with all required configuration
+      // IMPORTANT: setOrigin is required for the picker to work in iframes/cross-origin
       const picker = new google.picker.PickerBuilder()
         .setOAuthToken(accessToken)
         .setDeveloperKey(developerKey)
         .setAppId(appId)
+        .setOrigin(window.location.origin) // Required for proper origin handling
         .setTitle("Select files to import")
         .addView(docsView)
         .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
@@ -289,7 +311,9 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
         .setMaxItems(20)
         .build()
 
+      console.log("[Google Picker] Picker built, showing...")
       picker.setVisible(true)
+      console.log("[Google Picker] Picker should be visible now")
     } catch (error) {
       console.error("[Google Drive Picker] Error:", error)
       toast({
