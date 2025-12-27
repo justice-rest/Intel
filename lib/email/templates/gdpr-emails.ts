@@ -230,7 +230,7 @@ h1, h2, h3, p { min-width: 100%!important; width: 100%!important; max-width: 100
 <!-- Heading -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 <tr><td align="center">
-<h1 style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:28px;font-weight:600;font-size:24px;letter-spacing:-1.2px;color:#111111;text-align:center;">Goodbye, ${userName}</h1>
+<h1 style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:28px;font-weight:600;font-size:24px;letter-spacing:-1.2px;color:#111111;text-align:center;">We'll Miss You, ${userName} 💙</h1>
 </td></tr>
 </table>
 
@@ -240,7 +240,7 @@ h1, h2, h3, p { min-width: 100%!important; width: 100%!important; max-width: 100
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 <tr><td align="center">
 <p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:24px;font-weight:500;font-size:15px;letter-spacing:-0.4px;color:#424040;text-align:center;">
-Your Rōmy account has been permanently deleted as requested. All your data has been removed from our systems.
+Your Rōmy account has been deleted. All your data has been completely removed from our systems, just as you requested.
 </p>
 </td></tr>
 </table>
@@ -249,13 +249,17 @@ Your Rōmy account has been permanently deleted as requested. All your data has 
 
 <!-- Farewell Message -->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td style="padding:25px;background-color:#FEF9E7;border-radius:12px;border-left:4px solid #F5C518;">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:24px;font-weight:500;font-size:15px;color:#424040;text-align:left;">
-It was truly a pleasure to serve you. Thank you for being part of our mission to help nonprofits find major donors and make a bigger impact in the world.
+<tr><td style="padding:25px;background-color:#FEF3E5;border-radius:12px;border-left:4px solid #FF9500;">
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:26px;font-weight:500;font-size:15px;color:#424040;text-align:left;">
+It was a genuine pleasure having you with us. Every moment you spent using Rōmy meant the world to our small team. Thank you for trusting us on your journey to find major donors and make a bigger impact.
 </p>
-<div style="height:15px;"></div>
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:24px;font-weight:500;font-size:15px;color:#424040;text-align:left;">
-If you ever decide to return, we'll be here. Until then, we wish you all the best in your fundraising journey.
+<div style="height:18px;"></div>
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:26px;font-weight:500;font-size:15px;color:#424040;text-align:left;">
+Whatever path brought you to this decision, we respect it completely. Just know that if you ever decide to come back, we'll be here with open arms, ready to help you change the world again.
+</p>
+<div style="height:18px;"></div>
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:26px;font-weight:500;font-size:15px;color:#424040;text-align:left;">
+Until then, keep doing amazing things. The nonprofit world is better because of people like you.
 </p>
 </td></tr>
 </table>

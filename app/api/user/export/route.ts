@@ -10,6 +10,12 @@ import { createClient } from '@/lib/supabase/server'
 import { isSupabaseEnabled } from '@/lib/supabase/config'
 import { gatherExportData, estimateExportSize } from '@/lib/gdpr'
 import type { ExportSection } from '@/lib/gdpr'
+import {
+  sendEmail,
+  isEmailEnabled,
+  getDataExportEmailHtml,
+  getDataExportEmailSubject,
+} from '@/lib/email'
 
 // Rate limiting: 5 exports per hour
 const exportRateLimit = new Map<string, { count: number; resetAt: number }>()
@@ -117,6 +123,38 @@ export async function POST(request: Request) {
 
     // Gather export data
     const exportData = await gatherExportData(supabase, user.id, options)
+
+    // Send confirmation email (non-blocking)
+    if (isEmailEnabled() && user.email) {
+      // Get user's first name for personalization
+      const { data: userData } = await supabase
+        .from('users')
+        .select('first_name')
+        .eq('id', user.id)
+        .single()
+
+      const sectionsExported = sections.includes('all')
+        ? ['profile', 'preferences', 'chats', 'memories', 'crm']
+        : sections
+
+      sendEmail({
+        to: user.email,
+        subject: getDataExportEmailSubject(),
+        html: getDataExportEmailHtml({
+          userName: userData?.first_name || 'there',
+          exportDate: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          sectionsExported,
+        }),
+      }).catch((err) => {
+        console.error('[Export] Failed to send confirmation email:', err)
+      })
+    }
 
     // Return as JSON
     return NextResponse.json({

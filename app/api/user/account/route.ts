@@ -17,6 +17,12 @@ import {
   getDeletionSummary,
 } from '@/lib/gdpr'
 import type { DeletionRequest } from '@/lib/gdpr'
+import {
+  sendEmail,
+  isEmailEnabled,
+  getAccountDeletionEmailHtml,
+  getAccountDeletionEmailSubject,
+} from '@/lib/email'
 
 // Rate limiting: 1 deletion attempt per 24 hours
 const deletionRateLimit = new Map<string, number>()
@@ -190,6 +196,22 @@ export async function DELETE(request: Request) {
       )
     }
 
+    // Get user info BEFORE deletion for farewell email
+    let userEmail = user.email
+    let userName = 'there'
+    if (isEmailEnabled() && userEmail) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('first_name, email')
+        .eq('id', user.id)
+        .single()
+
+      if (userData) {
+        userName = userData.first_name || 'there'
+        userEmail = userData.email || user.email
+      }
+    }
+
     // Execute deletion
     const result = await executeAccountDeletion(supabaseAdmin, user.id, body.reason)
 
@@ -207,6 +229,24 @@ export async function DELETE(request: Request) {
 
     // Clear rate limit entry (account is deleted)
     deletionRateLimit.delete(user.id)
+
+    // Send farewell email (non-blocking, after successful deletion)
+    if (isEmailEnabled() && userEmail) {
+      sendEmail({
+        to: userEmail,
+        subject: getAccountDeletionEmailSubject(),
+        html: getAccountDeletionEmailHtml({
+          userName,
+          deletionDate: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+          }),
+        }),
+      }).catch((err) => {
+        console.error('[Deletion] Failed to send farewell email:', err)
+      })
+    }
 
     return NextResponse.json({
       success: true,
