@@ -66,6 +66,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   neon_crm_search_donations: "CRM Donations",
   gleif_search: "LEI Search",
   gleif_lookup: "LEI Details",
+  truencoa_validate: "Address Validation",
 }
 
 /**
@@ -5473,6 +5474,133 @@ function SingleToolCard({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )
+    }
+
+    // Handle TrueNCOA Address Validation results
+    if (
+      toolName === "truencoa_validate" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "summary" in parsedResult
+    ) {
+      const { summary } = parsedResult as {
+        summary: {
+          total_records: number
+          deliverable: number
+          undeliverable: number
+          vacant: number
+          ncoa_matches: number
+          individual_moves: number
+          family_moves: number
+          business_moves: number
+          deliverability_rate: number
+          move_rate: number
+          cass_corrected: number
+          dpv_confirmed: number
+        }
+      }
+
+      const getDeliverabilityColor = (rate: number) => {
+        if (rate >= 90) return "text-green-600 dark:text-green-400"
+        if (rate >= 70) return "text-yellow-600 dark:text-yellow-400"
+        return "text-red-600 dark:text-red-400"
+      }
+
+      const getDeliverabilityBg = (rate: number) => {
+        if (rate >= 90) return "bg-green-500"
+        if (rate >= 70) return "bg-yellow-500"
+        return "bg-red-500"
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Header Stats */}
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-lg font-semibold">
+                {summary.total_records.toLocaleString()} Addresses Validated
+              </div>
+              <div className="text-muted-foreground text-sm">
+                TrueNCOA NCOA & CASS/DPV Processing
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={cn("text-2xl font-bold", getDeliverabilityColor(summary.deliverability_rate))}>
+                {summary.deliverability_rate.toFixed(1)}%
+              </div>
+              <div className="text-muted-foreground text-xs">Deliverability</div>
+            </div>
+          </div>
+
+          {/* Deliverability Progress Bar */}
+          <div className="space-y-1">
+            <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+              <div
+                className={cn("h-full transition-all", getDeliverabilityBg(summary.deliverability_rate))}
+                style={{ width: `${summary.deliverability_rate}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Address Quality Grid */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {summary.deliverable.toLocaleString()}
+              </div>
+              <div className="text-muted-foreground text-xs">Deliverable</div>
+            </div>
+            <div className="bg-red-50 dark:bg-red-950/30 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                {summary.undeliverable.toLocaleString()}
+              </div>
+              <div className="text-muted-foreground text-xs">Undeliverable</div>
+            </div>
+            <div className="bg-orange-50 dark:bg-orange-950/30 rounded-lg p-3 text-center">
+              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                {summary.vacant.toLocaleString()}
+              </div>
+              <div className="text-muted-foreground text-xs">Vacant</div>
+            </div>
+          </div>
+
+          {/* NCOA Move Detection */}
+          {summary.ncoa_matches > 0 && (
+            <div className="border-border rounded-lg border p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-sm font-medium">Move Detection (NCOA)</div>
+                <div className="text-muted-foreground text-sm">
+                  {summary.move_rate.toFixed(1)}% moved
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div>
+                  <div className="text-lg font-semibold">{summary.ncoa_matches}</div>
+                  <div className="text-muted-foreground text-xs">Total Moves</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold">{summary.individual_moves}</div>
+                  <div className="text-muted-foreground text-xs">Individual</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold">{summary.family_moves}</div>
+                  <div className="text-muted-foreground text-xs">Family</div>
+                </div>
+                <div>
+                  <div className="text-lg font-semibold">{summary.business_moves}</div>
+                  <div className="text-muted-foreground text-xs">Business</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Address Corrections */}
+          <div className="text-muted-foreground flex items-center justify-between text-xs">
+            <span>{summary.cass_corrected} CASS corrected</span>
+            <span>{summary.dpv_confirmed} DPV confirmed</span>
           </div>
         </div>
       )
