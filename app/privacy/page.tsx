@@ -61,7 +61,7 @@ export default function PrivacyPolicy() {
               <li><strong>Google Workspace access is limited.</strong> We only read what you authorize. Gmail = read emails + create drafts (never send). Drive = only files you pick.</li>
               <li><strong>CRM data is encrypted.</strong> API keys use AES-256-GCM encryption. Synced data stays in your account only.</li>
               <li><strong>Analytics are privacy-focused.</strong> We use PostHog. No cross-site tracking. You can opt out.</li>
-              <li><strong>You can delete everything.</strong> Request full data deletion anytime at privacy@getromy.app.</li>
+              <li><strong>You can delete everything.</strong> Instant deletion — your data is gone immediately when you delete your account. Export first if you want a copy.</li>
               <li><strong>We log consent.</strong> When you accept cookies or connect services, we record it with timestamps for compliance.</li>
               <li><strong>California/EU users:</strong> You have extra rights (access, delete, opt-out). See Sections 10-11.</li>
               <li><strong>Texas-based company.</strong> GetRomy LLC, Kerrville, TX. Questions? privacy@getromy.app</li>
@@ -460,38 +460,68 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2>14. Data Deletion and Export</h2>
-          <p>You have the right to delete your data and export it before deletion.</p>
+          <p><strong>You have full control over your data.</strong> You can export and/or delete your data at any time — completely or selectively.</p>
 
-          <h3>14.1 How to Delete Your Account</h3>
+          <h3>14.1 Export Your Data</h3>
+          <p><strong>Complete Export:</strong></p>
+          <ul>
+            <li>Download everything: chats, files, AI memories, CRM data, settings</li>
+            <li>Formats: JSON (structured) or CSV (spreadsheet-compatible)</li>
+            <li>Go to Settings → Data → Export All, or email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a></li>
+          </ul>
+          <p><strong>Partial Export:</strong></p>
+          <ul>
+            <li>Export specific chats or conversations</li>
+            <li>Export by date range (e.g., "last 30 days")</li>
+            <li>Export by data type (e.g., "only CRM data" or "only chat history")</li>
+            <li>Email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> with your specific request</li>
+          </ul>
+
+          <h3>14.2 Delete Your Data</h3>
+          <p><strong>Complete Deletion (Delete Everything):</strong></p>
           <ol>
-            <li>Go to Settings → Account</li>
-            <li>Click "Delete Account"</li>
+            <li>Go to Settings → Account → Delete Account</li>
             <li>Confirm deletion</li>
+            <li>All your data is <strong>permanently and instantly deleted</strong></li>
           </ol>
           <p>Or email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> with subject "Delete My Account".</p>
-
-          <h3>14.2 What Gets Deleted</h3>
-          <ul>
-            <li>Account information</li>
-            <li>All chat history</li>
-            <li>Uploaded files</li>
-            <li>AI memories</li>
-            <li>Google integration data (writing style, drafts, indexed docs)</li>
-            <li>CRM data and credentials</li>
-            <li>Preferences and settings</li>
-          </ul>
-
-          <h3>14.3 What We May Retain</h3>
-          <ul>
-            <li>Anonymized, aggregated analytics</li>
-            <li>Billing records (legal requirement)</li>
-            <li>Data subject to legal holds</li>
-          </ul>
-
-          <h3>14.4 Export Your Data</h3>
-          <p>
-            Before deleting, you can request a full export of your data. Email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> with subject "Data Export Request". We'll provide a download link within 30 days.
+          <p className="text-sm bg-amber-500/10 border border-amber-500/30 rounded p-3">
+            <strong>⚠️ Warning:</strong> Deletion is immediate and irreversible. Export your data first if you want to keep a copy.
           </p>
+
+          <p><strong>Selective Deletion (Keep Your Account):</strong></p>
+          <ul>
+            <li><strong>Delete specific chats:</strong> Click the trash icon on any chat</li>
+            <li><strong>Delete AI memories:</strong> Settings → Memory → Delete individual or all memories</li>
+            <li><strong>Delete uploaded files:</strong> Remove files from chat attachments</li>
+            <li><strong>Delete CRM data:</strong> Settings → Integrations → Disconnect CRM (removes all synced data)</li>
+            <li><strong>Delete Google data:</strong> Settings → Integrations → Disconnect Google (removes writing style, drafts, indexed docs)</li>
+          </ul>
+
+          <h3>14.3 What Gets Deleted (Complete Deletion)</h3>
+          <ul>
+            <li>Account information (name, email, profile)</li>
+            <li>All chat history and conversations</li>
+            <li>All uploaded files and attachments</li>
+            <li>All AI memories</li>
+            <li>Google integration data (writing style profile, draft metadata, indexed Drive documents)</li>
+            <li>CRM data and encrypted API credentials</li>
+            <li>All preferences and settings</li>
+          </ul>
+
+          <h3>14.4 What We May Retain</h3>
+          <ul>
+            <li>Anonymized, aggregated analytics (cannot identify you)</li>
+            <li>Billing records (legal/tax requirement — typically 7 years)</li>
+            <li>Data subject to active legal holds or investigations</li>
+          </ul>
+
+          <h3>14.5 Deletion Timeline</h3>
+          <ul>
+            <li><strong>Account deletion:</strong> Instant — data removed immediately upon confirmation</li>
+            <li><strong>Backups:</strong> Purged within 24 hours</li>
+            <li><strong>Third-party systems:</strong> We request deletion from providers immediately; most complete within 24-48 hours</li>
+          </ul>
 
           <h2>15. Changes to This Policy</h2>
           <p>We may update this Privacy Policy. When we do:</p>

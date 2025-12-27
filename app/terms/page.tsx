@@ -63,7 +63,7 @@ export default function TermsOfService() {
               <li><strong>Google integration:</strong> If you connect Gmail/Drive, AI can read emails and create drafts (never auto-send). You control what's shared.</li>
               <li><strong>CRM sync:</strong> We can sync with Bloomerang, Virtuous, and Neon CRM. Your credentials are encrypted.</li>
               <li><strong>Texas law governs:</strong> Disputes resolved in Texas via arbitration. No class actions.</li>
-              <li><strong>Cancel anytime:</strong> You can stop using the service and export your data within 30 days.</li>
+              <li><strong>Full data control:</strong> Export all or part of your data anytime. Delete everything or just specific items. It's your data.</li>
             </ul>
           </div>
 
@@ -374,9 +374,21 @@ export default function TermsOfService() {
             <li>Discontinuation of the Service</li>
           </ul>
 
-          <h3>15.3 Data Export</h3>
+          <h3>15.3 Data Export and Deletion Rights</h3>
           <p>
-            Upon termination, you have <strong>30 days</strong> to export your data. We will provide your Customer Data in a standard format (CSV, JSON). After 30 days, we may delete your data per our retention policies.
+            <strong>You have full control over your data:</strong>
+          </p>
+          <ul>
+            <li><strong>Complete export:</strong> Download all your data (chats, files, CRM data, memories) in standard formats (CSV, JSON)</li>
+            <li><strong>Partial export:</strong> Export specific chats, date ranges, or data categories</li>
+            <li><strong>Complete deletion:</strong> Permanently delete all your data from our systems — <strong>instantly</strong></li>
+            <li><strong>Selective deletion:</strong> Delete specific chats, files, memories, or integration data while keeping your account</li>
+          </ul>
+          <p>
+            <strong>Important:</strong> When you delete your account, your data is deleted <strong>immediately</strong>. Export your data first if you want to keep a copy.
+          </p>
+          <p>
+            To export or delete data, use Settings or email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a>.
           </p>
 
           <h3>15.4 Survival</h3>
