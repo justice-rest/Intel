@@ -190,34 +190,72 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
   // Open the picker
   const openPicker = useCallback(async () => {
     try {
-      // Fetch picker token
+      // Fetch picker token and configuration
       const tokenRes = await fetchClient("/api/google-integrations/drive/picker-token")
       if (!tokenRes.ok) {
-        const error = await tokenRes.json()
-        throw new Error(error.error || "Failed to get picker token")
+        const errorData = await tokenRes.json()
+        const errorMessage = errorData.details
+          ? `${errorData.error}\n\n${errorData.details}`
+          : errorData.error || "Failed to get picker token"
+        throw new Error(errorMessage)
       }
-      const { accessToken, clientId, developerKey } = await tokenRes.json()
+      const { accessToken, developerKey, appId } = await tokenRes.json()
 
       if (!accessToken) {
         throw new Error("No access token received")
+      }
+
+      if (!developerKey) {
+        throw new Error(
+          "Google Picker API key not configured.\n\n" +
+          "To fix this:\n" +
+          "1. Go to Google Cloud Console > APIs & Services > Credentials\n" +
+          "2. Create an API Key\n" +
+          "3. Restrict it to 'Google Picker API' only\n" +
+          "4. Add your domain as an HTTP referrer\n" +
+          "5. Add GOOGLE_PICKER_API_KEY to your environment"
+        )
+      }
+
+      if (!appId) {
+        throw new Error(
+          "Google App ID not configured.\n\n" +
+          "To fix this:\n" +
+          "1. Go to Google Cloud Console > IAM & Admin > Settings\n" +
+          "2. Copy the 'Project number' (numeric value)\n" +
+          "3. Add GOOGLE_APP_ID to your environment"
+        )
       }
 
       // Ensure picker API is loaded
       if (!isPickerReady) {
         const loaded = await loadPickerApi()
         if (!loaded) {
-          throw new Error("Failed to load Google Picker. Please check if the Picker API is enabled in Google Cloud Console.")
+          throw new Error(
+            "Failed to load Google Picker API.\n\n" +
+            "Please verify:\n" +
+            "1. 'Google Picker API' is enabled in Cloud Console > APIs & Services > Library\n" +
+            "2. 'Google Drive API' is also enabled (both are required)\n" +
+            "3. Your API key has correct HTTP referrer restrictions"
+          )
         }
       }
 
       // Build and show picker
       const google = window.google
       if (!google?.picker) {
-        throw new Error("Google Picker not available")
+        throw new Error("Google Picker not available after loading")
       }
+
+      console.log("[Google Picker] Configuration:", {
+        hasAccessToken: !!accessToken,
+        hasDeveloperKey: !!developerKey,
+        appId,
+      })
 
       // Create the callback handler
       const pickerCallback = (data: GooglePickerResponse) => {
+        console.log("[Google Picker] Callback:", data.action)
         if (data.action === google.picker.Action.PICKED && data.docs) {
           const files: SelectedFile[] = data.docs.map((doc) => ({
             id: doc.id,
@@ -232,34 +270,25 @@ export function GoogleDrivePicker({ onFilesImported }: GoogleDrivePickerProps) {
       }
 
       // Create a DocsView that shows documents the user can select
-      // Using the actual Google Picker API
+      // Use LIST mode for better compatibility (doesn't require thumbnail access)
       const docsView = new google.picker.DocsView()
         .setIncludeFolders(false)
         .setSelectFolderEnabled(false)
         .setMimeTypes(SUPPORTED_MIME_TYPES)
+        .setMode(google.picker.DocsViewMode.LIST) // LIST mode works without thumbnail permissions
 
-      // Build the picker
-      const pickerBuilder = new google.picker.PickerBuilder()
+      // Build the picker with all required configuration
+      const picker = new google.picker.PickerBuilder()
         .setOAuthToken(accessToken)
+        .setDeveloperKey(developerKey)
+        .setAppId(appId)
         .setTitle("Select files to import")
         .addView(docsView)
         .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
         .setCallback(pickerCallback)
-        .setMaxItems(20) // Limit to 20 files at once
+        .setMaxItems(20)
+        .build()
 
-      // Use developer key if available (required for some configurations)
-      if (developerKey) {
-        pickerBuilder.setDeveloperKey(developerKey)
-      }
-
-      // Set app ID from client ID (required for picker to work)
-      if (clientId) {
-        const appId = clientId.split("-")[0]
-        pickerBuilder.setAppId(appId)
-      }
-
-      // Build and show the picker
-      const picker = pickerBuilder.build()
       picker.setVisible(true)
     } catch (error) {
       console.error("[Google Drive Picker] Error:", error)
