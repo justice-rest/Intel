@@ -59,6 +59,9 @@ export default function IntegrationDocs() {
               <li><a href="#virtuous">Virtuous Setup</a></li>
               <li><a href="#neoncrm">Neon CRM Setup</a></li>
               <li><a href="#donorperfect">DonorPerfect Setup</a></li>
+              <li><a href="#salesforce">Salesforce NPSP Setup</a> <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></li>
+              <li><a href="#blackbaud">Raiser's Edge NXT Setup</a> <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></li>
+              <li><a href="#everyaction">EveryAction Setup</a> <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></li>
               <li><a href="#syncing">Syncing Your Data</a></li>
               <li><a href="#troubleshooting">Troubleshooting</a></li>
               <li><a href="#security">Security & Privacy</a></li>
@@ -122,6 +125,21 @@ export default function IntegrationDocs() {
                 <td><strong>DonorPerfect</strong></td>
                 <td>Beta</td>
                 <td>API Key</td>
+              </tr>
+              <tr>
+                <td><strong>Salesforce NPSP</strong></td>
+                <td>Beta</td>
+                <td>Instance URL + Access Token (OAuth 2.0)</td>
+              </tr>
+              <tr>
+                <td><strong>Raiser's Edge NXT</strong></td>
+                <td>Beta</td>
+                <td>Subscription Key + Access Token (OAuth 2.0)</td>
+              </tr>
+              <tr>
+                <td><strong>EveryAction</strong></td>
+                <td>Beta</td>
+                <td>Application Name + API Key</td>
               </tr>
             </tbody>
           </table>
@@ -350,6 +368,195 @@ export default function IntegrationDocs() {
           </ul>
 
           <p><strong>API Documentation:</strong> <a href="https://www.donorperfect.com/support" target="_blank" rel="noopener noreferrer">DonorPerfect Support Center</a></p>
+
+          <hr className="my-12" />
+
+          {/* Salesforce NPSP */}
+          <h2 id="salesforce">Salesforce NPSP Setup <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></h2>
+          <p>
+            <a href="https://www.salesforce.org/nonprofit/nonprofit-success-pack/" target="_blank" rel="noopener noreferrer">Salesforce NPSP</a> (Nonprofit Success Pack) is an enterprise-grade CRM built on the Salesforce platform. NPSP extends Salesforce with nonprofit-specific features like donation tracking, household management, and engagement plans.
+          </p>
+
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 my-4">
+            <p className="mt-0 mb-0 text-sm"><strong>Note:</strong> Salesforce uses OAuth 2.0 for authentication. You'll need to create a Connected App in Salesforce to generate access tokens. This is more complex than simple API keys.</p>
+          </div>
+
+          <h3>Step 1: Create a Connected App</h3>
+          <ol>
+            <li>Log in to your <strong>Salesforce org</strong> as an administrator</li>
+            <li>Go to <strong>Setup</strong> (gear icon → Setup)</li>
+            <li>In Quick Find, search for <strong>"App Manager"</strong></li>
+            <li>Click <strong>New Connected App</strong></li>
+            <li>Fill in the basic information:
+              <ul>
+                <li>Connected App Name: "Rōmy Integration"</li>
+                <li>API Name: "Romy_Integration"</li>
+                <li>Contact Email: Your admin email</li>
+              </ul>
+            </li>
+            <li>Enable OAuth Settings:
+              <ul>
+                <li>Check <strong>Enable OAuth Settings</strong></li>
+                <li>Callback URL: <code>https://intel.getromy.app/auth/callback</code></li>
+                <li>Selected OAuth Scopes: Add "Full access (full)" and "Perform requests at any time (refresh_token)"</li>
+              </ul>
+            </li>
+            <li>Click <strong>Save</strong> and wait 2-10 minutes for activation</li>
+          </ol>
+
+          <h3>Step 2: Get Your Consumer Key and Secret</h3>
+          <ol>
+            <li>After saving, click <strong>Manage Consumer Details</strong></li>
+            <li>Verify with MFA if prompted</li>
+            <li>Copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong></li>
+          </ol>
+
+          <h3>Step 3: Generate an Access Token</h3>
+          <p>For the beta integration, you'll need to generate a token manually:</p>
+          <ol>
+            <li>Go to <strong>Workbench</strong>: <a href="https://workbench.developerforce.com" target="_blank" rel="noopener noreferrer">workbench.developerforce.com</a></li>
+            <li>Accept terms and log in with your Salesforce credentials</li>
+            <li>Go to <strong>Utilities → REST Explorer</strong></li>
+            <li>Your session is now authenticated — note your <strong>Instance URL</strong> (e.g., <code>https://yourorg.my.salesforce.com</code>)</li>
+            <li>For the Access Token, use your session ID from Workbench or generate one via OAuth flow</li>
+          </ol>
+
+          <h3>Step 4: Connect in Rōmy</h3>
+          <ol>
+            <li>Open Rōmy and go to <strong>Settings → Integrations</strong></li>
+            <li>Click on the <strong>Salesforce NPSP</strong> card</li>
+            <li>Enter your <strong>Instance URL</strong> (e.g., <code>https://yourorg.my.salesforce.com</code>)</li>
+            <li>Enter your <strong>Access Token</strong></li>
+            <li>Click <strong>Save Key</strong></li>
+          </ol>
+
+          <h3>What Gets Synced</h3>
+          <ul>
+            <li><strong>Contacts:</strong> Name, email, phone, addresses from NPSP Contact records</li>
+            <li><strong>Opportunities:</strong> Donations (Closed Won opportunities) with amounts and dates</li>
+            <li><strong>NPSP Rollups:</strong> Lifetime giving, first/last gift dates from NPSP rollup fields</li>
+          </ul>
+
+          <h3>Rate Limits</h3>
+          <p>Salesforce has generous rate limits (100,000+ API calls/day for most orgs), but respects HTTP 429 responses. Rōmy automatically handles throttling.</p>
+
+          <p><strong>API Documentation:</strong> <a href="https://developer.salesforce.com/docs/atlas.en-us.api_rest.meta/api_rest/intro_rest.htm" target="_blank" rel="noopener noreferrer">Salesforce REST API Developer Guide</a></p>
+
+          <hr className="my-12" />
+
+          {/* Blackbaud / Raiser's Edge NXT */}
+          <h2 id="blackbaud">Raiser's Edge NXT Setup <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></h2>
+          <p>
+            <a href="https://www.blackbaud.com/products/blackbaud-raisers-edge-nxt" target="_blank" rel="noopener noreferrer">Raiser's Edge NXT</a> by Blackbaud is one of the most widely-used enterprise fundraising platforms. It uses the <strong>Blackbaud SKY API</strong> for integrations.
+          </p>
+
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 my-4">
+            <p className="mt-0 mb-0 text-sm"><strong>Important:</strong> SKY API requires both an OAuth 2.0 access token AND a subscription key. You'll need to register as a SKY API developer.</p>
+          </div>
+
+          <h3>Step 1: Register for SKY API Access</h3>
+          <ol>
+            <li>Go to <a href="https://developer.blackbaud.com" target="_blank" rel="noopener noreferrer">developer.blackbaud.com</a></li>
+            <li>Click <strong>Sign Up</strong> and create a Blackbaud ID (or use existing)</li>
+            <li>Complete the developer registration form</li>
+            <li>Accept the API terms of service</li>
+          </ol>
+
+          <h3>Step 2: Create an Application</h3>
+          <ol>
+            <li>In the developer portal, click <strong>My Applications</strong></li>
+            <li>Click <strong>Create an Application</strong></li>
+            <li>Fill in application details:
+              <ul>
+                <li>Application Name: "Rōmy Integration"</li>
+                <li>Organization: Your organization name</li>
+                <li>Redirect URIs: <code>https://intel.getromy.app/auth/callback</code></li>
+              </ul>
+            </li>
+            <li>After creation, note your <strong>Application ID</strong> and <strong>Primary Application Secret</strong></li>
+          </ol>
+
+          <h3>Step 3: Get Your Subscription Key</h3>
+          <ol>
+            <li>In the developer portal, go to <strong>My Subscriptions</strong></li>
+            <li>You'll see your <strong>Primary Key</strong> and <strong>Secondary Key</strong></li>
+            <li>Copy the <strong>Primary Key</strong> — this is your subscription key</li>
+          </ol>
+
+          <h3>Step 4: Authorize Your Application</h3>
+          <ol>
+            <li>You need to connect your app to a Blackbaud environment (your RE NXT org)</li>
+            <li>Use the OAuth 2.0 authorization code flow to get an access token</li>
+            <li>The access token provides access to your constituent and gift data</li>
+          </ol>
+
+          <h3>Step 5: Connect in Rōmy</h3>
+          <ol>
+            <li>Open Rōmy and go to <strong>Settings → Integrations</strong></li>
+            <li>Click on the <strong>Raiser's Edge NXT</strong> card</li>
+            <li>Enter your <strong>Subscription Key</strong></li>
+            <li>Enter your <strong>Access Token</strong></li>
+            <li>Click <strong>Save Key</strong></li>
+          </ol>
+
+          <h3>What Gets Synced</h3>
+          <ul>
+            <li><strong>Constituents:</strong> Individuals and organizations with contact information</li>
+            <li><strong>Gifts:</strong> Posted donations with amounts, dates, and fund designations</li>
+            <li><strong>Giving Summary:</strong> Lifetime giving, largest gift, consecutive giving years</li>
+          </ul>
+
+          <h3>Rate Limits</h3>
+          <p>SKY API allows <strong>10 calls per second</strong> and 50,000-100,000 daily calls. Rōmy respects these limits with built-in throttling.</p>
+
+          <p><strong>API Documentation:</strong> <a href="https://developer.blackbaud.com/skyapi/docs" target="_blank" rel="noopener noreferrer">SKY API Documentation</a></p>
+
+          <hr className="my-12" />
+
+          {/* EveryAction */}
+          <h2 id="everyaction">EveryAction Setup <span className="text-xs bg-purple-500/20 px-1.5 py-0.5 rounded text-purple-600 dark:text-purple-400">BETA</span></h2>
+          <p>
+            <a href="https://www.everyaction.com" target="_blank" rel="noopener noreferrer">EveryAction</a> (part of NGP VAN/Bonterra) is a powerful platform for progressive organizations, combining fundraising, advocacy, and voter contact tools.
+          </p>
+
+          <h3>Step 1: Request API Access</h3>
+          <ol>
+            <li>Contact your EveryAction account manager to request API access</li>
+            <li>Or email <a href="mailto:apiteam@ngpvan.com">apiteam@ngpvan.com</a></li>
+            <li>Specify you need access to the <strong>People</strong> and <strong>Contributions</strong> endpoints</li>
+          </ol>
+
+          <h3>Step 2: Receive Your Credentials</h3>
+          <p>EveryAction will provide you with:</p>
+          <ul>
+            <li><strong>Application Name:</strong> A short string identifying your application</li>
+            <li><strong>API Key:</strong> Your authentication key (includes database mode indicator)</li>
+          </ul>
+
+          <div className="rounded-lg border border-blue-500/30 bg-blue-500/10 p-4 my-4">
+            <p className="mt-0 mb-0 text-sm"><strong>Note:</strong> EveryAction API keys often include a pipe character and number (e.g., <code>abc123|1</code>). The number indicates database mode: <code>0</code> for VoterFile, <code>1</code> for MyCampaign/MyMembers.</p>
+          </div>
+
+          <h3>Step 3: Connect in Rōmy</h3>
+          <ol>
+            <li>Open Rōmy and go to <strong>Settings → Integrations</strong></li>
+            <li>Click on the <strong>EveryAction</strong> card</li>
+            <li>Enter your <strong>Application Name</strong></li>
+            <li>Enter your <strong>API Key</strong></li>
+            <li>Click <strong>Save Key</strong></li>
+          </ol>
+
+          <h3>What Gets Synced</h3>
+          <ul>
+            <li><strong>People:</strong> Individual records with emails, phones, and addresses</li>
+            <li><strong>Contributions:</strong> Donation records with amounts, dates, and designations</li>
+            <li><strong>Codes:</strong> Associated tags and codes for segmentation</li>
+          </ul>
+
+          <h3>Rate Limits</h3>
+          <p>EveryAction doesn't publish specific rate limits but may throttle during high-volume periods. Rōmy uses conservative request pacing.</p>
+
+          <p><strong>API Documentation:</strong> <a href="https://docs.everyaction.com" target="_blank" rel="noopener noreferrer">EveryAction API Reference</a></p>
 
           <hr className="my-12" />
 

@@ -22,6 +22,8 @@ import {
   Target,
   ChartBar,
   Plus,
+  GoogleDriveLogo,
+  HardDrive,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
@@ -42,6 +44,7 @@ import {
 
 import "@/app/batch/batch-dashboard.css"
 import { ResearchPlayButton, ResearchStopButton } from "@/app/components/batch-processing/research-play-button"
+import { DriveFilePicker } from "@/app/components/batch-processing/drive-file-picker"
 
 // Status badge component
 function StatusBadge({ status }: { status: BatchProspectJob["status"] }) {
@@ -205,20 +208,26 @@ function JobItem({
   )
 }
 
+// Upload mode type
+type UploadMode = "local" | "drive"
+
 // Upload component in sidebar style
 function BatchUploadSidebar({
   onUpload,
+  onDriveUpload,
   isUploading,
   batchLimit,
   planName,
   stats,
 }: {
   onUpload: (file: File) => Promise<void>
+  onDriveUpload: (file: { name: string; content: ArrayBuffer; mimeType: string }) => Promise<void>
   isUploading: boolean
   batchLimit: number
   planName: string
   stats: { totalJobs: number; totalProspects: number; completedProspects: number }
 }) {
+  const [uploadMode, setUploadMode] = useState<UploadMode>("local")
   const [isDragging, setIsDragging] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [error, setError] = useState<string>("")
@@ -299,53 +308,89 @@ function BatchUploadSidebar({
         </div>
       </div>
 
-      {/* Upload area */}
-      <div className="faq">
-        <p>Drop or select a file to start</p>
-        <div
-          onDragEnter={(e) => { e.preventDefault(); setIsDragging(true) }}
-          onDragOver={(e) => e.preventDefault()}
-          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
-          onDrop={handleDrop}
-          className={cn("upload-zone", isDragging && "upload-zone-active")}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={handleFileSelect}
-            className="hidden"
-            disabled={isUploading}
-          />
-
-          {!selectedFile ? (
-            <>
-              <CloudArrowUp className="upload-icon" />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploading}
-                className="flat-button"
-              >
-                Choose File
-              </button>
-              <span className="upload-hint">CSV or Excel</span>
-            </>
-          ) : (
-            <div className="selected-file">
-              <FileCsv className="file-icon" weight="fill" />
-              <div className="file-info">
-                <span className="file-name">{selectedFile.name}</span>
-                <span className="file-size">{(selectedFile.size / 1024).toFixed(1)} KB</span>
-              </div>
-              {!isUploading && (
-                <button onClick={handleCancel} className="icon-button icon-button-small">
-                  <X />
-                </button>
-              )}
-            </div>
+      {/* Upload mode tabs */}
+      <div className="upload-mode-tabs">
+        <button
+          onClick={() => setUploadMode("local")}
+          className={cn(
+            "upload-mode-tab",
+            uploadMode === "local" && "upload-mode-tab-active"
           )}
-        </div>
+        >
+          <HardDrive className="h-4 w-4" />
+          Local File
+        </button>
+        <button
+          onClick={() => setUploadMode("drive")}
+          className={cn(
+            "upload-mode-tab",
+            uploadMode === "drive" && "upload-mode-tab-active"
+          )}
+        >
+          <GoogleDriveLogo className="h-4 w-4" />
+          Google Drive
+        </button>
       </div>
+
+      {/* Upload area - local file */}
+      {uploadMode === "local" && (
+        <div className="faq">
+          <p>Drop or select a file to start</p>
+          <div
+            onDragEnter={(e) => { e.preventDefault(); setIsDragging(true) }}
+            onDragOver={(e) => e.preventDefault()}
+            onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
+            onDrop={handleDrop}
+            className={cn("upload-zone", isDragging && "upload-zone-active")}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={isUploading}
+            />
+
+            {!selectedFile ? (
+              <>
+                <CloudArrowUp className="upload-icon" />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="flat-button"
+                >
+                  Choose File
+                </button>
+                <span className="upload-hint">CSV or Excel</span>
+              </>
+            ) : (
+              <div className="selected-file">
+                <FileCsv className="file-icon" weight="fill" />
+                <div className="file-info">
+                  <span className="file-name">{selectedFile.name}</span>
+                  <span className="file-size">{(selectedFile.size / 1024).toFixed(1)} KB</span>
+                </div>
+                {!isUploading && (
+                  <button onClick={handleCancel} className="icon-button icon-button-small">
+                    <X />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Upload area - Google Drive */}
+      {uploadMode === "drive" && (
+        <div className="faq">
+          <DriveFilePicker
+            onFileSelect={onDriveUpload}
+            isLoading={isUploading}
+          />
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="payments">
@@ -824,6 +869,35 @@ export function BatchView() {
     }
   }
 
+  // Handle Google Drive file upload
+  const handleDriveUpload = async (driveFile: { name: string; content: ArrayBuffer; mimeType: string }) => {
+    setIsUploading(true)
+
+    try {
+      // Convert ArrayBuffer to File object for unified processing
+      const blob = new Blob([driveFile.content], { type: driveFile.mimeType })
+      const file = new File([blob], driveFile.name, { type: driveFile.mimeType })
+
+      const result = await parseProspectFile(file)
+      if (!result.success && result.rows.length === 0) {
+        throw new Error(result.errors.join(". "))
+      }
+
+      // Store parsed data and show mapping dialog
+      setParsedFileData({
+        file,
+        rows: result.rows,
+        columns: result.columns,
+        suggested_mapping: result.suggested_mapping,
+      })
+      setIsMappingDialogOpen(true)
+    } catch (err) {
+      throw err
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   // Handle mapping confirmation - create the batch job
   const handleMappingConfirm = async (columnMapping: ColumnMapping) => {
     if (!parsedFileData) return
@@ -1008,6 +1082,7 @@ export function BatchView() {
         <div className="app-body-sidebar" id="upload-section">
           <BatchUploadSidebar
             onUpload={handleUpload}
+            onDriveUpload={handleDriveUpload}
             isUploading={isUploading}
             batchLimit={batchLimit}
             planName={planName}

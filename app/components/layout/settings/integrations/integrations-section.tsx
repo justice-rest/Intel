@@ -50,6 +50,9 @@ export function IntegrationsSection() {
     virtuous: integrations?.find((i) => i.provider === "virtuous")?.connected || false,
     neoncrm: integrations?.find((i) => i.provider === "neoncrm")?.connected || false,
     donorperfect: integrations?.find((i) => i.provider === "donorperfect")?.connected || false,
+    salesforce: integrations?.find((i) => i.provider === "salesforce")?.connected || false,
+    blackbaud: integrations?.find((i) => i.provider === "blackbaud")?.connected || false,
+    everyaction: integrations?.find((i) => i.provider === "everyaction")?.connected || false,
   }
 
   const getIntegrationInfo = (provider: CRMProvider) => {

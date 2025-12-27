@@ -1,13 +1,13 @@
 /**
  * CRM Integration Types
- * Type definitions for Bloomerang and Virtuous CRM integrations
+ * Type definitions for all supported CRM integrations
  */
 
 // ============================================================================
 // PROVIDER TYPES
 // ============================================================================
 
-export type CRMProvider = "bloomerang" | "virtuous" | "neoncrm" | "donorperfect"
+export type CRMProvider = "bloomerang" | "virtuous" | "neoncrm" | "donorperfect" | "salesforce" | "blackbaud" | "everyaction"
 
 export interface CRMProviderConfig {
   id: CRMProvider

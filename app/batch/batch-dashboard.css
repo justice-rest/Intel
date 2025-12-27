@@ -824,6 +824,62 @@
   font-size: 1.25rem;
 }
 
+/* Upload Mode Tabs */
+.upload-mode-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.25rem;
+  background-color: var(--c-gray-700);
+  border-radius: 8px;
+}
+
+.upload-mode-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border: none;
+  background-color: transparent;
+  color: var(--c-text-tertiary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: 0.2s ease;
+}
+
+.upload-mode-tab:hover {
+  color: var(--c-text-secondary);
+  background-color: var(--c-gray-600);
+}
+
+.upload-mode-tab-active {
+  background-color: var(--c-gray-800);
+  color: var(--c-text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.upload-mode-tab-active:hover {
+  background-color: var(--c-gray-800);
+  color: var(--c-text-primary);
+}
+
+/* Light mode upload tabs */
+:root.light .upload-mode-tabs,
+.light .upload-mode-tabs {
+  background-color: var(--c-gray-600);
+}
+
+:root.light .upload-mode-tab-active,
+.light .upload-mode-tab-active {
+  background-color: #ffffff;
+  color: var(--c-text-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
 /* FAQ/Upload Zone */
 .faq {
   margin-top: 1.5rem;

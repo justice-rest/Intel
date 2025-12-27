@@ -7,7 +7,22 @@
 export * from "./types"
 
 // Configuration
-export { CRM_PROVIDERS, getCRMProvider, getCRMProviderName, isCRMProvider, CRM_API_CONFIG, CRM_SYNC_CONFIG } from "./config"
+export {
+  CRM_PROVIDERS,
+  getCRMProvider,
+  getCRMProviderName,
+  isCRMProvider,
+  CRM_API_CONFIG,
+  CRM_SYNC_CONFIG,
+  CRM_RATE_LIMITS,
+  getProviderRateLimitDelay,
+  // Enterprise-grade sync utilities
+  shouldAbortSync,
+  generateSyncRequestId,
+  createSyncLogEntry,
+  type SyncProgress,
+  type SyncError,
+} from "./config"
 
 // Bloomerang
 export {
@@ -66,3 +81,56 @@ export {
 } from "./donorperfect/client"
 export { mapDonorPerfectDonor, mapDonorPerfectDonors, mapDonorPerfectGift, mapDonorPerfectGifts } from "./donorperfect/mappers"
 export type * from "./donorperfect/types"
+
+// Salesforce NPSP
+export {
+  validateSalesforceKey,
+  refreshSalesforceToken,
+  fetchSalesforceContacts,
+  searchSalesforceContacts,
+  getSalesforceContact,
+  fetchAllSalesforceContacts,
+  fetchSalesforceOpportunities,
+  fetchSalesforceContactDonations,
+  fetchAllSalesforceOpportunities,
+  parseSalesforceCredentials,
+  combineSalesforceCredentials,
+} from "./salesforce/client"
+export { mapSalesforceContact, mapSalesforceContacts, mapSalesforceOpportunity, mapSalesforceOpportunities } from "./salesforce/mappers"
+export type * from "./salesforce/types"
+
+// Blackbaud (Raiser's Edge NXT)
+export {
+  validateBlackbaudKey,
+  fetchBlackbaudConstituents,
+  searchBlackbaudConstituents,
+  getBlackbaudConstituent,
+  getBlackbaudGivingSummary,
+  fetchAllBlackbaudConstituents,
+  fetchBlackbaudGifts,
+  fetchBlackbaudConstituentGifts,
+  getBlackbaudGift,
+  fetchAllBlackbaudGifts,
+  parseBlackbaudCredentials,
+  combineBlackbaudCredentials,
+} from "./blackbaud/client"
+export { mapBlackbaudConstituent, mapBlackbaudConstituents, mapBlackbaudGift, mapBlackbaudGifts } from "./blackbaud/mappers"
+export type * from "./blackbaud/types"
+
+// EveryAction (NGP VAN)
+export {
+  validateEveryActionKey,
+  fetchEveryActionPeople,
+  searchEveryActionPeople,
+  getEveryActionPerson,
+  findOrCreateEveryActionPerson,
+  fetchAllEveryActionPeople,
+  fetchEveryActionContributions,
+  fetchEveryActionPersonContributions,
+  getEveryActionContribution,
+  fetchAllEveryActionContributions,
+  parseEveryActionCredentials,
+  combineEveryActionCredentials,
+} from "./everyaction/client"
+export { mapEveryActionPerson, mapEveryActionPeople, mapEveryActionContribution, mapEveryActionContributions } from "./everyaction/mappers"
+export type * from "./everyaction/types"

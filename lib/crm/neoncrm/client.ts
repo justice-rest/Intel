@@ -27,10 +27,13 @@ const NEON_CRM_API_VERSION = "2.10"
 
 /**
  * Parse Neon CRM credentials from combined format
- * Format: "orgId:apiKey"
+ * Format: "orgId|||apiKey" (using ||| as separator to avoid conflicts with special characters)
  *
- * Note: Uses first colon as separator. API keys may contain colons,
- * but org IDs should not.
+ * Also supports legacy format "orgId:apiKey" for backward compatibility,
+ * but only if the API key doesn't contain colons.
+ *
+ * NEW FORMAT: URL-encoded JSON for maximum safety
+ * Format: base64(JSON.stringify({ orgId, apiKey }))
  */
 export function parseNeonCRMCredentials(combinedKey: string): NeonCRMCredentials | null {
   // Input validation
@@ -45,10 +48,55 @@ export function parseNeonCRMCredentials(combinedKey: string): NeonCRMCredentials
     return null
   }
 
-  // Find the separator - use first colon (API keys might contain colons)
+  // Try new base64 JSON format first (preferred)
+  try {
+    const decoded = Buffer.from(trimmed, "base64").toString("utf-8")
+    const parsed = JSON.parse(decoded)
+    if (parsed.orgId && parsed.apiKey) {
+      // Validate parsed values
+      const orgId = String(parsed.orgId).trim()
+      const apiKey = String(parsed.apiKey).trim()
+
+      if (!orgId) {
+        console.error("[Neon CRM] Invalid credentials: empty Organization ID in JSON")
+        return null
+      }
+      if (!apiKey || apiKey.length < 10) {
+        console.error("[Neon CRM] Invalid credentials: API key too short in JSON")
+        return null
+      }
+
+      return { orgId, apiKey }
+    }
+  } catch {
+    // Not base64 JSON format, try other formats
+  }
+
+  // Try new separator format (|||)
+  if (trimmed.includes("|||")) {
+    const parts = trimmed.split("|||")
+    if (parts.length >= 2) {
+      const orgId = parts[0].trim()
+      const apiKey = parts.slice(1).join("|||").trim() // Handle case where apiKey contains |||
+
+      if (!orgId) {
+        console.error("[Neon CRM] Invalid credentials: empty Organization ID")
+        return null
+      }
+      if (!apiKey || apiKey.length < 10) {
+        console.error("[Neon CRM] Invalid credentials: API key appears too short")
+        return null
+      }
+
+      return { orgId, apiKey }
+    }
+  }
+
+  // Legacy format: "orgId:apiKey" (first colon as separator)
+  // Only use if no ||| separator found
   const colonIndex = trimmed.indexOf(":")
   if (colonIndex === -1) {
-    console.error("[Neon CRM] Invalid credentials format: missing colon separator")
+    console.error("[Neon CRM] Invalid credentials format: missing separator (expected ||| or :)")
     return null
   }
 
@@ -82,9 +130,11 @@ export function parseNeonCRMCredentials(combinedKey: string): NeonCRMCredentials
 
 /**
  * Combine Neon CRM credentials into storage format
+ * Uses base64-encoded JSON for maximum safety with special characters
  */
 export function combineNeonCRMCredentials(orgId: string, apiKey: string): string {
-  return `${orgId}:${apiKey}`
+  const json = JSON.stringify({ orgId, apiKey })
+  return Buffer.from(json, "utf-8").toString("base64")
 }
 
 /**
