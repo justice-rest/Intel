@@ -5,13 +5,17 @@ import Image from "next/image"
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { fetchClient } from "@/lib/fetch"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   Spinner,
   Tray,
+  Envelope,
 } from "@phosphor-icons/react"
 import { DraftList } from "./draft-list"
 import { DraftEditor } from "./draft-editor"
@@ -163,8 +167,8 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
   if (isLoading && open) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
-          <div className="flex items-center justify-center py-12 bg-white dark:bg-[#1a1a1a]">
+        <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+          <div className="flex items-center justify-center py-12">
             <Spinner className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         </DialogContent>
@@ -174,89 +178,67 @@ export function DraftsModal({ open, onOpenChange }: DraftsModalProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg p-0 overflow-hidden max-h-[80vh] flex flex-col">
-        <div className="p-4 bg-white dark:bg-[#1a1a1a] flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-base font-semibold text-black dark:text-white flex items-center gap-2">
-              <Image
-                src="/svgs/Gmail SVG Icon.svg"
-                alt="Gmail"
-                width={20}
-                height={20}
-                className="size-5"
-              />
-              Gmail Drafts
-            </h2>
-          </div>
+      <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden max-h-[80vh] flex flex-col">
+        <DialogHeader className="px-5 pt-5 pb-4">
+          <DialogTitle className="flex items-center gap-2.5 text-base font-semibold">
+            <Envelope size={20} weight="fill" className="text-muted-foreground" />
+            Drafts
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground/80 mt-1.5 leading-relaxed">
+            {pendingCount > 0
+              ? `${pendingCount} pending draft${pendingCount !== 1 ? "s" : ""} ready to review`
+              : "AI-generated email drafts will appear here"}
+          </p>
+        </DialogHeader>
 
-          {/* Stats bar */}
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              Pending
-            </span>
-            <span className="text-sm font-semibold text-purple-600 dark:text-purple-400">
-              {pendingCount} draft{pendingCount !== 1 ? "s" : ""}
-            </span>
-          </div>
-
-          <hr className="border-gray-200 dark:border-[#333] my-2" />
-
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {isEditing && selectedDraft ? (
-              <DraftEditor
-                draft={selectedDraft}
-                onSave={handleSave}
-                onCancel={handleCancelEdit}
-                isSaving={updateMutation.isPending}
-              />
-            ) : drafts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Tray size={48} className="text-gray-400 dark:text-gray-600 mb-3" />
-                <p className="text-sm font-medium text-black dark:text-white mb-1">
-                  No drafts yet
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center max-w-xs">
-                  When you ask AI to write emails, drafts will appear here.
-                  Review, edit, and send them from Gmail.
-                </p>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto min-h-0 px-5 pb-4">
+          {isEditing && selectedDraft ? (
+            <DraftEditor
+              draft={selectedDraft}
+              onSave={handleSave}
+              onCancel={handleCancelEdit}
+              isSaving={updateMutation.isPending}
+            />
+          ) : drafts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+                <Tray size={24} className="text-muted-foreground" />
               </div>
-            ) : (
-              <DraftList
-                drafts={drafts}
-                onEdit={handleEdit}
-                onDiscard={handleDiscard}
-                discardingId={
-                  discardMutation.isPending
-                    ? (discardMutation.variables as string)
-                    : null
-                }
-              />
-            )}
-          </div>
-
-          {/* Footer */}
-          {!isEditing && drafts.length > 0 && (
-            <>
-              <hr className="border-gray-200 dark:border-[#333] my-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                AI-generated drafts match your writing style
+              <p className="text-sm font-medium mb-1">
+                No drafts yet
               </p>
-            </>
-          )}
-
-          {/* Close button */}
-          {!isEditing && (
-            <button
-              type="button"
-              className="w-full h-10 rounded bg-white hover:bg-transparent border border-white text-black hover:text-white font-semibold text-sm transition-all mt-3"
-              onClick={() => onOpenChange(false)}
-            >
-              Done
-            </button>
+              <p className="text-xs text-muted-foreground text-center max-w-xs">
+                When you ask AI to write emails, drafts will appear here.
+                Review, edit, and send them from Gmail.
+              </p>
+            </div>
+          ) : (
+            <DraftList
+              drafts={drafts}
+              onEdit={handleEdit}
+              onDiscard={handleDiscard}
+              discardingId={
+                discardMutation.isPending
+                  ? (discardMutation.variables as string)
+                  : null
+              }
+            />
           )}
         </div>
+
+        {/* Footer */}
+        {!isEditing && (
+          <div className="px-5 py-4 border-t bg-muted/30">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              className="w-full h-9"
+            >
+              Done
+            </Button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { UsersThree, Plus, CheckCircle, Spinner, Clock, CloudArrowUp, FileCsv, X, CaretDown } from "@phosphor-icons/react"
+import { Flask, Plus, CheckCircle, Spinner, Clock, CloudArrowUp, FileCsv, X, CaretRight } from "@phosphor-icons/react"
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
@@ -237,24 +237,29 @@ function BatchUploadDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UsersThree className="h-5 w-5" />
-            Batch Research
+      <DialogContent className="sm:max-w-[420px] p-0 gap-0 overflow-hidden">
+        <DialogHeader className="px-5 pt-5 pb-4">
+          <DialogTitle className="flex items-center gap-2.5 text-base font-semibold">
+            <Flask size={20} weight="fill" className="text-muted-foreground" />
+            New Research Batch
           </DialogTitle>
+          <p className="text-sm text-muted-foreground/80 mt-1.5 leading-relaxed">
+            Upload a CSV or Excel file with your prospect list.
+          </p>
         </DialogHeader>
 
-        <div className="space-y-4 pt-2">
+        <div className="px-5 pb-4 space-y-4">
           <div
             onDragEnter={(e) => { e.preventDefault(); setIsDragging(true) }}
             onDragOver={(e) => e.preventDefault()}
             onDragLeave={(e) => { e.preventDefault(); setIsDragging(false) }}
             onDrop={handleDrop}
+            onClick={() => !selectedFile && fileInputRef.current?.click()}
             className={cn(
-              "border-border relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-8 transition-colors",
+              "relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-all cursor-pointer",
               isDragging && "border-primary bg-primary/5",
-              !isDragging && "hover:border-muted-foreground/50"
+              !isDragging && !selectedFile && "border-muted-foreground/20 hover:border-muted-foreground/40 hover:bg-accent/30",
+              selectedFile && "border-primary/30 bg-primary/5 cursor-default"
             )}
           >
             <input
@@ -273,28 +278,22 @@ function BatchUploadDialog({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="flex flex-col items-center gap-3 text-center"
+                  className="flex flex-col items-center gap-2 text-center"
                 >
-                  <CloudArrowUp className="h-12 w-12 text-muted-foreground" />
-                  <div>
+                  <div className="w-12 h-12 rounded-full bg-muted/50 flex items-center justify-center">
+                    <CloudArrowUp className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <div className="mt-1">
                     <p className="text-sm font-medium">
-                      Drag and drop your prospect list
+                      Drop your file here
                     </p>
-                    <p className="text-muted-foreground text-xs">
-                      or click to browse (CSV, Excel)
+                    <p className="text-muted-foreground text-xs mt-0.5">
+                      or click to browse
                     </p>
                   </div>
-                  <Badge variant="secondary" className="capitalize">
-                    {planName} Plan: Up to {batchLimit} prospects
+                  <Badge variant="secondary" className="capitalize mt-2 text-xs">
+                    {planName}: up to {batchLimit} prospects
                   </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                  >
-                    Choose File
-                  </Button>
                 </motion.div>
               ) : (
                 <motion.div
@@ -303,18 +302,25 @@ function BatchUploadDialog({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   className="flex w-full items-center gap-3"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  <FileCsv className="text-primary h-10 w-10 flex-shrink-0" weight="fill" />
+                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <FileCsv className="text-primary h-5 w-5" weight="fill" />
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{selectedFile.name}</p>
                     <p className="text-muted-foreground text-xs">
-                      {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+                      {(selectedFile.size / 1024).toFixed(1)} KB
                     </p>
                   </div>
                   {!isUploading && (
-                    <Button variant="ghost" size="icon" onClick={handleCancel} className="flex-shrink-0">
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <button
+                      type="button"
+                      onClick={handleCancel}
+                      className="flex-shrink-0 p-1.5 rounded-md hover:bg-accent transition-colors"
+                    >
+                      <X className="h-4 w-4 text-muted-foreground" />
+                    </button>
                   )}
                 </motion.div>
               )}
@@ -325,32 +331,15 @@ function BatchUploadDialog({
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
-              className="text-destructive rounded-md bg-destructive/10 p-3 text-sm"
+              className="text-destructive rounded-lg bg-destructive/10 px-3 py-2.5 text-sm"
             >
               {error}
             </motion.div>
           )}
 
-          {selectedFile && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              className="flex gap-2"
-            >
-              <Button onClick={handleUpload} disabled={isUploading} className="flex-1">
-                {isUploading ? "Processing..." : "Start Batch Research"}
-              </Button>
-              {!isUploading && (
-                <Button variant="outline" onClick={handleCancel}>
-                  Cancel
-                </Button>
-              )}
-            </motion.div>
-          )}
-
           {isUploading && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
-              <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+              <div className="bg-muted h-1.5 w-full overflow-hidden rounded-full">
                 <motion.div
                   className="bg-primary h-full"
                   initial={{ width: "0%" }}
@@ -359,10 +348,30 @@ function BatchUploadDialog({
                 />
               </div>
               <p className="text-muted-foreground text-center text-xs">
-                Parsing file and creating batch job...
+                Processing your file...
               </p>
             </motion.div>
           )}
+        </div>
+
+        <div className="px-5 py-4 border-t bg-muted/30">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleClose}
+              disabled={isUploading}
+              className="flex-1 h-9"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={!selectedFile || isUploading}
+              className="flex-1 h-9"
+            >
+              {isUploading ? "Processing..." : "Start Research"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -418,41 +427,32 @@ export function SidebarBatch() {
 
   return (
     <div className="mb-3">
-      <div className="flex items-center">
+      {/* Section Header */}
+      <div className="group/section flex items-center h-9 px-2 rounded-md hover:bg-accent/50 transition-colors">
         <button
           onClick={toggleCollapsed}
-          className="text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors"
-          title={isCollapsed ? "Expand" : "Collapse"}
+          className="flex items-center gap-2 flex-1 text-left"
         >
-          <CaretDown
-            size={14}
+          <CaretRight
+            size={12}
+            weight="bold"
             className={cn(
-              "transition-transform duration-200",
-              isCollapsed && "-rotate-90"
+              "text-muted-foreground transition-transform duration-200",
+              !isCollapsed && "rotate-90"
             )}
           />
+          <Flask size={18} weight="duotone" className="text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground/90">Labs</span>
         </button>
-        <Link
-          href="/batch"
-          className={cn(
-            "group/batch relative inline-flex flex-1 items-center rounded-md px-2 py-2 text-sm transition-colors",
-            isBatchActive
-              ? "bg-accent text-foreground"
-              : "hover:bg-accent/80 hover:text-foreground text-primary bg-transparent"
-          )}
-        >
-          <div className="flex items-center gap-2">
-            <UsersThree size={20} />
-            Batch Research
-          </div>
-        </Link>
-        {/* Plus button to open upload dialog */}
         <button
-          onClick={() => setShowUploadDialog(true)}
-          className="text-muted-foreground hover:text-foreground hover:bg-accent/50 p-1.5 rounded-md transition-colors"
-          title="New Batch Research"
+          onClick={(e) => {
+            e.stopPropagation()
+            setShowUploadDialog(true)
+          }}
+          className="opacity-0 group-hover/section:opacity-100 text-muted-foreground hover:text-foreground p-1 rounded transition-all"
+          title="New Research"
         >
-          <Plus size={16} />
+          <Plus size={14} weight="bold" />
         </button>
       </div>
 
@@ -468,7 +468,7 @@ export function SidebarBatch() {
           >
             {/* Only show skeleton on initial load, not during navigation */}
             {showSkeleton ? (
-              <div className="mt-1 space-y-1 pl-6">
+              <div className="mt-0.5 space-y-0.5 ml-[26px]">
                 {[0, 1, 2].map((i) => (
                   <div
                     key={i}
@@ -480,7 +480,7 @@ export function SidebarBatch() {
                 ))}
               </div>
             ) : recentJobs.length > 0 ? (
-              <div className="mt-1 space-y-0.5 pl-6">
+              <div className="mt-0.5 space-y-0.5 ml-[26px]">
                 {recentJobs.map((job, index) => (
                   <BatchJobItem key={job.id} job={job} index={index} />
                 ))}

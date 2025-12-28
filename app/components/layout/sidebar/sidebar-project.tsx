@@ -1,7 +1,7 @@
 "use client"
 
 import { Skeleton } from "@/components/ui/skeleton"
-import { FolderSimple, Plus, CaretDown } from "@phosphor-icons/react"
+import { FolderSimple, Plus, CaretRight } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import { useState, useEffect } from "react"
@@ -43,43 +43,38 @@ export function SidebarProject() {
     },
   })
 
-  const toggleCollapsed = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+  const toggleCollapsed = () => {
     setIsCollapsed(!isCollapsed)
   }
 
   return (
     <div className="mb-5">
-      <div className="flex items-center">
+      {/* Section Header */}
+      <div className="group/section flex items-center h-9 px-2 rounded-md hover:bg-accent/50 transition-colors">
         <button
           onClick={toggleCollapsed}
-          className="text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors"
-          title={isCollapsed ? "Expand" : "Collapse"}
+          className="flex items-center gap-2 flex-1 text-left"
         >
-          <CaretDown
-            size={14}
+          <CaretRight
+            size={12}
+            weight="bold"
             className={cn(
-              "transition-transform duration-200",
-              isCollapsed && "-rotate-90"
+              "text-muted-foreground transition-transform duration-200",
+              !isCollapsed && "rotate-90"
             )}
           />
+          <FolderSimple size={18} weight="duotone" className="text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground/90">Projects</span>
         </button>
-        <div
-          className="hover:bg-accent/80 hover:text-foreground text-primary group/projects relative inline-flex flex-1 items-center rounded-md bg-transparent px-2 py-2 text-sm transition-colors cursor-default"
-        >
-          <div className="flex items-center gap-2">
-            <FolderSimple size={20} />
-            Projects
-          </div>
-        </div>
-        {/* Plus button to open create project dialog */}
         <button
-          onClick={() => setIsDialogOpen(true)}
-          className="text-muted-foreground hover:text-foreground hover:bg-accent/50 p-1.5 rounded-md transition-colors"
+          onClick={(e) => {
+            e.stopPropagation()
+            setIsDialogOpen(true)
+          }}
+          className="opacity-0 group-hover/section:opacity-100 text-muted-foreground hover:text-foreground p-1 rounded transition-all"
           title="New Project"
         >
-          <Plus size={16} />
+          <Plus size={14} weight="bold" />
         </button>
       </div>
 
@@ -100,7 +95,7 @@ export function SidebarProject() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="space-y-1 pl-6 mt-1"
+                  className="mt-0.5 space-y-0.5 ml-[26px]"
                 >
                   {[0, 1, 2].map((i) => (
                     <motion.div
@@ -108,9 +103,9 @@ export function SidebarProject() {
                       initial={{ opacity: 0, y: 5 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.05 }}
-                      className="flex items-center gap-2 px-2 py-2"
+                      className="flex items-center gap-2 px-2 py-1.5"
                     >
-                      <Skeleton className="h-5 w-5 rounded" />
+                      <Skeleton className="h-4 w-4 rounded" />
                       <Skeleton className="h-4 flex-1" />
                     </motion.div>
                   ))}
@@ -120,7 +115,7 @@ export function SidebarProject() {
                   key="projects"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="space-y-1 pl-6 mt-1"
+                  className="mt-0.5 space-y-0.5 ml-[26px]"
                 >
                   {projects.map((project, index) => (
                     <SidebarProjectItem
