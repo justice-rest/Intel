@@ -78,14 +78,7 @@ export function SlashCommandMenu({
                   onClick={() => onSelect(command)}
                   onMouseEnter={() => onHover(index)}
                 >
-                  <div
-                    className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-sm",
-                      isSelected ? "bg-background/50" : "bg-muted"
-                    )}
-                  >
-                    <Icon className="size-4" />
-                  </div>
+                  <Icon className="text-muted-foreground size-4 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{command.label}</span>
