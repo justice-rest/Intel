@@ -6,7 +6,7 @@ import { useTransitionRouter } from "@/lib/transitions"
 import { BatchJobProgress } from "@/app/components/batch-processing/batch-job-progress"
 import type { BatchProspectJob, BatchProspectItem, BatchJobDetailResponse } from "@/lib/batch-processing"
 import { Spinner } from "@phosphor-icons/react"
-import "@/app/batch/batch-dashboard.css"
+import "@/app/labs/batch-dashboard.css"
 
 interface BatchJobDetailViewProps {
   jobId: string
@@ -44,7 +44,7 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
   }, [fetchJobDetails])
 
   const handleBack = () => {
-    router.push("/batch")
+    router.push("/labs")
   }
 
   if (isLoading) {
@@ -60,7 +60,7 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
               <span className="batch-logo-text">Rōmy</span>
             </Link>
             <span className="batch-header-divider">/</span>
-            <Link href="/batch" className="batch-nav-link">Batch Research</Link>
+            <Link href="/labs" className="batch-nav-link">Labs</Link>
           </div>
         </header>
         <div className="flex h-[60vh] items-center justify-center">
@@ -83,7 +83,7 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
               <span className="batch-logo-text">Rōmy</span>
             </Link>
             <span className="batch-header-divider">/</span>
-            <Link href="/batch" className="batch-nav-link">Batch Research</Link>
+            <Link href="/labs" className="batch-nav-link">Labs</Link>
           </div>
         </header>
         <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
@@ -92,7 +92,7 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
             onClick={handleBack}
             className="text-primary hover:underline"
           >
-            Back to Batch Research
+            Back to Labs
           </button>
         </div>
       </div>
@@ -112,12 +112,12 @@ export function BatchJobDetailView({ jobId }: BatchJobDetailViewProps) {
             <span className="batch-logo-text">Rōmy</span>
           </Link>
           <span className="batch-header-divider">/</span>
-          <Link href="/batch" className="batch-nav-link">Batch Research</Link>
+          <Link href="/labs" className="batch-nav-link">Labs</Link>
           <span className="batch-header-divider">/</span>
           <h1>{job.name}</h1>
         </div>
         <div className="batch-header-right">
-          <Link href="/batch" className="flat-button">
+          <Link href="/labs" className="flat-button">
             All Batches
           </Link>
         </div>

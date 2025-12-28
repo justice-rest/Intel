@@ -13,12 +13,12 @@ import {
  *
  * @example
  * const router = useTransitionRouter()
- * router.push('/batch')  // Navigates with animation
+ * router.push('/labs')  // Navigates with animation
  *
  * @example
  * // Skip animation for specific navigation
  * const router = useTransitionRouter()
- * router.push('/batch', { skipTransition: true })
+ * router.push('/labs', { skipTransition: true })
  */
 export function useTransitionRouter() {
   return useTransitionRouterBase()

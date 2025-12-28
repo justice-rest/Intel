@@ -42,7 +42,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-import "@/app/batch/batch-dashboard.css"
+import "@/app/labs/batch-dashboard.css"
 import { ResearchPlayButton, ResearchStopButton } from "@/app/components/batch-processing/research-play-button"
 import { DriveFilePicker } from "@/app/components/batch-processing/drive-file-picker"
 
@@ -938,7 +938,7 @@ export function BatchView() {
 
       // Navigate to the job detail page with smooth transition
       if (data.job?.id) {
-        router.push(`/batch/${data.job.id}`)
+        router.push(`/labs/${data.job.id}`)
       }
     } catch (err) {
       throw err
@@ -977,7 +977,7 @@ export function BatchView() {
             <span className="batch-logo-text">Rōmy</span>
           </Link>
           <span className="batch-header-divider">/</span>
-          <h1>Batch Research</h1>
+          <h1>Labs</h1>
         </div>
         <div className="batch-header-right">
           <Link href="/" className="flat-button">
@@ -1004,14 +1004,14 @@ export function BatchView() {
                 icon={Target}
                 title="Deep Analysis"
                 subtitle="Comprehensive profiles"
-                href="/batch"
+                href="/labs"
                 variant="green"
               />
               <ServiceTile
                 icon={ChartBar}
                 title="View Reports"
                 subtitle="All past research"
-                href="/batch#jobs-list"
+                href="/labs#jobs-list"
                 variant="gray"
               />
             </div>
@@ -1068,7 +1068,7 @@ export function BatchView() {
                       key={job.id}
                       job={job}
                       onDelete={(id) => deleteMutation.mutateAsync(id)}
-                      onView={(id) => router.push(`/batch/${id}`)}
+                      onView={(id) => router.push(`/labs/${id}`)}
                       onExport={(id) => window.open(`/api/batch-prospects/${id}/export?format=csv`, "_blank")}
                     />
                   ))}

@@ -1,6 +1,6 @@
 REMEMBER: before proceeding w/ any plans or changes, always analyze and understand the codebase. Do not bring forth any breaking changes. Make sure all changes are production-ready, non-breaking and do not cause visual, functional or performance bugs. No existing or upcoming feature should be broken, it has to be production-ready.
 
-- Instead of having a page /batch, create a clone of the Project View and use that same UI for batch processing. Users can use the upload file button to upload a CSV file or type in names / addresses to be batch proceesed. 
+- Instead of having a page /labs, create a clone of the Project View and use that same UI for batch processing. Users can use the upload file button to upload a CSV file or type in names / addresses to be batch proceesed. 
 - See how there is a create a project in the sidebar? same thing but for batch uploads
 - Users on Growth Plan can upload 10 names / addresses at once (takes away 10 credits away), Users on Pro can upload 50 rows at once and users on scale can upload 100 rows at once.
 - I noticed that the RomyScore wasn't being generated, fix that.

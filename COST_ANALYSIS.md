@@ -127,7 +127,7 @@
   
   ## Batch Research Mode
   
-  **When Used:** Bulk prospect processing via `/batch` page
+  **When Used:** Bulk prospect processing via `/labs` page
   
   **Primary Model:** `perplexity/sonar-pro` ($3/$15 per 1M tokens)
   
