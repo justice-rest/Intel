@@ -19,6 +19,7 @@ import { useUser } from "@/lib/user-store/provider"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useMessages } from "@/lib/chat-store/messages/provider"
 import { clearAllIndexedDBStores } from "@/lib/chat-store/persist"
+import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { InstagramLogoIcon, LinkedinLogoIcon, SignOut } from "@phosphor-icons/react"
 import { toast } from "@/components/ui/toast"
 import { useState, useEffect, useRef } from "react"
@@ -38,13 +39,36 @@ export function UserMenu() {
   const [settingsDefaultTab, setSettingsDefaultTab] = useState<TabType>("general")
   const hasSyncedRef = useRef(false)
 
-  // Listen for custom event to open settings with a specific tab
+  // Listen for custom event to open settings with a specific tab and optional section
   useEffect(() => {
-    const handleOpenSettings = (event: CustomEvent<{ tab?: TabType }>) => {
-      const tab = event.detail?.tab || "general"
+    const handleOpenSettings = (event: CustomEvent<{ tab?: TabType; section?: string }>) => {
+      let tab = event.detail?.tab || "general"
+      const section = event.detail?.section
+
+      // Tabs that require Supabase - fall back to general if Supabase is disabled
+      const supabaseRequiredTabs: TabType[] = ["data", "memory", "subscription", "integrations"]
+      if (!isSupabaseEnabled && supabaseRequiredTabs.includes(tab)) {
+        tab = "general"
+      }
+
       setSettingsDefaultTab(tab)
       setSettingsOpen(true)
       setMenuOpen(true)
+
+      // If a section is specified, scroll to it after the settings modal renders
+      if (section) {
+        // Use requestAnimationFrame + setTimeout to ensure the tab content is rendered
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            const sectionElement = document.querySelector(
+              `[data-settings-section="${section}"]`
+            )
+            if (sectionElement) {
+              sectionElement.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+          }, 150) // Small delay for tab transition animation
+        })
+      }
     }
 
     window.addEventListener("open-settings", handleOpenSettings as EventListener)

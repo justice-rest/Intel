@@ -6,7 +6,7 @@ import { LoaderOverlay } from "@/app/components/chat/loader-overlay"
 import { DropZone } from "@/app/components/split-view"
 import { useModel } from "@/app/components/chat/use-model"
 import { useChatDraft } from "@/app/hooks/use-chat-draft"
-import { useSlashCommand } from "@/app/components/drafts"
+import { useSlashCommands } from "@/app/hooks/use-slash-commands"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useMessages } from "@/lib/chat-store/messages/provider"
 import { useChatId } from "@/lib/chat-store/session/use-chat-id"
@@ -105,7 +105,7 @@ export function Chat({
   // Quiz popup only shows for Growth plan users
   const isGrowthPlan = productId === "growth"
   const { draftValue, clearDraft } = useChatDraft(chatId)
-  const { processSlashCommand } = useSlashCommand()
+  const { processSlashCommand } = useSlashCommands()
 
   // File upload functionality
   const {

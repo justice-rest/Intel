@@ -16,6 +16,8 @@ import { PopoverContentUpgradeRequired } from "./popover-content-upgrade-require
 import { PopoverContentWelcome } from "./popover-content-welcome"
 import { type ResearchMode } from "./research-mode-selector"
 import { ResearchSelector } from "@/components/common/model-selector/base"
+import { SlashCommandMenu } from "./slash-command-menu"
+import { useSlashCommandMenu } from "./use-slash-command-menu"
 
 type ChatInputProps = {
   value: string
@@ -78,6 +80,31 @@ export function ChatInput({
   // Unified processing state: blocks input during submission AND streaming
   const isProcessing = isSubmitting || status === "submitted" || status === "streaming"
 
+  // Slash command menu state
+  const handleCommandSelect = useCallback(
+    (command: string) => {
+      // Execute the slash command
+      if (onSlashCommand) {
+        onSlashCommand(command)
+      }
+      onValueChange("") // Clear input after command execution
+    },
+    [onSlashCommand, onValueChange]
+  )
+
+  const {
+    isOpen: isCommandMenuOpen,
+    filteredCommands,
+    selectedIndex,
+    hasQuery,
+    handleKeyDown: handleCommandMenuKeyDown,
+    selectCommand,
+    setSelectedIndex,
+  } = useSlashCommandMenu({
+    inputValue: value,
+    onSelectCommand: handleCommandSelect,
+  })
+
   // Auto-open welcome popover when showWelcome prop changes to true
   useEffect(() => {
     if (showWelcome) {
@@ -119,6 +146,18 @@ export function ChatInput({
         return
       }
 
+      // Let command menu handle navigation keys first (arrows, tab, enter, escape)
+      if (isCommandMenuOpen && handleCommandMenuKeyDown(e)) {
+        return
+      }
+
+      // Handle escape to clear slash command
+      if (e.key === "Escape" && value.trim().startsWith("/")) {
+        e.preventDefault()
+        onValueChange("")
+        return
+      }
+
       if (e.key === "Enter" && !e.shiftKey) {
         if (isOnlyWhitespace(value)) {
           return
@@ -143,7 +182,7 @@ export function ChatInput({
         onSend()
       }
     },
-    [isProcessing, onSend, value, isUserAuthenticated, hasActiveSubscription, onSlashCommand, onValueChange]
+    [isProcessing, onSend, value, isUserAuthenticated, hasActiveSubscription, onSlashCommand, onValueChange, isCommandMenuOpen, handleCommandMenuKeyDown]
   )
 
   const handlePaste = useCallback(
@@ -224,6 +263,15 @@ export function ChatInput({
             className="relative order-2 px-2 pb-3 sm:pb-4 md:order-1"
             onClick={() => textareaRef.current?.focus()}
           >
+            {/* Slash command menu - positioned above the input */}
+            <SlashCommandMenu
+              isOpen={isCommandMenuOpen}
+              commands={filteredCommands}
+              selectedIndex={selectedIndex}
+              onSelect={selectCommand}
+              onHover={setSelectedIndex}
+              hasQuery={hasQuery}
+            />
             <PromptInput
               className="bg-popover relative z-10 p-0 pt-1 shadow-xs backdrop-blur-xl"
               maxHeight={300}

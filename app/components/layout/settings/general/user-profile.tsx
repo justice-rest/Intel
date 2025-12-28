@@ -46,7 +46,7 @@ export function UserProfile() {
   }
 
   return (
-    <div>
+    <div data-settings-section="user-profile">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-medium">Profile</h3>
         {!isEditing && (

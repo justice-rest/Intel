@@ -244,7 +244,7 @@ export function LayoutSettings() {
   }
 
   return (
-    <div>
+    <div data-settings-section="layout-settings">
       <h3 className="mb-3 text-sm font-medium">Layout</h3>
       <div className="grid grid-cols-2 gap-3">
         <button

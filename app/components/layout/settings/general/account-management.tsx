@@ -82,7 +82,7 @@ export function AccountManagement() {
   }
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-6 pb-12" data-settings-section="account-management">
       {/* Sign Out */}
       <div className="flex items-center justify-between">
         <div>

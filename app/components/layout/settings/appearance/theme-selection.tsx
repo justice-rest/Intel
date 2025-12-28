@@ -14,7 +14,7 @@ export function ThemeSelection() {
   ]
 
   return (
-    <div>
+    <div data-settings-section="theme-selection">
       <h4 className="mb-3 text-sm font-medium">Theme</h4>
       <div className="grid grid-cols-3 gap-3">
         {themes.map((theme) => (

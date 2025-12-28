@@ -242,7 +242,7 @@ export function IntegrationsSection() {
   }
 
   return (
-    <div>
+    <div data-settings-section="crm-integrations">
       <h3 className="relative mb-2 flex items-center gap-2 text-lg font-medium">
         CRM Integrations
         <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
@@ -445,7 +445,7 @@ export function IntegrationsSection() {
       </AlertDialog>
 
       {/* Google Workspace Section */}
-      <div className="mt-8 border-t pt-8">
+      <div className="mt-8 border-t pt-8" data-settings-section="google-workspace">
         <GoogleIntegrationSection />
       </div>
     </div>
