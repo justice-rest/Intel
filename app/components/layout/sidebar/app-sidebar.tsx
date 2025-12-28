@@ -174,7 +174,7 @@ export function AppSidebar() {
             onClick={openDraftsModal}
           >
             <div className="flex items-center gap-2">
-              <Envelope size={20} />
+              <Envelope size={18} weight="duotone" className="text-muted-foreground" />
               Drafts
               {pendingDraftsCount > 0 && (
                 <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] justify-center px-1.5 text-xs">
