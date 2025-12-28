@@ -13,7 +13,6 @@ import type { Message as MessageAISDK } from "@ai-sdk/react"
 import { ArrowClockwise, Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
 import { useCallback, useRef, useState } from "react"
 import { getSources } from "./get-sources"
-import { TextToSpeechButton } from "./text-to-speech-button"
 import { getCitations } from "./get-citations"
 import { QuoteButton } from "./quote-button"
 import { Reasoning } from "./reasoning"
@@ -213,9 +212,6 @@ export function MessageAssistant({
             </MessageAction>
             <MessageAction tooltip="Notes" side="bottom">
               <NotesTrigger messageId={messageId} />
-            </MessageAction>
-            <MessageAction tooltip="Listen" side="bottom">
-              <TextToSpeechButton text={children} />
             </MessageAction>
             {isLast ? (
               <MessageAction

@@ -6,12 +6,11 @@ interface VoiceFeaturesResponse {
   available: boolean
   features: {
     speechToText: boolean
-    textToSpeech: boolean
   }
 }
 
 /**
- * Hook to check if voice features (STT/TTS) are available
+ * Hook to check if voice features (STT) are available
  * Returns availability status based on server-side Groq API key configuration
  */
 export function useVoiceFeatures() {
@@ -32,8 +31,7 @@ export function useVoiceFeatures() {
 
   return {
     isAvailable: data?.available ?? false,
-    speechToTextEnabled: data?.features.speechToText ?? false,
-    textToSpeechEnabled: data?.features.textToSpeech ?? false,
+    speechToTextEnabled: data?.features?.speechToText ?? false,
     isLoading,
     error,
   }

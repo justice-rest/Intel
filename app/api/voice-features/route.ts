@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 /**
  * GET /api/voice-features
- * Returns availability status of voice features (STT/TTS)
+ * Returns availability status of voice features (STT)
  * This allows the frontend to hide voice buttons when Groq API key isn't configured
  */
 export async function GET() {
@@ -12,7 +12,6 @@ export async function GET() {
     available: !!groqApiKey,
     features: {
       speechToText: !!groqApiKey,
-      textToSpeech: !!groqApiKey,
     },
   })
 }
