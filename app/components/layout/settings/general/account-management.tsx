@@ -92,7 +92,7 @@ export function AccountManagement() {
         <Button
           variant="outline"
           size="sm"
-          className="flex items-center gap-2 h-9 px-4 shrink-0"
+          className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0"
           onClick={handleSignOut}
         >
           <SignOut className="size-4" />
@@ -109,7 +109,7 @@ export function AccountManagement() {
         <Button
           variant="outline"
           size="sm"
-          className="flex items-center gap-2 h-9 px-4 shrink-0"
+          className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0"
           onClick={handleExport}
           disabled={isExporting}
         >
@@ -131,7 +131,7 @@ export function AccountManagement() {
         <Button
           variant="destructive"
           size="sm"
-          className="flex items-center gap-2 h-9 px-4 shrink-0"
+          className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0"
           onClick={() => setShowDeleteDialog(true)}
         >
           <Trash className="size-4" />
