@@ -8,9 +8,10 @@ import {
 } from "@/components/prompt-kit/prompt-input"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverTrigger } from "@/components/ui/popover"
-import { ArrowUpIcon, StopIcon } from "@phosphor-icons/react"
+import { ArrowUpIcon, StopIcon, Waveform } from "@phosphor-icons/react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ButtonFileUpload } from "./button-file-upload"
+import { VoiceRecordButton } from "./voice-record-button"
 import { FileList } from "./file-list"
 import { PopoverContentUpgradeRequired } from "./popover-content-upgrade-required"
 import { PopoverContentWelcome } from "./popover-content-welcome"
@@ -300,24 +301,34 @@ export function ChatInput({
                     className="h-9 rounded-full"
                   />
                 </div>
-                <PromptInputAction
-                  tooltip={isProcessing ? "Stop" : "Send"}
-                >
-                  <Button
-                    size="sm"
-                    className="size-9 rounded-full transition-all duration-300 ease-out"
-                    disabled={!isProcessing && (!value || isOnlyWhitespace(value))}
-                    type="button"
-                    onClick={handleSend}
-                    aria-label={isProcessing ? "Stop" : "Send message"}
+                {/* Show voice button when input is empty, send button when there's text */}
+                {!isProcessing && (!value || isOnlyWhitespace(value)) ? (
+                  <VoiceRecordButton
+                    onTranscription={(text) => {
+                      onValueChange(value ? `${value} ${text}` : text)
+                      textareaRef.current?.focus()
+                    }}
+                    disabled={isProcessing}
+                  />
+                ) : (
+                  <PromptInputAction
+                    tooltip={isProcessing ? "Stop" : "Send"}
                   >
-                    {isProcessing ? (
-                      <StopIcon className="size-4" />
-                    ) : (
-                      <ArrowUpIcon className="size-4" />
-                    )}
-                  </Button>
-                </PromptInputAction>
+                    <Button
+                      size="sm"
+                      className="size-9 rounded-full transition-all duration-300 ease-out"
+                      type="button"
+                      onClick={handleSend}
+                      aria-label={isProcessing ? "Stop" : "Send message"}
+                    >
+                      {isProcessing ? (
+                        <StopIcon className="size-4" />
+                      ) : (
+                        <ArrowUpIcon className="size-4" />
+                      )}
+                    </Button>
+                  </PromptInputAction>
+                )}
               </PromptInputActions>
             </PromptInput>
           </div>
