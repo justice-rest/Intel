@@ -4,12 +4,15 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useUser } from "@/lib/user-store/provider"
-import { User, Pencil, Check, X } from "@phosphor-icons/react"
+import { User, Pencil, Check, X, SealCheck } from "@phosphor-icons/react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { useCustomer } from "autumn-js/react"
+import { cn } from "@/lib/utils"
 
 export function UserProfile() {
   const { user, updateUser } = useUser()
+  const { customer } = useCustomer()
   const [isEditing, setIsEditing] = useState(false)
   const [firstName, setFirstName] = useState(user?.first_name || "")
   const [isSaving, setIsSaving] = useState(false)
@@ -17,6 +20,15 @@ export function UserProfile() {
   if (!user) return null
 
   const displayName = user.first_name || user.display_name
+
+  // Get subscription info for badge
+  const activeProduct = customer?.products?.find(
+    (p: { status: string }) => p.status === "active" || p.status === "trialing"
+  )
+  const planId = activeProduct?.id?.toLowerCase() || ""
+  const isPro = planId.includes("pro")
+  const isScale = planId.includes("scale")
+  const hasPaidPlan = isPro || isScale
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -104,7 +116,22 @@ export function UserProfile() {
             </div>
           ) : (
             <>
-              <h4 className="text-sm font-medium">{displayName}</h4>
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-sm font-medium">{displayName}</h4>
+                {hasPaidPlan && (
+                  <span title={isScale ? "Scale Plan" : "Pro Plan"}>
+                    <SealCheck
+                      size={18}
+                      weight="fill"
+                      className={cn(
+                        isScale
+                          ? "text-amber-500"
+                          : "text-blue-500"
+                      )}
+                    />
+                  </span>
+                )}
+              </div>
               <p className="text-muted-foreground text-sm">{user.email}</p>
             </>
           )}

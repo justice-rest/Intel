@@ -84,15 +84,15 @@ export function AccountManagement() {
   return (
     <div className="space-y-6 pb-12" data-settings-section="account-management">
       {/* Sign Out */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium">Account</h3>
           <p className="text-muted-foreground text-xs">Log out on this device</p>
         </div>
         <Button
-          variant="default"
+          variant="outline"
           size="sm"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 h-9 px-4 shrink-0"
           onClick={handleSignOut}
         >
           <SignOut className="size-4" />
@@ -101,15 +101,15 @@ export function AccountManagement() {
       </div>
 
       {/* Export Data */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium">Export data</h3>
           <p className="text-muted-foreground text-xs">Download all your data as JSON</p>
         </div>
         <Button
-          variant="default"
+          variant="outline"
           size="sm"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 h-9 px-4 shrink-0"
           onClick={handleExport}
           disabled={isExporting}
         >
@@ -123,15 +123,15 @@ export function AccountManagement() {
       </div>
 
       {/* Delete Account */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
           <h3 className="text-sm font-medium text-destructive">Delete account</h3>
           <p className="text-muted-foreground text-xs">Permanently delete your account and data</p>
         </div>
         <Button
           variant="destructive"
           size="sm"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 h-9 px-4 shrink-0"
           onClick={() => setShowDeleteDialog(true)}
         >
           <Trash className="size-4" />

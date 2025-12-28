@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useMemo } from "react"
+import { useState, useRef, useCallback, useMemo, useEffect } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { UsersThree, Plus, CheckCircle, Spinner, Clock, CloudArrowUp, FileCsv, X } from "@phosphor-icons/react"
+import { UsersThree, Plus, CheckCircle, Spinner, Clock, CloudArrowUp, FileCsv, X, CaretDown } from "@phosphor-icons/react"
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
@@ -24,6 +24,8 @@ import {
 } from "@/lib/batch-processing"
 import { MAX_BATCH_FILE_SIZE, ALLOWED_BATCH_EXTENSIONS } from "@/lib/batch-processing/config"
 import { toast } from "@/components/ui/toast"
+
+const BATCH_COLLAPSED_KEY = "sidebar-batch-collapsed"
 
 type BatchJob = {
   id: string
@@ -371,6 +373,17 @@ export function SidebarBatch() {
   const pathname = usePathname()
   const isBatchActive = pathname === "/batch" || pathname.startsWith("/batch/")
   const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(BATCH_COLLAPSED_KEY) === "true"
+    }
+    return false
+  })
+
+  // Persist collapsed state
+  useEffect(() => {
+    localStorage.setItem(BATCH_COLLAPSED_KEY, String(isCollapsed))
+  }, [isCollapsed])
 
   const { data: jobs = [], isLoading } = useQuery<BatchJob[]>({
     queryKey: ["batch-jobs-sidebar"],
@@ -397,9 +410,28 @@ export function SidebarBatch() {
   // This prevents the glitch when navigating between routes
   const showSkeleton = isLoading && jobs.length === 0
 
+  const toggleCollapsed = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsCollapsed(!isCollapsed)
+  }
+
   return (
-    <div className="mb-5">
+    <div className="mb-3">
       <div className="flex items-center">
+        <button
+          onClick={toggleCollapsed}
+          className="text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors"
+          title={isCollapsed ? "Expand" : "Collapse"}
+        >
+          <CaretDown
+            size={14}
+            className={cn(
+              "transition-transform duration-200",
+              isCollapsed && "-rotate-90"
+            )}
+          />
+        </button>
         <Link
           href="/batch"
           className={cn(
@@ -424,26 +456,39 @@ export function SidebarBatch() {
         </button>
       </div>
 
-      {/* Only show skeleton on initial load, not during navigation */}
-      {showSkeleton ? (
-        <div className="mt-1 space-y-1 pl-2">
-          {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2 px-2 py-1.5"
-            >
-              <Skeleton className="h-3 w-3 rounded" />
-              <Skeleton className="h-4 flex-1" />
-            </div>
-          ))}
-        </div>
-      ) : recentJobs.length > 0 ? (
-        <div className="mt-1 space-y-0.5 pl-2">
-          {recentJobs.map((job, index) => (
-            <BatchJobItem key={job.id} job={job} index={index} />
-          ))}
-        </div>
-      ) : null}
+      {/* Collapsible content */}
+      <AnimatePresence initial={false}>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            {/* Only show skeleton on initial load, not during navigation */}
+            {showSkeleton ? (
+              <div className="mt-1 space-y-1 pl-6">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-2 py-1.5"
+                  >
+                    <Skeleton className="h-3 w-3 rounded" />
+                    <Skeleton className="h-4 flex-1" />
+                  </div>
+                ))}
+              </div>
+            ) : recentJobs.length > 0 ? (
+              <div className="mt-1 space-y-0.5 pl-6">
+                {recentJobs.map((job, index) => (
+                  <BatchJobItem key={job.id} job={job} index={index} />
+                ))}
+              </div>
+            ) : null}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Upload Dialog */}
       <BatchUploadDialog

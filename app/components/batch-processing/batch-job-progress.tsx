@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/tooltip"
 import Image from "next/image"
 import { ResearchPlayButton, ResearchStopButton } from "./research-play-button"
+import { useQueryClient } from "@tanstack/react-query"
 
 interface BatchJobProgressProps {
   job: BatchProspectJob
@@ -362,6 +363,7 @@ export function BatchJobProgress({
   onBack,
   onRefresh,
 }: BatchJobProgressProps) {
+  const queryClient = useQueryClient()
   const [items, setItems] = useState<BatchProspectItem[]>(initialItems)
   const [processingState, setProcessingState] = useState<ProcessingState>(
     job.status === "completed"
@@ -377,6 +379,12 @@ export function BatchJobProgress({
   const [selectedItem, setSelectedItem] = useState<BatchProspectItem | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const delayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Invalidate sidebar query when job status changes
+  const invalidateSidebarQuery = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["batch-jobs-sidebar"] })
+    queryClient.invalidateQueries({ queryKey: ["batch-jobs"] })
+  }, [queryClient])
 
   // Calculate progress
   const completed = items.filter((i) => i.status === "completed").length
@@ -417,6 +425,7 @@ export function BatchJobProgress({
       // Check if we're done
       if (!result.has_more || result.job_status === "completed") {
         setProcessingState("completed")
+        invalidateSidebarQuery()
         onRefresh()
         return false
       }
@@ -430,7 +439,7 @@ export function BatchJobProgress({
       setProcessingState("error")
       return false
     }
-  }, [job.id, onRefresh])
+  }, [job.id, onRefresh, invalidateSidebarQuery])
 
   // Main processing loop with parallel processing
   const startProcessing = useCallback(async () => {
@@ -444,6 +453,7 @@ export function BatchJobProgress({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "processing" }),
     })
+    invalidateSidebarQuery()
 
     // Process items sequentially with rate-limit-safe delay
     // Each prospect triggers: ~5 Linkup searches + 1 OpenRouter call
@@ -464,7 +474,7 @@ export function BatchJobProgress({
         delayTimeoutRef.current = setTimeout(resolve, delay)
       })
     }
-  }, [job.id, job.settings?.delay_between_prospects_ms, processNextItem])
+  }, [job.id, job.settings?.delay_between_prospects_ms, processNextItem, invalidateSidebarQuery])
 
   // Pause processing
   const pauseProcessing = useCallback(async () => {
@@ -479,7 +489,8 @@ export function BatchJobProgress({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: "paused" }),
     })
-  }, [job.id])
+    invalidateSidebarQuery()
+  }, [job.id, invalidateSidebarQuery])
 
   // Cancel processing
   const cancelProcessing = useCallback(async () => {
@@ -495,8 +506,9 @@ export function BatchJobProgress({
       body: JSON.stringify({ status: "cancelled" }),
     })
 
+    invalidateSidebarQuery()
     onRefresh()
-  }, [job.id, onRefresh])
+  }, [job.id, onRefresh, invalidateSidebarQuery])
 
   // Restart processing (for jobs incorrectly marked as completed)
   const restartProcessing = useCallback(async () => {
@@ -516,12 +528,13 @@ export function BatchJobProgress({
     }
 
     // Refresh to get updated job data
+    invalidateSidebarQuery()
     await onRefresh()
 
     // Start processing
     setProcessingState("running")
     startProcessing()
-  }, [job.id, onRefresh, startProcessing])
+  }, [job.id, onRefresh, startProcessing, invalidateSidebarQuery])
 
   // Cleanup on unmount
   useEffect(() => {

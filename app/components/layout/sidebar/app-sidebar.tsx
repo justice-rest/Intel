@@ -94,7 +94,7 @@ export function AppSidebar() {
             >
               <X size={24} />
             </button>
-          ) : isSplitActive ? (
+          ) : (
             <Link
               href="/"
               className="inline-flex items-center text-xl font-semibold tracking-tight group/logo"
@@ -125,8 +125,6 @@ export function AppSidebar() {
                 {APP_NAME}
               </span>
             </Link>
-          ) : (
-            <div className="h-full" />
           )}
           {/* Show header actions in sidebar when in split view */}
           {isSplitActive && !isMobile && (
@@ -140,7 +138,7 @@ export function AppSidebar() {
       <SidebarContent className="border-border/40 border-t">
         <div ref={scrollRef} onScrollCapture={handleScroll} className="min-h-0 flex-1">
         <ScrollArea className="flex h-full px-3 [&>div>div]:!block">
-          <div className="mt-3 mb-5 flex w-full flex-col items-start gap-0">
+          <div className="mt-3 mb-3 flex w-full flex-col items-start gap-0">
             <button
               className="hover:bg-accent/80 hover:text-foreground text-primary group/new-chat relative inline-flex w-full items-center rounded-md bg-transparent px-2 py-2 text-sm transition-colors"
               type="button"
@@ -168,26 +166,26 @@ export function AppSidebar() {
               }
               hasPopover={false}
             />
-            <button
-              className="hover:bg-accent/80 hover:text-foreground text-primary group/drafts relative inline-flex w-full items-center rounded-md bg-transparent px-2 py-2 text-sm transition-colors"
-              type="button"
-              onClick={openDraftsModal}
-            >
-              <div className="flex items-center gap-2">
-                <Envelope size={20} />
-                Drafts
-                {pendingDraftsCount > 0 && (
-                  <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] justify-center px-1.5 text-xs">
-                    {pendingDraftsCount}
-                  </Badge>
-                )}
-              </div>
-              <div className="text-muted-foreground ml-auto text-xs opacity-0 duration-150 group-hover/drafts:opacity-100">
-                ⌘⇧D
-              </div>
-            </button>
           </div>
           <SidebarBatch />
+          <button
+            className="hover:bg-accent/80 hover:text-foreground text-primary group/drafts relative inline-flex w-full items-center rounded-md bg-transparent px-2 py-2 text-sm transition-colors mb-3"
+            type="button"
+            onClick={openDraftsModal}
+          >
+            <div className="flex items-center gap-2">
+              <Envelope size={20} />
+              Drafts
+              {pendingDraftsCount > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] justify-center px-1.5 text-xs">
+                  {pendingDraftsCount}
+                </Badge>
+              )}
+            </div>
+            <div className="text-muted-foreground ml-auto text-xs opacity-0 duration-150 group-hover/drafts:opacity-100">
+              ⌘⇧D
+            </div>
+          </button>
           <SidebarProject />
           {isLoading ? (
             <div className="h-full" />

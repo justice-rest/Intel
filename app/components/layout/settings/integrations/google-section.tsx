@@ -328,115 +328,116 @@ export function GoogleIntegrationSection() {
 
             <hr className="border-gray-200 dark:border-[#333]" />
 
-            {/* Services Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Gmail */}
-              <div className={cn(
-                "p-3 rounded border flex flex-col",
-                hasGmail
-                  ? "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]"
-                  : "bg-gray-100 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] opacity-60"
-              )}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Image
-                    src="/svgs/Gmail SVG Icon.svg"
-                    alt="Gmail"
-                    width={20}
-                    height={20}
-                    className="size-5"
-                  />
-                  <span className="text-sm font-medium text-black dark:text-white">Gmail</span>
-                  {hasGmail && <CheckCircle size={12} weight="fill" className="text-green-500" />}
-                </div>
-                {hasGmail && (
-                  <div className="flex-1 flex flex-col">
-                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400 flex-1">
-                      <div className="flex justify-between">
-                        <span>Pending drafts</span>
-                        <span className="font-medium text-black dark:text-white">{status?.pendingDrafts || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Style analyzed</span>
-                        <span className={cn(
-                          "font-medium",
-                          status?.styleAnalyzedAt
-                            ? "text-black dark:text-white"
-                            : "text-amber-600 dark:text-amber-400"
-                        )}>
-                          {status?.styleAnalyzedAt
-                            ? `${formatDate(status.styleAnalyzedAt)} (${status.emailsAnalyzed})`
-                            : "Not yet"}
-                        </span>
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => analyzeStyleMutation.mutate()}
-                      disabled={analyzeStyleMutation.isPending}
-                      className="w-full mt-3"
-                    >
-                      {analyzeStyleMutation.isPending ? (
-                        <Spinner size={16} className="mr-2 animate-spin" />
-                      ) : (
-                        <Sparkle size={16} weight="fill" className="mr-2" />
-                      )}
-                      {status?.styleAnalyzedAt ? "Re-analyze Style" : "Analyze Style"}
-                    </Button>
+            {/* Services - Combined Box with Divider */}
+            <div className="rounded-lg border border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] overflow-hidden">
+              <div className="grid grid-cols-1 sm:grid-cols-2">
+                {/* Gmail */}
+                <div className={cn(
+                  "p-4 flex flex-col",
+                  !hasGmail && "opacity-60"
+                )}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Image
+                      src="/svgs/Gmail SVG Icon.svg"
+                      alt="Gmail"
+                      width={18}
+                      height={18}
+                      className="size-[18px]"
+                    />
+                    <span className="text-sm font-medium text-black dark:text-white">Gmail</span>
+                    {hasGmail && <CheckCircle size={12} weight="fill" className="text-green-500" />}
                   </div>
-                )}
-              </div>
-
-              {/* Drive */}
-              <div className={cn(
-                "p-3 rounded border flex flex-col",
-                hasDrive
-                  ? "bg-white dark:bg-[#1a1a1a] border-gray-200 dark:border-[#333]"
-                  : "bg-gray-100 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333] opacity-60"
-              )}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Image
-                    src="/svgs/Drive Color Icon.svg"
-                    alt="Drive"
-                    width={20}
-                    height={20}
-                    className="size-5"
-                  />
-                  <span className="text-sm font-medium text-black dark:text-white">Drive</span>
-                  {hasDrive && <CheckCircle size={12} weight="fill" className="text-green-500" />}
-                </div>
-                {hasDrive && (
-                  <div className="flex-1 flex flex-col">
-                    <div className="space-y-1.5 text-xs text-gray-500 dark:text-gray-400 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span>Indexed documents</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-black dark:text-white">{driveDocuments.length}</span>
-                          {driveDocuments.length > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => setShowDriveDocuments(!showDriveDocuments)}
-                              className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
-                            >
-                              {showDriveDocuments ? (
-                                <CaretUp size={12} />
-                              ) : (
-                                <CaretDown size={12} />
-                              )}
-                            </button>
-                          )}
+                  {hasGmail && (
+                    <div className="flex-1 flex flex-col">
+                      <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400 flex-1">
+                        <div className="flex justify-between">
+                          <span>Pending drafts</span>
+                          <span className="font-medium text-black dark:text-white">{status?.pendingDrafts || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Style analyzed</span>
+                          <span className={cn(
+                            "font-medium",
+                            status?.styleAnalyzedAt
+                              ? "text-black dark:text-white"
+                              : "text-amber-600 dark:text-amber-400"
+                          )}>
+                            {status?.styleAnalyzedAt
+                              ? `${formatDate(status.styleAnalyzedAt)} (${status.emailsAnalyzed})`
+                              : "Not yet"}
+                          </span>
                         </div>
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => analyzeStyleMutation.mutate()}
+                        disabled={analyzeStyleMutation.isPending}
+                        className="w-full mt-3"
+                      >
+                        {analyzeStyleMutation.isPending ? (
+                          <Spinner size={16} className="mr-2 animate-spin" />
+                        ) : (
+                          <Sparkle size={16} weight="fill" className="mr-2" />
+                        )}
+                        {status?.styleAnalyzedAt ? "Re-analyze Style" : "Analyze Style"}
+                      </Button>
                     </div>
-                    <div className="mt-3">
-                      <GoogleDriveBrowser
-                        onFilesImported={() => {
-                          queryClient.invalidateQueries({ queryKey: ["drive-documents"] })
-                        }}
-                      />
-                    </div>
+                  )}
+                </div>
+
+                {/* Mobile Divider */}
+                <div className="sm:hidden h-px bg-white/10 dark:bg-white/5" />
+
+                {/* Drive */}
+                <div className={cn(
+                  "p-4 flex flex-col border-t sm:border-t-0 sm:border-l border-white/10 dark:border-white/5",
+                  !hasDrive && "opacity-60"
+                )}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Image
+                      src="/svgs/Drive Color Icon.svg"
+                      alt="Drive"
+                      width={18}
+                      height={18}
+                      className="size-[18px]"
+                    />
+                    <span className="text-sm font-medium text-black dark:text-white">Drive</span>
+                    {hasDrive && <CheckCircle size={12} weight="fill" className="text-green-500" />}
                   </div>
-                )}
+                  {hasDrive && (
+                    <div className="flex-1 flex flex-col">
+                      <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span>Indexed documents</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-black dark:text-white">{driveDocuments.length}</span>
+                            {driveDocuments.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setShowDriveDocuments(!showDriveDocuments)}
+                                className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                              >
+                                {showDriveDocuments ? (
+                                  <CaretUp size={12} />
+                                ) : (
+                                  <CaretDown size={12} />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <GoogleDriveBrowser
+                          onFilesImported={() => {
+                            queryClient.invalidateQueries({ queryKey: ["drive-documents"] })
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
