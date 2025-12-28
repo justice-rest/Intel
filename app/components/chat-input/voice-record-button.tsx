@@ -92,12 +92,11 @@ export function VoiceRecordButton({
       <TooltipTrigger asChild>
         <Button
           size="sm"
-          variant="ghost"
           className={cn(
-            "relative size-9 rounded-full transition-all duration-300",
-            isRecording && "bg-red-500/10 text-red-500 hover:bg-red-500/20 hover:text-red-500",
+            "size-9 rounded-full transition-all duration-300 ease-out",
+            isRecording && "bg-red-500 text-white hover:bg-red-600",
             isProcessing && "opacity-70",
-            showError && "text-destructive",
+            showError && "bg-destructive",
             className
           )}
           disabled={isDisabled}
@@ -125,10 +124,10 @@ export function VoiceRecordButton({
 function RecordingIndicator() {
   return (
     <div className="flex items-center justify-center gap-0.5">
-      <span className="bg-red-500 w-0.5 h-2.5 rounded-full animate-[voice-bar_400ms_ease-in-out_0ms_infinite_alternate]" />
-      <span className="bg-red-500 w-0.5 h-3.5 rounded-full animate-[voice-bar_400ms_ease-in-out_100ms_infinite_alternate]" />
-      <span className="bg-red-500 w-0.5 h-2 rounded-full animate-[voice-bar_400ms_ease-in-out_200ms_infinite_alternate]" />
-      <span className="bg-red-500 w-0.5 h-3 rounded-full animate-[voice-bar_400ms_ease-in-out_300ms_infinite_alternate]" />
+      <span className="bg-white w-0.5 h-2.5 rounded-full animate-[voice-bar_400ms_ease-in-out_0ms_infinite_alternate]" />
+      <span className="bg-white w-0.5 h-3.5 rounded-full animate-[voice-bar_400ms_ease-in-out_100ms_infinite_alternate]" />
+      <span className="bg-white w-0.5 h-2 rounded-full animate-[voice-bar_400ms_ease-in-out_200ms_infinite_alternate]" />
+      <span className="bg-white w-0.5 h-3 rounded-full animate-[voice-bar_400ms_ease-in-out_300ms_infinite_alternate]" />
     </div>
   )
 }
