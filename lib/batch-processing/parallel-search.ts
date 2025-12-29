@@ -7,7 +7,7 @@
  *    - Best for: High-volume batch processing, cost-sensitive operations
  *    - Returns: Raw excerpts requiring downstream parsing
  *
- * 2. TASK API (Premium) - $0.025/call (core) or $0.10/call (pro)
+ * 2. TASK API (Premium) - $0.01/call (base) or $0.10/call (pro)
  *    - Best for: High-value prospects, accuracy-critical research
  *    - Returns: Structured JSON with field-level citations
  *
@@ -57,8 +57,8 @@ export interface ParallelBatchResult {
 export interface BatchResearchOptions {
   /** Use Task API for structured output (costs more but better quality) */
   useTaskApi?: boolean
-  /** Task API processor: 'core' ($0.025) or 'pro' ($0.10) - default: 'core' */
-  processor?: "core" | "pro"
+  /** Task API processor: 'base' ($0.01) or 'pro' ($0.10) - default: 'base' */
+  processor?: "base" | "pro"
   /** Focus areas to research (default: all) */
   focusAreas?: Array<"real_estate" | "business" | "philanthropy" | "securities" | "biography">
 }
@@ -104,8 +104,6 @@ export interface ExtractedParallelData {
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-
-const PARALLEL_BATCH_TIMEOUT_MS = 30000 // 30s for batch
 
 /**
  * Domains to exclude from search results (low-quality or irrelevant)
@@ -246,7 +244,7 @@ export function buildSearchQueries(prospect: ProspectInput): string[] {
 function normalizeUrl(url: string): string {
   try {
     const parsed = new URL(url.replace(/[.,;:!?]$/, ""))
-    let hostname = parsed.hostname.toLowerCase().replace(/^www\./, "")
+    const hostname = parsed.hostname.toLowerCase().replace(/^www\./, "")
     let path = parsed.pathname.replace(/\/+$/, "").toLowerCase()
     if (path === "") path = "/"
 
@@ -457,7 +455,7 @@ export async function parallelBatchSearch(
   options?: BatchResearchOptions
 ): Promise<ParallelBatchResult> {
   const startTime = Date.now()
-  const { useTaskApi = false, processor = "core", focusAreas } = options ?? {}
+  const { useTaskApi = false, processor = "base", focusAreas } = options ?? {}
 
   // =========================================================================
   // TASK API PATH (Premium - $0.025-0.10/call)
@@ -597,12 +595,12 @@ export async function parallelBatchSearch(
 /**
  * Premium batch search using Task API for high-value prospects
  *
- * Cost: $0.025/call (core) or $0.10/call (pro)
+ * Cost: $0.01/call (base) or $0.10/call (pro)
  * Best for: High-value prospects where accuracy matters more than cost
  */
 export async function parallelBatchSearchPremium(
   prospect: ProspectInput,
-  processor: "core" | "pro" = "core"
+  processor: "base" | "pro" = "base"
 ): Promise<ParallelBatchResult> {
   return parallelBatchSearch(prospect, { useTaskApi: true, processor })
 }

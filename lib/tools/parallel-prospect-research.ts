@@ -28,7 +28,6 @@ import {
   executeProspectResearchTask,
   getTaskApiStatus,
   type ProspectResearchOutput,
-  type TaskRunResult,
 } from "@/lib/parallel/task-api"
 import { trackSearchCall, trackExtractCall } from "@/lib/parallel/monitoring"
 import {
@@ -74,50 +73,6 @@ export interface ParallelProspectResult {
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-
-/**
- * Curated domain list for prospect research
- * Focuses on authoritative sources for wealth, philanthropy, and business data
- */
-const PROSPECT_RESEARCH_DOMAINS = [
-  // Property & Real Estate
-  "zillow.com",
-  "redfin.com",
-  "realtor.com",
-  "trulia.com",
-
-  // Business & Corporate
-  "linkedin.com",
-  "bloomberg.com",
-  "forbes.com",
-  "wsj.com",
-  "bizjournals.com",
-  "crunchbase.com",
-  "pitchbook.com",
-  "dnb.com",
-
-  // Philanthropy & Nonprofits
-  "guidestar.org",
-  "candid.org",
-  "charitynavigator.org",
-  "foundationsource.com",
-  "councilofnonprofits.org",
-
-  // Government & Public Records
-  "sec.gov",
-  "fec.gov",
-  "propertyshark.com",
-  "publicrecords.com",
-
-  // News & Media
-  "nytimes.com",
-  "washingtonpost.com",
-  "reuters.com",
-  "apnews.com",
-
-  // Regional Business Journals
-  "bizjournals.com",
-]
 
 /**
  * Domains to exclude (low-quality or irrelevant)
@@ -339,8 +294,7 @@ function formatSearchResultsReport(
     title?: string | null
     excerpts?: Array<string> | null
     publish_date?: string | null
-  }>,
-  objective: string
+  }>
 ): string {
   if (results.length === 0) {
     return `No results found for "${name}". The search may have been too specific or the prospect has limited online presence.`
@@ -672,21 +626,20 @@ const parallelProspectResearchSchema = z.object({
  * PRODUCTION-GRADE: Uses Task API with structured JSON output for reliable, citation-backed research.
  *
  * @param isDeepResearch - If true, uses `pro` processor for comprehensive research ($0.10/call)
- *                        If false, uses `core` processor for fast, structured results ($0.025/call)
+ *                        If false, uses `base` processor for fast, structured results ($0.01/call)
  *
  * ARCHITECTURE:
  * 1. Primary: Task API (structured JSON with field-level citations)
  * 2. Fallback: Search API (raw excerpts) if Task API unavailable
  *
  * COST COMPARISON:
- * - Task API (core): $0.025/call - 5x more expensive but dramatically better quality
- * - Task API (pro):  $0.10/call  - for deep research
+ * - Task API (base): $0.01/call - 2x more expensive but dramatically better quality
+ * - Task API (pro):  $0.10/call - for deep research
  * - Search API:      $0.005/call - fallback for budget-sensitive batch processing
  */
 export function createParallelProspectResearchTool(isDeepResearch: boolean = false) {
-  const processor = isDeepResearch ? "pro" : "core"
+  const processor = isDeepResearch ? "pro" : "base"
   const modeLabel = isDeepResearch ? "Deep Research" : "Standard"
-  const cost = isDeepResearch ? "$0.10" : "$0.025"
 
   return tool({
     description: isDeepResearch
@@ -707,7 +660,7 @@ export function createParallelProspectResearchTool(isDeepResearch: boolean = fal
         "CAPABILITY: Fast AI research via Parallel Task API (~15-30s). " +
         "OUTPUT: Structured data with age, realEstate[], businesses[], philanthropy{}, givingCapacityRating. " +
         "ACCESS structuredData field for typed JSON - no parsing needed! " +
-        "COST: $0.025/research (uses Core processor for speed + accuracy).",
+        "COST: $0.01/research (uses Base processor for speed + accuracy).",
     parameters: parallelProspectResearchSchema,
     execute: async (params): Promise<ParallelProspectResult> => {
       const { name, address, context, focus_areas } = params
@@ -759,7 +712,7 @@ export function createParallelProspectResearchTool(isDeepResearch: boolean = fal
             { name, address, employer, title, city, state },
             {
               focusAreas: focus_areas as Array<"real_estate" | "business" | "philanthropy" | "securities" | "biography"> | undefined,
-              processor: processor as "core" | "pro",
+              processor: processor as "base" | "pro",
             }
           )
 
@@ -854,7 +807,7 @@ export function createParallelProspectResearchTool(isDeepResearch: boolean = fal
         console.log(`[Parallel ${modeLabel}] Found ${result.results.length} results`)
 
         // Format the results
-        const research = formatSearchResultsReport(name, result.results, objective)
+        const research = formatSearchResultsReport(name, result.results)
         const sources = normalizeParallelSources(result.results)
 
         return {
@@ -1093,7 +1046,7 @@ export async function parallelProspectSearch(
 
   const result = await parallelSearch(searchOptions)
 
-  const research = formatSearchResultsReport(prospect.name, result.results, objective)
+  const research = formatSearchResultsReport(prospect.name, result.results)
   const sources = normalizeParallelSources(result.results)
 
   return { research, sources, searchId: result.search_id }
