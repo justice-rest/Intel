@@ -7,7 +7,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
-import { NOTION_OAUTH_CONFIG, NOTION_ERROR_MESSAGES } from "../config"
+import { NOTION_OAUTH_CONFIG, NOTION_ERROR_MESSAGES, getNotionRedirectUri } from "../config"
 import crypto from "crypto"
 
 // In-memory cache for OAuth state (fallback when Supabase not available)
@@ -171,14 +171,7 @@ export function buildAuthorizationUrl(state: string): string {
     throw new Error(NOTION_ERROR_MESSAGES.notConfigured)
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_APP_URL or NEXT_PUBLIC_VERCEL_URL must be set")
-  }
-
-  const protocol = baseUrl.includes("localhost") ? "http" : "https"
-  const cleanUrl = baseUrl.replace(/^https?:\/\//, "")
-  const redirectUri = `${protocol}://${cleanUrl}/api/notion-integration/callback`
+  const redirectUri = getNotionRedirectUri()
 
   const params = new URLSearchParams({
     client_id: clientId,

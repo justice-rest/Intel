@@ -1,11 +1,11 @@
 /**
  * Batch Processing Tools Configuration
  *
- * TOOLS DISABLED: Perplexity Sonar Reasoning Pro has built-in web search
- * and does NOT support function calling. All data API tools have been removed.
+ * TOOLS DISABLED: Batch research uses Parallel AI for comprehensive web search.
+ * Additional data API tools have been disabled to simplify the pipeline.
  *
- * The batch research now relies entirely on Perplexity's built-in search
- * capabilities for prospect research.
+ * The batch research now relies on Parallel AI's search capabilities
+ * for prospect research.
  */
 
 import { ToolSet } from "ai"
@@ -22,23 +22,21 @@ import { ToolSet } from "ai"
 /**
  * Build the tools object for batch processing
  *
- * TOOLS DISABLED: Returns empty object because Perplexity has built-in web search
- * and does not support function calling. All research is done via Perplexity's
- * native search capabilities.
+ * TOOLS DISABLED: Returns empty object because Parallel AI handles web search.
+ * All research is done via Parallel AI's native search capabilities.
  */
 export function buildBatchTools(): ToolSet {
-  // Tools disabled - Perplexity Sonar Reasoning has built-in web search
-  // and does NOT support function calling
+  // Tools disabled - Parallel AI handles all web search
   return {}
 }
 
 /**
  * Get a description of available tools for the system prompt
  *
- * TOOLS DISABLED: Returns empty string since Perplexity has built-in search
+ * TOOLS DISABLED: Returns empty string since Parallel AI has built-in search
  */
 export function getToolDescriptions(): string {
-  // Tool descriptions disabled - Perplexity has built-in web search
+  // Tool descriptions disabled - Parallel AI handles web search
   return ""
 }
 
@@ -57,7 +55,7 @@ export function extractSourcesFromToolResults(
   for (const { result } of toolResults) {
     if (!result || typeof result !== "object") continue
 
-    // Handle tools that return sources array (Linkup)
+    // Handle tools that return sources array
     const resultObj = result as Record<string, unknown>
     if (Array.isArray(resultObj.sources)) {
       for (const source of resultObj.sources as Array<{ name?: string; title?: string; url?: string }>) {

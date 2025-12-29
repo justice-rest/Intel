@@ -6,7 +6,6 @@ import { useTransitionRouter } from "@/lib/transitions"
 import { cn, formatRelativeTime } from "@/lib/utils"
 import {
   Binoculars,
-  ArrowLeft,
   MagnifyingGlass,
   Trash,
   Spinner,
@@ -19,9 +18,7 @@ import {
   Play,
   Download,
   MapPin,
-  Target,
   Buildings,
-  Heart,
   CurrencyDollar,
   FirstAidKit,
 } from "@phosphor-icons/react"
@@ -670,15 +667,23 @@ export function DiscoverView({ planName }: { planName: string }) {
 
   return (
     <div className="batch-app-container">
-      {/* Header */}
-      <header className="batch-app-header">
-        <div className="app-header-title">
-          <Binoculars weight="fill" className="app-logo" />
-          <span>Discovery</span>
+      {/* Header - matching main labs design */}
+      <header className="batch-header">
+        <div className="batch-header-left">
+          <Link href="/" className="batch-logo-link group/logo">
+            <span className="batch-logo-wrapper">
+              <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo batch-logo-default" />
+              <img src="/PFPs/2.png" alt="Rōmy" className="batch-logo batch-logo-hover" />
+            </span>
+            <span className="batch-logo-text">Rōmy</span>
+          </Link>
+          <span className="batch-header-divider">/</span>
+          <Link href="/labs" className="batch-nav-link">Labs</Link>
+          <span className="batch-header-divider">/</span>
+          <h1>Deep Research</h1>
         </div>
-        <div className="app-header-actions">
+        <div className="batch-header-right">
           <Link href="/labs" className="flat-button">
-            <ArrowLeft />
             Back to Labs
           </Link>
         </div>
@@ -781,7 +786,7 @@ export function DiscoverView({ planName }: { planName: string }) {
         <aside className="app-body-sidebar">
           <section className="payment-section">
             <div className="payment-section-header">
-              <h2>Discovery Info</h2>
+              <h2>Research Info</h2>
               <span className="plan-badge">{planName}</span>
             </div>
 

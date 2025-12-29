@@ -963,11 +963,11 @@ async function researchWithParallelSources(
     console.warn(`[BatchProcessor] Grok search failed: ${grok.error}`)
   }
 
-  // ========== SMART DEPTH SELECTION (LinkUp only - for low confidence) ==========
-  // Check if we still have LinkUp data to work with
-  if (linkup && !linkup.error && linkup.answer) {
+  // ========== SMART DEPTH SELECTION (for low confidence cases) ==========
+  // Check if we should try additional search for low confidence results
+  {
     // ========== SMART DEPTH SELECTION ==========
-    // If Perplexity confidence is LOW and we haven't found much, try LinkUp deep search
+    // If confidence is LOW and we haven't found much, try Parallel AI deep search
     const confidenceIsLow = perplexity.output.metrics.confidence_level === "LOW"
     const lacksWealthData = !perplexity.output.wealth.real_estate.total_value &&
                            perplexity.output.wealth.business_ownership.length === 0 &&
@@ -976,34 +976,30 @@ async function researchWithParallelSources(
                                   perplexity.output.philanthropy.foundation_affiliations.length === 0
 
     if (confidenceIsLow && (lacksWealthData || lacksPhilanthropyData)) {
-      console.log(`[BatchProcessor] Low confidence detected, initiating LinkUp DEEP search for ${prospect.name}`)
+      console.log(`[BatchProcessor] Low confidence detected, initiating Parallel AI search for ${prospect.name}`)
 
       try {
-        // Import and use deep search (imported from linkup-prospect-research for deep mode)
-        const { linkupProspectSearch } = await import("@/lib/tools/linkup-prospect-research")
+        // Import and use Parallel AI search
+        const { parallelBatchSearch } = await import("./parallel-search")
 
-        const deepResult = await linkupProspectSearch(
-          {
-            name: prospect.name,
-            address: prospect.address || prospect.full_address,
-            employer: prospect.employer,
-            title: prospect.title,
-          },
-          linkupKey!,
-          "deep" // Use deep mode for low-confidence cases
-        )
+        const deepResult = await parallelBatchSearch({
+          name: prospect.name,
+          address: prospect.address || prospect.full_address,
+          employer: prospect.employer,
+          title: prospect.title,
+        })
 
-        if (deepResult.answer && deepResult.sources.length > 0) {
-          console.log(`[BatchProcessor] LinkUp DEEP search returned ${deepResult.sources.length} additional sources`)
+        if (deepResult.research && deepResult.sources.length > 0 && !deepResult.error) {
+          console.log(`[BatchProcessor] Parallel AI search returned ${deepResult.sources.length} additional sources`)
 
           // Merge deep search results
           const { extractedData: deepExtractedData } = mergeLinkupWithPerplexity(
             {
-              answer: deepResult.answer,
+              answer: deepResult.research,
               sources: deepResult.sources,
               query: deepResult.query,
-              tokensUsed: 0,
-              durationMs: 0,
+              tokensUsed: deepResult.tokensUsed,
+              durationMs: deepResult.durationMs,
             },
             "",
             []
@@ -1019,7 +1015,7 @@ async function researchWithParallelSources(
               perplexity.output.sources.push({
                 title: source.name,
                 url: source.url,
-                data_provided: source.snippet || "Data from LinkUp deep search",
+                data_provided: source.snippet || "Data from Parallel AI search",
               })
               existingUrls.add(source.url)
             }

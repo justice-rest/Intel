@@ -5,6 +5,8 @@
  * Uses standard OAuth 2.0 authorization code flow with PKCE recommended.
  */
 
+import { APP_DOMAIN } from "@/lib/config"
+
 // OAuth configuration
 export const ONEDRIVE_OAUTH_CONFIG = {
   // Microsoft identity platform v2.0 endpoints
@@ -117,13 +119,10 @@ export function getOneDriveClientSecret(): string {
 
 /**
  * Get OneDrive redirect URI
+ * Uses APP_DOMAIN for consistency with other integrations
  */
 export function getOneDriveRedirectUri(): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL
-  if (!appUrl) {
-    throw new Error("NEXT_PUBLIC_APP_URL or NEXT_PUBLIC_VERCEL_URL is not configured")
-  }
-  const protocol = appUrl.includes("localhost") ? "http" : "https"
-  const cleanUrl = appUrl.replace(/^https?:\/\//, "")
-  return `${protocol}://${cleanUrl}/api/onedrive-integration/callback`
+  const isDev = process.env.NODE_ENV === "development"
+  const baseUrl = isDev ? "http://localhost:3000" : APP_DOMAIN
+  return `${baseUrl}/api/onedrive-integration/callback`
 }

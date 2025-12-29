@@ -14,6 +14,7 @@ import {
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { toast } from "@/components/ui/toast"
+import { hasDriveScope } from "@/lib/google/config"
 
 interface DriveFile {
   id: string
@@ -53,8 +54,10 @@ export function DriveFilePicker({ onFileSelect, isLoading: externalLoading, clas
       const response = await fetch("/api/google-integrations")
       if (response.ok) {
         const data = await response.json()
-        setIsConnected(data.hasDrive || false)
-        if (data.hasDrive) {
+        // Check if connected AND has Drive scope
+        const hasConnection = data.connected && hasDriveScope(data.scopes || [])
+        setIsConnected(hasConnection)
+        if (hasConnection) {
           fetchDriveFiles()
         }
       } else {
@@ -93,8 +96,10 @@ export function DriveFilePicker({ onFileSelect, isLoading: externalLoading, clas
   }
 
   const handleConnect = () => {
-    // Redirect to Google integration settings
-    window.location.href = "/settings?tab=integrations&connect=google"
+    // Open settings modal to integrations tab (settings is a modal, not a page)
+    window.dispatchEvent(
+      new CustomEvent("open-settings", { detail: { tab: "integrations" } })
+    )
   }
 
   const handleFileClick = useCallback((file: DriveFile) => {

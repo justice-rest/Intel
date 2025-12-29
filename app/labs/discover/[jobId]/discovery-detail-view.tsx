@@ -6,7 +6,6 @@ import { useTransitionRouter } from "@/lib/transitions"
 import { cn } from "@/lib/utils"
 import {
   Binoculars,
-  ArrowLeft,
   Download,
   Spinner,
   CheckCircle,
@@ -449,17 +448,25 @@ export function DiscoveryDetailView({
 
   return (
     <div className="batch-app-container">
-      {/* Header */}
-      <header className="batch-app-header">
-        <div className="app-header-title">
-          <Link href="/labs/discover" className="back-button">
-            <ArrowLeft />
+      {/* Header - matching main labs design */}
+      <header className="batch-header">
+        <div className="batch-header-left">
+          <Link href="/" className="batch-logo-link group/logo">
+            <span className="batch-logo-wrapper">
+              <img src="/PFPs/1.png" alt="Rōmy" className="batch-logo batch-logo-default" />
+              <img src="/PFPs/2.png" alt="Rōmy" className="batch-logo batch-logo-hover" />
+            </span>
+            <span className="batch-logo-text">Rōmy</span>
           </Link>
-          <Binoculars weight="fill" className="app-logo" />
-          <span>{job.name}</span>
+          <span className="batch-header-divider">/</span>
+          <Link href="/labs" className="batch-nav-link">Labs</Link>
+          <span className="batch-header-divider">/</span>
+          <Link href="/labs/discover" className="batch-nav-link">Deep Research</Link>
+          <span className="batch-header-divider">/</span>
+          <h1>{job.name}</h1>
           <StatusBadge status={job.status} />
         </div>
-        <div className="app-header-actions">
+        <div className="batch-header-right">
           {job.status === "completed" && matchedCandidates.length > 0 && (
             <button onClick={handleExport} className="flat-button">
               <Download />

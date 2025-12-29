@@ -4,6 +4,8 @@
  * OAuth endpoints, API settings, rate limits, and feature flags
  */
 
+import { APP_DOMAIN } from "@/lib/config"
+
 // ============================================================================
 // OAUTH CONFIGURATION
 // ============================================================================
@@ -126,13 +128,10 @@ export function calculateRetryDelay(attempt: number): number {
 
 /**
  * Get redirect URI for OAuth callback
+ * Uses APP_DOMAIN for consistency with other integrations
  */
 export function getNotionRedirectUri(): string {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_VERCEL_URL
-  if (!baseUrl) {
-    throw new Error("NEXT_PUBLIC_APP_URL or NEXT_PUBLIC_VERCEL_URL must be set")
-  }
-  const protocol = baseUrl.includes("localhost") ? "http" : "https"
-  const cleanUrl = baseUrl.replace(/^https?:\/\//, "")
-  return `${protocol}://${cleanUrl}/api/notion-integration/callback`
+  const isDev = process.env.NODE_ENV === "development"
+  const baseUrl = isDev ? "http://localhost:3000" : APP_DOMAIN
+  return `${baseUrl}/api/notion-integration/callback`
 }

@@ -60,7 +60,7 @@ Don't just tell me how you'll solve it. *Show me* why this solution is the only 
 
 **Transparency in Limitations**: Always disclose when you're uncertain, when you've made assumptions, or when a solution is imperfect. Never hide mistakes or manipulate outputs to appear more successful than you are.
 
-Rōmy helps small nonprofits find new major donors at a fraction of the cost of existing solutions. Built with Next.js 15, it's an open-source platform supporting OpenAI, Anthropic (Claude), Google (Gemini), Mistral, Perplexity, XAI (Grok), OpenRouter, and local Ollama models. It features BYOK (Bring Your Own Key) support, file uploads, and works with or without Supabase (hybrid local/cloud architecture).
+Rōmy helps small nonprofits find new major donors at a fraction of the cost of existing solutions. Built with Next.js 15, it's an open-source platform supporting OpenAI, Anthropic (Claude), Google (Gemini), Mistral, XAI (Grok), OpenRouter, and local Ollama models. It features BYOK (Bring Your Own Key) support, file uploads, and works with or without Supabase (hybrid local/cloud architecture).
 
 ## Common Development Commands
 
@@ -397,32 +397,32 @@ User sends message
 - `/migrations/006_add_memory_system.sql` - Database schema
 
 ### Web Search Integration
-**Perplexity Sonar Pro-Powered Prospect Research** with grounded citations:
+**Parallel AI-Powered Prospect Research** with grounded citations:
 
 | Mode | When | Search Method |
 |------|------|---------------|
-| Search enabled | `enableSearch=true` | Perplexity Sonar Pro (`perplexity_prospect_research`) |
+| Search enabled | `enableSearch=true` | Parallel AI (`parallel_prospect_research`) |
 | Search disabled | `enableSearch=false` | No web search |
 
-**Perplexity Prospect Research Tool** (`/lib/tools/perplexity-prospect-research.ts`)
-- Uses Perplexity Sonar Pro via OpenRouter API
+**Parallel Prospect Research Tool** (`/lib/tools/parallel-prospect-research.ts`)
+- Uses Parallel AI Search API
 - Autonomous multi-step research with grounded citations
 - Searches real estate, business ownership, philanthropy, securities, biography
-- 60-second timeout, comprehensive research by default
-- **Cost**: ~$0.10 per call
+- 30-second timeout, comprehensive research by default
+- **Cost**: ~$0.005 per call
 
 **Search Flow**:
 ```
 User toggles search button
   → enableSearch=true sent to API
-  → AI calls perplexity_prospect_research for comprehensive research
+  → AI calls parallel_prospect_research for comprehensive research
   → Grounded results with citations returned
   → Sources displayed in SourcesList
 ```
 
 **Prospect Research Workflow**:
 ```
-1. perplexity_prospect_research("John Smith", address, context)
+1. parallel_prospect_research("John Smith", address, context)
    → Comprehensive research with citations covering:
    - Real estate holdings and property values
    - Business ownership and executive positions
@@ -439,7 +439,7 @@ User toggles search button
 ```
 
 **Key Files**:
-- `/lib/tools/perplexity-prospect-research.ts` - Perplexity tool
+- `/lib/tools/parallel-prospect-research.ts` - Parallel AI tool
 - `/app/api/chat/route.ts` - Tool integration
 
 ### USAspending Awards Tool
@@ -675,9 +675,13 @@ ENCRYPTION_KEY=                 # 32-byte base64 (for BYOK)
 # AI Model API Key (required)
 OPENROUTER_API_KEY=             # Required for Grok 4.1 Fast model
 
-# Linkup Search (optional - prospect research with curated domains)
-# Get your free API key at https://app.linkup.so (no credit card required)
-LINKUP_API_KEY=                 # Optional - enables Linkup prospect research
+# Parallel AI (required for prospect research)
+# Get your API key at https://parallel.ai
+PARALLEL_API_KEY=               # Required for prospect research tools
+
+# Exa Websets API (required for Deep Research / prospect discovery)
+# Get your API key at https://exa.ai
+EXA_API_KEY=                    # Required for Labs Deep Research feature
 
 # USAspending API (no API key required - FREE)
 # Federal contracts, grants, loans data - works without a key

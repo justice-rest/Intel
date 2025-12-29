@@ -1,6 +1,6 @@
 /**
  * Start Discovery Job API
- * POST: Start a discovery run using FindAll API
+ * POST: Start a discovery run using Exa Websets API
  */
 
 import { createClient } from "@/lib/supabase/server"
@@ -11,7 +11,7 @@ import {
   executeProspectDiscovery,
   getFindAllStatus,
   validateDiscoverySchema,
-} from "@/lib/parallel/findall"
+} from "@/lib/exa/websets"
 
 export const runtime = "nodejs"
 export const maxDuration = 600 // 10 minutes max for discovery
@@ -131,26 +131,21 @@ export async function POST(
         url: "",
       }))
 
-      // IMPORTANT: Normalize entity_type to valid plural forms
-      // The FindAll API requires: "people", "companies", "products", "events", "locations", "houses"
-      const entityTypeMap: Record<string, string> = {
-        person: "people",
-        people: "people",
-        company: "companies",
-        companies: "companies",
-        product: "products",
-        products: "products",
-        philanthropist: "people",
-        executive: "people",
-        investor: "people",
-        entrepreneur: "people",
+      // IMPORTANT: Normalize entity_type to Exa Websets format
+      // Exa supports: "person", "company", "research_paper", "article"
+      const entityTypeMap: Record<string, "person" | "company" | "research_paper" | "article"> = {
+        person: "person",
+        people: "person",
+        company: "company",
+        companies: "company",
+        research_paper: "research_paper",
+        article: "article",
+        philanthropist: "person",
+        executive: "person",
+        investor: "person",
+        entrepreneur: "person",
       }
-      const validEntityType = entityTypeMap[job.settings.entity_type.toLowerCase()] || "people"
-
-      // TEMPORARY: Force "core" generator until we confirm "pro" access
-      // "pro" may require special account access
-      const validGenerator: "base" | "core" | "pro" | "preview" =
-        job.settings.generator === "base" ? "base" : "core"
+      const validEntityType = entityTypeMap[job.settings.entity_type.toLowerCase()] || "person"
 
       // DIAGNOSTIC: Validate schema first to get better error messages
       try {
@@ -161,13 +156,12 @@ export async function POST(
         // Continue anyway - validation is just diagnostic
       }
 
-      // Debug: Log exact parameters being sent to FindAll
+      // Debug: Log exact parameters being sent to Exa Websets
       const discoveryParams = {
         objective: fullObjective,
         entityType: validEntityType,
         matchConditions: job.match_conditions,
         matchLimit: job.settings.match_limit,
-        generator: validGenerator,
         excludeList: excludeList?.length ? excludeList : undefined,
         metadata: {
           source: "labs_discovery",
@@ -175,7 +169,7 @@ export async function POST(
           user_id: user.id,
         },
       }
-      console.log("[Discovery API] Calling FindAll with params:", JSON.stringify(discoveryParams, null, 2))
+      console.log("[Discovery API] Calling Exa Websets with params:", JSON.stringify(discoveryParams, null, 2))
 
       // Execute discovery
       const result = await executeProspectDiscovery(discoveryParams)

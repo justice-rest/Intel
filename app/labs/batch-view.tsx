@@ -19,7 +19,6 @@ import {
   Pause,
   CaretRight,
   Lightning,
-  Target,
   ChartBar,
   Plus,
   GoogleDriveLogo,
@@ -1002,10 +1001,10 @@ export function BatchView() {
                 variant="olive"
               />
               <ServiceTile
-                icon={Target}
-                title="Deep Analysis"
-                subtitle="Comprehensive profiles"
-                href="/labs"
+                icon={Binoculars}
+                title="Deep Research"
+                subtitle="AI prospect discovery"
+                href="/labs/discover"
                 variant="green"
               />
               <ServiceTile
@@ -1018,23 +1017,6 @@ export function BatchView() {
             </div>
             <div className="service-section-footer">
               <p>Research is performed using AI to analyze public data and build donor profiles.</p>
-            </div>
-          </section>
-
-          {/* Discovery Section - FindAll Prospect Discovery */}
-          <section className="service-section">
-            <h2>Discovery</h2>
-            <div className="tiles">
-              <ServiceTile
-                icon={Binoculars}
-                title="Find Prospects"
-                subtitle="AI-powered discovery"
-                href="/labs/discover"
-                variant="green"
-              />
-            </div>
-            <div className="service-section-footer">
-              <p>Discover new prospects matching your criteria without needing a list of names.</p>
             </div>
           </section>
 

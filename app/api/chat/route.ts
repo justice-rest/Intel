@@ -19,14 +19,6 @@ import {
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
 import {
-  createPerplexityProspectResearchTool,
-  shouldEnablePerplexityTools,
-} from "@/lib/tools/perplexity-prospect-research"
-import {
-  createLinkupProspectResearchTool,
-  shouldEnableLinkupTools,
-} from "@/lib/tools/linkup-prospect-research"
-import {
   createParallelProspectResearchTool,
   parallelExtractTool,
   shouldEnableParallelTools,
@@ -533,9 +525,6 @@ Call search_memory FIRST before external research to avoid duplicating work.
     // Add search guidance when search is enabled
     // Gemini 3 supports native tool calling, so all models get full tool documentation
     if (enableSearch) {
-      // Check if Parallel AI is enabled for this user
-      const useParallel = shouldEnableParallelTools(userId)
-
       // Data API tools (direct access to authoritative sources)
       const dataTools: string[] = []
       if (shouldEnableSecEdgarTools()) dataTools.push("sec_edgar_filings (SEC 10-K/10-Q filings, financial statements, executive compensation)")
@@ -544,13 +533,10 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
-      // Web search tools - Parallel AI (new) vs Perplexity/LinkUp (legacy)
-      if (useParallel) {
-        dataTools.push("parallel_prospect_research (comprehensive prospect research via Parallel AI - real estate, business, philanthropy, securities, biography - 95% cheaper)")
+      // Web search tools - Parallel AI (sole provider)
+      if (shouldEnableParallelTools(userId)) {
+        dataTools.push("parallel_prospect_research (comprehensive prospect research via Parallel AI - real estate, business, philanthropy, securities, biography)")
         dataTools.push("parallel_extract (extract content from specific URLs for detailed analysis)")
-      } else {
-        if (shouldEnablePerplexityTools()) dataTools.push("perplexity_prospect_research (comprehensive prospect research with grounded citations - real estate, business, philanthropy, securities, biography)")
-        if (shouldEnableLinkupTools()) dataTools.push("linkup_prospect_research (parallel web search for prospect research - use ALONGSIDE perplexity for maximum coverage)")
       }
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
       if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
@@ -561,11 +547,10 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
       if (dataTools.length > 0) {
-        // Use different guidance based on whether Parallel AI is enabled
-        const webSearchGuidance = useParallel
-          ? `
+        // Parallel AI system prompt guidance
+        const webSearchGuidance = `
 [CAPABILITY]
-Built-in web search via Parallel AI for prospect research (95% cost savings).
+Built-in web search via Parallel AI for prospect research.
 
 ### Available Data API Tools
 ${dataTools.join("\n")}
@@ -609,55 +594,6 @@ ${dataTools.join("\n")}
 2. Use parallel_extract on key URLs from results for deeper content
 3. Follow up with structured tools (FEC, SEC, ProPublica) for verified data
 4. Synthesize all findings into unified report
-
-**[EXECUTE]** - After tool results:
-- Combine findings, deduplicate sources
-- Flag discrepancies, note confidence levels
-- Present formatted report with all sources
-- ALWAYS end with text response to user`
-          : `
-[CAPABILITY]
-Built-in web search via Perplexity Sonar Reasoning for prospect research.
-
-### Available Data API Tools
-${dataTools.join("\n")}
-
----
-
-[HARD CONSTRAINTS]
-1. **PARALLEL EXECUTION**: ALWAYS call perplexity_prospect_research + linkup_prospect_research simultaneously
-2. **RESPONSE REQUIRED**: After ANY tool call, you MUST generate a text response—never return raw tool output
-3. **OFFICIAL SOURCES PRIORITY**: When conflicts exist, prefer SEC/FEC/ProPublica over web sources
-4. **SYNTHESIZE, DON'T DUMP**: Combine findings into unified reports with source citations
-5. **CLICKABLE LINKS**: ALL source citations MUST use proper markdown link syntax:
-   - CORRECT: [Wall Street Journal](https://wsj.com/article/123)
-   - CORRECT: Sources: [FEC.gov](https://fec.gov), [SEC Edgar](https://sec.gov/edgar)
-   - WRONG: [Source: wsj.com] ← NOT clickable
-   - WRONG: (Source: fec.gov, sec.gov) ← NOT clickable
-   ALWAYS include https:// and make every URL a clickable markdown link
-
----
-
-### Structured Thinking: Research Workflow
-
-**[UNDERSTAND]** - What research is needed?
-- Named prospect → CRM first, then external tools
-- Board verification → SEC insider + proxy search
-- Foundation research → ProPublica 990 data
-
-**[ANALYZE]** - Select tools based on research type:
-| Need | Primary Tool | Secondary Tool |
-|------|--------------|----------------|
-| Comprehensive profile | perplexity_prospect_research | linkup_prospect_research (parallel) |
-| Political giving | fec_contributions | - |
-| Foundation/990 data | propublica_nonprofit_search | propublica_nonprofit_details |
-| Public company exec | sec_insider_search | sec_proxy_search |
-| Giving capacity | giving_capacity_calculator | - |
-
-**[STRATEGIZE]** - Parallel execution plan:
-1. Call perplexity_prospect_research + linkup_prospect_research IN PARALLEL
-2. Follow up with structured tools (FEC, SEC, ProPublica) for verified data
-3. Synthesize all findings into unified report
 
 **[EXECUTE]** - After tool results:
 - Combine findings, deduplicate sources
@@ -766,28 +702,7 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
             usaspending_awards: usGovDataTool,
           }
         : {}),
-      // Add Perplexity Sonar Pro/Deep Research for comprehensive prospect research (LEGACY - being replaced by Parallel)
-      // Grounded web search with citations - real estate, business, philanthropy, securities, biography
-      // Deep research mode uses sonar-deep-research with 180s timeout for multi-step autonomous search
-      ...(enableSearch && shouldEnablePerplexityTools() && !shouldEnableParallelTools(userId)
-        ? {
-            perplexity_prospect_research: createPerplexityProspectResearchTool(
-              researchMode === "deep-research"
-            ),
-          }
-        : {}),
-      // Add LinkUp web search for parallel prospect research (LEGACY - being replaced by Parallel)
-      // Use ALONGSIDE perplexity_prospect_research for maximum coverage
-      // Deep search with sourced answers and inline citations
-      ...(enableSearch && shouldEnableLinkupTools() && !shouldEnableParallelTools(userId)
-        ? {
-            linkup_prospect_research: createLinkupProspectResearchTool(
-              researchMode === "deep-research"
-            ),
-          }
-        : {}),
-      // Add Parallel AI web search for prospect research (REPLACES LinkUp + Perplexity)
-      // 95% cost savings: $0.005/search vs $0.095 (LinkUp + Perplexity combined)
+      // Add Parallel AI web search for prospect research
       // Comprehensive search with citations - real estate, business, philanthropy, securities, biography
       ...(enableSearch && shouldEnableParallelTools(userId)
         ? {
