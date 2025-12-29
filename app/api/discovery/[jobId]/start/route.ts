@@ -130,8 +130,8 @@ export async function POST(
         url: "",
       }))
 
-      // Execute discovery
-      const result = await executeProspectDiscovery({
+      // Debug: Log exact parameters being sent to FindAll
+      const discoveryParams = {
         objective: fullObjective,
         entityType: job.settings.entity_type,
         matchConditions: job.match_conditions,
@@ -143,7 +143,11 @@ export async function POST(
           job_id: jobId,
           user_id: user.id,
         },
-      })
+      }
+      console.log("[Discovery API] Calling FindAll with params:", JSON.stringify(discoveryParams, null, 2))
+
+      // Execute discovery
+      const result = await executeProspectDiscovery(discoveryParams)
 
       // Store ALL candidates (matched, unmatched, discarded) for full visibility
       if (result.allCandidates.length > 0) {

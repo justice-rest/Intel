@@ -612,6 +612,9 @@ async function waitForDiscoveryCompletion(
     if (status && !status.is_active) {
       // Check for failure
       if (status.status === "failed") {
+        // Debug: Log full status object to understand failure
+        console.error("[FindAll] Run failed. Full status:", JSON.stringify(status, null, 2))
+        console.error("[FindAll] Full run object:", JSON.stringify(run, null, 2))
         throw createFindAllError(
           `FindAll run failed: ${status.termination_reason ?? "Unknown reason"}`,
           "RUN_FAILED",
