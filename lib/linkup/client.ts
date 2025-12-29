@@ -20,8 +20,7 @@ import {
   type CircuitBreaker,
 } from "@/lib/batch-processing/resilience/circuit-breaker"
 import {
-  getLinkUpFlags,
-  isLinkUpConfigured,
+  isLinkUpAvailable,
   BLOCKED_DOMAINS,
   LINKUP_PRICING,
   type LinkUpConfig,
@@ -340,19 +339,11 @@ function getSearchCircuitBreaker(): CircuitBreaker {
 export async function linkupSearch(
   options: LinkUpSearchOptions
 ): Promise<LinkUpSearchResult> {
-  // Pre-flight checks
-  if (!isLinkUpConfigured()) {
+  // Pre-flight check - LinkUp is enabled by default if API key is set
+  if (!isLinkUpAvailable()) {
     throw createLinkUpError(
-      "LinkUp API key not configured",
+      "LINKUP_API_KEY not configured - set it in environment variables",
       "NOT_CONFIGURED"
-    )
-  }
-
-  const flags = getLinkUpFlags()
-  if (!flags.LINKUP_ENABLED) {
-    throw createLinkUpError(
-      "LinkUp is not enabled",
-      "NOT_AVAILABLE"
     )
   }
 
@@ -512,17 +503,16 @@ export async function linkupParallelSearch(
 
 /**
  * Get LinkUp client status
+ *
+ * LinkUp is available if API key is set. No feature flag needed.
  */
 export function getLinkUpStatus(): {
   available: boolean
   configured: boolean
-  enabled: boolean
   circuitOpen: boolean
   reasons: string[]
 } {
-  const configured = isLinkUpConfigured()
-  const flags = getLinkUpFlags()
-  const enabled = flags.LINKUP_ENABLED
+  const configured = isLinkUpAvailable()
   const circuitOpen = getSearchCircuitBreaker().isOpen()
 
   const reasons: string[] = []
@@ -531,18 +521,13 @@ export function getLinkUpStatus(): {
     reasons.push("LINKUP_API_KEY not set")
   }
 
-  if (!enabled) {
-    reasons.push("LINKUP_ENABLED is false or not set")
-  }
-
   if (circuitOpen) {
     reasons.push("Search circuit breaker is open")
   }
 
   return {
-    available: configured && enabled && !circuitOpen,
+    available: configured && !circuitOpen,
     configured,
-    enabled,
     circuitOpen,
     reasons,
   }

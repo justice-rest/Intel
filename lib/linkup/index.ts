@@ -40,15 +40,12 @@ export {
 
 // Config exports
 export {
-  getLinkUpFlags,
   getLinkUpConfig,
-  isLinkUpConfigured,
   isLinkUpAvailable,
   LINKUP_PRICING,
   PRIORITY_DOMAINS,
   BLOCKED_DOMAINS,
   type LinkUpConfig,
-  type LinkUpFeatureFlags,
 } from "./config"
 
 // Monitoring exports

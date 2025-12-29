@@ -34,7 +34,7 @@ import {
   type LinkUpError,
 } from "@/lib/linkup/client"
 import { trackSearchCall } from "@/lib/linkup/monitoring"
-import { getLinkUpFlags, PRIORITY_DOMAINS, BLOCKED_DOMAINS } from "@/lib/linkup/config"
+import { BLOCKED_DOMAINS } from "@/lib/linkup/config"
 
 // ============================================================================
 // TYPES
@@ -507,10 +507,6 @@ export function getLinkUpAvailabilityMessage(): string {
 
   if (!status.configured) {
     return "LinkUp is not configured. Please set LINKUP_API_KEY in your environment."
-  }
-
-  if (!status.enabled) {
-    return "LinkUp is currently disabled. Web search is temporarily unavailable."
   }
 
   if (status.circuitOpen) {

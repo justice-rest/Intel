@@ -2,7 +2,8 @@
  * LinkUp Search Configuration
  *
  * Centralized configuration for LinkUp API integration.
- * Controls feature flags, pricing, and default settings.
+ * LinkUp is the ONLY web search provider - no fallbacks.
+ * If LINKUP_API_KEY is set, web search works. If not, it doesn't.
  */
 
 // ============================================================================
@@ -18,17 +19,6 @@ export interface LinkUpConfig {
   timeout: number
   /** Max retries for transient failures */
   maxRetries: number
-}
-
-export interface LinkUpFeatureFlags {
-  /** Master switch - enables LinkUp integration */
-  LINKUP_ENABLED: boolean
-  /** Use LinkUp for chat prospect research */
-  LINKUP_CHAT_SEARCH: boolean
-  /** Use LinkUp for batch processing */
-  LINKUP_BATCH_SEARCH: boolean
-  /** Use structured output for typed JSON */
-  LINKUP_STRUCTURED_OUTPUT: boolean
 }
 
 // ============================================================================
@@ -55,13 +45,6 @@ export const LINKUP_PRICING = {
 export const DEFAULT_CONFIG: Omit<LinkUpConfig, "apiKey"> = {
   timeout: 60000, // 60 seconds for deep research
   maxRetries: 2,
-}
-
-export const DEFAULT_FLAGS: LinkUpFeatureFlags = {
-  LINKUP_ENABLED: false,
-  LINKUP_CHAT_SEARCH: true,
-  LINKUP_BATCH_SEARCH: true,
-  LINKUP_STRUCTURED_OUTPUT: true,
 }
 
 // ============================================================================
@@ -116,38 +99,17 @@ export const BLOCKED_DOMAINS = [
 ]
 
 // ============================================================================
-// FEATURE FLAG FUNCTIONS
+// AVAILABILITY CHECK
 // ============================================================================
 
 /**
- * Get current feature flags from environment variables
- */
-export function getLinkUpFlags(): LinkUpFeatureFlags {
-  const isEnabled = process.env.LINKUP_API_KEY && process.env.LINKUP_ENABLED !== "false"
-
-  return {
-    LINKUP_ENABLED: !!isEnabled,
-    LINKUP_CHAT_SEARCH:
-      process.env.LINKUP_CHAT_SEARCH !== "false" && !!isEnabled,
-    LINKUP_BATCH_SEARCH:
-      process.env.LINKUP_BATCH_SEARCH !== "false" && !!isEnabled,
-    LINKUP_STRUCTURED_OUTPUT:
-      process.env.LINKUP_STRUCTURED_OUTPUT !== "false" && !!isEnabled,
-  }
-}
-
-/**
- * Check if LinkUp API key is configured
- */
-export function isLinkUpConfigured(): boolean {
-  return !!process.env.LINKUP_API_KEY
-}
-
-/**
- * Check if LinkUp is fully available (enabled + configured)
+ * Check if LinkUp is available (API key is set)
+ *
+ * LinkUp is the ONLY web search provider. No fallbacks.
+ * If API key is set, web search works. If not, it doesn't.
  */
 export function isLinkUpAvailable(): boolean {
-  return isLinkUpConfigured() && getLinkUpFlags().LINKUP_ENABLED
+  return !!process.env.LINKUP_API_KEY
 }
 
 /**
