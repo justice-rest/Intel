@@ -344,7 +344,7 @@ export async function startProspectDiscovery(
       entity_type: options.entityType ?? "people",  // Must be plural: people, companies, products
       match_conditions: options.matchConditions,
       match_limit: matchLimit,
-      generator: options.generator ?? "pro",
+      generator: options.generator ?? "core",  // "core" is standard, "pro" may need special access
       betas: ["findall-2025-09-15"],
     }
 
@@ -760,7 +760,7 @@ export const DISCOVERY_TEMPLATES = {
       },
     ],
     matchLimit: 20,
-    generator: "pro",
+    generator: "core",
   }),
 
   /**
@@ -782,7 +782,7 @@ export const DISCOVERY_TEMPLATES = {
       },
     ],
     matchLimit: 15,
-    generator: "pro",
+    generator: "core",
   }),
 
   /**
@@ -804,7 +804,7 @@ export const DISCOVERY_TEMPLATES = {
       },
     ],
     matchLimit: 15,
-    generator: "pro",
+    generator: "core",
   }),
 
   /**
@@ -826,6 +826,6 @@ export const DISCOVERY_TEMPLATES = {
       },
     ],
     matchLimit: 20,
-    generator: "pro",
+    generator: "core",
   }),
 }

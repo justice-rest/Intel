@@ -46,7 +46,7 @@ export interface DiscoveryJobSettings {
 
 export const DEFAULT_DISCOVERY_SETTINGS: DiscoveryJobSettings = {
   match_limit: 10,
-  generator: "pro",
+  generator: "core",  // Options: base, core, pro, preview - "core" is standard, "pro" may require special access
   entity_type: "people",  // Must be plural: people, companies, products, events, locations, houses
 }
 

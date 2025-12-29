@@ -146,13 +146,18 @@ export async function POST(
       }
       const validEntityType = entityTypeMap[job.settings.entity_type.toLowerCase()] || "people"
 
+      // TEMPORARY: Force "core" generator until we confirm "pro" access
+      // "pro" may require special account access
+      const validGenerator: "base" | "core" | "pro" | "preview" =
+        job.settings.generator === "base" ? "base" : "core"
+
       // Debug: Log exact parameters being sent to FindAll
       const discoveryParams = {
         objective: fullObjective,
         entityType: validEntityType,
         matchConditions: job.match_conditions,
         matchLimit: job.settings.match_limit,
-        generator: job.settings.generator,
+        generator: validGenerator,
         excludeList: excludeList?.length ? excludeList : undefined,
         metadata: {
           source: "labs_discovery",
