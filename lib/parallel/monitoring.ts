@@ -32,7 +32,6 @@ export interface ParallelMetrics {
     search: number
     extract: number
     task: number
-    findall: number
     monitor: number
   }
   /** Cost by endpoint */
@@ -40,7 +39,6 @@ export interface ParallelMetrics {
     search: number
     extract: number
     task: number
-    findall: number
     monitor: number
   }
   /** Hourly usage for the last 24 hours */
@@ -60,7 +58,7 @@ export interface HourlyUsageRecord {
 }
 
 export interface CallMetadata {
-  endpoint: "search" | "extract" | "task" | "findall" | "monitor"
+  endpoint: "search" | "extract" | "task" | "monitor"
   userId?: string
   chatId?: string
   startTime: number
@@ -83,7 +81,6 @@ const PARALLEL_PRICING = {
   search: 0.005, // $0.005 per search request
   extract: 0.001, // $0.001 per page extracted
   task: 0.015, // $5-25 per 1K, average ~$15/1K = $0.015 per task
-  findall: 0.145, // $60-230 per 1K, average ~$145/1K = $0.145 per candidate
   monitor: 0.01, // Estimated per check
 }
 
@@ -100,10 +97,6 @@ export function estimateExtractCost(result: ExtractResponse): number {
 
 export function estimateTaskCost(): number {
   return PARALLEL_PRICING.task
-}
-
-export function estimateFindAllCost(candidateCount: number): number {
-  return PARALLEL_PRICING.findall * candidateCount
 }
 
 export function estimateMonitorCost(): number {
@@ -130,14 +123,12 @@ function createEmptyMetrics(): ParallelMetrics {
       search: 0,
       extract: 0,
       task: 0,
-      findall: 0,
       monitor: 0,
     },
     costByEndpoint: {
       search: 0,
       extract: 0,
       task: 0,
-      findall: 0,
       monitor: 0,
     },
     hourlyUsage: [],

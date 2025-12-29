@@ -51,13 +51,7 @@ export interface ParallelMigrationFlags {
   PARALLEL_EXTRACT: boolean
 
   /**
-   * Phase 4: Prospect discovery (NEW FEATURE)
-   * FindAll API - discover prospects matching criteria
-   */
-  PARALLEL_FINDALL: boolean
-
-  /**
-   * Phase 5: Real-time monitoring (NEW FEATURE)
+   * Phase 4: Real-time monitoring (NEW FEATURE)
    * Monitor API - watch for news/events about prospects
    */
   PARALLEL_MONITOR: boolean
@@ -84,7 +78,6 @@ const DEFAULT_FLAGS: ParallelMigrationFlags = {
   PARALLEL_BATCH_SEARCH: true, // Auto-enable when PARALLEL_ENABLED=true
   PARALLEL_TASK_API: true,     // Auto-enable when PARALLEL_ENABLED=true
   PARALLEL_EXTRACT: true,      // Auto-enable when PARALLEL_ENABLED=true
-  PARALLEL_FINDALL: true,      // Auto-enable when PARALLEL_ENABLED=true
   PARALLEL_MONITOR: true,      // Auto-enable when PARALLEL_ENABLED=true
   PARALLEL_ROLLOUT_PERCENT: 100, // 100% rollout (no gradual rollout needed)
 }
@@ -119,7 +112,6 @@ export function getParallelFlags(): ParallelMigrationFlags {
     PARALLEL_BATCH_SEARCH: process.env.PARALLEL_BATCH_SEARCH === "false" ? false : defaultWhenEnabled,
     PARALLEL_TASK_API: process.env.PARALLEL_TASK_API === "false" ? false : defaultWhenEnabled,
     PARALLEL_EXTRACT: process.env.PARALLEL_EXTRACT === "false" ? false : defaultWhenEnabled,
-    PARALLEL_FINDALL: process.env.PARALLEL_FINDALL === "false" ? false : defaultWhenEnabled,
     PARALLEL_MONITOR: process.env.PARALLEL_MONITOR === "false" ? false : defaultWhenEnabled,
     PARALLEL_ROLLOUT_PERCENT: rolloutPercent,
   }
@@ -162,7 +154,6 @@ type ParallelFeatureFlag =
   | "PARALLEL_BATCH_SEARCH"
   | "PARALLEL_TASK_API"
   | "PARALLEL_EXTRACT"
-  | "PARALLEL_FINDALL"
   | "PARALLEL_MONITOR"
 
 /**

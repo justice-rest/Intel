@@ -1,12 +1,18 @@
 /**
  * Parallel AI Batch Search Module
  *
- * Optimized Parallel integration for batch prospect research
- * Replaces LinkUp + Perplexity with 95% cost savings
+ * Production-grade batch prospect research with two execution modes:
  *
- * Cost: $0.005 per search (vs $0.095 for LinkUp + Perplexity combined)
+ * 1. SEARCH API (Default) - $0.005/call
+ *    - Best for: High-volume batch processing, cost-sensitive operations
+ *    - Returns: Raw excerpts requiring downstream parsing
  *
- * @see https://parallel.ai/docs/search
+ * 2. TASK API (Premium) - $0.025/call (core) or $0.10/call (pro)
+ *    - Best for: High-value prospects, accuracy-critical research
+ *    - Returns: Structured JSON with field-level citations
+ *
+ * @see https://docs.parallel.ai/search/search-quickstart
+ * @see https://docs.parallel.ai/task-api/task-quickstart
  */
 
 import {
@@ -15,6 +21,11 @@ import {
   type ParallelSearchOptions,
   type ParallelError,
 } from "@/lib/parallel/client"
+import {
+  executeProspectResearchTask,
+  getTaskApiStatus,
+  type ProspectResearchOutput,
+} from "@/lib/parallel/task-api"
 import { trackSearchCall } from "@/lib/parallel/monitoring"
 import { isParallelAvailable } from "@/lib/feature-flags/parallel-migration"
 
@@ -24,16 +35,32 @@ import { isParallelAvailable } from "@/lib/feature-flags/parallel-migration"
 
 export interface ParallelBatchResult {
   research: string
+  /** Structured data from Task API (if useTaskApi=true) */
+  structuredData?: ProspectResearchOutput | null
   sources: Array<{
     name: string
     url: string
     snippet?: string
+    /** Field this source supports (Task API only) */
+    fieldName?: string
   }>
   query: string
   searchId?: string
+  runId?: string
   tokensUsed: number // Estimated
   durationMs: number
+  /** Which API was used: 'search' or 'task' */
+  apiUsed: "search" | "task"
   error?: string
+}
+
+export interface BatchResearchOptions {
+  /** Use Task API for structured output (costs more but better quality) */
+  useTaskApi?: boolean
+  /** Task API processor: 'core' ($0.025) or 'pro' ($0.10) - default: 'core' */
+  processor?: "core" | "pro"
+  /** Focus areas to research (default: all) */
+  focusAreas?: Array<"real_estate" | "business" | "philanthropy" | "securities" | "biography">
 }
 
 export interface ProspectInput {
@@ -416,16 +443,84 @@ function formatResearchReport(
 // ============================================================================
 
 /**
- * Execute Parallel search optimized for batch processing
+ * Execute Parallel research optimized for batch processing
  *
- * Cost: $0.005 per search (95% cheaper than LinkUp + Perplexity)
+ * COST OPTIONS:
+ * - Search API (default): $0.005/call - best for high-volume processing
+ * - Task API (premium):   $0.025-0.10/call - best for accuracy-critical research
+ *
+ * @param prospect - Prospect information
+ * @param options - Research options (useTaskApi, processor, focusAreas)
  */
 export async function parallelBatchSearch(
-  prospect: ProspectInput
+  prospect: ProspectInput,
+  options?: BatchResearchOptions
 ): Promise<ParallelBatchResult> {
   const startTime = Date.now()
+  const { useTaskApi = false, processor = "core", focusAreas } = options ?? {}
 
-  // Check availability
+  // =========================================================================
+  // TASK API PATH (Premium - $0.025-0.10/call)
+  // =========================================================================
+  if (useTaskApi) {
+    const taskApiStatus = getTaskApiStatus()
+
+    if (taskApiStatus.available) {
+      console.log(`[Parallel Batch] Using Task API (${processor}) for: ${prospect.name}`)
+
+      try {
+        const result = await executeProspectResearchTask(
+          prospect,
+          { focusAreas, processor }
+        )
+
+        const durationMs = Date.now() - startTime
+
+        // Format structured output to markdown
+        let research = ""
+        let structuredData: ProspectResearchOutput | null = null
+
+        if (result.outputType === "json" && result.output) {
+          structuredData = result.output
+          research = formatStructuredDataToMarkdown(result.output)
+        } else {
+          research = result.textOutput || `Research completed for "${prospect.name}"`
+        }
+
+        // Convert Task API sources to batch format
+        const sources = result.sources.map((s) => ({
+          name: s.title || extractDomainName(s.url),
+          url: s.url,
+          snippet: s.excerpts?.join(" ").substring(0, 300),
+          fieldName: s.fieldName,
+        }))
+
+        // Estimate tokens
+        const tokensUsed = Math.ceil(research.length / 4)
+
+        console.log(`[Parallel Batch] Task API completed in ${durationMs}ms, ${sources.length} sources`)
+
+        return {
+          research,
+          structuredData,
+          sources,
+          query: `Task API research for ${prospect.name}`,
+          runId: result.runId,
+          tokensUsed,
+          durationMs,
+          apiUsed: "task",
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error"
+        console.warn(`[Parallel Batch] Task API failed, falling back to Search API:`, errorMessage)
+        // Fall through to Search API
+      }
+    }
+  }
+
+  // =========================================================================
+  // SEARCH API PATH (Default - $0.005/call)
+  // =========================================================================
   if (!isParallelAvailable()) {
     const status = getParallelStatus()
     return {
@@ -434,6 +529,7 @@ export async function parallelBatchSearch(
       query: "",
       tokensUsed: 0,
       durationMs: 0,
+      apiUsed: "search",
       error: status.reasons.join("; ") || "Parallel AI not available",
     }
   }
@@ -441,7 +537,7 @@ export async function parallelBatchSearch(
   const objective = buildOptimizedBatchObjective(prospect)
   const searchQueries = buildSearchQueries(prospect)
 
-  console.log(`[Parallel Batch] Starting search for: ${prospect.name}`)
+  console.log(`[Parallel Batch] Using Search API for: ${prospect.name}`)
 
   try {
     const searchOptions: ParallelSearchOptions = {
@@ -465,7 +561,7 @@ export async function parallelBatchSearch(
     // Estimate tokens (rough approximation)
     const tokensUsed = Math.ceil((objective.length + research.length) / 4)
 
-    console.log(`[Parallel Batch] Completed in ${durationMs}ms, ${sources.length} sources`)
+    console.log(`[Parallel Batch] Search API completed in ${durationMs}ms, ${sources.length} sources`)
 
     return {
       research,
@@ -474,6 +570,7 @@ export async function parallelBatchSearch(
       searchId: result.search_id,
       tokensUsed,
       durationMs,
+      apiUsed: "search",
     }
   } catch (error) {
     const parallelError = error as ParallelError
@@ -483,7 +580,7 @@ export async function parallelBatchSearch(
     // Track the failure
     trackSearchCall(startTime, null, { code: parallelError.code || "UNKNOWN_ERROR" }, {})
 
-    console.error(`[Parallel Batch] Failed for ${prospect.name}:`, errorMessage)
+    console.error(`[Parallel Batch] Search API failed for ${prospect.name}:`, errorMessage)
 
     return {
       research: "",
@@ -491,8 +588,168 @@ export async function parallelBatchSearch(
       query: objective,
       tokensUsed: Math.ceil(objective.length / 4),
       durationMs,
+      apiUsed: "search",
       error: errorMessage,
     }
+  }
+}
+
+/**
+ * Premium batch search using Task API for high-value prospects
+ *
+ * Cost: $0.025/call (core) or $0.10/call (pro)
+ * Best for: High-value prospects where accuracy matters more than cost
+ */
+export async function parallelBatchSearchPremium(
+  prospect: ProspectInput,
+  processor: "core" | "pro" = "core"
+): Promise<ParallelBatchResult> {
+  return parallelBatchSearch(prospect, { useTaskApi: true, processor })
+}
+
+/**
+ * Format structured output to markdown for backward compatibility
+ */
+function formatStructuredDataToMarkdown(data: ProspectResearchOutput): string {
+  const sections: string[] = []
+
+  sections.push(`## Prospect Research: ${data.name}\n`)
+  sections.push(`${data.summary}\n`)
+
+  // Basic Info
+  const basicInfo: string[] = []
+  if (data.age) basicInfo.push(`**Age:** ${data.age}`)
+  if (data.spouse) basicInfo.push(`**Spouse:** ${data.spouse}`)
+  if (basicInfo.length > 0) {
+    sections.push("### Basic Information\n" + basicInfo.join(" | ") + "\n")
+  }
+
+  // Education
+  if (data.education?.length) {
+    sections.push("### Education\n")
+    for (const edu of data.education) {
+      const parts = [edu.degree, edu.institution, edu.year ? `(${edu.year})` : null].filter(Boolean)
+      sections.push(`- ${parts.join(", ")}`)
+    }
+    sections.push("")
+  }
+
+  // Real Estate
+  if (data.realEstate?.length) {
+    sections.push("### Real Estate\n")
+    for (const prop of data.realEstate) {
+      let value = "Value unknown"
+      if (prop.estimatedValue) {
+        value = `$${formatValue(prop.estimatedValue)}`
+      } else if (prop.valueLow && prop.valueHigh) {
+        value = `$${formatValue(prop.valueLow)} - $${formatValue(prop.valueHigh)}`
+      }
+      const marker = prop.isVerified ? "[Verified]" : "[Estimated]"
+      sections.push(`- **${prop.address}**: ${value} ${marker}`)
+    }
+    if (data.totalRealEstateValue) {
+      sections.push(`\n**Total:** $${formatValue(data.totalRealEstateValue)}`)
+    }
+    sections.push("")
+  }
+
+  // Businesses
+  if (data.businesses?.length) {
+    sections.push("### Business & Professional\n")
+    for (const biz of data.businesses) {
+      const revenue = biz.estimatedRevenue ? ` (~$${formatValue(biz.estimatedRevenue)} revenue)` : ""
+      const owner = biz.isOwner ? " (Owner)" : ""
+      sections.push(`- **${biz.role}**, ${biz.name}${owner}${revenue}`)
+    }
+    sections.push("")
+  }
+
+  // Securities
+  if (data.securities?.hasSecFilings && data.securities.companies?.length) {
+    sections.push("### SEC Filings [Verified]\n")
+    for (const company of data.securities.companies) {
+      const role = company.role ? ` - ${company.role}` : ""
+      sections.push(`- **${company.companyName}** (${company.ticker})${role}`)
+    }
+    sections.push("")
+  }
+
+  // Philanthropy
+  const hasPhilanthropy = data.philanthropy && (
+    (data.philanthropy.foundations?.length || 0) > 0 ||
+    (data.philanthropy.boardMemberships?.length || 0) > 0 ||
+    (data.philanthropy.majorGifts?.length || 0) > 0
+  )
+
+  if (hasPhilanthropy) {
+    sections.push("### Philanthropy\n")
+    if (data.philanthropy!.foundations?.length) {
+      sections.push("**Foundations:**")
+      for (const f of data.philanthropy!.foundations) {
+        sections.push(`- ${f.name}${f.role ? ` (${f.role})` : ""}`)
+      }
+    }
+    if (data.philanthropy!.boardMemberships?.length) {
+      sections.push("\n**Board Memberships:**")
+      for (const b of data.philanthropy!.boardMemberships) {
+        sections.push(`- ${b.organization}${b.role ? ` (${b.role})` : ""}`)
+      }
+    }
+    if (data.philanthropy!.majorGifts?.length) {
+      sections.push("\n**Major Gifts:**")
+      for (const g of data.philanthropy!.majorGifts) {
+        const amount = g.amount ? `$${formatValue(g.amount)}` : "Amount unknown"
+        sections.push(`- ${g.recipient}: ${amount}${g.year ? ` (${g.year})` : ""}`)
+      }
+    }
+    sections.push("")
+  }
+
+  // Political
+  if (data.politicalGiving?.totalAmount) {
+    sections.push("### Political Giving\n")
+    const party = data.politicalGiving.partyLean ? ` (${data.politicalGiving.partyLean})` : ""
+    sections.push(`**Total:** $${data.politicalGiving.totalAmount.toLocaleString()}${party} [Verified - FEC]`)
+    sections.push("")
+  }
+
+  // Giving Capacity
+  if (data.givingCapacityRating || data.netWorthEstimate) {
+    sections.push("### Giving Capacity\n")
+    if (data.givingCapacityRating) {
+      const ratings: Record<string, string> = {
+        A: "$1M+ capacity", B: "$100K-$1M capacity", C: "$25K-$100K capacity", D: "Under $25K"
+      }
+      sections.push(`**Rating:** ${data.givingCapacityRating} - ${ratings[data.givingCapacityRating] || ""}`)
+    }
+    if (data.netWorthEstimate) {
+      const low = data.netWorthEstimate.low ? `$${formatValue(data.netWorthEstimate.low)}` : "?"
+      const high = data.netWorthEstimate.high ? `$${formatValue(data.netWorthEstimate.high)}` : "?"
+      sections.push(`**Net Worth:** ${low} - ${high}`)
+    }
+  }
+
+  return sections.join("\n")
+}
+
+/**
+ * Format large numbers (e.g., 1500000 → "1.5M")
+ */
+function formatValue(value: number): string {
+  if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`
+  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`
+  return value.toLocaleString()
+}
+
+/**
+ * Extract domain name from URL
+ */
+function extractDomainName(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "")
+  } catch {
+    return "Source"
   }
 }
 

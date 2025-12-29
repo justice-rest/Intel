@@ -28,11 +28,6 @@ import {
   shouldEnableStructuredResearch,
 } from "@/lib/tools/parallel-structured-research"
 import {
-  parallelProspectDiscoveryTool,
-  parallelPresetDiscoveryTool,
-  shouldEnableProspectDiscovery,
-} from "@/lib/tools/parallel-prospect-discovery"
-import {
   rentalInvestmentTool,
   shouldEnableRentalInvestmentTool,
 } from "@/lib/tools/rental-investment-tool"
@@ -718,15 +713,6 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       ...(enableSearch && shouldEnableStructuredResearch(userId)
         ? {
             parallel_structured_research: parallelStructuredResearchTool,
-          }
-        : {}),
-      // Add Parallel AI Prospect Discovery (FindAll API)
-      // Discovers NEW prospects matching criteria - doesn't require names
-      // Use for "find tech entrepreneurs who are philanthropists" type queries
-      ...(enableSearch && shouldEnableProspectDiscovery(userId)
-        ? {
-            parallel_prospect_discovery: parallelProspectDiscoveryTool,
-            parallel_preset_discovery: parallelPresetDiscoveryTool,
           }
         : {}),
       // Add Rental Investment tool for rental valuation and investment analysis

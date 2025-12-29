@@ -7,7 +7,6 @@
  * 2. Extract API - URL content extraction
  * 3. Task API - Structured JSON output
  * 4. Task Groups - Batch processing
- * 5. FindAll API - Prospect discovery
  *
  * Usage:
  *   PARALLEL_API_KEY=your_key npx ts-node scripts/test-parallel-integration.ts
@@ -217,81 +216,6 @@ async function testTaskGroups(client: Parallel): Promise<boolean> {
 }
 
 // ============================================================================
-// TEST: FindAll API (Prospect Discovery)
-// ============================================================================
-async function testFindAllAPI(client: Parallel): Promise<boolean> {
-  info("Testing FindAll API (prospect discovery)...")
-
-  try {
-    // Create a FindAll run - SDK uses findall-2025-02-01 but API expects findall-2025-09-15
-    // Must explicitly pass the correct beta header
-    const run = await client.beta.findall.create({
-      objective: "Find technology billionaires who are active philanthropists",
-      entity_type: "philanthropist",
-      match_conditions: [
-        {
-          name: "tech_background",
-          description: "Must be a billionaire from technology industry"
-        },
-        {
-          name: "philanthropic",
-          description: "Must have a foundation or significant charitable giving"
-        }
-      ],
-      match_limit: 5, // Minimum is 5, max is 1000
-      generator: "pro",
-      betas: ["findall-2025-09-15"], // Override SDK default (findall-2025-02-01)
-    })
-
-    console.log(`   FindAll ID: ${run.findall_id}`)
-    console.log(`   Status: ${run.status.status}`)
-
-    // Poll for completion (FindAll can take a while)
-    info("   Waiting for discovery (this may take 1-2 minutes)...")
-    let attempts = 0
-    const maxAttempts = 60 // 2 minutes
-
-    while (attempts < maxAttempts) {
-      const status = await client.beta.findall.retrieve(run.findall_id, {
-        betas: ["findall-2025-09-15"], // Override SDK default
-      })
-
-      // Handle different response types
-      if ("status" in status && typeof status.status === "object" && "is_active" in status.status) {
-        if (!status.status.is_active) {
-          // Get results
-          const result = await client.beta.findall.result(run.findall_id, {
-            betas: ["findall-2025-09-15"], // Override SDK default
-          })
-
-          const matched = result.candidates.filter(c => c.match_status === "matched")
-          success(`FindAll discovered ${matched.length} matching prospects`)
-
-          for (const prospect of matched.slice(0, 3)) {
-            console.log(`   - ${prospect.name}: ${prospect.description?.substring(0, 50)}...`)
-          }
-          return true
-        }
-      }
-
-      await sleep(2000)
-      attempts++
-
-      if (attempts % 10 === 0) {
-        info(`   Still running... (${attempts * 2}s elapsed)`)
-      }
-    }
-
-    warn("FindAll timed out after 2 minutes (but API is working)")
-    return true // API works, just slow
-
-  } catch (error) {
-    fail(`FindAll error: ${error instanceof Error ? error.message : error}`)
-    return false
-  }
-}
-
-// ============================================================================
 // MAIN
 // ============================================================================
 async function main() {
@@ -329,9 +253,6 @@ async function main() {
 
   console.log("\n" + "-".repeat(60))
   results["Task Groups"] = await testTaskGroups(client)
-
-  console.log("\n" + "-".repeat(60))
-  results["FindAll API"] = await testFindAllAPI(client)
 
   // Summary
   console.log("\n" + "=".repeat(60))

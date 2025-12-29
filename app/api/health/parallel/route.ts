@@ -19,7 +19,6 @@ import { NextResponse } from "next/server"
 import { getParallelStatus } from "@/lib/parallel/client"
 import { getTaskApiStatus } from "@/lib/parallel/task-api"
 import { getTaskGroupsStatus } from "@/lib/parallel/task-groups"
-import { getFindAllStatus } from "@/lib/parallel/findall"
 import {
   getMetrics,
   getHealthStatus,
@@ -86,7 +85,6 @@ export async function GET(request: Request) {
   const clientStatus = getParallelStatus()
   const taskApiStatus = getTaskApiStatus()
   const taskGroupsStatus = getTaskGroupsStatus()
-  const findAllStatus = getFindAllStatus()
   const flagStatus = getParallelFlagStatus()
   const healthStatus = getHealthStatus()
 
@@ -108,7 +106,6 @@ export async function GET(request: Request) {
       extract: clientStatus.extractCircuitOpen ? "open" : "closed",
       taskApi: taskApiStatus.circuitOpen ? "open" : "closed",
       taskGroups: taskGroupsStatus.circuitOpen ? "open" : "closed",
-      findAll: findAllStatus.circuitOpen ? "open" : "closed",
     },
 
     // Task API status
@@ -123,13 +120,6 @@ export async function GET(request: Request) {
       available: taskGroupsStatus.available,
       configured: taskGroupsStatus.configured,
       enabled: taskGroupsStatus.enabled,
-    },
-
-    // FindAll status
-    findAll: {
-      available: findAllStatus.available,
-      configured: findAllStatus.configured,
-      enabled: findAllStatus.enabled,
     },
   }
 
@@ -154,7 +144,6 @@ export async function GET(request: Request) {
       batchSearch: flagStatus.flags.PARALLEL_BATCH_SEARCH,
       taskApi: flagStatus.flags.PARALLEL_TASK_API,
       extract: flagStatus.flags.PARALLEL_EXTRACT,
-      findall: flagStatus.flags.PARALLEL_FINDALL,
       monitor: flagStatus.flags.PARALLEL_MONITOR,
       rolloutPercent: flagStatus.flags.PARALLEL_ROLLOUT_PERCENT,
     }
