@@ -12,6 +12,7 @@
  * @see https://docs.exa.ai/websets/api/overview
  */
 
+import Exa from "exa-js"
 import {
   circuitBreakerRegistry,
   CIRCUIT_BREAKER_CONFIGS,
@@ -228,8 +229,28 @@ function classifyExaError(error: unknown): ExaWebsetsError {
 // CONFIGURATION
 // ============================================================================
 
-const EXA_API_BASE = "https://api.exa.ai"
 const DEFAULT_TIMEOUT = 60000
+
+// ============================================================================
+// EXA CLIENT SINGLETON
+// ============================================================================
+
+let exaClient: Exa | null = null
+
+function getExaClient(apiKey?: string): Exa {
+  const key = apiKey ?? process.env.EXA_API_KEY
+
+  if (!key) {
+    throw createExaError("EXA_API_KEY is not configured", "NOT_CONFIGURED")
+  }
+
+  // Create new client if none exists or if using a different key
+  if (!exaClient) {
+    exaClient = new Exa(key)
+  }
+
+  return exaClient
+}
 
 // ============================================================================
 // AVAILABILITY CHECKS
@@ -272,80 +293,74 @@ function getExaCircuitBreaker(): CircuitBreaker {
   )
 }
 
-// ============================================================================
-// API HELPERS
-// ============================================================================
-
-async function exaFetch<T>(
-  endpoint: string,
-  options: {
-    method?: "GET" | "POST" | "DELETE"
-    body?: unknown
-    config?: ExaWebsetsConfig
-  } = {}
-): Promise<T> {
-  const apiKey = options.config?.apiKey ?? process.env.EXA_API_KEY
-  const timeout = options.config?.timeout ?? DEFAULT_TIMEOUT
-
-  if (!apiKey) {
-    throw createExaError("EXA_API_KEY is not configured", "NOT_CONFIGURED")
-  }
-
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), timeout)
-
-  try {
-    const response = await fetch(`${EXA_API_BASE}${endpoint}`, {
-      method: options.method ?? "GET",
-      headers: {
-        "x-api-key": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-      signal: controller.signal,
-    })
-
-    clearTimeout(timeoutId)
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unknown error")
-      throw new Error(`Exa API error ${response.status}: ${errorText}`)
-    }
-
-    return await response.json()
-  } catch (error) {
-    clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === "AbortError") {
-      throw createExaError("Request timed out", "TIMEOUT", { retryable: true })
-    }
-    throw error
-  }
-}
 
 // ============================================================================
-// HELPER: Convert Exa Item to Prospect
+// HELPER: Convert Exa SDK Item to Prospect
 // ============================================================================
 
-function itemToProspect(item: ExaWebsetItem): DiscoveredProspect {
-  const name = item.properties.name ||
-    item.properties.title ||
-    (typeof item.properties.label === "string" ? item.properties.label : undefined) ||
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function sdkItemToProspect(item: any): DiscoveredProspect {
+  // Extract name from properties based on entity type
+  const props = item.properties || {}
+  const personProps = props.person || {}
+  const companyProps = props.company || {}
+  const articleProps = props.article || {}
+
+  const name = personProps.name ||
+    companyProps.name ||
+    articleProps.title ||
+    props.name ||
+    props.title ||
     "Unknown"
+
+  const description = personProps.description ||
+    companyProps.description ||
+    articleProps.author ||
+    props.description
+
+  const url = personProps.url ||
+    companyProps.url ||
+    articleProps.url ||
+    props.url ||
+    ""
+
+  // Extract sources from enrichments
+  const sources: DiscoveredProspect["sources"] = []
+  if (item.enrichments && Array.isArray(item.enrichments)) {
+    for (const enrichment of item.enrichments) {
+      if (enrichment.references && Array.isArray(enrichment.references)) {
+        for (const ref of enrichment.references) {
+          sources.push({
+            url: ref.url || "",
+            title: ref.title || undefined,
+            excerpts: ref.snippet ? [ref.snippet] : undefined,
+            reasoning: enrichment.reasoning || undefined,
+          })
+        }
+      }
+    }
+  }
+
+  // Determine match status from evaluations
+  let matchStatus: DiscoveredProspect["matchStatus"] = "generated"
+  if (item.evaluations && Array.isArray(item.evaluations)) {
+    const allPassed = item.evaluations.every((e: { passed?: boolean }) => e.passed === true)
+    const anyFailed = item.evaluations.some((e: { passed?: boolean }) => e.passed === false)
+    if (allPassed && item.evaluations.length > 0) {
+      matchStatus = "matched"
+    } else if (anyFailed) {
+      matchStatus = "discarded"
+    }
+  }
 
   return {
     candidateId: item.id,
     name: String(name),
-    description: item.properties.description ? String(item.properties.description) : undefined,
-    url: item.properties.url ? String(item.properties.url) : "",
-    matchStatus: item.verificationStatus === "verified" ? "matched" :
-                 item.verificationStatus === "rejected" ? "discarded" : "generated",
-    matchResults: item.enrichments,
-    sources: (item.references || []).map(ref => ({
-      url: ref.url,
-      title: ref.title,
-      excerpts: ref.excerpt ? [ref.excerpt] : undefined,
-      reasoning: item.reasoning,
-    })),
+    description: description ? String(description) : undefined,
+    url: String(url),
+    matchStatus,
+    matchResults: item.enrichments ? { enrichments: item.enrichments } : undefined,
+    sources,
   }
 }
 
@@ -418,50 +433,47 @@ export async function startProspectDiscovery(
   }
 
   try {
-    // Map entity type to Exa format
-    const entityTypeMap: Record<string, string> = {
-      people: "person",
-      person: "person",
-      companies: "company",
-      company: "company",
-      research_paper: "research_paper",
-      article: "article",
-    }
-    const entityType = entityTypeMap[options.entityType ?? "person"] ?? "person"
+    const client = getExaClient(config?.apiKey)
 
-    // Build criteria from match conditions
-    const criteria = options.matchConditions.map(cond => ({
+    // Build enrichments from match conditions (let Exa auto-select format)
+    const enrichments = options.matchConditions.map(cond => ({
       description: `${cond.name}: ${cond.description}`,
     }))
 
-    // Build the webset request
-    const requestBody = {
+    // Build the webset request using the SDK
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const websetParams: any = {
       search: {
         query: options.objective,
         count: Math.min(Math.max(options.matchLimit ?? 10, 5), 100),
-        entity: {
-          type: entityType,
-        },
-        criteria,
-        recall: true, // Comprehensive search
       },
-      metadata: options.metadata,
     }
 
-    console.log(`[Exa Websets] Creating webset:`, JSON.stringify(requestBody, null, 2))
+    // Add enrichments if we have match conditions
+    if (enrichments.length > 0) {
+      websetParams.enrichments = enrichments
+    }
 
-    const webset = await exaFetch<ExaWebset>("/v0/websets", {
-      method: "POST",
-      body: requestBody,
-      config,
-    })
+    console.log(`[Exa Websets] Creating webset:`, JSON.stringify(websetParams, null, 2))
+
+    const webset = await client.websets.create(websetParams)
 
     console.log(`[Exa Websets] Created webset: ${webset.id}`)
     circuitBreaker.recordSuccess()
 
+    // Map SDK response to our ExaWebset type
+    const mappedWebset: ExaWebset = {
+      id: webset.id,
+      object: "webset",
+      status: webset.status as ExaWebset["status"],
+      createdAt: webset.createdAt,
+      updatedAt: webset.updatedAt,
+      metadata: webset.metadata as Record<string, unknown> | undefined,
+    }
+
     return {
       findallId: webset.id,
-      run: webset,
+      run: mappedWebset,
     }
   } catch (error) {
     const exaError = classifyExaError(error)
@@ -483,7 +495,17 @@ export async function getWebsetStatus(
   websetId: string,
   config?: ExaWebsetsConfig
 ): Promise<ExaWebset> {
-  return exaFetch<ExaWebset>(`/v0/websets/${websetId}`, { config })
+  const client = getExaClient(config?.apiKey)
+  const webset = await client.websets.get(websetId)
+
+  return {
+    id: webset.id,
+    object: "webset",
+    status: webset.status as ExaWebset["status"],
+    createdAt: webset.createdAt,
+    updatedAt: webset.updatedAt,
+    metadata: webset.metadata as Record<string, unknown> | undefined,
+  }
 }
 
 // ============================================================================
@@ -500,30 +522,28 @@ export async function getDiscoveryResults(
   const startTime = Date.now()
 
   try {
+    const client = getExaClient(config?.apiKey)
+
     // Get webset status
     const webset = await getWebsetStatus(websetId, config)
 
-    // Get all items with pagination
-    const allItems: ExaWebsetItem[] = []
+    // Get all items with pagination using SDK
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sdkItems: any[] = []
     let cursor: string | undefined
 
     do {
-      const params = new URLSearchParams()
-      params.set("limit", "100")
-      if (cursor) {
-        params.set("cursor", cursor)
-      }
+      const response = await client.websets.items.list(websetId, {
+        limit: 100,
+        cursor,
+      })
 
-      const response = await exaFetch<ExaItemsResponse>(
-        `/v0/websets/${websetId}/items?${params.toString()}`,
-        { config }
-      )
-
-      allItems.push(...response.data)
-      cursor = response.hasMore ? response.nextCursor : undefined
+      sdkItems.push(...response.data)
+      cursor = response.hasMore ? response.nextCursor ?? undefined : undefined
     } while (cursor)
 
-    const allCandidates = allItems.map(itemToProspect)
+    // Convert SDK items to our prospect type
+    const allCandidates = sdkItems.map(sdkItemToProspect)
     const prospects = allCandidates.filter(c => c.matchStatus === "matched")
 
     // Map Exa status to our status type

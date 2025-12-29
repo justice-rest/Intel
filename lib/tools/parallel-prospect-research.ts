@@ -92,19 +92,19 @@ const PROSPECT_RESEARCH_DOMAINS = [
 
 /**
  * Domains to exclude (low-quality or irrelevant)
+ * NOTE: Parallel AI limits source_policy to max 10 domains total
  */
 const BLOCKED_DOMAINS = [
   "pinterest.com",
   "instagram.com",
   "tiktok.com",
   "facebook.com",
-  "twitter.com",
-  "x.com",
   "reddit.com",
   "quora.com",
   "yelp.com",
   "yellowpages.com",
   "whitepages.com",
+  // Removed twitter.com and x.com - Grok handles Twitter/X search
 ]
 
 // ============================================================================

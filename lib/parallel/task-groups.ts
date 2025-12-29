@@ -323,16 +323,18 @@ REQUIREMENTS:
     output_schema: PROSPECT_RESEARCH_SCHEMA,
   }
 
+  // NOTE: Parallel AI limits source_policy to max 10 domains total
   const sourcePolicy: BetaRunInput["source_policy"] = {
     exclude_domains: options?.excludeDomains ?? [
       "pinterest.com",
       "instagram.com",
       "tiktok.com",
       "facebook.com",
-      "twitter.com",
-      "x.com",
       "reddit.com",
       "quora.com",
+      "yelp.com",
+      "yellowpages.com",
+      // Removed twitter.com and x.com - Grok handles Twitter/X search
     ],
   }
 
