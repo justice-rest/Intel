@@ -2,13 +2,12 @@
 
 import { GoogleIntegrationSection } from "../integrations/google-section"
 import { NotionIntegrationSection } from "./notion-section"
-import { OneDriveIntegrationSection } from "./onedrive-section"
 
 /**
  * Connectors Section
  *
  * Cloud connectors for document indexing into the RAG system.
- * Includes: Google Workspace, Notion, OneDrive
+ * Includes: Google Workspace, Notion
  */
 export function ConnectorsSection() {
   return (
@@ -22,7 +21,7 @@ export function ConnectorsSection() {
           </span>
         </h2>
         <p className="text-sm text-muted-foreground">
-          Connect cloud services to import documents for AI-powered search and context.
+          Connect cloud services to import documents for AI-powered search.
         </p>
       </div>
 
@@ -34,11 +33,6 @@ export function ConnectorsSection() {
       {/* Notion */}
       <div data-settings-section="notion" className="border-t pt-6">
         <NotionIntegrationSection />
-      </div>
-
-      {/* OneDrive */}
-      <div data-settings-section="onedrive" className="border-t pt-6">
-        <OneDriveIntegrationSection />
       </div>
     </div>
   )

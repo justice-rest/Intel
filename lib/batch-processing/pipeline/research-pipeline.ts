@@ -1,19 +1,20 @@
 /**
- * Research Pipeline
+ * Research Pipeline v3.0 - Parallel AI Only
  *
  * Defines the complete research workflow as a series of steps.
  * Each step is checkpointed, protected by circuit breakers, and retryable.
  *
- * Pipeline Flow:
- * 1. perplexity_pass1    - Initial comprehensive research
- * 2. perplexity_pass2    - Targeted follow-up if pass1 weak (optional)
- * 3. perplexity_pass3    - Name variation search if still weak (optional)
- * 4. linkup_search       - Curated domain search (optional)
- * 5. grok_search         - Alternative AI search (optional)
- * 6. direct_verification - SEC, FEC, ProPublica verification (optional)
- * 7. triangulation       - Merge and score data from all sources
- * 8. validation          - Zod schema validation with retry
- * 9. save_results        - Persist to database
+ * Pipeline Flow (Parallel AI-first):
+ * 1. parallel_search     - Primary search using Parallel AI ($0.005/search)
+ * 2. grok_search         - X/Twitter search via Grok (optional)
+ * 3. direct_verification - SEC, FEC, ProPublica verification (optional)
+ * 4. triangulation       - Merge and score data from all sources
+ * 5. validation          - Zod schema validation with retry
+ * 6. save_results        - Persist to database
+ *
+ * REMOVED in v3.0:
+ * - perplexity_pass1/2/3 (replaced by Parallel AI)
+ * - linkup_search (removed entirely)
  */
 
 import type { PipelineStepDefinition, StepContext, StepResult, PipelineResult, ICheckpointManager } from "../checkpoints/types"
@@ -37,11 +38,6 @@ export interface ResearchPipelineConfig {
    * API key for OpenRouter
    */
   apiKey?: string
-
-  /**
-   * API key for LinkUp
-   */
-  linkupApiKey?: string
 
   /**
    * Whether to run optional steps (deep research)
@@ -76,20 +72,17 @@ export interface ResearchPipelineResult extends PipelineResult<ProspectResearchO
 // ============================================================================
 
 /**
- * Step 1: Comprehensive Perplexity search (handles multiple passes internally)
+ * Step 1: Primary search using Parallel AI
  *
- * The researchWithPerplexitySonar function already implements:
- * - Pass 1: Comprehensive initial search
- * - Pass 2: Targeted follow-up if pass 1 was weak
- * - Pass 3: Name variation search if still weak
+ * Parallel AI provides comprehensive web research at $0.005 per search.
+ * This replaces the previous Perplexity multi-pass approach.
  */
-async function executePerplexityPass1(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
-  // Dynamic import to avoid circular dependencies
-  const { researchWithPerplexitySonar } = await import("../report-generator")
+async function executeParallelPrimary(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
+  const { generateProspectReport } = await import("../report-generator")
 
   try {
-    const result = await researchWithPerplexitySonar(
-      {
+    const result = await generateProspectReport({
+      prospect: {
         name: context.prospect.name,
         address: context.prospect.address,
         city: context.prospect.city,
@@ -99,21 +92,21 @@ async function executePerplexityPass1(context: StepContext): Promise<StepResult<
         employer: context.prospect.employer,
         title: context.prospect.title,
       },
-      context.apiKey
-    )
+      apiKey: context.apiKey,
+    })
 
-    if (result.success && result.output) {
+    if (result.success && result.structured_data) {
       return {
         status: "completed",
-        data: result.output,
-        tokensUsed: result.tokens_used,
-        sourcesFound: result.output.sources?.length || 0,
+        data: result.structured_data,
+        tokensUsed: result.tokens_used || 0,
+        sourcesFound: result.sources_found?.length || 0,
       }
     }
 
     return {
       status: "failed",
-      error: result.error_message || "Perplexity search returned no results",
+      error: result.error_message || "Parallel AI search returned no results",
       tokensUsed: result.tokens_used || 0,
     }
   } catch (error) {
@@ -125,69 +118,32 @@ async function executePerplexityPass1(context: StepContext): Promise<StepResult<
 }
 
 /**
- * Step 2: Targeted follow-up search
- * NOTE: This is now handled internally by researchWithPerplexitySonar in Pass 1.
- * This step is kept for pipeline structure but skips automatically.
+ * @deprecated - Perplexity removed in v3.0, use executeParallelPrimary
  */
-async function executePerplexityPass2(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
-  // Multi-pass logic is now handled internally by researchWithPerplexitySonar
-  // This step exists for potential future separation of passes
-  return { status: "skipped", reason: "handled_by_pass1" }
+async function executePerplexityPass1(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
+  // Redirect to Parallel AI
+  return executeParallelPrimary(context)
 }
 
 /**
- * Step 3: Name variation search
- * NOTE: This is now handled internally by researchWithPerplexitySonar in Pass 1.
- * This step is kept for pipeline structure but skips automatically.
+ * @deprecated - Removed in v3.0
  */
-async function executePerplexityPass3(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
-  // Multi-pass logic is now handled internally by researchWithPerplexitySonar
-  // This step exists for potential future separation of passes
-  return { status: "skipped", reason: "handled_by_pass1" }
+async function executePerplexityPass2(_context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
+  return { status: "skipped", reason: "deprecated_in_v3" }
 }
 
 /**
- * Step 4: LinkUp curated domain search
+ * @deprecated - Removed in v3.0
  */
-async function executeLinkupSearch(context: StepContext): Promise<StepResult> {
-  if (!context.linkupKey) {
-    return { status: "skipped", reason: "no_linkup_api_key" }
-  }
+async function executePerplexityPass3(_context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
+  return { status: "skipped", reason: "deprecated_in_v3" }
+}
 
-  const { linkupBatchSearch, isLinkupAvailable } = await import("../linkup-search")
-
-  if (!isLinkupAvailable()) {
-    return { status: "skipped", reason: "linkup_not_configured" }
-  }
-
-  try {
-    const result = await linkupBatchSearch(
-      {
-        name: context.prospect.name,
-        address: context.prospect.address || context.prospect.full_address,
-        city: context.prospect.city,
-        state: context.prospect.state,
-      },
-      context.linkupKey
-    )
-
-    // LinkupBatchResult has: answer, sources, query, tokensUsed, durationMs, error
-    if (!result.error && result.answer) {
-      return {
-        status: "completed",
-        data: result,
-        tokensUsed: result.tokensUsed,
-        sourcesFound: result.sources?.length || 0,
-      }
-    }
-
-    return { status: "skipped", reason: result.error || "no_linkup_results" }
-  } catch (error) {
-    return {
-      status: "failed",
-      error: error instanceof Error ? error.message : String(error),
-    }
-  }
+/**
+ * @deprecated - LinkUp removed in v3.0
+ */
+async function executeLinkupSearch(_context: StepContext): Promise<StepResult> {
+  return { status: "skipped", reason: "deprecated_linkup_removed" }
 }
 
 /**
@@ -328,25 +284,21 @@ async function executeDirectVerification(context: StepContext): Promise<StepResu
 }
 
 /**
- * Step 7: Triangulation - merge data from all sources
+ * Step 4: Triangulation - merge data from all sources
+ *
+ * v3.0: Simplified to only merge Parallel AI and Grok data
+ * (LinkUp and Perplexity removed)
  */
 async function executeTriangulation(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
-  const { integrateExtractedLinkupData } = await import("../report-generator")
-  const { mergeLinkupWithPerplexity } = await import("../linkup-search")
-  const { extractStructuredDataFromResearch } = await import("../parallel-search")
-  type LinkupBatchResult = Awaited<ReturnType<typeof import("../linkup-search").linkupBatchSearch>>
   type GrokSearchResult = Awaited<ReturnType<typeof import("../grok-search").grokBatchSearch>>
-  type ParallelBatchResult = Awaited<ReturnType<typeof import("../parallel-search").parallelBatchSearch>>
 
-  // Start with Perplexity data (which already includes all multi-pass results)
+  // Start with Parallel AI data (from perplexity_pass1 which now redirects to Parallel)
   const pass1 = context.previousResults.get("perplexity_pass1")
-  const linkup = context.previousResults.get("linkup_search")
-  const parallel = context.previousResults.get("parallel_search")
   const grok = context.previousResults.get("grok_search")
 
-  let merged: ProspectResearchOutput | null = null
+  let merged: ProspectResearchOutput | undefined = undefined
 
-  // Get Perplexity output (all passes already merged internally)
+  // Get Parallel AI output (from perplexity_pass1 redirect)
   if (pass1?.status === "completed" && pass1.data) {
     merged = pass1.data as ProspectResearchOutput
   }
@@ -355,70 +307,6 @@ async function executeTriangulation(context: StepContext): Promise<StepResult<Pr
     return {
       status: "failed",
       error: "No data from any source to triangulate",
-    }
-  }
-
-  // Merge LinkUp data
-  if (linkup?.status === "completed" && linkup.data) {
-    try {
-      const linkupResult = linkup.data as LinkupBatchResult
-      // Get existing sources from Perplexity for deduplication
-      const perplexitySources = merged.sources.map(s => ({ name: s.title || s.url, url: s.url }))
-
-      // Extract structured data from LinkUp
-      const { extractedData } = mergeLinkupWithPerplexity(
-        linkupResult,
-        "", // We don't merge text content
-        perplexitySources
-      )
-
-      // Integrate extracted data into the merged output
-      merged = integrateExtractedLinkupData(merged, extractedData)
-
-      // Add LinkUp sources that aren't already present
-      const existingUrls = new Set(merged.sources.map(s => s.url.toLowerCase()))
-      for (const source of linkupResult.sources) {
-        if (!existingUrls.has(source.url.toLowerCase())) {
-          merged.sources.push({
-            title: source.name,
-            url: source.url,
-            data_provided: source.snippet || "Additional source from LinkUp",
-          })
-        }
-      }
-
-      console.log(`[Pipeline] Merged ${linkupResult.sources.length} LinkUp sources`)
-    } catch (e) {
-      console.warn("[Pipeline] Failed to merge LinkUp data:", e)
-    }
-  }
-
-  // Merge Parallel data (replaces LinkUp when enabled)
-  if (parallel?.status === "completed" && parallel.data) {
-    try {
-      const parallelResult = parallel.data as ParallelBatchResult
-
-      // Extract structured data from Parallel research content
-      const extractedData = extractStructuredDataFromResearch(parallelResult.research)
-
-      // Integrate extracted data into the merged output
-      merged = integrateExtractedLinkupData(merged, extractedData)
-
-      // Add Parallel sources that aren't already present
-      const existingUrls = new Set(merged.sources.map(s => s.url.toLowerCase()))
-      for (const source of parallelResult.sources) {
-        if (!existingUrls.has(source.url.toLowerCase())) {
-          merged.sources.push({
-            title: source.name,
-            url: source.url,
-            data_provided: source.snippet || "Additional source from Parallel AI",
-          })
-        }
-      }
-
-      console.log(`[Pipeline] Merged ${parallelResult.sources.length} Parallel AI sources`)
-    } catch (e) {
-      console.warn("[Pipeline] Failed to merge Parallel data:", e)
     }
   }
 
@@ -659,7 +547,6 @@ export class ResearchPipeline {
       userId: "", // Set by caller
       prospect,
       apiKey: config.apiKey,
-      linkupKey: config.linkupApiKey,
       previousResults: new Map(),
       checkpointManager: this.checkpointManager,
     }

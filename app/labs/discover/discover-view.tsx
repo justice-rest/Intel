@@ -108,10 +108,18 @@ function TemplateCard({
     healthcare: FirstAidKit,
     finance: CurrencyDollar,
   }
+  // Vary tile colors by template type for visual interest
+  const variantMap: Record<string, "olive" | "green" | "gray"> = {
+    tech: "olive",        // Blue
+    realestate: "green",  // Orange
+    healthcare: "gray",   // Slate
+    finance: "olive",     // Blue
+  }
   const Icon = iconMap[template.icon]
+  const variant = variantMap[template.icon] || "green"
 
   return (
-    <button onClick={onClick} className="tile tile-green template-card">
+    <button onClick={onClick} className={cn("tile", `tile-${variant}`, "template-card")}>
       <div className="tile-header">
         <Icon className="tile-icon" weight="light" />
         <h3>
@@ -786,22 +794,62 @@ export function DiscoverView({ planName }: { planName: string }) {
         <aside className="app-body-sidebar">
           <section className="payment-section">
             <div className="payment-section-header">
-              <h2>Research Info</h2>
+              <h2>Deep Research</h2>
               <span className="plan-badge">{planName}</span>
             </div>
 
-            <div className="stats-grid">
-              <div className="card">
-                <span className="card-value">{jobs.length}</span>
-                <span className="card-label">Total Jobs</span>
+            {/* Action zone */}
+            <div className="faq">
+              <p>Find new prospects using AI</p>
+              <div className="upload-zone">
+                <Binoculars className="upload-icon" />
+                <button
+                  onClick={() => setIsCreateDialogOpen(true)}
+                  className="flat-button"
+                >
+                  New Discovery
+                </button>
+                <span className="upload-hint">AI-powered search</span>
               </div>
-              <div className="card">
-                <span className="card-value">{completedJobs}</span>
-                <span className="card-label">Completed</span>
+            </div>
+
+            {/* Colorful stats cards */}
+            <div className="payments">
+              <div className="payment">
+                <div className="card card-green">
+                  <span>Jobs</span>
+                  <span>{jobs.length}</span>
+                </div>
+                <div className="payment-details">
+                  <h3>Total Jobs</h3>
+                  <div>
+                    <span>{jobs.length}</span>
+                  </div>
+                </div>
               </div>
-              <div className="card">
-                <span className="card-value">{totalMatched}</span>
-                <span className="card-label">Prospects Found</span>
+              <div className="payment">
+                <div className="card card-olive">
+                  <span>Done</span>
+                  <span>{completedJobs}</span>
+                </div>
+                <div className="payment-details">
+                  <h3>Completed</h3>
+                  <div>
+                    <span>{completedJobs}/{jobs.length}</span>
+                  </div>
+                </div>
+              </div>
+              <div className="payment">
+                <div className="card card-gray">
+                  <span>Found</span>
+                  <span>{totalMatched}</span>
+                </div>
+                <div className="payment-details">
+                  <h3>Prospects</h3>
+                  <div>
+                    <span>{totalMatched} total</span>
+                  </div>
+                </div>
               </div>
             </div>
 

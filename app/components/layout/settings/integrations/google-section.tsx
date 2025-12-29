@@ -25,7 +25,6 @@ import {
   File,
   CaretDown,
   CaretUp,
-  Upload,
   Lock,
   ArrowUpRight,
 } from "@phosphor-icons/react"
@@ -33,7 +32,31 @@ import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "motion/react"
 import type { GoogleIntegrationStatus, GoogleDriveDocument } from "@/lib/google/types"
 import { GoogleDriveBrowser } from "./google-drive-browser"
+import { NotionPagePicker } from "../connectors/notion-page-picker"
 import { useCustomer } from "autumn-js/react"
+
+interface NotionIntegrationStatus {
+  connected: boolean
+  status: "active" | "disconnected" | "error" | "revoked"
+  workspaceName?: string
+  workspaceIcon?: string
+  indexedPages: number
+  processingPages: number
+  errorMessage?: string
+  configured: boolean
+}
+
+interface NotionDocument {
+  id: string
+  notion_page_id: string
+  notion_page_title: string
+  notion_object_type: "page" | "database"
+  notion_icon?: string
+  status: "pending" | "processing" | "ready" | "failed"
+  word_count?: number
+  block_count?: number
+  created_at: string
+}
 
 /**
  * Check if a plan ID is Pro or Scale (eligible for Google Workspace)
@@ -51,6 +74,11 @@ export function GoogleIntegrationSection() {
   const [disconnectDialogOpen, setDisconnectDialogOpen] = useState(false)
   const [showDriveDocuments, setShowDriveDocuments] = useState(false)
   const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
+
+  // Notion state
+  const [notionDisconnectDialogOpen, setNotionDisconnectDialogOpen] = useState(false)
+  const [showNotionDocuments, setShowNotionDocuments] = useState(false)
+  const [deletingNotionDocId, setDeletingNotionDocId] = useState<string | null>(null)
 
   // Check if user is on an eligible plan (Pro or Scale)
   const activeProduct = customer?.products?.find(
@@ -108,6 +136,134 @@ export function GoogleIntegrationSection() {
   })
 
   const driveDocuments = driveDocsData?.documents || []
+
+  // ============ NOTION INTEGRATION ============
+
+  // Fetch Notion integration status
+  const { data: notionStatus } = useQuery({
+    queryKey: ["notion-integration-status"],
+    queryFn: async () => {
+      const res = await fetchClient("/api/notion-integration")
+      if (!res.ok) throw new Error("Failed to fetch status")
+      return (await res.json()) as NotionIntegrationStatus
+    },
+    refetchOnWindowFocus: true,
+  })
+
+  // Fetch Notion documents with auto-refresh
+  const { data: notionDocsData } = useQuery({
+    queryKey: ["notion-documents"],
+    queryFn: async () => {
+      const res = await fetchClient("/api/notion-integration/documents")
+      if (!res.ok) return { documents: [], count: 0 }
+      return res.json() as Promise<{ documents: NotionDocument[]; count: number }>
+    },
+    enabled: notionStatus?.connected === true,
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
+    staleTime: 5000,
+  })
+
+  const notionDocuments = notionDocsData?.documents || []
+
+  // Notion delete document mutation
+  const deleteNotionDocumentMutation = useMutation({
+    mutationFn: async (pageId: string) => {
+      const res = await fetchClient("/api/notion-integration/documents", {
+        method: "DELETE",
+        body: JSON.stringify({ pageId }),
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || "Failed to delete document")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast({
+        title: "Document Removed",
+        description: "The page has been removed from your index.",
+      })
+      queryClient.invalidateQueries({ queryKey: ["notion-documents"] })
+      queryClient.invalidateQueries({ queryKey: ["notion-integration-status"] })
+      setDeletingNotionDocId(null)
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : "Failed to delete document",
+      })
+      setDeletingNotionDocId(null)
+    },
+  })
+
+  // Notion connect mutation
+  const connectNotionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetchClient("/api/notion-integration/connect", {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || "Failed to initiate connection")
+      }
+      return res.json()
+    },
+    onSuccess: (data) => {
+      window.location.href = data.authUrl
+    },
+    onError: (error) => {
+      toast({
+        title: "Connection Failed",
+        description:
+          error instanceof Error ? error.message : "Failed to connect to Notion",
+      })
+    },
+  })
+
+  // Notion disconnect mutation
+  const disconnectNotionMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetchClient("/api/notion-integration", {
+        method: "DELETE",
+      })
+      if (!res.ok) throw new Error("Failed to disconnect")
+      return res.json()
+    },
+    onSuccess: () => {
+      toast({
+        title: "Notion Disconnected",
+        description: "Your Notion account has been disconnected.",
+      })
+      queryClient.invalidateQueries({ queryKey: ["notion-integration-status"] })
+      queryClient.invalidateQueries({ queryKey: ["notion-documents"] })
+      setNotionDisconnectDialogOpen(false)
+    },
+    onError: () => {
+      toast({
+        title: "Disconnect Failed",
+        description: "Failed to disconnect Notion account. Please try again.",
+      })
+      setNotionDisconnectDialogOpen(false)
+    },
+  })
+
+  const isNotionConnected = notionStatus?.connected === true
+  const isNotionConfigured = notionStatus?.configured !== false
+
+  // Get emoji or icon for Notion documents
+  const getNotionIconDisplay = (icon?: string) => {
+    if (!icon) return null
+    if (icon.startsWith("http")) {
+      return (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={icon} alt="" className="size-4 rounded" />
+      )
+    }
+    return <span className="text-sm">{icon}</span>
+  }
+
+  // ============ END NOTION INTEGRATION ============
 
   // Delete document mutation
   const deleteDocumentMutation = useMutation({
@@ -439,6 +595,112 @@ export function GoogleIntegrationSection() {
                   )}
                 </div>
               </div>
+
+              {/* Horizontal Divider between Google services and Notion */}
+              <div className="h-px bg-gray-200 dark:bg-[#333]" />
+
+              {/* Notion Section */}
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src="/svgs/Notion Icon.svg"
+                      alt="Notion"
+                      width={18}
+                      height={18}
+                      className="size-[18px] dark:invert"
+                    />
+                    <span className="text-sm font-medium text-black dark:text-white">Notion</span>
+                    {isNotionConnected && <CheckCircle size={12} weight="fill" className="text-green-500" />}
+                  </div>
+                  {isNotionConnected && (
+                    <button
+                      type="button"
+                      onClick={() => setNotionDisconnectDialogOpen(true)}
+                      disabled={disconnectNotionMutation.isPending}
+                      className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    >
+                      <Trash size={12} />
+                      Disconnect
+                    </button>
+                  )}
+                </div>
+
+                {!isNotionConfigured ? (
+                  <div className="text-center py-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Notion integration requires configuration. Contact your administrator.
+                    </p>
+                  </div>
+                ) : isNotionConnected ? (
+                  <div className="space-y-3">
+                    {notionStatus?.workspaceName && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Workspace: {notionStatus.workspaceName}
+                      </p>
+                    )}
+                    <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center justify-between">
+                        <span>Indexed pages</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-black dark:text-white">{notionDocuments.length}</span>
+                          {notionDocuments.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowNotionDocuments(!showNotionDocuments)}
+                              className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                            >
+                              {showNotionDocuments ? (
+                                <CaretUp size={12} />
+                              ) : (
+                                <CaretDown size={12} />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {notionStatus?.processingPages > 0 && (
+                        <div className="flex justify-between">
+                          <span>Processing</span>
+                          <span className="font-medium text-amber-600 dark:text-amber-400">
+                            {notionStatus.processingPages}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <NotionPagePicker
+                      onPagesImported={() => {
+                        queryClient.invalidateQueries({ queryKey: ["notion-documents"] })
+                        queryClient.invalidateQueries({ queryKey: ["notion-integration-status"] })
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      Connect Notion to import pages and databases.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => connectNotionMutation.mutate()}
+                      disabled={connectNotionMutation.isPending}
+                      className="inline-flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-medium rounded bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 border border-black dark:border-white text-white dark:text-black transition-colors disabled:opacity-50"
+                    >
+                      {connectNotionMutation.isPending && (
+                        <Spinner size={12} className="animate-spin" />
+                      )}
+                      <Image
+                        src="/svgs/Notion Icon.svg"
+                        alt="Notion"
+                        width={14}
+                        height={14}
+                        className="size-3.5 dark:invert"
+                      />
+                      Connect Notion
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Drive Documents List */}
@@ -489,6 +751,71 @@ export function GoogleIntegrationSection() {
                             className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
                           >
                             {deletingDocId === doc.drive_file_id ? (
+                              <Spinner size={12} className="animate-spin" />
+                            ) : (
+                              <Trash size={12} className="text-gray-400 hover:text-red-500" />
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Notion Documents List */}
+            <AnimatePresence>
+              {showNotionDocuments && notionDocuments.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-3 border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#1a1a1a]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Indexed Pages
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {notionDocuments.length} page{notionDocuments.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+                      {notionDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#222] group"
+                        >
+                          {doc.notion_icon ? (
+                            getNotionIconDisplay(doc.notion_icon)
+                          ) : (
+                            <File size={14} className="text-gray-400 flex-shrink-0" />
+                          )}
+                          <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300" title={doc.notion_page_title}>
+                            {doc.notion_page_title}
+                          </span>
+                          <span className={cn(
+                            "px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0",
+                            doc.status === "ready"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : doc.status === "processing"
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          )}>
+                            {doc.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeletingNotionDocId(doc.notion_page_id)
+                              deleteNotionDocumentMutation.mutate(doc.notion_page_id)
+                            }}
+                            disabled={deletingNotionDocId === doc.notion_page_id}
+                            className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            {deletingNotionDocId === doc.notion_page_id ? (
                               <Spinner size={12} className="animate-spin" />
                             ) : (
                               <Trash size={12} className="text-gray-400 hover:text-red-500" />
@@ -594,6 +921,43 @@ export function GoogleIntegrationSection() {
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               {disconnectMutation.isPending && (
+                <Spinner size={14} className="animate-spin mr-2" />
+              )}
+              Disconnect
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Notion Disconnect Confirmation Dialog */}
+      <AlertDialog open={notionDisconnectDialogOpen} onOpenChange={setNotionDisconnectDialogOpen}>
+        <AlertDialogContent className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-black dark:text-white">
+              Disconnect Notion
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-500 dark:text-gray-400">
+              Are you sure you want to disconnect? This will:
+              <ul className="mt-2 list-disc pl-4 space-y-1 text-xs">
+                <li>Remove access to your Notion workspace</li>
+                <li>Delete all indexed pages from your account</li>
+                <li>Remove the integration from Notion</li>
+              </ul>
+              <p className="mt-2 text-xs">
+                Your original Notion pages will not be affected.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 dark:border-[#444]">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => disconnectNotionMutation.mutate()}
+              disabled={disconnectNotionMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {disconnectNotionMutation.isPending && (
                 <Spinner size={14} className="animate-spin mr-2" />
               )}
               Disconnect

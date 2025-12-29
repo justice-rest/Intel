@@ -16,25 +16,13 @@ export function getSources(parts: MessageAISDK["parts"]) {
       ) {
         const result = part.toolInvocation.result
 
-        // Handle Perplexity prospect research tool results
+        // Handle Parallel AI prospect research tool results
         if (
-          part.toolInvocation.toolName === "perplexity_prospect_research" &&
-          result?.sources
-        ) {
-          return result.sources.map((source: { name?: string; url: string }) => ({
-            title: source.name || "Source",
-            url: source.url,
-            text: "",
-          }))
-        }
-
-        // Handle LinkUp prospect research tool results
-        if (
-          part.toolInvocation.toolName === "linkup_prospect_research" &&
+          part.toolInvocation.toolName === "parallel_prospect_research" &&
           result?.sources
         ) {
           return result.sources.map((source: { name?: string; url: string; snippet?: string }) => ({
-            title: source.name || "LinkUp Source",
+            title: source.name || "Source",
             url: source.url,
             text: source.snippet || "",
           }))

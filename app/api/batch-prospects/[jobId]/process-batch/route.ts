@@ -286,15 +286,10 @@ export async function POST(
       apiKey = undefined
     }
 
-    // Get LinkUp API key from environment (parallel search enhancement)
-    const linkupApiKey = process.env.LINKUP_API_KEY
-
     console.log(
       `[BatchProcessParallel] Processing ${itemsToProcess.length} items in parallel for job ${jobId}`
     )
-    console.log(
-      `[BatchProcessParallel] LinkUp parallel search: ${linkupApiKey ? "ENABLED" : "DISABLED"}`
-    )
+    console.log(`[BatchProcessParallel] Using Parallel AI for web research`)
 
     // Process all items in parallel
     const results = await Promise.allSettled(
@@ -309,7 +304,7 @@ export async function POST(
             .eq("id", item.id)
         }
 
-        // Use Perplexity Sonar Pro for grounded, citation-first research
+        // Use Parallel AI for grounded, citation-first research
         let reportResult: SonarGrokReportResult | null = null
         let errorMessage: string | null = null
 
@@ -362,7 +357,6 @@ export async function POST(
           const result = await generateComprehensiveReportWithTools({
             prospect: enrichedProspect,
             apiKey,
-            linkupApiKey, // Enable parallel LinkUp search
           })
 
           if (result.success) {

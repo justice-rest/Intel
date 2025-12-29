@@ -5,7 +5,7 @@
 
 // Tool execution time estimates (in seconds) based on typical response times
 export const TOOL_TIME_ESTIMATES: Record<string, number> = {
-  perplexity_prospect_research: 15, // Perplexity Sonar Pro - 60s timeout, usually ~10-15s
+  parallel_prospect_research: 10, // Parallel AI - 30s timeout, usually ~5-10s
   propublica_nonprofit_search: 3,
   propublica_nonprofit_details: 3,
   sec_edgar_filings: 5,

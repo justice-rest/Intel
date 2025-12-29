@@ -165,7 +165,6 @@ export interface StepContext {
     [key: string]: string | undefined
   }
   apiKey?: string
-  linkupKey?: string
   /**
    * Results from previous steps (populated as pipeline progresses)
    */
