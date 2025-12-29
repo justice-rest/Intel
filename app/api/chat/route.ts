@@ -19,14 +19,9 @@ import {
 import { fecContributionsTool, shouldEnableFecTools } from "@/lib/tools/fec-contributions"
 import { usGovDataTool, shouldEnableUsGovDataTools } from "@/lib/tools/us-gov-data"
 import {
-  createParallelProspectResearchTool,
-  parallelExtractTool,
-  shouldEnableParallelTools,
-} from "@/lib/tools/parallel-prospect-research"
-import {
-  parallelStructuredResearchTool,
-  shouldEnableStructuredResearch,
-} from "@/lib/tools/parallel-structured-research"
+  createLinkUpProspectResearchTool,
+  shouldEnableLinkUpTools,
+} from "@/lib/tools/linkup-prospect-research"
 import {
   rentalInvestmentTool,
   shouldEnableRentalInvestmentTool,
@@ -133,7 +128,7 @@ type ChatRequest = {
 }
 
 // Map research modes to Grok model IDs (via OpenRouter)
-// Grok 4.1 Fast supports native tool calling with Exa web search
+// Grok 4.1 Fast supports native tool calling with LinkUp web search
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
   "research": "openrouter:x-ai/grok-4.1-fast",
   "deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
@@ -528,10 +523,9 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
-      // Web search tools - Parallel AI (sole provider)
-      if (shouldEnableParallelTools(userId)) {
-        dataTools.push("parallel_prospect_research (comprehensive prospect research via Parallel AI - real estate, business, philanthropy, securities, biography)")
-        dataTools.push("parallel_extract (extract content from specific URLs for detailed analysis)")
+      // Web search tools - LinkUp (sole provider)
+      if (shouldEnableLinkUpTools()) {
+        dataTools.push("linkup_prospect_research (comprehensive prospect research via LinkUp - real estate, business, philanthropy, securities, biography)")
       }
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
       if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
@@ -542,10 +536,10 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
       if (dataTools.length > 0) {
-        // Parallel AI system prompt guidance
+        // LinkUp system prompt guidance
         const webSearchGuidance = `
 [CAPABILITY]
-Built-in web search via Parallel AI for prospect research.
+Built-in web search via LinkUp for prospect research.
 
 ### Available Data API Tools
 ${dataTools.join("\n")}
@@ -553,12 +547,11 @@ ${dataTools.join("\n")}
 ---
 
 [HARD CONSTRAINTS]
-1. **SINGLE TOOL**: Call parallel_prospect_research for comprehensive web research
-2. **URL EXTRACTION**: Use parallel_extract to get full content from search result URLs
-3. **RESPONSE REQUIRED**: After ANY tool call, you MUST generate a text response—never return raw tool output
-4. **OFFICIAL SOURCES PRIORITY**: When conflicts exist, prefer SEC/FEC/ProPublica over web sources
-5. **SYNTHESIZE, DON'T DUMP**: Combine findings into unified reports with source citations
-6. **CLICKABLE LINKS**: ALL source citations MUST use proper markdown link syntax:
+1. **SINGLE TOOL**: Call linkup_prospect_research for comprehensive web research
+2. **RESPONSE REQUIRED**: After ANY tool call, you MUST generate a text response—never return raw tool output
+3. **OFFICIAL SOURCES PRIORITY**: When conflicts exist, prefer SEC/FEC/ProPublica over web sources
+4. **SYNTHESIZE, DON'T DUMP**: Combine findings into unified reports with source citations
+5. **CLICKABLE LINKS**: ALL source citations MUST use proper markdown link syntax:
    - CORRECT: [Wall Street Journal](https://wsj.com/article/123)
    - CORRECT: Sources: [FEC.gov](https://fec.gov), [SEC Edgar](https://sec.gov/edgar)
    - WRONG: [Source: wsj.com] ← NOT clickable
@@ -570,25 +563,23 @@ ${dataTools.join("\n")}
 ### Structured Thinking: Research Workflow
 
 **[UNDERSTAND]** - What research is needed?
-- Named prospect → CRM first, then parallel_prospect_research
+- Named prospect → CRM first, then linkup_prospect_research
 - Board verification → SEC insider + proxy search
 - Foundation research → ProPublica 990 data
-- Detailed URL content → parallel_extract
 
 **[ANALYZE]** - Select tools based on research type:
 | Need | Primary Tool | Follow-up Tool |
 |------|--------------|----------------|
-| Comprehensive profile | parallel_prospect_research | parallel_extract (for key URLs) |
+| Comprehensive profile | linkup_prospect_research | - |
 | Political giving | fec_contributions | - |
 | Foundation/990 data | propublica_nonprofit_search | propublica_nonprofit_details |
 | Public company exec | sec_insider_search | sec_proxy_search |
 | Giving capacity | giving_capacity_calculator | - |
 
 **[STRATEGIZE]** - Research execution plan:
-1. Call parallel_prospect_research for comprehensive web research
-2. Use parallel_extract on key URLs from results for deeper content
-3. Follow up with structured tools (FEC, SEC, ProPublica) for verified data
-4. Synthesize all findings into unified report
+1. Call linkup_prospect_research for comprehensive web research
+2. Follow up with structured tools (FEC, SEC, ProPublica) for verified data
+3. Synthesize all findings into unified report
 
 **[EXECUTE]** - After tool results:
 - Combine findings, deduplicate sources
@@ -697,22 +688,13 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
             usaspending_awards: usGovDataTool,
           }
         : {}),
-      // Add Parallel AI web search for prospect research
+      // Add LinkUp web search for prospect research
       // Comprehensive search with citations - real estate, business, philanthropy, securities, biography
-      ...(enableSearch && shouldEnableParallelTools(userId)
+      ...(enableSearch && shouldEnableLinkUpTools()
         ? {
-            parallel_prospect_research: createParallelProspectResearchTool(
+            linkup_prospect_research: createLinkUpProspectResearchTool(
               researchMode === "deep-research"
             ),
-            parallel_extract: parallelExtractTool,
-          }
-        : {}),
-      // Add Parallel AI Structured Research (Task API)
-      // Returns typed JSON instead of text - no parsing required
-      // Use when you need specific data points for calculations
-      ...(enableSearch && shouldEnableStructuredResearch(userId)
-        ? {
-            parallel_structured_research: parallelStructuredResearchTool,
           }
         : {}),
       // Add Rental Investment tool for rental valuation and investment analysis

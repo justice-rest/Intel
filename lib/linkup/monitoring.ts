@@ -1,45 +1,39 @@
 /**
- * Parallel AI Monitoring System
+ * LinkUp Search Monitoring System
  *
- * Tracks usage metrics, costs, errors, and performance for Parallel API calls.
+ * Tracks usage metrics, costs, errors, and performance for LinkUp API calls.
  * Provides real-time visibility into the health and cost-efficiency of the integration.
- *
- * Metrics are stored in-memory with optional persistence to Redis (if configured).
  */
 
-import type { SearchResult, ExtractResponse } from "parallel-web/resources/beta/beta"
-import type { ParallelErrorCode } from "./client"
+import type { LinkUpErrorCode } from "./client"
+import { LINKUP_PRICING } from "./config"
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface ParallelMetrics {
+export interface LinkUpMetrics {
   /** Total API calls made */
   totalCalls: number
   /** Successful API calls */
   successfulCalls: number
   /** Failed API calls */
   failedCalls: number
-  /** Total cost in USD (estimated) */
+  /** Total cost in USD */
   totalCostUsd: number
   /** Average response time in ms */
   avgResponseTimeMs: number
   /** Error breakdown by type */
-  errorsByType: Record<ParallelErrorCode, number>
-  /** Calls by endpoint */
-  callsByEndpoint: {
-    search: number
-    extract: number
-    task: number
-    monitor: number
+  errorsByType: Record<string, number>
+  /** Calls by depth */
+  callsByDepth: {
+    standard: number
+    deep: number
   }
-  /** Cost by endpoint */
-  costByEndpoint: {
-    search: number
-    extract: number
-    task: number
-    monitor: number
+  /** Cost by depth */
+  costByDepth: {
+    standard: number
+    deep: number
   }
   /** Hourly usage for the last 24 hours */
   hourlyUsage: HourlyUsageRecord[]
@@ -58,59 +52,24 @@ export interface HourlyUsageRecord {
 }
 
 export interface CallMetadata {
-  endpoint: "search" | "extract" | "task" | "monitor"
+  depth: "standard" | "deep"
   userId?: string
   chatId?: string
   startTime: number
   endTime?: number
   success?: boolean
-  errorCode?: ParallelErrorCode
+  errorCode?: LinkUpErrorCode
   costUsd?: number
-  resultCount?: number
-}
-
-// ============================================================================
-// COST ESTIMATION
-// ============================================================================
-
-/**
- * Parallel AI pricing (as of 2025)
- * @see https://parallel.ai/pricing
- */
-const PARALLEL_PRICING = {
-  search: 0.005, // $0.005 per search request
-  extract: 0.001, // $0.001 per page extracted
-  task: 0.015, // $5-25 per 1K, average ~$15/1K = $0.015 per task
-  monitor: 0.01, // Estimated per check
-}
-
-export function estimateSearchCost(result: SearchResult): number {
-  // Base cost per search
-  return PARALLEL_PRICING.search
-}
-
-export function estimateExtractCost(result: ExtractResponse): number {
-  // Cost per page extracted
-  const pageCount = result.results.length
-  return PARALLEL_PRICING.extract * pageCount
-}
-
-export function estimateTaskCost(): number {
-  return PARALLEL_PRICING.task
-}
-
-export function estimateMonitorCost(): number {
-  return PARALLEL_PRICING.monitor
+  sourceCount?: number
 }
 
 // ============================================================================
 // IN-MEMORY METRICS STORE
 // ============================================================================
 
-const METRICS_RESET_INTERVAL_HOURS = 24
 const MAX_HOURLY_RECORDS = 168 // 7 days of hourly data
 
-function createEmptyMetrics(): ParallelMetrics {
+function createEmptyMetrics(): LinkUpMetrics {
   const now = new Date().toISOString()
   return {
     totalCalls: 0,
@@ -118,18 +77,14 @@ function createEmptyMetrics(): ParallelMetrics {
     failedCalls: 0,
     totalCostUsd: 0,
     avgResponseTimeMs: 0,
-    errorsByType: {} as Record<ParallelErrorCode, number>,
-    callsByEndpoint: {
-      search: 0,
-      extract: 0,
-      task: 0,
-      monitor: 0,
+    errorsByType: {},
+    callsByDepth: {
+      standard: 0,
+      deep: 0,
     },
-    costByEndpoint: {
-      search: 0,
-      extract: 0,
-      task: 0,
-      monitor: 0,
+    costByDepth: {
+      standard: 0,
+      deep: 0,
     },
     hourlyUsage: [],
     lastResetAt: now,
@@ -137,7 +92,7 @@ function createEmptyMetrics(): ParallelMetrics {
   }
 }
 
-let metricsStore: ParallelMetrics = createEmptyMetrics()
+let metricsStore: LinkUpMetrics = createEmptyMetrics()
 let responseTimes: number[] = [] // For calculating rolling average
 
 // ============================================================================
@@ -155,8 +110,8 @@ export function recordSuccess(metadata: CallMetadata & { costUsd: number }): voi
   metricsStore.totalCalls++
   metricsStore.successfulCalls++
   metricsStore.totalCostUsd += metadata.costUsd
-  metricsStore.callsByEndpoint[metadata.endpoint]++
-  metricsStore.costByEndpoint[metadata.endpoint] += metadata.costUsd
+  metricsStore.callsByDepth[metadata.depth]++
+  metricsStore.costByDepth[metadata.depth] += metadata.costUsd
 
   // Update response time average (keep last 1000 samples)
   responseTimes.push(responseTimeMs)
@@ -179,7 +134,7 @@ export function recordSuccess(metadata: CallMetadata & { costUsd: number }): voi
  * Record a failed API call
  */
 export function recordFailure(
-  metadata: CallMetadata & { errorCode: ParallelErrorCode }
+  metadata: CallMetadata & { errorCode: LinkUpErrorCode }
 ): void {
   const responseTimeMs = metadata.endTime
     ? metadata.endTime - metadata.startTime
@@ -187,7 +142,7 @@ export function recordFailure(
 
   metricsStore.totalCalls++
   metricsStore.failedCalls++
-  metricsStore.callsByEndpoint[metadata.endpoint]++
+  metricsStore.callsByDepth[metadata.depth]++
 
   // Track error types
   metricsStore.errorsByType[metadata.errorCode] =
@@ -234,9 +189,7 @@ function updateHourlyUsage(data: {
 
     // Trim old records
     if (metricsStore.hourlyUsage.length > MAX_HOURLY_RECORDS) {
-      metricsStore.hourlyUsage = metricsStore.hourlyUsage.slice(
-        -MAX_HOURLY_RECORDS
-      )
+      metricsStore.hourlyUsage = metricsStore.hourlyUsage.slice(-MAX_HOURLY_RECORDS)
     }
   }
 
@@ -245,7 +198,6 @@ function updateHourlyUsage(data: {
   currentHour.calls += data.calls
   currentHour.errors += data.errors
   currentHour.costUsd += data.costUsd
-  // Guard against division by zero
   currentHour.avgResponseTimeMs =
     currentHour.calls > 0
       ? (prevTotal + data.responseTimeMs) / currentHour.calls
@@ -255,7 +207,7 @@ function updateHourlyUsage(data: {
 /**
  * Get current metrics snapshot
  */
-export function getMetrics(): ParallelMetrics {
+export function getMetrics(): LinkUpMetrics {
   return { ...metricsStore }
 }
 
@@ -311,7 +263,6 @@ export function getMetricsForPeriod(
   const totalCalls = relevantHours.reduce((sum, h) => sum + h.calls, 0)
   const totalErrors = relevantHours.reduce((sum, h) => sum + h.errors, 0)
   const totalCostUsd = relevantHours.reduce((sum, h) => sum + h.costUsd, 0)
-  // Guard against division by zero
   const avgResponseTimeMs =
     totalCalls > 0
       ? relevantHours.reduce((sum, h) => sum + h.avgResponseTimeMs * h.calls, 0) / totalCalls
@@ -327,40 +278,6 @@ export function getMetricsForPeriod(
 }
 
 // ============================================================================
-// COST COMPARISON
-// ============================================================================
-
-/**
- * Calculate cost savings compared to legacy stack
- */
-export function calculateCostSavings(): {
-  parallelCost: number
-  estimatedLegacyCost: number
-  savingsUsd: number
-  savingsPercent: number
-} {
-  const parallelCost = metricsStore.totalCostUsd
-
-  // Legacy costs would have been:
-  // - LinkUp: $0.055 per search (deep mode)
-  // - Perplexity: $0.04 per search (Sonar Pro)
-  // Total: $0.095 per search
-  const searchCalls = metricsStore.callsByEndpoint.search
-  const estimatedLegacyCost = searchCalls * 0.095
-
-  const savingsUsd = estimatedLegacyCost - parallelCost
-  const savingsPercent =
-    estimatedLegacyCost > 0 ? (savingsUsd / estimatedLegacyCost) * 100 : 0
-
-  return {
-    parallelCost,
-    estimatedLegacyCost,
-    savingsUsd,
-    savingsPercent,
-  }
-}
-
-// ============================================================================
 // HEALTH CHECK
 // ============================================================================
 
@@ -369,7 +286,7 @@ export interface HealthStatus {
   errorRate: number
   avgResponseTimeMs: number
   circuitBreakerStatus: "closed" | "open" | "half_open"
-  recentErrors: ParallelErrorCode[]
+  recentErrors: string[]
   warnings: string[]
 }
 
@@ -394,9 +311,9 @@ export function getHealthStatus(): HealthStatus {
     .filter(([, count]) => count > 0)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5)
-    .map(([code]) => code as ParallelErrorCode)
+    .map(([code]) => code)
 
-  // Determine circuit breaker status (simplified - actual status comes from circuit breaker)
+  // Determine circuit breaker status
   let circuitBreakerStatus: "closed" | "open" | "half_open" = "closed"
   if (errorRate > 0.5) {
     circuitBreakerStatus = "open"
@@ -433,11 +350,12 @@ export function getHealthStatus(): HealthStatus {
 
 export interface LogEntry {
   timestamp: string
-  endpoint: string
+  depth: "standard" | "deep"
   duration: number
   success: boolean
-  errorCode?: ParallelErrorCode
+  errorCode?: string
   costUsd?: number
+  sourceCount?: number
   userId?: string
   chatId?: string
 }
@@ -476,34 +394,36 @@ export function getRecentLogs(limit = 20): LogEntry[] {
  */
 export function trackSearchCall(
   startTime: number,
-  result: SearchResult | null,
-  error: { code: ParallelErrorCode } | null,
+  depth: "standard" | "deep",
+  sourceCount: number | null,
+  error: { code: LinkUpErrorCode } | null,
   metadata?: { userId?: string; chatId?: string }
 ): void {
   const endTime = Date.now()
   const duration = endTime - startTime
+  const costUsd = LINKUP_PRICING[depth]
 
-  if (result && !error) {
-    const costUsd = estimateSearchCost(result)
+  if (!error) {
     recordSuccess({
-      endpoint: "search",
+      depth,
       startTime,
       endTime,
       costUsd,
       success: true,
-      resultCount: result.results.length,
+      sourceCount: sourceCount || 0,
       ...metadata,
     })
     logApiCall({
-      endpoint: "search",
+      depth,
       duration,
       success: true,
       costUsd,
+      sourceCount: sourceCount || 0,
       ...metadata,
     })
-  } else if (error) {
+  } else {
     recordFailure({
-      endpoint: "search",
+      depth,
       startTime,
       endTime,
       errorCode: error.code,
@@ -511,56 +431,7 @@ export function trackSearchCall(
       ...metadata,
     })
     logApiCall({
-      endpoint: "search",
-      duration,
-      success: false,
-      errorCode: error.code,
-      ...metadata,
-    })
-  }
-}
-
-/**
- * Track an extract call end-to-end
- */
-export function trackExtractCall(
-  startTime: number,
-  result: ExtractResponse | null,
-  error: { code: ParallelErrorCode } | null,
-  metadata?: { userId?: string; chatId?: string }
-): void {
-  const endTime = Date.now()
-  const duration = endTime - startTime
-
-  if (result && !error) {
-    const costUsd = estimateExtractCost(result)
-    recordSuccess({
-      endpoint: "extract",
-      startTime,
-      endTime,
-      costUsd,
-      success: true,
-      resultCount: result.results.length,
-      ...metadata,
-    })
-    logApiCall({
-      endpoint: "extract",
-      duration,
-      success: true,
-      costUsd,
-      ...metadata,
-    })
-  } else if (error) {
-    recordFailure({
-      endpoint: "extract",
-      startTime,
-      endTime,
-      errorCode: error.code,
-      success: false,
-      ...metadata,
-    })
-    logApiCall({
-      endpoint: "extract",
+      depth,
       duration,
       success: false,
       errorCode: error.code,

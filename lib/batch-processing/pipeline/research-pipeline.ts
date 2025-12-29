@@ -1,20 +1,20 @@
 /**
- * Research Pipeline v3.0 - Parallel AI Only
+ * Research Pipeline v4.0 - LinkUp Only
  *
  * Defines the complete research workflow as a series of steps.
  * Each step is checkpointed, protected by circuit breakers, and retryable.
  *
- * Pipeline Flow (Parallel AI-first):
- * 1. parallel_search     - Primary search using Parallel AI ($0.005/search)
+ * Pipeline Flow (LinkUp-first):
+ * 1. linkup_search       - Primary search using LinkUp (~$0.025/search with multi-query)
  * 2. grok_search         - X/Twitter search via Grok (optional)
  * 3. direct_verification - SEC, FEC, ProPublica verification (optional)
  * 4. triangulation       - Merge and score data from all sources
  * 5. validation          - Zod schema validation with retry
  * 6. save_results        - Persist to database
  *
- * REMOVED in v3.0:
- * - perplexity_pass1/2/3 (replaced by Parallel AI)
- * - linkup_search (removed entirely)
+ * REMOVED in v4.0:
+ * - Parallel AI (replaced by LinkUp)
+ * - Exa AI (removed entirely)
  */
 
 import type { PipelineStepDefinition, StepContext, StepResult, PipelineResult, ICheckpointManager } from "../checkpoints/types"
@@ -27,7 +27,7 @@ import {
 } from "../resilience/circuit-breaker"
 import { extractProspectResearchOutput, hasMinimalData, calculateDataQualityScore } from "../extraction/validated-parser"
 import { parseLenientProspectOutput, type LenientProspectResearchOutput } from "../schemas/prospect-output"
-import { isParallelAvailable } from "@/lib/feature-flags/parallel-migration"
+import { isLinkUpAvailable } from "@/lib/linkup/config"
 
 // ============================================================================
 // TYPES
@@ -72,12 +72,12 @@ export interface ResearchPipelineResult extends PipelineResult<ProspectResearchO
 // ============================================================================
 
 /**
- * Step 1: Primary search using Parallel AI
+ * Step 1: Primary search using LinkUp
  *
- * Parallel AI provides comprehensive web research at $0.005 per search.
- * This replaces the previous Perplexity multi-pass approach.
+ * LinkUp provides comprehensive web research at ~$0.025 per search (5 queries).
+ * Uses multi-query architecture for comprehensive coverage.
  */
-async function executeParallelPrimary(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
+async function executeLinkUpPrimary(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
   const { generateProspectReport } = await import("../report-generator")
 
   try {
@@ -106,7 +106,7 @@ async function executeParallelPrimary(context: StepContext): Promise<StepResult<
 
     return {
       status: "failed",
-      error: result.error_message || "Parallel AI search returned no results",
+      error: result.error_message || "LinkUp search returned no results",
       tokensUsed: result.tokens_used || 0,
     }
   } catch (error) {
@@ -118,36 +118,29 @@ async function executeParallelPrimary(context: StepContext): Promise<StepResult<
 }
 
 /**
- * @deprecated - Perplexity removed in v3.0, use executeParallelPrimary
+ * @deprecated - Legacy step alias, redirects to LinkUp
  */
 async function executePerplexityPass1(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
-  // Redirect to Parallel AI
-  return executeParallelPrimary(context)
+  // Redirect to LinkUp
+  return executeLinkUpPrimary(context)
 }
 
 /**
- * @deprecated - Removed in v3.0
+ * @deprecated - Removed in v4.0
  */
 async function executePerplexityPass2(_context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
-  return { status: "skipped", reason: "deprecated_in_v3" }
+  return { status: "skipped", reason: "deprecated_in_v4" }
 }
 
 /**
- * @deprecated - Removed in v3.0
+ * @deprecated - Removed in v4.0
  */
 async function executePerplexityPass3(_context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
-  return { status: "skipped", reason: "deprecated_in_v3" }
+  return { status: "skipped", reason: "deprecated_in_v4" }
 }
 
 /**
- * @deprecated - LinkUp removed in v3.0
- */
-async function executeLinkupSearch(_context: StepContext): Promise<StepResult> {
-  return { status: "skipped", reason: "deprecated_linkup_removed" }
-}
-
-/**
- * Step 5: Grok AI search
+ * Step 2: Grok AI search
  */
 async function executeGrokSearch(context: StepContext): Promise<StepResult> {
   const { grokBatchSearch, isGrokSearchAvailable } = await import("../grok-search")
@@ -187,40 +180,37 @@ async function executeGrokSearch(context: StepContext): Promise<StepResult> {
 }
 
 /**
- * Step 5b: Parallel AI search (replaces LinkUp when enabled)
- * 95% cost savings: $0.005/search vs $0.095 (LinkUp + Perplexity)
+ * Step 3: LinkUp search (used when explicit LinkUp step is needed)
+ *
+ * This is the explicit LinkUp step that can be called separately.
+ * The primary search (perplexity_pass1) already uses LinkUp via report-generator.
  */
-async function executeParallelSearch(context: StepContext): Promise<StepResult> {
-  // Skip if Parallel is not available
-  if (!isParallelAvailable()) {
-    return { status: "skipped", reason: "parallel_not_available" }
+async function executeLinkUpSearch(context: StepContext): Promise<StepResult> {
+  // Skip if LinkUp is not available
+  if (!isLinkUpAvailable()) {
+    return { status: "skipped", reason: "linkup_not_available" }
   }
 
-  const { parallelBatchSearch, isParallelBatchAvailable } = await import("../parallel-search")
-
-  if (!isParallelBatchAvailable()) {
-    return { status: "skipped", reason: "parallel_circuit_open" }
-  }
+  const { linkupBatchSearch } = await import("@/lib/tools/linkup-prospect-research")
 
   try {
-    const result = await parallelBatchSearch({
+    const result = await linkupBatchSearch({
       name: context.prospect.name,
       address: context.prospect.address || context.prospect.full_address,
-      city: context.prospect.city,
-      state: context.prospect.state,
+      employer: context.prospect.employer,
+      title: context.prospect.title,
     })
 
-    // ParallelBatchResult has: research, sources, query, searchId, tokensUsed, durationMs, error
     if (!result.error && result.research) {
       return {
         status: "completed",
         data: result,
-        tokensUsed: result.tokensUsed,
+        tokensUsed: 0, // LinkUp doesn't report tokens
         sourcesFound: result.sources?.length || 0,
       }
     }
 
-    return { status: "skipped", reason: result.error || "no_parallel_results" }
+    return { status: "skipped", reason: result.error || "no_linkup_results" }
   } catch (error) {
     return {
       status: "failed",
@@ -230,13 +220,13 @@ async function executeParallelSearch(context: StepContext): Promise<StepResult> 
 }
 
 /**
- * Step 6: Direct API verification (SEC, FEC, ProPublica)
+ * Step 4: Direct API verification (SEC, FEC, ProPublica)
  *
  * Uses the cross-reference verification layer to validate LLM claims
  * against authoritative API sources and detect hallucinations.
  */
 async function executeDirectVerification(context: StepContext): Promise<StepResult> {
-  // Get Perplexity output to verify
+  // Get output to verify (from perplexity_pass1 which now uses LinkUp)
   const pass1Result = context.previousResults.get("perplexity_pass1")
 
   if (!pass1Result || pass1Result.status !== "completed" || !pass1Result.data) {
@@ -265,7 +255,7 @@ async function executeDirectVerification(context: StepContext): Promise<StepResu
     // Flag hallucinations for review
     if (verificationReport.hallucinations.length > 0) {
       console.warn(
-        `[Pipeline] ⚠️ Found ${verificationReport.hallucinations.length} potential hallucinations:`,
+        `[Pipeline] Found ${verificationReport.hallucinations.length} potential hallucinations:`,
         verificationReport.hallucinations.map((h) => h.claim)
       )
     }
@@ -284,21 +274,20 @@ async function executeDirectVerification(context: StepContext): Promise<StepResu
 }
 
 /**
- * Step 4: Triangulation - merge data from all sources
+ * Step 5: Triangulation - merge data from all sources
  *
- * v3.0: Simplified to only merge Parallel AI and Grok data
- * (LinkUp and Perplexity removed)
+ * v4.0: Simplified to only merge LinkUp and Grok data
  */
 async function executeTriangulation(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
   type GrokSearchResult = Awaited<ReturnType<typeof import("../grok-search").grokBatchSearch>>
 
-  // Start with Parallel AI data (from perplexity_pass1 which now redirects to Parallel)
+  // Start with LinkUp data (from perplexity_pass1 which now uses LinkUp)
   const pass1 = context.previousResults.get("perplexity_pass1")
   const grok = context.previousResults.get("grok_search")
 
   let merged: ProspectResearchOutput | undefined = undefined
 
-  // Get Parallel AI output (from perplexity_pass1 redirect)
+  // Get LinkUp output (from perplexity_pass1 redirect)
   if (pass1?.status === "completed" && pass1.data) {
     merged = pass1.data as ProspectResearchOutput
   }
@@ -343,7 +332,7 @@ async function executeTriangulation(context: StepContext): Promise<StepResult<Pr
 }
 
 /**
- * Step 8: Validation - ensure output matches schema
+ * Step 6: Validation - ensure output matches schema
  */
 async function executeValidation(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
   const triangulated = context.previousResults.get("triangulation")
@@ -387,7 +376,7 @@ async function executeValidation(context: StepContext): Promise<StepResult<Prosp
 }
 
 /**
- * Step 9: Save results to database
+ * Step 7: Save results to database
  */
 async function executeSaveResults(context: StepContext): Promise<StepResult> {
   const validated = context.previousResults.get("validation")
@@ -417,49 +406,42 @@ export function createResearchPipelineSteps(): PipelineStepDefinition[] {
   return [
     {
       name: "perplexity_pass1",
-      description: "Initial comprehensive Perplexity search",
+      description: "Initial comprehensive LinkUp search",
       execute: executePerplexityPass1,
       required: true,
       timeout: 60000,
     },
     {
       name: "perplexity_pass2",
-      description: "Targeted follow-up search for missing data",
+      description: "Deprecated - skipped",
       execute: executePerplexityPass2,
       required: false,
-      timeout: 45000,
+      timeout: 1000,
       dependsOn: ["perplexity_pass1"],
       skippable: true,
     },
     {
       name: "perplexity_pass3",
-      description: "Name variation search",
+      description: "Deprecated - skipped",
       execute: executePerplexityPass3,
       required: false,
-      timeout: 45000,
+      timeout: 1000,
       dependsOn: ["perplexity_pass1"],
       skippable: true,
     },
     {
       name: "linkup_search",
-      description: "LinkUp curated domain search",
-      execute: executeLinkupSearch,
+      description: "LinkUp web search",
+      execute: executeLinkUpSearch,
       required: false,
-      timeout: 30000,
+      timeout: 35000,
     },
     {
       name: "grok_search",
-      description: "Grok AI search",
+      description: "Grok AI search (X/Twitter)",
       execute: executeGrokSearch,
       required: false,
       timeout: 30000,
-    },
-    {
-      name: "parallel_search",
-      description: "Parallel AI search (replaces LinkUp when enabled)",
-      execute: executeParallelSearch,
-      required: false,
-      timeout: 35000,
     },
     {
       name: "direct_verification",
@@ -561,13 +543,12 @@ export class ResearchPipeline {
     }
 
     // Execute steps with circuit breaker mapping
-    const circuitBreakerMap: Record<string, typeof this.circuitBreakers.perplexity> = {
-      perplexity_pass1: this.circuitBreakers.perplexity,
-      perplexity_pass2: this.circuitBreakers.perplexity,
-      perplexity_pass3: this.circuitBreakers.perplexity,
+    const circuitBreakerMap: Record<string, typeof this.circuitBreakers.linkup> = {
+      perplexity_pass1: this.circuitBreakers.linkup, // Now uses LinkUp
+      perplexity_pass2: this.circuitBreakers.linkup,
+      perplexity_pass3: this.circuitBreakers.linkup,
       linkup_search: this.circuitBreakers.linkup,
       grok_search: this.circuitBreakers.grok,
-      parallel_search: this.circuitBreakers.parallel,
       direct_verification: this.circuitBreakers.sec, // Uses multiple, but SEC is primary
     }
 

@@ -1,13 +1,13 @@
 /**
- * Batch Prospect Report Generator v3.0
+ * Batch Prospect Report Generator v4.0
  *
- * PARALLEL AI ONLY - Complete rewrite removing Perplexity and LinkUp.
- * Uses Parallel AI for all web research with 88-92% cost savings.
+ * LINKUP SEARCH - Complete rewrite using LinkUp for all web research.
+ * Uses LinkUp Standard mode with multi-query architecture for best price/performance.
  *
  * Key improvements:
- * - Single search provider (Parallel AI) - no more complex merging
- * - Cost: $0.005 per prospect (was $0.06-$0.12)
- * - Structured data extraction from Parallel results
+ * - Single search provider (LinkUp) - no more complex merging
+ * - Cost: ~$0.025 per prospect (5 queries × $0.005)
+ * - Multi-query architecture for comprehensive coverage
  * - Grok search for X/Twitter data (optional)
  * - RōmyScore calculation unchanged
  */
@@ -27,11 +27,9 @@ import {
   RomyScoreBreakdown,
 } from "@/lib/romy-score"
 import {
-  parallelBatchSearch,
-  extractStructuredDataFromResearch,
-  type ParallelBatchResult,
-  type ExtractedParallelData,
-} from "./parallel-search"
+  linkupBatchSearch,
+  type ProspectStructuredData,
+} from "@/lib/tools/linkup-prospect-research"
 import {
   grokBatchSearch,
   isGrokSearchAvailable,
@@ -39,7 +37,17 @@ import {
 } from "./grok-search"
 
 // Re-export for backward compatibility
-export type ExtractedLinkupData = ExtractedParallelData
+export interface ExtractedLinkupData {
+  properties: Array<{ address?: string; value?: number; source?: string }>
+  businesses: Array<{ name?: string; role?: string; value?: number }>
+  secFilings: { hasFilings: boolean; tickers: string[] }
+  politicalGiving: { total?: number; partyLean?: string }
+  foundations: string[]
+  majorGifts: Array<{ organization?: string; amount?: number }>
+  age?: number
+  education: string[]
+  netWorthMentioned?: { low?: number; high?: number }
+}
 
 // ============================================================================
 // TYPES
@@ -67,7 +75,7 @@ export interface GenerateReportResult {
 }
 
 // ============================================================================
-// PERPLEXITY SONAR PRO RESEARCH
+// HELPER FUNCTIONS
 // ============================================================================
 
 /**
@@ -99,31 +107,9 @@ async function withRetry<T>(
 }
 
 /**
- * Build enhanced search queries for more robust research
- */
-function buildEnhancedSearchQueries(prospect: ProspectInputData): {
-  primary: string
-  propertyFocused: string
-  businessFocused: string
-  philanthropyFocused: string
-} {
-  const name = prospect.name
-  const location = [prospect.city, prospect.state].filter(Boolean).join(", ")
-  const fullAddress = prospect.full_address || [prospect.address, prospect.city, prospect.state, prospect.zip].filter(Boolean).join(", ")
-
-  return {
-    primary: buildProspectQueryString(prospect),
-    propertyFocused: `"${name}" property owner ${fullAddress} home value real estate Zillow Redfin`,
-    businessFocused: `"${name}" ${location} CEO founder owner business company LinkedIn executive`,
-    philanthropyFocused: `"${name}" ${location} philanthropy foundation board nonprofit donor charity`,
-  }
-}
-
-/**
  * Check if research output has meaningful data worth keeping
  */
 function hasMinimalData(output: ProspectResearchOutput): boolean {
-  // Has at least ONE of: property value, business ownership, political giving, or meaningful bio
   const hasProperty = output.wealth.real_estate.total_value !== null && output.wealth.real_estate.total_value > 0
   const hasBusiness = output.wealth.business_ownership.length > 0
   const hasSecFilings = output.wealth.securities.has_sec_filings
@@ -163,10 +149,10 @@ export function mergeResearchOutputs(
       real_estate: {
         total_value: primary.wealth.real_estate.total_value || secondary.wealth.real_estate.total_value,
         properties: [...primary.wealth.real_estate.properties, ...secondary.wealth.real_estate.properties]
-          .filter((p, i, arr) => arr.findIndex(x => x.address === p.address) === i), // dedupe by address
+          .filter((p, i, arr) => arr.findIndex(x => x.address === p.address) === i),
       },
       business_ownership: [...primary.wealth.business_ownership, ...secondary.wealth.business_ownership]
-        .filter((b, i, arr) => arr.findIndex(x => x.company === b.company) === i), // dedupe by company
+        .filter((b, i, arr) => arr.findIndex(x => x.company === b.company) === i),
       securities: {
         has_sec_filings: primary.wealth.securities.has_sec_filings || secondary.wealth.securities.has_sec_filings,
         insider_at: [...new Set([...primary.wealth.securities.insider_at, ...secondary.wealth.securities.insider_at])],
@@ -199,7 +185,7 @@ export function mergeResearchOutputs(
     },
     strategy: primary.strategy.readiness !== "NOT_READY" ? primary.strategy : secondary.strategy,
     sources: [...primary.sources, ...secondary.sources]
-      .filter((s, i, arr) => arr.findIndex(x => x.url === s.url) === i), // dedupe by URL
+      .filter((s, i, arr) => arr.findIndex(x => x.url === s.url) === i),
     executive_summary: (primary.executive_summary && !primary.executive_summary.includes("structured data extraction failed"))
       ? primary.executive_summary
       : secondary.executive_summary,
@@ -207,20 +193,20 @@ export function mergeResearchOutputs(
 }
 
 // ============================================================================
-// PARALLEL AI RESEARCH (PRIMARY)
+// LINKUP RESEARCH (PRIMARY)
 // ============================================================================
 
 /**
- * Execute research using PARALLEL AI as the primary (and only) search provider
+ * Execute research using LinkUp as the primary (and only) search provider
  *
- * v3.0 - Complete rewrite removing Perplexity and LinkUp.
- * Cost: $0.005 per prospect (88-92% savings)
+ * v4.0 - Complete rewrite using LinkUp with multi-query architecture.
+ * Cost: ~$0.025 per prospect (5 queries × $0.005)
  *
  * Architecture:
  * ┌─────────────────────────────────────────────────────────┐
- * │  PARALLEL AI (PRIMARY)                                  │
- * │  - Comprehensive agentic search                         │
- * │  - $0.005 per search                                    │
+ * │  LINKUP (PRIMARY)                                       │
+ * │  - Multi-query parallel search                          │
+ * │  - ~$0.025 per search (5 queries)                       │
  * │  - Structured data extraction                           │
  * └─────────────────────────────────────────────────────────┘
  *                          ↓
@@ -234,26 +220,23 @@ export function mergeResearchOutputs(
  *                          ↓
  *              Calculate RōmyScore
  */
-async function researchWithParallelSources(
+async function researchWithLinkUpSources(
   prospect: ProspectInputData,
-  openrouterKey?: string,
-  _linkupKey?: string // Deprecated, kept for backward compatibility
+  openrouterKey?: string
 ): Promise<PerplexityResearchResult> {
   const startTime = Date.now()
   const hasGrok = isGrokSearchAvailable(openrouterKey)
 
-  console.log(`[BatchProcessor] Starting Parallel AI research for ${prospect.name}`)
-  console.log(`[BatchProcessor] Parallel: enabled | Grok: ${hasGrok ? "enabled" : "disabled"}`)
+  console.log(`[BatchProcessor] Starting LinkUp research for ${prospect.name}`)
+  console.log(`[BatchProcessor] LinkUp: enabled | Grok: ${hasGrok ? "enabled" : "disabled"}`)
 
-  // Execute Parallel AI search (primary) and optionally Grok (for X/Twitter)
-  const searchPromises: Promise<ParallelBatchResult | GrokSearchResult>[] = [
-    parallelBatchSearch({
+  // Execute LinkUp multi-query search (primary) - Standard mode
+  const searchPromises: Promise<any>[] = [
+    linkupBatchSearch({
       name: prospect.name,
       address: prospect.address || prospect.full_address,
       employer: prospect.employer,
       title: prospect.title,
-      city: prospect.city,
-      state: prospect.state,
     }),
   ]
 
@@ -277,31 +260,25 @@ async function researchWithParallelSources(
   const results = await Promise.allSettled(searchPromises)
 
   // Extract results
-  const parallelResult = results[0].status === "fulfilled" ? results[0].value as ParallelBatchResult : null
+  const linkupResult = results[0].status === "fulfilled" ? results[0].value : null
   const grokResult = hasGrok && results[1]?.status === "fulfilled" ? results[1].value as GrokSearchResult : null
 
-  // If Parallel AI failed, return error
-  if (!parallelResult || parallelResult.error || !parallelResult.research) {
-    console.error("[BatchProcessor] Parallel AI search failed:", parallelResult?.error || "No results")
+  // If LinkUp failed, return error
+  if (!linkupResult || linkupResult.error) {
+    console.error("[BatchProcessor] LinkUp search failed:", linkupResult?.error || "No results")
     return {
       success: false,
-      tokens_used: parallelResult?.tokensUsed || 0,
-      model_used: "parallel-ai/search",
+      tokens_used: 0,
+      model_used: "linkup/search",
       processing_duration_ms: Date.now() - startTime,
-      error_message: parallelResult?.error || "Parallel AI search failed",
+      error_message: linkupResult?.error || "LinkUp search failed",
     }
   }
 
-  console.log(`[BatchProcessor] Parallel AI returned ${parallelResult.sources.length} sources in ${parallelResult.durationMs}ms`)
+  console.log(`[BatchProcessor] LinkUp returned ${linkupResult.sources.length} sources in ${linkupResult.durationMs}ms (${linkupResult.queryCount} queries)`)
 
-  // Extract structured data from Parallel AI research
-  const extractedData = extractStructuredDataFromResearch(parallelResult.research)
-
-  // Build the structured output from Parallel AI data
-  const output = buildStructuredOutputFromParallel(prospect, parallelResult, extractedData)
-
-  // Track tokens
-  let totalTokens = parallelResult.tokensUsed || 0
+  // Build structured output from LinkUp results
+  const output = buildStructuredOutputFromLinkUp(prospect, linkupResult)
 
   // Merge Grok results if available (for X/Twitter sources)
   if (grokResult && !grokResult.error && grokResult.sources.length > 0) {
@@ -330,14 +307,12 @@ async function researchWithParallelSources(
       )
       console.log(`[BatchProcessor] Added ${grokOnlySources.length} unique sources from Grok`)
     }
-
-    totalTokens += grokResult.tokensUsed || 0
   } else if (grokResult?.error) {
     console.warn(`[BatchProcessor] Grok search failed: ${grokResult.error}`)
   }
 
   const totalDuration = Date.now() - startTime
-  console.log(`[BatchProcessor] Parallel AI research completed in ${totalDuration}ms`)
+  console.log(`[BatchProcessor] LinkUp research completed in ${totalDuration}ms`)
 
   // Generate markdown report
   const reportMarkdown = formatReportMarkdown(prospect.name, output)
@@ -346,40 +321,59 @@ async function researchWithParallelSources(
     success: true,
     output,
     report_markdown: reportMarkdown,
-    tokens_used: totalTokens,
-    model_used: "parallel-ai/search",
+    tokens_used: 0, // LinkUp doesn't report tokens
+    model_used: "linkup/search",
     processing_duration_ms: totalDuration,
   }
 }
 
 /**
- * Build structured ProspectResearchOutput from Parallel AI results
+ * Build structured ProspectResearchOutput from LinkUp results
  */
-function buildStructuredOutputFromParallel(
+function buildStructuredOutputFromLinkUp(
   prospect: ProspectInputData,
-  parallelResult: ParallelBatchResult,
-  extractedData: ExtractedParallelData
+  linkupResult: {
+    research: string
+    structuredData: ProspectStructuredData | null
+    sources: Array<{ name: string; url: string; snippet?: string }>
+    durationMs: number
+    queryCount: number
+    error?: string
+  }
 ): ProspectResearchOutput {
+  const structuredData = linkupResult.structuredData
+
   // Calculate estimated net worth from extracted data
-  const totalPropertyValue = extractedData.properties.reduce((sum, p) => sum + (p.value || 0), 0)
-  const totalBusinessValue = extractedData.businesses.reduce((sum, b) => sum + (b.value || 0), 0)
-  const estimatedNetWorthLow = extractedData.netWorthMentioned?.low || (totalPropertyValue + totalBusinessValue) * 0.8
-  const estimatedNetWorthHigh = extractedData.netWorthMentioned?.high || (totalPropertyValue + totalBusinessValue) * 1.5
+  const totalPropertyValue = structuredData?.totalRealEstateValue || 0
+  const totalBusinessValue = (structuredData?.businesses?.length || 0) * 500000 // Estimate $500K per business
+  const estimatedNetWorthLow = structuredData?.netWorthEstimate?.low || (totalPropertyValue + totalBusinessValue) * 0.8
+  const estimatedNetWorthHigh = structuredData?.netWorthEstimate?.high || (totalPropertyValue + totalBusinessValue) * 1.5
 
   // Determine capacity rating based on net worth (TFG Research Standard)
-  // MAJOR: NW >$5M, PRINCIPAL: $1M-$5M, LEADERSHIP: $500K-$1M, ANNUAL: <$500K
   let capacityRating: CapacityRating = "ANNUAL"
   const avgNetWorth = (estimatedNetWorthLow + estimatedNetWorthHigh) / 2
   if (avgNetWorth >= 5000000) capacityRating = "MAJOR"
   else if (avgNetWorth >= 1000000) capacityRating = "PRINCIPAL"
   else if (avgNetWorth >= 500000) capacityRating = "LEADERSHIP"
 
+  // Map LinkUp rating to capacity rating if available
+  if (structuredData?.givingCapacityRating) {
+    const ratingMap: Record<string, CapacityRating> = {
+      "A": "MAJOR",
+      "B": "PRINCIPAL",
+      "C": "LEADERSHIP",
+      "D": "ANNUAL"
+    }
+    capacityRating = ratingMap[structuredData.givingCapacityRating] || capacityRating
+  }
+
   // Determine confidence level
   let confidenceLevel: ResearchConfidence = "LOW"
-  const hasPropertyData = extractedData.properties.length > 0
-  const hasBusinessData = extractedData.businesses.length > 0
-  const hasPhilanthropyData = extractedData.foundations.length > 0 || (extractedData.politicalGiving.total || 0) > 0
-  const hasSECData = extractedData.secFilings.hasFilings
+  const hasPropertyData = (structuredData?.realEstate?.length || 0) > 0
+  const hasBusinessData = (structuredData?.businesses?.length || 0) > 0
+  const hasPhilanthropyData = (structuredData?.philanthropy?.foundations?.length || 0) > 0 ||
+    (structuredData?.politicalGiving?.totalAmount || 0) > 0
+  const hasSECData = structuredData?.securities?.hasSecFilings
 
   if ((hasPropertyData && hasBusinessData) || hasSECData) {
     confidenceLevel = "HIGH"
@@ -390,44 +384,46 @@ function buildStructuredOutputFromParallel(
   // Build executive summary
   const summaryParts: string[] = []
   if (hasPropertyData) {
-    summaryParts.push(`Real estate holdings valued at ~$${(totalPropertyValue / 1000000).toFixed(1)}M`)
+    summaryParts.push(`Real estate holdings valued at ~$${((structuredData?.totalRealEstateValue || 0) / 1000000).toFixed(1)}M`)
   }
   if (hasBusinessData) {
-    const businessNames = extractedData.businesses.map(b => b.name).filter(Boolean).slice(0, 2)
+    const businessNames = (structuredData?.businesses || []).map(b => b.name).filter(Boolean).slice(0, 2)
     if (businessNames.length > 0) {
       summaryParts.push(`Business interests: ${businessNames.join(", ")}`)
     }
   }
   if (hasSECData) {
-    summaryParts.push(`SEC filings indicate public company involvement (${extractedData.secFilings.tickers.join(", ")})`)
+    const tickers = structuredData?.securities?.companies?.map(c => c.ticker) || []
+    summaryParts.push(`SEC filings indicate public company involvement (${tickers.join(", ")})`)
   }
   if (hasPhilanthropyData) {
-    if (extractedData.politicalGiving.total) {
-      summaryParts.push(`Political contributions totaling $${extractedData.politicalGiving.total.toLocaleString()}`)
+    if (structuredData?.politicalGiving?.totalAmount) {
+      summaryParts.push(`Political contributions totaling $${structuredData.politicalGiving.totalAmount.toLocaleString()}`)
     }
-    if (extractedData.foundations.length > 0) {
-      summaryParts.push(`Foundation affiliations: ${extractedData.foundations.slice(0, 2).join(", ")}`)
+    const foundations = structuredData?.philanthropy?.foundations?.map(f => f.name).slice(0, 2) || []
+    if (foundations.length > 0) {
+      summaryParts.push(`Foundation affiliations: ${foundations.join(", ")}`)
     }
   }
 
   const executiveSummary = summaryParts.length > 0
     ? summaryParts.join(". ") + "."
-    : `Research completed for ${prospect.name}. Limited public data available.`
+    : structuredData?.summary || `Research completed for ${prospect.name}. Limited public data available.`
 
   // Build career summary from prospect data
   const careerSummary = prospect.employer && prospect.title
     ? `${prospect.title} at ${prospect.employer}`
     : prospect.employer
       ? `Works at ${prospect.employer}`
-      : prospect.title
-        ? prospect.title
+      : structuredData?.businesses?.length
+        ? structuredData.businesses.map(b => `${b.role} at ${b.name}`).join("; ")
         : "Career details not available"
 
   // Map party lean to valid PoliticalParty type
-  const partyLean = extractedData.politicalGiving.partyLean
+  const partyLean = structuredData?.politicalGiving?.partyLean
   const validPartyLean: "REPUBLICAN" | "DEMOCRATIC" | "BIPARTISAN" | "NONE" =
-    partyLean === "REPUBLICAN" || partyLean === "DEMOCRATIC" || partyLean === "BIPARTISAN"
-      ? partyLean
+    partyLean?.toUpperCase() === "REPUBLICAN" || partyLean?.toUpperCase() === "DEMOCRATIC" || partyLean?.toUpperCase() === "BIPARTISAN"
+      ? partyLean.toUpperCase() as "REPUBLICAN" | "DEMOCRATIC" | "BIPARTISAN"
       : "NONE"
 
   return {
@@ -443,48 +439,50 @@ function buildStructuredOutputFromParallel(
     },
     wealth: {
       real_estate: {
-        total_value: totalPropertyValue || null,
-        properties: extractedData.properties.map((p) => ({
-          address: p.address || "Property",
-          value: p.value || 0,
-          source: p.source || "Parallel AI",
+        total_value: structuredData?.totalRealEstateValue || null,
+        properties: (structuredData?.realEstate || []).map((p) => ({
+          address: p.address,
+          value: p.estimatedValue || 0,
+          source: p.source || "LinkUp",
           confidence: "ESTIMATED" as const,
         })),
       },
-      business_ownership: extractedData.businesses.map((b) => ({
-        company: b.name || "Unknown",
-        role: b.role || "Executive",
-        estimated_value: b.value || null,
-        source: "Parallel AI",
+      business_ownership: (structuredData?.businesses || []).map((b) => ({
+        company: b.name,
+        role: b.role,
+        estimated_value: b.estimatedRevenue || null,
+        source: "LinkUp",
         confidence: "ESTIMATED" as const,
       })),
       securities: {
-        has_sec_filings: extractedData.secFilings.hasFilings,
-        insider_at: extractedData.secFilings.tickers,
-        source: extractedData.secFilings.hasFilings ? "Parallel AI" : null,
+        has_sec_filings: structuredData?.securities?.hasSecFilings || false,
+        insider_at: (structuredData?.securities?.companies || []).map(c => c.ticker),
+        source: structuredData?.securities?.hasSecFilings ? "SEC EDGAR via LinkUp" : null,
       },
     },
     philanthropy: {
       political_giving: {
-        total: extractedData.politicalGiving.total || 0,
+        total: structuredData?.politicalGiving?.totalAmount || 0,
         party_lean: validPartyLean,
-        source: extractedData.politicalGiving.total ? "FEC" : null,
+        source: structuredData?.politicalGiving?.totalAmount ? "FEC" : null,
       },
-      foundation_affiliations: extractedData.foundations,
-      nonprofit_boards: [],
-      known_major_gifts: extractedData.majorGifts.map((g) => ({
-        organization: g.organization || "Unknown",
+      foundation_affiliations: (structuredData?.philanthropy?.foundations || []).map(f => f.name),
+      nonprofit_boards: (structuredData?.philanthropy?.boardMemberships || []).map(b => b.organization),
+      known_major_gifts: (structuredData?.philanthropy?.majorGifts || []).map((g) => ({
+        organization: g.recipient,
         amount: g.amount || 0,
-        year: null,
-        source: "Parallel AI",
+        year: g.year || null,
+        source: "LinkUp",
       })),
     },
     background: {
-      age: extractedData.age || null,
-      education: extractedData.education,
+      age: structuredData?.age || null,
+      education: (structuredData?.education || []).map(e =>
+        [e.degree, e.institution, e.year ? `(${e.year})` : null].filter(Boolean).join(" - ")
+      ),
       career_summary: careerSummary,
       family: {
-        spouse: null,
+        spouse: structuredData?.spouse || null,
         children_count: null,
       },
     },
@@ -498,153 +496,12 @@ function buildStructuredOutputFromParallel(
       talking_points: [],
       avoid: [],
     },
-    sources: parallelResult.sources.map((s) => ({
+    sources: linkupResult.sources.map((s) => ({
       title: s.name,
       url: s.url,
-      data_provided: s.snippet || "Research data from Parallel AI",
+      data_provided: s.snippet || "Research data from LinkUp",
     })),
   }
-}
-
-/**
- * Parse JSON from model response, handling various formats
- */
-function parseJsonResponse(response: string): ProspectResearchOutput | null {
-  try {
-    // Try direct JSON parse first
-    const parsed = JSON.parse(response)
-    if (isValidProspectOutput(parsed)) {
-      return parsed
-    }
-  } catch {
-    // Not direct JSON, try extracting from code blocks
-  }
-
-  // Try extracting from ```json blocks
-  const jsonBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
-  if (jsonBlockMatch && jsonBlockMatch[1]) {
-    try {
-      const parsed = JSON.parse(jsonBlockMatch[1].trim())
-      if (isValidProspectOutput(parsed)) {
-        return parsed
-      }
-    } catch {
-      // JSON in block is invalid
-    }
-  }
-
-  // Try finding JSON object in response
-  const jsonMatch = response.match(/\{[\s\S]*\}/)
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0])
-      if (isValidProspectOutput(parsed)) {
-        return parsed
-      }
-    } catch {
-      // No valid JSON found
-    }
-  }
-
-  return null
-}
-
-/**
- * Create a fallback output when JSON parsing fails
- * Extracts what it can from raw text response
- */
-function createFallbackOutput(
-  prospect: ProspectInputData,
-  rawText: string
-): ProspectResearchOutput | null {
-  try {
-    // Extract any usable information from the raw text
-    const summary = rawText.length > 500 ? rawText.substring(0, 500) + "..." : rawText
-
-    // Create minimal valid output
-    return {
-      metrics: {
-        estimated_net_worth_low: null,
-        estimated_net_worth_high: null,
-        estimated_gift_capacity: null,
-        capacity_rating: "ANNUAL" as const,
-        romy_score: 0,
-        recommended_ask: null,
-        confidence_level: "LOW" as const,
-      },
-      wealth: {
-        real_estate: {
-          total_value: null,
-          properties: [],
-        },
-        business_ownership: [],
-        securities: {
-          has_sec_filings: false,
-          insider_at: [],
-          source: null,
-        },
-      },
-      philanthropy: {
-        political_giving: {
-          total: 0,
-          party_lean: "NONE" as const,
-          source: null,
-        },
-        foundation_affiliations: [],
-        nonprofit_boards: [],
-        known_major_gifts: [],
-      },
-      background: {
-        age: null,
-        education: [],
-        career_summary: "Research data could not be structured. See raw text.",
-        family: {
-          spouse: null,
-          children_count: null,
-        },
-      },
-      strategy: {
-        readiness: "NOT_READY" as const,
-        next_steps: ["Manually review prospect data"],
-        best_solicitor: "Unknown",
-        tax_smart_option: "NONE" as const,
-        talking_points: [],
-        avoid: [],
-      },
-      sources: [],
-      executive_summary: `Research was conducted for ${prospect.name} but structured data extraction failed. Raw response: ${summary}`,
-    }
-  } catch {
-    return null
-  }
-}
-
-/**
- * Validate that parsed object matches ProspectResearchOutput schema
- */
-function isValidProspectOutput(obj: unknown): obj is ProspectResearchOutput {
-  if (!obj || typeof obj !== "object") return false
-
-  const data = obj as Record<string, unknown>
-
-  // Check required top-level keys
-  const requiredKeys = ["metrics", "wealth", "philanthropy", "background", "strategy", "sources", "executive_summary"]
-  for (const key of requiredKeys) {
-    if (!(key in data)) {
-      console.warn(`[BatchProcessor] Missing required key: ${key}`)
-      return false
-    }
-  }
-
-  // Check metrics structure
-  const metrics = data.metrics as Record<string, unknown>
-  if (!metrics || typeof metrics !== "object") return false
-  if (!("capacity_rating" in metrics) || !("romy_score" in metrics)) {
-    console.warn("[BatchProcessor] Missing required metrics fields")
-    return false
-  }
-
-  return true
 }
 
 // ============================================================================
@@ -657,37 +514,27 @@ function isValidProspectOutput(obj: unknown): obj is ProspectResearchOutput {
 function hasInsufficientData(data: ProspectResearchOutput): boolean {
   const { metrics, wealth, philanthropy, background, sources } = data
 
-  // No sources found = likely couldn't find anyone
   const noSources = sources.length === 0
-
-  // No wealth indicators
   const noWealthData =
     !wealth.real_estate.total_value &&
     wealth.real_estate.properties.length === 0 &&
     wealth.business_ownership.length === 0 &&
     !wealth.securities.has_sec_filings
-
-  // No philanthropy data
   const noPhilanthropyData =
     philanthropy.political_giving.total === 0 &&
     philanthropy.foundation_affiliations.length === 0 &&
     philanthropy.nonprofit_boards.length === 0 &&
     philanthropy.known_major_gifts.length === 0
-
-  // No background data
   const noBackgroundData =
     !background.age &&
     background.education.length === 0 &&
     (!background.career_summary || background.career_summary.includes("could not be structured"))
-
-  // No metrics calculated
   const noMetrics =
     !metrics.estimated_net_worth_low &&
     !metrics.estimated_net_worth_high &&
     !metrics.estimated_gift_capacity &&
     metrics.romy_score === 0
 
-  // Insufficient if we have no sources AND no data in major categories
   return noSources && noWealthData && noPhilanthropyData && noBackgroundData && noMetrics
 }
 
@@ -699,7 +546,7 @@ function formatInsufficientDataReport(name: string, data: ProspectResearchOutput
 
   lines.push(`# ${name} | Insufficient Data`)
   lines.push("")
-  lines.push("⚠️ **Research Status: Unable to Verify**")
+  lines.push("**Research Status: Unable to Verify**")
   lines.push("")
   lines.push("Public records searches did not yield verifiable information for this prospect.")
   lines.push("")
@@ -736,16 +583,6 @@ function formatInsufficientDataReport(name: string, data: ProspectResearchOutput
   lines.push("- [ ] **LinkedIn profile URL**")
   lines.push("- [ ] **Known philanthropic affiliations**")
   lines.push("- [ ] **Approximate age** or graduation year")
-  lines.push("")
-  lines.push("---")
-  lines.push("")
-  lines.push("## Research Notes")
-  lines.push("")
-  if (data.executive_summary && !data.executive_summary.includes("structured data extraction failed")) {
-    lines.push(data.executive_summary)
-  } else {
-    lines.push("*No additional context was extracted from public sources.*")
-  }
 
   return lines.join("\n")
 }
@@ -754,24 +591,21 @@ function formatInsufficientDataReport(name: string, data: ProspectResearchOutput
  * Format structured JSON output into table-first markdown report
  */
 function formatReportMarkdown(name: string, data: ProspectResearchOutput): string {
-  // Check if we have insufficient data for a full report
   if (hasInsufficientData(data)) {
     return formatInsufficientDataReport(name, data)
   }
+
   const { metrics, wealth, philanthropy, background, strategy, sources, executive_summary } = data
 
-  // Format currency with null handling
   const formatCurrency = (value: number | null | undefined): string => {
     if (value === null || value === undefined) return "Unknown"
     return `$${value.toLocaleString()}`
   }
 
-  // Format net worth range
   const netWorthDisplay = metrics.estimated_net_worth_low && metrics.estimated_net_worth_high
     ? `${formatCurrency(metrics.estimated_net_worth_low)} - ${formatCurrency(metrics.estimated_net_worth_high)}`
     : formatCurrency(metrics.estimated_net_worth_high || metrics.estimated_net_worth_low)
 
-  // Build markdown
   const lines: string[] = []
 
   // Header with key metrics table
@@ -782,7 +616,7 @@ function formatReportMarkdown(name: string, data: ProspectResearchOutput): strin
   lines.push(`| **Net Worth** | ${netWorthDisplay} | ${metrics.confidence_level} |`)
   lines.push(`| **Gift Capacity** | ${formatCurrency(metrics.estimated_gift_capacity)} | ${metrics.confidence_level} |`)
   lines.push(`| **Rating** | ${metrics.capacity_rating} | - |`)
-  lines.push(`| **RōmyScore** | ${metrics.romy_score}/41 | - |`)
+  lines.push(`| **RomyScore** | ${metrics.romy_score}/41 | - |`)
   lines.push(`| **Recommended Ask** | ${formatCurrency(metrics.recommended_ask)} | - |`)
   lines.push("")
   lines.push("---")
@@ -916,7 +750,7 @@ function formatReportMarkdown(name: string, data: ProspectResearchOutput): strin
       lines.push(`**Children:** ${background.family.children_count}`)
     }
   } else {
-    lines.push("*No biographical information found in public records. Consider checking LinkedIn or organizational directories.*")
+    lines.push("*No biographical information found in public records.*")
   }
   lines.push("")
   lines.push("---")
@@ -936,18 +770,6 @@ function formatReportMarkdown(name: string, data: ProspectResearchOutput): strin
   lines.push("")
   lines.push(`**Tax-Smart Option:** ${strategy.tax_smart_option}`)
   lines.push("")
-  lines.push("**Talking Points:**")
-  for (const point of strategy.talking_points) {
-    lines.push(`- ${point}`)
-  }
-  if (strategy.avoid.length > 0) {
-    lines.push("")
-    lines.push("**Avoid:**")
-    for (const item of strategy.avoid) {
-      lines.push(`- ${item}`)
-    }
-  }
-  lines.push("")
   lines.push("---")
   lines.push("")
 
@@ -959,7 +781,7 @@ function formatReportMarkdown(name: string, data: ProspectResearchOutput): strin
       lines.push(`- [${source.title}](${source.url}) - ${source.data_provided}`)
     }
   } else {
-    lines.push("*No verifiable sources found. Public records, property databases, and government filings did not return matches for this name and address combination. Additional identifying information (employer, full address with city/state, spouse name) may improve results.*")
+    lines.push("*No verifiable sources found.*")
   }
 
   return lines.join("\n")
@@ -1025,12 +847,12 @@ async function calculateRomyScoreFromResearch(
 // ============================================================================
 
 /**
- * Generate a comprehensive prospect report using Parallel AI
+ * Generate a comprehensive prospect report using LinkUp
  *
  * This is the main entry point for batch processing.
  * Returns structured data + formatted markdown report.
  *
- * Cost: $0.005 per prospect (Parallel AI search)
+ * Cost: ~$0.025 per prospect (5 queries × $0.005)
  */
 export async function generateProspectReport(
   options: GenerateReportOptions
@@ -1041,11 +863,8 @@ export async function generateProspectReport(
   try {
     console.log(`[BatchProcessor] Starting research for: ${prospect.name}`)
 
-    // Step 1: Research with Parallel AI (primary) + optional Grok (for X/Twitter)
-    const researchResult = await researchWithParallelSources(
-      prospect,
-      apiKey
-    )
+    // Step 1: Research with LinkUp (primary) + optional Grok (for X/Twitter)
+    const researchResult = await researchWithLinkUpSources(prospect, apiKey)
 
     if (!researchResult.success || !researchResult.output) {
       return {
@@ -1070,7 +889,7 @@ export async function generateProspectReport(
 
     console.log(
       `[BatchProcessor] Research complete for ${prospect.name} in ${processingTime}ms: ` +
-      `RōmyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name}), ` +
+      `RomyScore: ${romyBreakdown.totalScore}/41 (${romyBreakdown.tier.name}), ` +
       `Rating: ${output.metrics.capacity_rating}, ` +
       `Sources: ${output.sources.length}`
     )
@@ -1150,7 +969,7 @@ export async function generateReportWithSonarAndGrok(
     structured_data: (result.structured_data as unknown as Record<string, unknown>) || {},
     sources: result.sources_found || [],
     tokens_used: result.tokens_used || 0,
-    model_used: "parallel-ai/search",
+    model_used: "linkup/search",
     processing_duration_ms: Date.now() - startTime,
   }
 }
