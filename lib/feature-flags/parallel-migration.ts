@@ -75,18 +75,18 @@ export interface ParallelMigrationFlags {
 // ============================================================================
 
 /**
- * Default flags - ALL DISABLED for safety
- * Must explicitly enable via environment variables
+ * Default flags - ALL ENABLED when PARALLEL_ENABLED=true
+ * v3.0: Perplexity/LinkUp removed, Parallel is the only provider
  */
 const DEFAULT_FLAGS: ParallelMigrationFlags = {
   PARALLEL_ENABLED: false,
-  PARALLEL_CHAT_SEARCH: false,
-  PARALLEL_BATCH_SEARCH: false,
-  PARALLEL_TASK_API: false,
-  PARALLEL_EXTRACT: false,
-  PARALLEL_FINDALL: false,
-  PARALLEL_MONITOR: false,
-  PARALLEL_ROLLOUT_PERCENT: 0,
+  PARALLEL_CHAT_SEARCH: true,  // Auto-enable when PARALLEL_ENABLED=true
+  PARALLEL_BATCH_SEARCH: true, // Auto-enable when PARALLEL_ENABLED=true
+  PARALLEL_TASK_API: true,     // Auto-enable when PARALLEL_ENABLED=true
+  PARALLEL_EXTRACT: true,      // Auto-enable when PARALLEL_ENABLED=true
+  PARALLEL_FINDALL: true,      // Auto-enable when PARALLEL_ENABLED=true
+  PARALLEL_MONITOR: true,      // Auto-enable when PARALLEL_ENABLED=true
+  PARALLEL_ROLLOUT_PERCENT: 100, // 100% rollout (no gradual rollout needed)
 }
 
 // ============================================================================
@@ -100,20 +100,27 @@ const DEFAULT_FLAGS: ParallelMigrationFlags = {
  * @returns Current feature flag configuration
  */
 export function getParallelFlags(): ParallelMigrationFlags {
-  // Parse and clamp rollout percentage to valid range [0, 100]
-  const rawRollout = parseInt(process.env.PARALLEL_ROLLOUT_PERCENT || "0", 10)
-  const rolloutPercent = Number.isNaN(rawRollout)
-    ? 0
-    : Math.max(0, Math.min(100, rawRollout))
+  const isEnabled = process.env.PARALLEL_ENABLED === "true"
+
+  // v3.0: When PARALLEL_ENABLED=true, all features default to ON
+  // Individual flags can still override to disable specific features
+  const defaultWhenEnabled = isEnabled
+
+  // Parse rollout percentage - default to 100% when enabled
+  const rawRollout = process.env.PARALLEL_ROLLOUT_PERCENT
+  const rolloutPercent = rawRollout !== undefined
+    ? Math.max(0, Math.min(100, parseInt(rawRollout, 10) || 0))
+    : (isEnabled ? 100 : 0) // Default to 100% when enabled
 
   return {
-    PARALLEL_ENABLED: process.env.PARALLEL_ENABLED === "true",
-    PARALLEL_CHAT_SEARCH: process.env.PARALLEL_CHAT_SEARCH === "true",
-    PARALLEL_BATCH_SEARCH: process.env.PARALLEL_BATCH_SEARCH === "true",
-    PARALLEL_TASK_API: process.env.PARALLEL_TASK_API === "true",
-    PARALLEL_EXTRACT: process.env.PARALLEL_EXTRACT === "true",
-    PARALLEL_FINDALL: process.env.PARALLEL_FINDALL === "true",
-    PARALLEL_MONITOR: process.env.PARALLEL_MONITOR === "true",
+    PARALLEL_ENABLED: isEnabled,
+    // When PARALLEL_ENABLED=true, these default to true unless explicitly set to "false"
+    PARALLEL_CHAT_SEARCH: process.env.PARALLEL_CHAT_SEARCH === "false" ? false : defaultWhenEnabled,
+    PARALLEL_BATCH_SEARCH: process.env.PARALLEL_BATCH_SEARCH === "false" ? false : defaultWhenEnabled,
+    PARALLEL_TASK_API: process.env.PARALLEL_TASK_API === "false" ? false : defaultWhenEnabled,
+    PARALLEL_EXTRACT: process.env.PARALLEL_EXTRACT === "false" ? false : defaultWhenEnabled,
+    PARALLEL_FINDALL: process.env.PARALLEL_FINDALL === "false" ? false : defaultWhenEnabled,
+    PARALLEL_MONITOR: process.env.PARALLEL_MONITOR === "false" ? false : defaultWhenEnabled,
     PARALLEL_ROLLOUT_PERCENT: rolloutPercent,
   }
 }
