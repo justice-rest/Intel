@@ -47,7 +47,7 @@ export interface DiscoveryJobSettings {
 export const DEFAULT_DISCOVERY_SETTINGS: DiscoveryJobSettings = {
   match_limit: 10,
   generator: "pro",
-  entity_type: "person",  // Must be a basic type: person, company, product, etc.
+  entity_type: "people",  // Must be plural: people, companies, products, events, locations, houses
 }
 
 export interface DiscoveryJob {
@@ -187,7 +187,7 @@ export const DISCOVERY_TEMPLATES: DiscoveryTemplate[] = [
     name: "Tech Philanthropists",
     description: "Technology entrepreneurs with foundations or major giving",
     objective: "Find technology entrepreneurs and executives who are active philanthropists",
-    entity_type: "person",  // Use basic type, specifics go in match_conditions
+    entity_type: "people",  // Must be plural: people, companies, products
     match_conditions: [
       {
         name: "tech_background",
@@ -205,7 +205,7 @@ export const DISCOVERY_TEMPLATES: DiscoveryTemplate[] = [
     name: "Real Estate Investors",
     description: "Property investors and developers who give to charity",
     objective: "Find real estate investors and developers who support charitable causes",
-    entity_type: "person",  // Use basic type, specifics go in match_conditions
+    entity_type: "people",  // Must be plural: people, companies, products
     match_conditions: [
       {
         name: "real_estate_holdings",
@@ -223,7 +223,7 @@ export const DISCOVERY_TEMPLATES: DiscoveryTemplate[] = [
     name: "Healthcare Executives",
     description: "Healthcare industry leaders with philanthropic interests",
     objective: "Find healthcare executives and entrepreneurs who support health-related causes",
-    entity_type: "person",  // Use basic type, specifics go in match_conditions
+    entity_type: "people",  // Must be plural: people, companies, products
     match_conditions: [
       {
         name: "healthcare_leadership",
@@ -241,7 +241,7 @@ export const DISCOVERY_TEMPLATES: DiscoveryTemplate[] = [
     name: "Finance Philanthropists",
     description: "Finance and investment professionals with major giving capacity",
     objective: "Find finance professionals and investors who are significant philanthropists",
-    entity_type: "person",  // Use basic type, specifics go in match_conditions
+    entity_type: "people",  // Must be plural: people, companies, products
     match_conditions: [
       {
         name: "finance_background",

@@ -130,13 +130,21 @@ export async function POST(
         url: "",
       }))
 
-      // IMPORTANT: Always use "person" as entity_type
-      // The FindAll API only accepts basic types (person, company, product)
-      // Specific characteristics are defined in match_conditions
-      const validEntityType = job.settings.entity_type === "company" ||
-                              job.settings.entity_type === "product"
-                              ? job.settings.entity_type
-                              : "person"
+      // IMPORTANT: Normalize entity_type to valid plural forms
+      // The FindAll API requires: "people", "companies", "products", "events", "locations", "houses"
+      const entityTypeMap: Record<string, string> = {
+        person: "people",
+        people: "people",
+        company: "companies",
+        companies: "companies",
+        product: "products",
+        products: "products",
+        philanthropist: "people",
+        executive: "people",
+        investor: "people",
+        entrepreneur: "people",
+      }
+      const validEntityType = entityTypeMap[job.settings.entity_type.toLowerCase()] || "people"
 
       // Debug: Log exact parameters being sent to FindAll
       const discoveryParams = {

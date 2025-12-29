@@ -44,7 +44,7 @@ export interface FindAllConfig {
 export interface ProspectDiscoveryOptions {
   /** Natural language objective describing who to find */
   objective: string
-  /** Type of entity to find (e.g., "person", "philanthropist", "executive") */
+  /** Type of entity to find - must be plural (e.g., "people", "companies", "products") */
   entityType?: string
   /** Match conditions that candidates must satisfy */
   matchConditions: Array<{
@@ -341,7 +341,7 @@ export async function startProspectDiscovery(
 
     const params: FindallCreateParams = {
       objective: options.objective,
-      entity_type: options.entityType ?? "person",
+      entity_type: options.entityType ?? "people",  // Must be plural: people, companies, products
       match_conditions: options.matchConditions,
       match_limit: matchLimit,
       generator: options.generator ?? "pro",
@@ -741,7 +741,7 @@ export const DISCOVERY_TEMPLATES = {
    */
   techPhilanthropists: (location?: string): ProspectDiscoveryOptions => ({
     objective: `Find technology entrepreneurs and executives who are active philanthropists${location ? ` in ${location}` : ""}`,
-    entityType: "person",
+    entityType: "people",
     matchConditions: [
       {
         name: "tech_background",
@@ -768,7 +768,7 @@ export const DISCOVERY_TEMPLATES = {
    */
   realEstateInvestors: (location?: string): ProspectDiscoveryOptions => ({
     objective: `Find real estate investors and developers who support nonprofits${location ? ` in ${location}` : ""}`,
-    entityType: "person",
+    entityType: "people",
     matchConditions: [
       {
         name: "real_estate",
@@ -790,7 +790,7 @@ export const DISCOVERY_TEMPLATES = {
    */
   healthcareExecutives: (location?: string): ProspectDiscoveryOptions => ({
     objective: `Find healthcare industry executives who are philanthropic donors${location ? ` in ${location}` : ""}`,
-    entityType: "person",
+    entityType: "people",
     matchConditions: [
       {
         name: "healthcare_role",
@@ -812,7 +812,7 @@ export const DISCOVERY_TEMPLATES = {
    */
   financePhilanthropists: (location?: string): ProspectDiscoveryOptions => ({
     objective: `Find finance and investment professionals who are active in philanthropy${location ? ` in ${location}` : ""}`,
-    entityType: "person",
+    entityType: "people",
     matchConditions: [
       {
         name: "finance_background",
