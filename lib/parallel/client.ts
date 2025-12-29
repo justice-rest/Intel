@@ -371,7 +371,11 @@ export async function parallelSearch(
     objective: options.objective,
     mode: options.mode ?? "one-shot",
     max_results: options.maxResults ?? 10,
-    betas: ["search-extract-2025-10-10"],
+  }
+
+  // Beta header required for search-extract endpoint
+  const requestOptions = {
+    headers: { "parallel-beta": "search-extract-2025-10-10" },
   }
 
   // Add optional keyword queries
@@ -400,7 +404,7 @@ export async function parallelSearch(
   try {
     const result = await withRetry(
       async () => {
-        const response = await client.beta.search(searchParams)
+        const response = await client.beta.search(searchParams, requestOptions)
         return response
       },
       {
@@ -480,8 +484,12 @@ export async function parallelExtract(
   // Build extract params
   const extractParams: BetaExtractParams = {
     urls: options.urls,
-    betas: ["search-extract-2025-10-10"],
     excerpts: true,
+  }
+
+  // Beta header required for search-extract endpoint
+  const requestOptions = {
+    headers: { "parallel-beta": "search-extract-2025-10-10" },
   }
 
   // Add objective for focused extraction
@@ -499,7 +507,7 @@ export async function parallelExtract(
   try {
     const result = await withRetry(
       async () => {
-        const response = await client.beta.extract(extractParams)
+        const response = await client.beta.extract(extractParams, requestOptions)
         return response
       },
       {
