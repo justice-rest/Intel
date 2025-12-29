@@ -6,7 +6,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { DiscoveryJob, StartDiscoveryResponse } from "@/lib/discovery"
-import { getDiscoveryPlanLimits } from "@/lib/discovery/config"
+import { getDiscoveryPlanLimits, DISCOVERY_PLAN_LIMITS } from "@/lib/discovery/config"
+import { getCustomerData, normalizePlanId } from "@/lib/subscription/autumn-client"
 import {
   executeProspectDiscovery,
   getFindAllStatus,
@@ -69,8 +70,26 @@ export async function POST(
       console.error("[Discovery API] Error checking rate limit:", countError)
     }
 
-    // Get plan limits (default to pro for now - in production, fetch from user profile)
-    const planLimits = getDiscoveryPlanLimits("pro")
+    // Get user's actual plan from Autumn
+    let userPlan = "growth" // Default fallback
+    try {
+      const customerData = await getCustomerData(user.id, 2000)
+      if (customerData?.products && customerData.products.length > 0) {
+        const activeProduct = customerData.products.find(
+          (p: { status: string }) => p.status === "active" || p.status === "trialing"
+        )
+        if (activeProduct) {
+          const planId = normalizePlanId(activeProduct.id)
+          if (planId && DISCOVERY_PLAN_LIMITS[planId]) {
+            userPlan = planId
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[Discovery API] Error fetching user plan:", error)
+    }
+
+    const planLimits = getDiscoveryPlanLimits(userPlan)
 
     if ((todayJobCount ?? 0) >= planLimits.daily_jobs) {
       return NextResponse.json(

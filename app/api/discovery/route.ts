@@ -20,7 +20,9 @@ import {
   DISCOVERY_MAX_CANDIDATES,
   DISCOVERY_MAX_STORED_JOBS,
   getDiscoveryPlanLimits,
+  DISCOVERY_PLAN_LIMITS,
 } from "@/lib/discovery/config"
+import { getCustomerData, normalizePlanId } from "@/lib/subscription/autumn-client"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -220,8 +222,26 @@ export async function POST(request: Request) {
       }
     }
 
-    // Get plan limits (default to pro for now)
-    const planLimits = getDiscoveryPlanLimits("pro")
+    // Get user's actual plan from Autumn
+    let userPlan = "growth" // Default fallback
+    try {
+      const customerData = await getCustomerData(user.id, 2000)
+      if (customerData?.products && customerData.products.length > 0) {
+        const activeProduct = customerData.products.find(
+          (p: { status: string }) => p.status === "active" || p.status === "trialing"
+        )
+        if (activeProduct) {
+          const planId = normalizePlanId(activeProduct.id)
+          if (planId && DISCOVERY_PLAN_LIMITS[planId]) {
+            userPlan = planId
+          }
+        }
+      }
+    } catch (error) {
+      console.error("[Discovery API] Error fetching user plan:", error)
+    }
+
+    const planLimits = getDiscoveryPlanLimits(userPlan)
 
     // Validate settings if provided
     if (body.settings) {

@@ -74,8 +74,20 @@ export const DISCOVERY_PLAN_LIMITS: Record<string, DiscoveryPlanLimits> = {
     templates_available: true,
     custom_conditions: true,
   },
+  growth: {
+    daily_jobs: 10,
+    max_candidates_per_job: 25,
+    templates_available: true,
+    custom_conditions: true,
+  },
   pro: {
     daily_jobs: 20,
+    max_candidates_per_job: 50,
+    templates_available: true,
+    custom_conditions: true,
+  },
+  scale: {
+    daily_jobs: 50,
     max_candidates_per_job: 50,
     templates_available: true,
     custom_conditions: true,
