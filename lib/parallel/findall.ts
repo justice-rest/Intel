@@ -741,7 +741,7 @@ export const DISCOVERY_TEMPLATES = {
    */
   techPhilanthropists: (location?: string): ProspectDiscoveryOptions => ({
     objective: `Find technology entrepreneurs and executives who are active philanthropists${location ? ` in ${location}` : ""}`,
-    entityType: "philanthropist",
+    entityType: "person",
     matchConditions: [
       {
         name: "tech_background",
@@ -768,7 +768,7 @@ export const DISCOVERY_TEMPLATES = {
    */
   realEstateInvestors: (location?: string): ProspectDiscoveryOptions => ({
     objective: `Find real estate investors and developers who support nonprofits${location ? ` in ${location}` : ""}`,
-    entityType: "investor",
+    entityType: "person",
     matchConditions: [
       {
         name: "real_estate",
@@ -790,7 +790,7 @@ export const DISCOVERY_TEMPLATES = {
    */
   healthcareExecutives: (location?: string): ProspectDiscoveryOptions => ({
     objective: `Find healthcare industry executives who are philanthropic donors${location ? ` in ${location}` : ""}`,
-    entityType: "executive",
+    entityType: "person",
     matchConditions: [
       {
         name: "healthcare_role",
@@ -812,7 +812,7 @@ export const DISCOVERY_TEMPLATES = {
    */
   financePhilanthropists: (location?: string): ProspectDiscoveryOptions => ({
     objective: `Find finance and investment professionals who are active in philanthropy${location ? ` in ${location}` : ""}`,
-    entityType: "philanthropist",
+    entityType: "person",
     matchConditions: [
       {
         name: "finance_background",
