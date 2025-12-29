@@ -299,6 +299,54 @@ function candidateToProspect(
 }
 
 // ============================================================================
+// PUBLIC API: Validate Discovery Schema
+// ============================================================================
+
+/**
+ * Validate a discovery objective using the ingest endpoint
+ * This transforms natural language into a structured FindAll spec
+ *
+ * @param objective - Natural language objective
+ * @param config - Optional client configuration
+ * @returns Validated schema or throws error with details
+ */
+export async function validateDiscoverySchema(
+  objective: string,
+  config?: FindAllConfig
+): Promise<{
+  entity_type: string
+  match_conditions: Array<{ name: string; description: string }>
+  objective: string
+  generator?: "base" | "core" | "pro" | "preview" | null
+  match_limit?: number | null
+}> {
+  if (!isParallelConfigured()) {
+    throw createFindAllError(
+      "Parallel API key not configured",
+      "NOT_CONFIGURED"
+    )
+  }
+
+  try {
+    const client = getFindAllClient(config)
+
+    console.log(`[FindAll] Validating schema for: ${objective}`)
+
+    const schema = await client.beta.findall.ingest({
+      objective,
+      betas: ["findall-2025-09-15"],
+    })
+
+    console.log(`[FindAll] Validated schema:`, JSON.stringify(schema, null, 2))
+
+    return schema
+  } catch (error) {
+    console.error(`[FindAll] Schema validation failed:`, error)
+    throw classifyFindAllError(error)
+  }
+}
+
+// ============================================================================
 // PUBLIC API: Create Prospect Discovery Run
 // ============================================================================
 
@@ -615,8 +663,30 @@ async function waitForDiscoveryCompletion(
         // Debug: Log full status object to understand failure
         console.error("[FindAll] Run failed. Full status:", JSON.stringify(status, null, 2))
         console.error("[FindAll] Full run object:", JSON.stringify(run, null, 2))
+
+        // Try to get error details from event stream
+        let errorMessage = status.termination_reason ?? "Unknown reason"
+        try {
+          const eventStream = await client.beta.findall.events(findallId, {
+            betas: ["findall-2025-09-15"],
+          })
+          for await (const event of eventStream) {
+            if ("type" in event && event.type === "error") {
+              const errorEvent = event as { error: { message: string; ref_id?: string; detail?: unknown } }
+              console.error("[FindAll] Error event:", JSON.stringify(errorEvent, null, 2))
+              errorMessage = errorEvent.error.message || errorMessage
+              if (errorEvent.error.detail) {
+                errorMessage += ` (detail: ${JSON.stringify(errorEvent.error.detail)})`
+              }
+              break
+            }
+          }
+        } catch (eventErr) {
+          console.error("[FindAll] Could not fetch error events:", eventErr)
+        }
+
         throw createFindAllError(
-          `FindAll run failed: ${status.termination_reason ?? "Unknown reason"}`,
+          `FindAll run failed: ${errorMessage}`,
           "RUN_FAILED",
           { findallId }
         )

@@ -10,6 +10,7 @@ import { getDiscoveryPlanLimits } from "@/lib/discovery/config"
 import {
   executeProspectDiscovery,
   getFindAllStatus,
+  validateDiscoverySchema,
 } from "@/lib/parallel/findall"
 
 export const runtime = "nodejs"
@@ -150,6 +151,15 @@ export async function POST(
       // "pro" may require special account access
       const validGenerator: "base" | "core" | "pro" | "preview" =
         job.settings.generator === "base" ? "base" : "core"
+
+      // DIAGNOSTIC: Validate schema first to get better error messages
+      try {
+        const validatedSchema = await validateDiscoverySchema(fullObjective)
+        console.log("[Discovery API] Schema validation passed. Recommended schema:", JSON.stringify(validatedSchema, null, 2))
+      } catch (validationError) {
+        console.error("[Discovery API] Schema validation failed:", validationError)
+        // Continue anyway - validation is just diagnostic
+      }
 
       // Debug: Log exact parameters being sent to FindAll
       const discoveryParams = {
