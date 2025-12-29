@@ -26,6 +26,7 @@ import {
 } from "../resilience/circuit-breaker"
 import { extractProspectResearchOutput, hasMinimalData, calculateDataQualityScore } from "../extraction/validated-parser"
 import { parseLenientProspectOutput, type LenientProspectResearchOutput } from "../schemas/prospect-output"
+import { isParallelAvailable } from "@/lib/feature-flags/parallel-migration"
 
 // ============================================================================
 // TYPES
@@ -230,6 +231,49 @@ async function executeGrokSearch(context: StepContext): Promise<StepResult> {
 }
 
 /**
+ * Step 5b: Parallel AI search (replaces LinkUp when enabled)
+ * 95% cost savings: $0.005/search vs $0.095 (LinkUp + Perplexity)
+ */
+async function executeParallelSearch(context: StepContext): Promise<StepResult> {
+  // Skip if Parallel is not available
+  if (!isParallelAvailable()) {
+    return { status: "skipped", reason: "parallel_not_available" }
+  }
+
+  const { parallelBatchSearch, isParallelBatchAvailable } = await import("../parallel-search")
+
+  if (!isParallelBatchAvailable()) {
+    return { status: "skipped", reason: "parallel_circuit_open" }
+  }
+
+  try {
+    const result = await parallelBatchSearch({
+      name: context.prospect.name,
+      address: context.prospect.address || context.prospect.full_address,
+      city: context.prospect.city,
+      state: context.prospect.state,
+    })
+
+    // ParallelBatchResult has: research, sources, query, searchId, tokensUsed, durationMs, error
+    if (!result.error && result.research) {
+      return {
+        status: "completed",
+        data: result,
+        tokensUsed: result.tokensUsed,
+        sourcesFound: result.sources?.length || 0,
+      }
+    }
+
+    return { status: "skipped", reason: result.error || "no_parallel_results" }
+  } catch (error) {
+    return {
+      status: "failed",
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+/**
  * Step 6: Direct API verification (SEC, FEC, ProPublica)
  *
  * Uses the cross-reference verification layer to validate LLM claims
@@ -289,12 +333,15 @@ async function executeDirectVerification(context: StepContext): Promise<StepResu
 async function executeTriangulation(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
   const { integrateExtractedLinkupData } = await import("../report-generator")
   const { mergeLinkupWithPerplexity } = await import("../linkup-search")
+  const { extractStructuredDataFromResearch } = await import("../parallel-search")
   type LinkupBatchResult = Awaited<ReturnType<typeof import("../linkup-search").linkupBatchSearch>>
   type GrokSearchResult = Awaited<ReturnType<typeof import("../grok-search").grokBatchSearch>>
+  type ParallelBatchResult = Awaited<ReturnType<typeof import("../parallel-search").parallelBatchSearch>>
 
   // Start with Perplexity data (which already includes all multi-pass results)
   const pass1 = context.previousResults.get("perplexity_pass1")
   const linkup = context.previousResults.get("linkup_search")
+  const parallel = context.previousResults.get("parallel_search")
   const grok = context.previousResults.get("grok_search")
 
   let merged: ProspectResearchOutput | null = null
@@ -343,6 +390,35 @@ async function executeTriangulation(context: StepContext): Promise<StepResult<Pr
       console.log(`[Pipeline] Merged ${linkupResult.sources.length} LinkUp sources`)
     } catch (e) {
       console.warn("[Pipeline] Failed to merge LinkUp data:", e)
+    }
+  }
+
+  // Merge Parallel data (replaces LinkUp when enabled)
+  if (parallel?.status === "completed" && parallel.data) {
+    try {
+      const parallelResult = parallel.data as ParallelBatchResult
+
+      // Extract structured data from Parallel research content
+      const extractedData = extractStructuredDataFromResearch(parallelResult.research)
+
+      // Integrate extracted data into the merged output
+      merged = integrateExtractedLinkupData(merged, extractedData)
+
+      // Add Parallel sources that aren't already present
+      const existingUrls = new Set(merged.sources.map(s => s.url.toLowerCase()))
+      for (const source of parallelResult.sources) {
+        if (!existingUrls.has(source.url.toLowerCase())) {
+          merged.sources.push({
+            title: source.name,
+            url: source.url,
+            data_provided: source.snippet || "Additional source from Parallel AI",
+          })
+        }
+      }
+
+      console.log(`[Pipeline] Merged ${parallelResult.sources.length} Parallel AI sources`)
+    } catch (e) {
+      console.warn("[Pipeline] Failed to merge Parallel data:", e)
     }
   }
 
@@ -491,6 +567,13 @@ export function createResearchPipelineSteps(): PipelineStepDefinition[] {
       timeout: 30000,
     },
     {
+      name: "parallel_search",
+      description: "Parallel AI search (replaces LinkUp when enabled)",
+      execute: executeParallelSearch,
+      required: false,
+      timeout: 35000,
+    },
+    {
       name: "direct_verification",
       description: "Direct API verification (SEC, FEC, ProPublica)",
       execute: executeDirectVerification,
@@ -597,6 +680,7 @@ export class ResearchPipeline {
       perplexity_pass3: this.circuitBreakers.perplexity,
       linkup_search: this.circuitBreakers.linkup,
       grok_search: this.circuitBreakers.grok,
+      parallel_search: this.circuitBreakers.parallel,
       direct_verification: this.circuitBreakers.sec, // Uses multiple, but SEC is primary
     }
 

@@ -14,6 +14,7 @@ const VALID_TABS: TabType[] = [
   "memory",
   "subscription",
   "integrations",
+  "connectors",
   "connections",
 ]
 
@@ -23,7 +24,9 @@ const VALID_TABS: TabType[] = [
  * Supported formats:
  * - /settings → Opens general tab
  * - /settings/subscription → Opens subscription tab
- * - /settings/integrations#google-workspace → Opens integrations tab, scrolls to google-workspace section
+ * - /settings/connectors#google-workspace → Opens connectors tab, scrolls to google-workspace section
+ * - /settings/connectors#notion → Opens connectors tab, scrolls to notion section
+ * - /settings/connectors#onedrive → Opens connectors tab, scrolls to onedrive section
  */
 export function useSettingsCommand() {
   const processSettingsCommand = useCallback(

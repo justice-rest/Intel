@@ -450,6 +450,7 @@ export function getBatchProcessingCircuitBreakers() {
   return {
     perplexity: circuitBreakerRegistry.getOrCreate("perplexity", CIRCUIT_BREAKER_CONFIGS.primaryLLM),
     linkup: circuitBreakerRegistry.getOrCreate("linkup", CIRCUIT_BREAKER_CONFIGS.searchAPI),
+    parallel: circuitBreakerRegistry.getOrCreate("parallel-batch", CIRCUIT_BREAKER_CONFIGS.searchAPI),
     grok: circuitBreakerRegistry.getOrCreate("grok", CIRCUIT_BREAKER_CONFIGS.secondaryLLM),
     sec: circuitBreakerRegistry.getOrCreate("sec_edgar", CIRCUIT_BREAKER_CONFIGS.verificationAPI),
     fec: circuitBreakerRegistry.getOrCreate("fec", CIRCUIT_BREAKER_CONFIGS.verificationAPI),

@@ -8,6 +8,7 @@ import {
   HardDrives,
   PlugsConnectedIcon,
   FileTextIcon,
+  CloudArrowUp,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
 
@@ -52,7 +53,15 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     label: "Integrations",
     description: "Connect CRMs & apps",
     icon: LinkSimple,
-    keywords: ["integrations", "crm", "connect", "google", "bloomerang", "neon"],
+    keywords: ["integrations", "crm", "connect", "bloomerang", "neon", "virtuous"],
+  },
+  {
+    id: "settings-connectors",
+    command: "/settings/connectors",
+    label: "Cloud Connectors",
+    description: "Google, Notion, OneDrive",
+    icon: CloudArrowUp,
+    keywords: ["connectors", "google", "notion", "onedrive", "drive", "cloud", "documents"],
   },
   {
     id: "settings-appearance",
