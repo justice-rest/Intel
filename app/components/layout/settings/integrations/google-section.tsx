@@ -402,15 +402,8 @@ export function GoogleIntegrationSection() {
     <div>
       {/* Header */}
       <div className="flex items-center gap-2 mb-1">
-        <Image
-          src="/svgs/Google Color Icon.svg"
-          alt="Google"
-          width={20}
-          height={20}
-          className="size-5"
-        />
         <h3 className="text-base font-semibold text-black dark:text-white">
-          Google Workspace
+          Workspace
         </h3>
         <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
           BETA
@@ -440,7 +433,7 @@ export function GoogleIntegrationSection() {
               Upgrade to Unlock
             </h4>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 max-w-[280px] mx-auto">
-              Google Workspace integration is available on Pro and Scale plans.
+              Workspace integration is available on Pro and Scale plans.
               Connect Gmail for AI-powered email drafts and Drive for document search.
             </p>
             <button
@@ -694,7 +687,7 @@ export function GoogleIntegrationSection() {
                         alt="Notion"
                         width={14}
                         height={14}
-                        className="size-3.5 dark:invert"
+                        className="size-3.5 invert dark:invert-0"
                       />
                       Connect Notion
                     </button>
