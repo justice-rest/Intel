@@ -130,10 +130,18 @@ export async function POST(
         url: "",
       }))
 
+      // IMPORTANT: Always use "person" as entity_type
+      // The FindAll API only accepts basic types (person, company, product)
+      // Specific characteristics are defined in match_conditions
+      const validEntityType = job.settings.entity_type === "company" ||
+                              job.settings.entity_type === "product"
+                              ? job.settings.entity_type
+                              : "person"
+
       // Debug: Log exact parameters being sent to FindAll
       const discoveryParams = {
         objective: fullObjective,
-        entityType: job.settings.entity_type,
+        entityType: validEntityType,
         matchConditions: job.match_conditions,
         matchLimit: job.settings.match_limit,
         generator: job.settings.generator,
