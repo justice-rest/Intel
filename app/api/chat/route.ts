@@ -1,6 +1,8 @@
 import { SYSTEM_PROMPT_DEFAULT, AI_MAX_OUTPUT_TOKENS } from "@/lib/config"
 import { getAllModels, normalizeModelId } from "@/lib/models"
 import { getProviderForModel } from "@/lib/openproviders/provider-map"
+import { isWorkflowEnabled, runDurableWorkflow } from "@/lib/workflows"
+import { extractMemoriesWorkflow } from "@/lib/workflows/memory-extraction.workflow"
 import { createListDocumentsTool } from "@/lib/tools/list-documents"
 import { createRagSearchTool } from "@/lib/tools/rag-search"
 import { createMemorySearchTool } from "@/lib/tools/memory-tool"
@@ -938,115 +940,137 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
           })
 
           // MEMORY EXTRACTION: Extract and save important facts (background operation)
+          // Feature Flag: `durable-memory-extraction`
+          // - When enabled: Uses Workflow DevKit for durable, resumable extraction
+          // - When disabled: Uses legacy fire-and-forget pattern (default)
           if (isAuthenticated) {
-            Promise.resolve().then(async () => {
-              try {
-                console.log("[Memory] Starting extraction for authenticated user:", userId)
-                const { extractMemories, createMemory, memoryExists, calculateImportanceScore, isMemoryEnabled } = await import("@/lib/memory")
-                const { generateEmbedding } = await import("@/lib/rag/embeddings")
-
-                if (!isMemoryEnabled()) {
-                  console.log("[Memory] Memory system is disabled")
-                  return
-                }
-
-                // Extract text from response messages
-                const textParts: string[] = []
-                for (const msg of response.messages) {
-                  if (msg.role === "assistant" && Array.isArray(msg.content)) {
-                    for (const part of msg.content) {
-                      if (part.type === "text" && part.text) {
-                        textParts.push(part.text)
-                      }
-                    }
+            // Extract text from response messages (needed for both paths)
+            const textParts: string[] = []
+            for (const msg of response.messages) {
+              if (msg.role === "assistant" && Array.isArray(msg.content)) {
+                for (const part of msg.content) {
+                  if (part.type === "text" && part.text) {
+                    textParts.push(part.text)
                   }
                 }
-                const responseText = textParts.join("\n\n")
-
-                // Build conversation history for extraction (last user message + assistant response)
-                const conversationForExtraction = [
-                  { role: userMessage.role, content: String(userMessage.content) },
-                  { role: "assistant", content: responseText },
-                ]
-
-                console.log("[Memory] Extracting memories from conversation...")
-                // Extract memories
-                const extractedMemories = await extractMemories(
-                  {
-                    messages: conversationForExtraction,
-                    userId,
-                    chatId,
-                  },
-                  apiKey || process.env.OPENROUTER_API_KEY || ""
-                )
-
-                console.log(`[Memory] Found ${extractedMemories.length} potential memories to save`)
-
-                // Save each extracted memory
-                for (const memory of extractedMemories) {
-                  try {
-                    // Check if similar memory already exists (avoid duplicates)
-                    console.log(`[Memory] Checking if memory already exists: "${memory.content.substring(0, 50)}..."`)
-                    const exists = await memoryExists(
-                      memory.content,
-                      userId,
-                      apiKey || process.env.OPENROUTER_API_KEY || ""
-                    )
-
-                    if (exists) {
-                      console.log(`[Memory] ⏭️  Skipping duplicate memory`)
-                      continue
-                    }
-
-                    // Generate embedding for memory
-                    console.log(`[Memory] Generating embedding...`)
-                    const { embedding } = await generateEmbedding(
-                      memory.content,
-                      apiKey || process.env.OPENROUTER_API_KEY || ""
-                    )
-
-                    // Calculate final importance score
-                    const importanceScore = calculateImportanceScore(
-                      memory.content,
-                      memory.category,
-                      {
-                        tags: memory.tags,
-                        context: memory.context,
-                      }
-                    )
-
-                    console.log(`[Memory] Saving with importance score: ${importanceScore}`)
-                    // Save memory to database
-                    const savedMemory = await createMemory({
-                      user_id: userId,
-                      content: memory.content,
-                      memory_type: memory.tags?.includes("explicit") ? "explicit" : "auto",
-                      importance_score: importanceScore,
-                      metadata: {
-                        source_chat_id: chatId,
-                        category: memory.category,
-                        tags: memory.tags,
-                        context: memory.context,
-                      },
-                      embedding,
-                    })
-
-                    if (savedMemory) {
-                      console.log(`[Memory] ✅ Successfully saved: "${memory.content.substring(0, 50)}..." (importance: ${importanceScore})`)
-                    } else {
-                      console.error(`[Memory] ❌ Failed to save memory (returned null)`)
-                    }
-                  } catch (memErr) {
-                    console.error("[Memory] ❌ Error saving individual memory:", memErr)
-                  }
-                }
-
-                console.log(`[Memory] Extraction complete. Processed ${extractedMemories.length} memories.`)
-              } catch (error) {
-                console.error("[Memory] ❌ Memory extraction failed:", error)
-                // Don't fail the response if memory extraction fails
               }
-            }).catch((err) => console.error("[Memory] ❌ Background memory extraction failed:", err))
+            }
+            const responseText = textParts.join("\n\n")
+
+            // Check if durable memory extraction is enabled
+            const useDurableMemory = isWorkflowEnabled("durable-memory-extraction", userId)
+
+            if (useDurableMemory) {
+              // NEW: Durable workflow with guaranteed completion
+              console.log("[Memory] Using durable workflow for user:", userId)
+              runDurableWorkflow(extractMemoriesWorkflow, {
+                userId,
+                chatId,
+                userMessage: String(userMessage.content),
+                assistantResponse: responseText,
+                messageId: savedMessage?.messageId,
+                apiKey: apiKey || undefined,
+              }).catch((error) => {
+                console.error("[Memory] Durable workflow failed:", error)
+              })
+            } else {
+              // LEGACY: Fire-and-forget (preserved for rollback)
+              Promise.resolve().then(async () => {
+                try {
+                  console.log("[Memory] Starting extraction for authenticated user:", userId)
+                  const { extractMemories, createMemory, memoryExists, calculateImportanceScore, isMemoryEnabled } = await import("@/lib/memory")
+                  const { generateEmbedding } = await import("@/lib/rag/embeddings")
+
+                  if (!isMemoryEnabled()) {
+                    console.log("[Memory] Memory system is disabled")
+                    return
+                  }
+
+                  // Build conversation history for extraction (last user message + assistant response)
+                  const conversationForExtraction = [
+                    { role: userMessage.role, content: String(userMessage.content) },
+                    { role: "assistant", content: responseText },
+                  ]
+
+                  console.log("[Memory] Extracting memories from conversation...")
+                  // Extract memories
+                  const extractedMemories = await extractMemories(
+                    {
+                      messages: conversationForExtraction,
+                      userId,
+                      chatId,
+                    },
+                    apiKey || process.env.OPENROUTER_API_KEY || ""
+                  )
+
+                  console.log(`[Memory] Found ${extractedMemories.length} potential memories to save`)
+
+                  // Save each extracted memory
+                  for (const memory of extractedMemories) {
+                    try {
+                      // Check if similar memory already exists (avoid duplicates)
+                      console.log(`[Memory] Checking if memory already exists: "${memory.content.substring(0, 50)}..."`)
+                      const exists = await memoryExists(
+                        memory.content,
+                        userId,
+                        apiKey || process.env.OPENROUTER_API_KEY || ""
+                      )
+
+                      if (exists) {
+                        console.log(`[Memory] ⏭️  Skipping duplicate memory`)
+                        continue
+                      }
+
+                      // Generate embedding for memory
+                      console.log(`[Memory] Generating embedding...`)
+                      const { embedding } = await generateEmbedding(
+                        memory.content,
+                        apiKey || process.env.OPENROUTER_API_KEY || ""
+                      )
+
+                      // Calculate final importance score
+                      const importanceScore = calculateImportanceScore(
+                        memory.content,
+                        memory.category,
+                        {
+                          tags: memory.tags,
+                          context: memory.context,
+                        }
+                      )
+
+                      console.log(`[Memory] Saving with importance score: ${importanceScore}`)
+                      // Save memory to database
+                      const savedMemory = await createMemory({
+                        user_id: userId,
+                        content: memory.content,
+                        memory_type: memory.tags?.includes("explicit") ? "explicit" : "auto",
+                        importance_score: importanceScore,
+                        metadata: {
+                          source_chat_id: chatId,
+                          category: memory.category,
+                          tags: memory.tags,
+                          context: memory.context,
+                        },
+                        embedding,
+                      })
+
+                      if (savedMemory) {
+                        console.log(`[Memory] ✅ Successfully saved: "${memory.content.substring(0, 50)}..." (importance: ${importanceScore})`)
+                      } else {
+                        console.error(`[Memory] ❌ Failed to save memory (returned null)`)
+                      }
+                    } catch (memErr) {
+                      console.error("[Memory] ❌ Error saving individual memory:", memErr)
+                    }
+                  }
+
+                  console.log(`[Memory] Extraction complete. Processed ${extractedMemories.length} memories.`)
+                } catch (error) {
+                  console.error("[Memory] ❌ Memory extraction failed:", error)
+                  // Don't fail the response if memory extraction fails
+                }
+              }).catch((err) => console.error("[Memory] ❌ Background memory extraction failed:", err))
+            }
           }
         }
       },

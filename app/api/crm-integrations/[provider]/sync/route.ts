@@ -2,6 +2,10 @@
  * CRM Data Sync Route
  * POST: Trigger a data sync from the CRM
  * GET: Get sync status
+ *
+ * Feature Flag: `durable-crm-sync`
+ * - When enabled: Uses Workflow DevKit for durable, resumable sync
+ * - When disabled: Uses legacy fire-and-forget pattern (default)
  */
 
 import { NextResponse } from "next/server"
@@ -31,6 +35,8 @@ import {
 } from "@/lib/crm"
 import type { CRMProvider, SyncTriggerResponse } from "@/lib/crm/types"
 import { CRM_API_CONFIG } from "@/lib/crm"
+import { isWorkflowEnabled, runDurableWorkflow } from "@/lib/workflows"
+import { syncCRMData } from "@/lib/workflows/crm-sync.workflow"
 
 // Rate limit helper - delay between API batches
 const rateLimitDelay = () => new Promise(resolve => setTimeout(resolve, CRM_API_CONFIG.rateLimitDelay))
@@ -244,11 +250,27 @@ export async function POST(request: Request, { params }: RouteParams) {
       )
     }
 
-    // Start sync in background (non-blocking)
-    performSync(user.id, provider as CRMProvider, apiKey, syncLog.id, supabase)
-      .catch((error) => {
-        console.error("Sync error:", error)
+    // Check if durable workflow is enabled for this user
+    const useDurableSync = isWorkflowEnabled("durable-crm-sync", user.id)
+
+    if (useDurableSync) {
+      // NEW: Durable workflow with retry and observability
+      console.log(`[CRM Sync] Using durable workflow for user ${user.id}`)
+      runDurableWorkflow(syncCRMData, {
+        userId: user.id,
+        provider: provider as "bloomerang" | "virtuous" | "neoncrm" | "donorperfect",
+        apiKey,
+        syncLogId: syncLog.id,
+      }).catch((error) => {
+        console.error("[CRM Sync] Durable workflow failed:", error)
       })
+    } else {
+      // LEGACY: Fire-and-forget (preserved for rollback)
+      performSync(user.id, provider as CRMProvider, apiKey, syncLog.id, supabase)
+        .catch((error) => {
+          console.error("Sync error:", error)
+        })
+    }
 
     const providerName = getCRMProviderName(provider as CRMProvider)
     const response: SyncTriggerResponse = {

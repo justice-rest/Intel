@@ -5,7 +5,11 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
   enabled: process.env.ANALYZE === "true",
 })
 
-const nextConfig: NextConfig = withBundleAnalyzer({
+// Workflow DevKit integration for durable, resumable workflows
+// See: https://useworkflow.dev
+const { withWorkflow } = require("workflow/next")
+
+const baseConfig: NextConfig = withBundleAnalyzer({
   output: "standalone",
   experimental: {
     optimizePackageImports: ["@phosphor-icons/react"],
@@ -54,6 +58,17 @@ const nextConfig: NextConfig = withBundleAnalyzer({
       }
     }
     return config
+  },
+})
+
+// Wrap with workflow plugin for durable workflow support
+// This enables "use workflow" and "use step" directives
+const nextConfig = withWorkflow(baseConfig, {
+  workflows: {
+    local: {
+      // Use local workflow engine in development
+      // In production, workflows run on Vercel or Postgres World
+    },
   },
 })
 

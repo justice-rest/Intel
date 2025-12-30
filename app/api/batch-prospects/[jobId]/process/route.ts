@@ -7,6 +7,10 @@
  * - Real-time progress updates
  * - Resume capability (client can stop and restart)
  * - Stays within Vercel timeout limits
+ *
+ * Feature Flag: `durable-batch-processing`
+ * - When enabled: Uses Workflow DevKit for durable processing
+ * - When disabled: Uses existing pipeline (default)
  */
 
 import { createClient } from "@/lib/supabase/server"
@@ -21,7 +25,6 @@ import {
 import {
   generateComprehensiveReportWithTools,
 } from "@/lib/batch-processing/report-generator"
-import type { GenerateReportResult } from "@/lib/batch-processing/report-generator"
 import { getEffectiveApiKey } from "@/lib/user-keys"
 import { MAX_RETRIES_PER_PROSPECT } from "@/lib/batch-processing/config"
 import {
@@ -29,6 +32,8 @@ import {
   getBatchCompleteEmailHtml,
   getBatchCompleteEmailSubject,
 } from "@/lib/email"
+import { isWorkflowEnabled, runDurableWorkflow } from "@/lib/workflows"
+import { batchResearchWorkflow } from "@/lib/workflows/batch-research.workflow"
 
 // Allow up to 2 minutes for processing (web searches + AI generation)
 export const runtime = "nodejs"
@@ -270,6 +275,82 @@ export async function POST(
     console.log(
       `[BatchProcess] Processing item ${nextItem.item_index + 1}/${job.total_prospects}: ${nextItem.prospect_name}`
     )
+
+    // Check if durable workflow is enabled for this user
+    const useDurableWorkflow = isWorkflowEnabled("durable-batch-processing", user.id)
+
+    if (useDurableWorkflow) {
+      // NEW: Durable workflow with automatic retry and observability
+      console.log(`[BatchProcess] Using durable workflow for user ${user.id}`)
+
+      try {
+        const workflowResult = await runDurableWorkflow(batchResearchWorkflow, {
+          jobId,
+          itemId: nextItem.id,
+          userId: user.id,
+          prospect: nextItem.input_data,
+          apiKey,
+        })
+
+        // Workflow completed (success or failure) - fetch updated state from DB
+        // The workflow already updated item status and job counts
+
+        // Fetch updated job counts
+        const { data: updatedJob } = await (supabase as any)
+          .from("batch_prospect_jobs")
+          .select("*")
+          .eq("id", jobId)
+          .single() as { data: BatchProspectJob | null }
+
+        // Fetch updated item
+        const { data: updatedItem } = await (supabase as any)
+          .from("batch_prospect_items")
+          .select("*")
+          .eq("id", nextItem.id)
+          .single() as { data: BatchProspectItem | null }
+
+        // Check if there are more items
+        const { count: pendingCount } = await (supabase as any)
+          .from("batch_prospect_items")
+          .select("*", { count: "exact", head: true })
+          .eq("job_id", jobId)
+          .eq("user_id", user.id)
+          .eq("status", "pending") as { count: number | null }
+
+        const { count: retryableCount } = await (supabase as any)
+          .from("batch_prospect_items")
+          .select("*", { count: "exact", head: true })
+          .eq("job_id", jobId)
+          .eq("user_id", user.id)
+          .eq("status", "failed")
+          .lt("retry_count", MAX_RETRIES_PER_PROSPECT) as { count: number | null }
+
+        const hasMore = ((pendingCount || 0) + (retryableCount || 0)) > 0
+
+        const data = workflowResult.data
+        const response: ProcessNextItemResponse = {
+          item: updatedItem as BatchProspectItem,
+          job_status: updatedJob?.status as BatchJobStatus || "processing",
+          progress: {
+            completed: updatedJob?.completed_count || 0,
+            total: updatedJob?.total_prospects || 0,
+            failed: updatedJob?.failed_count || 0,
+          },
+          has_more: hasMore,
+          message: data?.success
+            ? `Processed ${nextItem.prospect_name}`
+            : `Failed to process ${nextItem.prospect_name}: ${data?.errorMessage || workflowResult.error || "Unknown error"}`,
+        }
+
+        return NextResponse.json(response)
+      } catch (workflowError) {
+        console.error(`[BatchProcess] Durable workflow failed:`, workflowError)
+        // Fall through to legacy processing on workflow infrastructure failure
+        console.log(`[BatchProcess] Falling back to legacy processing`)
+      }
+    }
+
+    // LEGACY: Existing pipeline (preserved for rollback)
     console.log(`[BatchProcess] Using Parallel AI for web research`)
 
     let reportResult: SonarGrokReportResult | null = null
