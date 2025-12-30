@@ -1778,108 +1778,34 @@ function SingleToolCard({
         )
       }
 
-      // Get tier color
-      const getTierColor = (tier: string) => {
-        switch (tier) {
-          case "Transformational":
-            return "text-purple-600 dark:text-purple-400"
-          case "Principal":
-            return "text-blue-600 dark:text-blue-400"
-          case "Leadership":
-            return "text-green-600 dark:text-green-400"
-          default:
-            return "text-muted-foreground"
-        }
-      }
-
-      // Get capacity rating color
-      const getRatingColor = (rating: string | null) => {
-        if (!rating) return "text-muted-foreground"
-        const r = rating.toUpperCase()
-        if (r === "A" || r === "TRANSFORMATIONAL") return "text-purple-600 dark:text-purple-400"
-        if (r === "B" || r === "PRINCIPAL") return "text-blue-600 dark:text-blue-400"
-        if (r === "C" || r === "LEADERSHIP") return "text-green-600 dark:text-green-400"
-        return "text-muted-foreground"
-      }
-
       return (
         <div className="space-y-3">
           {/* Header */}
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Prospects Found ({prospectResult.count})
+            Prospects ({prospectResult.count})
           </div>
 
           {/* Prospect list */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {prospectResult.prospects.map((prospect, index) => (
               <div
                 key={index}
-                className="rounded-lg border border-border bg-muted/30 p-3"
+                className="border-border border-b pb-2 last:border-0 last:pb-0"
               >
-                {/* Name and score */}
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-medium text-foreground">
-                      {prospect.name}
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      Researched {new Date(prospect.researched_on).toLocaleDateString()}
-                    </div>
-                  </div>
-                  {prospect.romy_score !== null && (
-                    <div className="text-right">
-                      <div className="text-lg font-semibold text-foreground">
-                        {prospect.romy_score}
-                      </div>
-                      <div className={`text-xs font-medium ${getTierColor(prospect.score_tier)}`}>
-                        {prospect.score_tier}
-                      </div>
-                    </div>
-                  )}
+                {/* Prospect name */}
+                <div className="text-foreground text-sm leading-relaxed">
+                  {prospect.name}
+                  {prospect.romy_score !== null && ` · Score ${prospect.romy_score}`}
+                  {prospect.score_tier && prospect.score_tier !== "Unknown" && ` (${prospect.score_tier})`}
                 </div>
 
-                {/* Key metrics */}
-                <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                  {prospect.capacity_rating && (
-                    <div>
-                      <span className="text-muted-foreground">Capacity: </span>
-                      <span className={`font-medium ${getRatingColor(prospect.capacity_rating)}`}>
-                        {prospect.capacity_rating}
-                      </span>
-                    </div>
-                  )}
-                  {prospect.estimated_net_worth && (
-                    <div>
-                      <span className="text-muted-foreground">Net Worth: </span>
-                      <span className="font-medium text-foreground">
-                        {prospect.estimated_net_worth}
-                      </span>
-                    </div>
-                  )}
-                  {prospect.estimated_gift_capacity && (
-                    <div>
-                      <span className="text-muted-foreground">Gift Capacity: </span>
-                      <span className="font-medium text-foreground">
-                        {prospect.estimated_gift_capacity}
-                      </span>
-                    </div>
-                  )}
-                  {prospect.sources_count > 0 && (
-                    <div>
-                      <span className="text-muted-foreground">Sources: </span>
-                      <span className="font-medium text-foreground">
-                        {prospect.sources_count}
-                      </span>
-                    </div>
-                  )}
+                {/* Minimal metadata */}
+                <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                  {prospect.capacity_rating && <span>{prospect.capacity_rating}</span>}
+                  {prospect.estimated_net_worth && <span>{prospect.estimated_net_worth}</span>}
+                  {prospect.estimated_gift_capacity && <span>Capacity: {prospect.estimated_gift_capacity}</span>}
+                  {prospect.similarity > 0 && <span>{prospect.similarity}% match</span>}
                 </div>
-
-                {/* Match confidence */}
-                {prospect.similarity > 0 && (
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {prospect.similarity}% match confidence
-                  </div>
-                )}
               </div>
             ))}
           </div>
