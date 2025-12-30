@@ -397,32 +397,32 @@ User sends message
 - `/migrations/006_add_memory_system.sql` - Database schema
 
 ### Web Search Integration
-**Parallel AI-Powered Prospect Research** with grounded citations:
+**LinkUp-Powered Prospect Research** with grounded citations:
 
 | Mode | When | Search Method |
 |------|------|---------------|
-| Search enabled | `enableSearch=true` | Parallel AI (`parallel_prospect_research`) |
+| Search enabled | `enableSearch=true` | LinkUp (`linkup_prospect_research`) |
 | Search disabled | `enableSearch=false` | No web search |
 
-**Parallel Prospect Research Tool** (`/lib/tools/parallel-prospect-research.ts`)
-- Uses Parallel AI Search API
-- Autonomous multi-step research with grounded citations
+**LinkUp Prospect Research Tool** (`/lib/tools/linkup-prospect-research.ts`)
+- Uses LinkUp Search API with multi-query architecture
+- Executes 5 parallel targeted queries for comprehensive coverage
 - Searches real estate, business ownership, philanthropy, securities, biography
-- 30-second timeout, comprehensive research by default
-- **Cost**: ~$0.005 per call
+- Standard mode for chat, Deep mode for Deep Research
+- **Cost**: ~$0.025 per call (5 × $0.005)
 
 **Search Flow**:
 ```
 User toggles search button
   → enableSearch=true sent to API
-  → AI calls parallel_prospect_research for comprehensive research
+  → AI calls linkup_prospect_research for comprehensive research
   → Grounded results with citations returned
   → Sources displayed in SourcesList
 ```
 
 **Prospect Research Workflow**:
 ```
-1. parallel_prospect_research("John Smith", address, context)
+1. linkup_prospect_research("John Smith", address, context)
    → Comprehensive research with citations covering:
    - Real estate holdings and property values
    - Business ownership and executive positions
@@ -439,7 +439,7 @@ User toggles search button
 ```
 
 **Key Files**:
-- `/lib/tools/parallel-prospect-research.ts` - Parallel AI tool
+- `/lib/tools/linkup-prospect-research.ts` - LinkUp tool
 - `/app/api/chat/route.ts` - Tool integration
 
 ### USAspending Awards Tool
@@ -675,13 +675,11 @@ ENCRYPTION_KEY=                 # 32-byte base64 (for BYOK)
 # AI Model API Key (required)
 OPENROUTER_API_KEY=             # Required for Grok 4.1 Fast model
 
-# Parallel AI (required for prospect research)
-# Get your API key at https://parallel.ai
-PARALLEL_API_KEY=               # Required for prospect research tools
-
-# Exa Websets API (required for Deep Research / prospect discovery)
-# Get your API key at https://exa.ai
-EXA_API_KEY=                    # Required for Labs Deep Research feature
+# LinkUp Search API (required for prospect research)
+# Get your API key at https://linkup.so
+# Powers all web research (chat, batch, deep research)
+# Standard mode: $0.005/search, Deep mode: $0.02/search
+LINKUP_API_KEY=                 # Required - LinkUp is enabled by default when set
 
 # USAspending API (no API key required - FREE)
 # Federal contracts, grants, loans data - works without a key

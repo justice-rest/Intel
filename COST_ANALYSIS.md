@@ -3,7 +3,7 @@
 > Last Updated: December 30, 2025
 >
 > This document provides a comprehensive breakdown of costs for all research modes.
-> **v3.0 Update:** Migrated to Parallel AI for all web research (80-90% cost savings)
+> **v3.0 Update:** Migrated to LinkUp for all web research (80-90% cost savings)
 
 ---
 
@@ -15,9 +15,9 @@
 | **Deep Research** | $0.02 - $0.05 | $2 - $5 | $10 - $25 | $20 - $50 |
 | **Batch Research** | $0.005 - $0.015 | $0.50 - $1.50 | $2.50 - $7.50 | $5 - $15 |
 
-### Parallel AI Migration - Cost Savings
+### LinkUp Migration - Cost Savings
 
-| Mode | BEFORE (Perplexity + LinkUp) | AFTER (Parallel AI) | Savings |
+| Mode | BEFORE (Perplexity + LinkUp) | AFTER (LinkUp) | Savings |
 |------|------------------------------|---------------------|---------|
 | **Standard Research** | $0.08 - $0.15 | $0.01 - $0.03 | **80-87%** |
 | **Deep Research** | $0.15 - $0.30 | $0.02 - $0.05 | **83-87%** |
@@ -38,8 +38,7 @@
 
 | API | Cost | Use Case |
 |-----|------|----------|
-| **Parallel AI Search** | $0.005/request | Web research (replaces Perplexity + LinkUp) |
-| **Exa Websets** | Varies by webset | Prospect discovery (Labs Deep Research) |
+| **LinkUp Search** | $0.005/request (Standard) / $0.02/request (Deep) | Web research |
 | **SEC EDGAR** | FREE | Insider filings, proxy statements |
 | **FEC** | FREE | Political contributions |
 | **ProPublica** | FREE | Nonprofit 990 data |
@@ -59,7 +58,7 @@
 
 **Models & Tools:**
 1. **Grok 4.1 Fast** - Primary reasoning
-2. **Parallel AI Search** - Comprehensive web research ($0.005/call)
+2. **LinkUp Search** - Comprehensive web research ($0.005/call)
 3. **Free APIs** - SEC, FEC, ProPublica verification
 
 ### Token Breakdown Per Report
@@ -67,7 +66,7 @@
 | Component | Input Tokens | Output Tokens | Cost |
 |-----------|--------------|---------------|------|
 | Grok 4.1 Fast (orchestration) | 2,000 | 1,500 | $0.0012 |
-| Parallel AI Search | - | - | $0.005 |
+| LinkUp Search | - | - | $0.005 |
 | Free verification APIs | 500 | 500 | $0.00035 |
 | **Total** | **2,500** | **2,000** | **$0.0065** |
 
@@ -94,7 +93,7 @@ Due to research depth variability:
 
 **Models & Tools:**
 1. **Grok 4.1 Fast (Thinking)** (`x-ai/grok-4.1-fast-thinking`) - Extended reasoning with high-effort thinking
-2. **Parallel AI Search (one-shot mode)** - Comprehensive multi-step search ($0.005-$0.009)
+2. **LinkUp Search (one-shot mode)** - Comprehensive multi-step search ($0.005-$0.009)
 3. **Grok Native Search** - X/Twitter + web search (parallel, 45s timeout)
 4. **Free APIs** - SEC, FEC, ProPublica verification
 
@@ -103,12 +102,12 @@ Due to research depth variability:
 | Component | Input Tokens | Output Tokens | Reasoning Tokens | Cost |
 |-----------|--------------|---------------|------------------|------|
 | Grok 4.1 Fast (Thinking) | 3,000 | 2,000 | 4,000 | $0.0036 |
-| Parallel AI Search (one-shot) | - | - | - | $0.009 |
+| LinkUp Search (one-shot) | - | - | - | $0.009 |
 | Grok Native Search | 500 | 1,500 | - | $0.00085 |
 | Free verification APIs | 800 | 1,000 | - | $0.00066 |
 | **Total** | **4,300** | **4,500** | **4,000** | **$0.014** |
 
-**Note:** Parallel AI in "one-shot" mode provides comprehensive, multi-step research similar to the previous Perplexity Deep Research but at ~95% lower cost.
+**Note:** LinkUp in "one-shot" mode provides comprehensive, multi-step research similar to the previous Perplexity Deep Research but at ~95% lower cost.
 
 ### Actual Cost Range
 
@@ -131,10 +130,10 @@ Due to research complexity:
 
 **When Used:** Bulk prospect processing via `/labs` page
 
-**Primary Tool:** Parallel AI Search ($0.005 per prospect)
+**Primary Tool:** LinkUp Search ($0.005 per prospect)
 
 **Pipeline Steps:**
-1. **Parallel AI Search** - Primary research (required)
+1. **LinkUp Search** - Primary research (required)
 2. **Grok Search** - X/Twitter data (optional)
 3. **Direct Verification** - SEC, FEC, ProPublica (optional)
 4. **Triangulation** - Merge and score data
@@ -145,7 +144,7 @@ Due to research complexity:
 
 | Component | Cost |
 |-----------|------|
-| Parallel AI Search | $0.005 |
+| LinkUp Search | $0.005 |
 | RōmyScore calculation | $0.0005 |
 | **Total (Standard)** | **$0.0055** |
 
@@ -153,7 +152,7 @@ Due to research complexity:
 
 | Component | Cost |
 |-----------|------|
-| Parallel AI Search | $0.005 |
+| LinkUp Search | $0.005 |
 | Grok Search (X/Twitter) | $0.00085 |
 | Verification APIs | FREE |
 | RōmyScore calculation | $0.0005 |
@@ -163,7 +162,7 @@ Due to research complexity:
 
 | Batch Type | Cost Per Row |
 |------------|--------------|
-| Minimal (Parallel only) | $0.005 - $0.006 |
+| Minimal (LinkUp only) | $0.005 - $0.006 |
 | Standard (+ Grok) | $0.006 - $0.010 |
 | Full (all optional steps) | $0.010 - $0.015 |
 
@@ -216,7 +215,7 @@ For Google Drive document processing:
 | API | Rate Limit | Safeguard |
 |-----|------------|-----------|
 | OpenRouter (Grok) | 60 req/min | 1s min delay |
-| Parallel AI | High throughput | Built-in rate limiting |
+| LinkUp | High throughput | Built-in rate limiting |
 | SEC EDGAR | 10 req/sec | 100ms delay |
 | FEC | 1,000/hour | 4s delay |
 | ProPublica | No limit | 50ms courtesy delay |
@@ -230,7 +229,7 @@ Start with standard research mode. Only escalate to deep research for high-value
 
 ### 2. Batch Processing is Most Cost-Effective
 Batch processing has the lowest per-row costs:
-- $0.005-$0.015 per prospect with Parallel AI
+- $0.005-$0.015 per prospect with LinkUp
 - Optimized API batching
 - Parallel tool execution
 
@@ -285,7 +284,7 @@ SEC, FEC, and ProPublica data is FREE. These are automatically used for verifica
 
 | API | Cost | Use Case |
 |-----|------|----------|
-| Parallel AI Search | $0.005/request | All web research |
+| LinkUp Search | $0.005/request | All web research |
 | Exa Websets | Varies | Prospect discovery |
 | OpenAI Embeddings (text-embedding-3-large) | $0.13/1M tokens | Document embeddings for RAG |
 | SEC EDGAR | FREE | Insider filings, proxy statements |
@@ -297,14 +296,14 @@ SEC, FEC, and ProPublica data is FREE. These are automatically used for verifica
 
 | Mode | Orchestration Model | Research Tool | Additional |
 |------|---------------------|---------------|------------|
-| **Research** | Grok 4.1 Fast | Parallel AI (agentic) | Grok Native Search |
-| **Deep Research** | Grok 4.1 Fast (Thinking) | Parallel AI (one-shot) | Grok Native Search |
-| **Batch Research** | N/A | Parallel AI | Grok (optional) |
+| **Research** | Grok 4.1 Fast | LinkUp (agentic) | Grok Native Search |
+| **Deep Research** | Grok 4.1 Fast (Thinking) | LinkUp (one-shot) | Grok Native Search |
+| **Batch Research** | N/A | LinkUp | Grok (optional) |
 
 ---
 
 ## Sources
 
 - [OpenRouter Pricing](https://openrouter.ai/pricing)
-- [Parallel AI Pricing](https://parallel.ai/pricing)
-- [Parallel AI Docs](https://docs.parallel.ai/resources/pricing)
+- [LinkUp Pricing](https://linkup.so/pricing)
+- [LinkUp Docs](https://docs.linkup.so)

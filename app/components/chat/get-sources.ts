@@ -16,18 +16,18 @@ export function getSources(parts: MessageAISDK["parts"]) {
       ) {
         const result = part.toolInvocation.result
 
-        // Handle Parallel AI prospect research tool results (Task API + Search API)
-        // Enhanced: Includes field attribution from Task API basis when available
+        // Handle LinkUp prospect research tool results
+        // Enhanced: Includes field attribution when available
         if (
-          part.toolInvocation.toolName === "parallel_prospect_research" &&
+          part.toolInvocation.toolName === "linkup_prospect_research" &&
           result?.sources
         ) {
           return result.sources.map((source: {
             name?: string
             url: string
             snippet?: string
-            fieldName?: string    // From Task API basis - which field this source supports
-            reasoning?: string    // From Task API basis - AI reasoning for relevance
+            fieldName?: string    // Which field this source supports
+            reasoning?: string    // AI reasoning for relevance
           }) => ({
             title: source.name || "Source",
             url: source.url,

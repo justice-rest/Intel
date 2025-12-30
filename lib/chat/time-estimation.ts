@@ -5,7 +5,7 @@
 
 // Tool execution time estimates (in seconds) based on typical response times
 export const TOOL_TIME_ESTIMATES: Record<string, number> = {
-  parallel_prospect_research: 10, // Parallel AI - 30s timeout, usually ~5-10s
+  linkup_prospect_research: 15, // LinkUp multi-query - 5 parallel queries, usually ~10-15s
   propublica_nonprofit_search: 3,
   propublica_nonprofit_details: 3,
   sec_edgar_filings: 5,

@@ -246,9 +246,9 @@ export default function PrivacyPolicy() {
                 <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">policies.google.com/privacy</a></td>
               </tr>
               <tr>
-                <td>Perplexity</td>
+                <td>LinkUp</td>
                 <td>Search queries for web research</td>
-                <td><a href="https://www.perplexity.ai/privacy" target="_blank" rel="noopener noreferrer">perplexity.ai/privacy</a></td>
+                <td><a href="https://linkup.so/privacy" target="_blank" rel="noopener noreferrer">linkup.so/privacy</a></td>
               </tr>
               <tr>
                 <td>Supabase</td>
