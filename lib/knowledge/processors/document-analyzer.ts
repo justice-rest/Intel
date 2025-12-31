@@ -207,7 +207,7 @@ Focus on elements that would help an AI assistant communicate and advise in the 
     const openrouter = createOpenRouter({ apiKey })
 
     const { object, usage } = await generateObject({
-      model: openrouter('anthropic/claude-sonnet-4'),
+      model: openrouter('x-ai/grok-4.1-fast'),
       schema: DocumentAnalysisSchema,
       system: ANALYSIS_PROMPT,
       prompt: userPrompt,
@@ -290,7 +290,7 @@ export async function classifyDocumentPurpose(
 
   try {
     const { object } = await generateObject({
-      model: openrouter('anthropic/claude-haiku-3'),
+      model: openrouter('openai/gpt-5-nano'),
       schema: ClassificationSchema,
       prompt: `Classify this document's purpose for training a nonprofit fundraising AI.
 
