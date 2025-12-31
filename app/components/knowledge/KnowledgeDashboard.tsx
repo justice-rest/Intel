@@ -1,12 +1,10 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -14,13 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,32 +24,27 @@ import {
 } from "@/components/ui/alert-dialog"
 import {
   Plus,
-  MagnifyingGlass,
   FilePdf,
   FileDoc,
   FileText,
   ChatText,
   Lightbulb,
   ListChecks,
-  Play,
   BookOpen,
-  DotsThreeVertical,
   Trash,
   CheckCircle,
-  WarningCircle,
-  Clock,
   Lightning,
   Upload,
   X,
+  Sparkle,
 } from "@phosphor-icons/react"
 import { Loader2 } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { fetchClient } from "@/lib/fetch"
 import { toast } from "@/components/ui/toast"
-import { cn, formatRelativeTime } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import type {
   ProfileWithCounts,
-  DashboardTab,
   KnowledgeDocument,
   KnowledgeVoiceElement,
   KnowledgeStrategyRule,
@@ -71,15 +57,21 @@ import type {
 /**
  * KnowledgeDashboard
  *
- * Main dashboard for managing organizational knowledge profiles.
- * Follows UI patterns from IntegrationsSection, MemoryList, and RAG DocumentList.
+ * Redesigned to match the Workspace (Google Integration) design pattern:
+ * - Single compact container with internal grid sections
+ * - Collapsible lists with height animations
+ * - Dense, information-rich layout
+ * - Subtle colors and tight spacing
  */
 export function KnowledgeDashboard() {
   const queryClient = useQueryClient()
   const [activeProfileId, setActiveProfileId] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<DashboardTab>("documents")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [profileToDelete, setProfileToDelete] = useState<string | null>(null)
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false)
+  const [newProfileName, setNewProfileName] = useState("")
+
+  // Expanded sections state
+  const [expandedSection, setExpandedSection] = useState<string | null>("documents")
 
   // Fetch profiles
   const { data: profilesData, isLoading: isLoadingProfiles } = useQuery({
@@ -96,33 +88,31 @@ export function KnowledgeDashboard() {
   const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0] || null
 
   // Set initial active profile
-  if (!activeProfileId && profiles.length > 0) {
-    setActiveProfileId(profiles[0].id)
-  }
+  useEffect(() => {
+    if (!activeProfileId && profiles.length > 0) {
+      setActiveProfileId(profiles[0].id)
+    }
+  }, [activeProfileId, profiles])
 
   // Create profile mutation
   const createProfileMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (name: string) => {
       const res = await fetchClient("/api/knowledge/profile", {
         method: "POST",
-        body: JSON.stringify({
-          name: `Profile ${profiles.length + 1}`,
-          description: "New knowledge profile",
-        }),
+        body: JSON.stringify({ name, description: "" }),
       })
       if (!res.ok) throw new Error("Failed to create profile")
       return res.json()
     },
     onSuccess: (data) => {
-      toast({ title: "Profile Created", description: data.message })
+      toast({ title: "Profile Created" })
       queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
       setActiveProfileId(data.profile.id)
+      setIsCreatingProfile(false)
+      setNewProfileName("")
     },
-    onError: (error) => {
-      toast({
-        title: "Failed to create profile",
-        description: error instanceof Error ? error.message : "Unknown error",
-      })
+    onError: () => {
+      toast({ title: "Failed to create profile" })
     },
   })
 
@@ -139,14 +129,7 @@ export function KnowledgeDashboard() {
       toast({ title: "Profile Deleted" })
       queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
       setDeleteDialogOpen(false)
-      setProfileToDelete(null)
       setActiveProfileId(null)
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to delete profile",
-        description: error instanceof Error ? error.message : "Unknown error",
-      })
     },
   })
 
@@ -166,198 +149,264 @@ export function KnowledgeDashboard() {
     },
   })
 
+  const toggleSection = (section: string) => {
+    setExpandedSection(expandedSection === section ? null : section)
+  }
+
   if (isLoadingProfiles) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="size-6 animate-spin text-gray-400" />
       </div>
     )
   }
 
   return (
-    <div data-settings-section="knowledge">
+    <div>
       {/* Header */}
-      <h3 className="relative mb-2 flex items-center gap-2 text-lg font-medium">
-        Organizational Knowledge
+      <div className="flex items-center gap-2 mb-1">
+        <h3 className="text-base font-semibold text-black dark:text-white">
+          Knowledge
+        </h3>
         <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
           BETA
         </span>
-      </h3>
-      <p className="text-muted-foreground text-sm">
-        Train Rōmy to communicate like your organization. Upload documents, define rules, and add examples.
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        Train Rōmy with your organization's voice, strategy, and facts.
       </p>
 
-      {/* Profile Selector or Empty State */}
-      {profiles.length === 0 ? (
-        <div className="mt-6 flex flex-col items-center justify-center py-12">
-          <BookOpen className="mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="text-muted-foreground mb-4 text-sm">
-            No knowledge profiles yet. Create your first profile to start training Rōmy.
-          </p>
-          <Button onClick={() => createProfileMutation.mutate()} disabled={createProfileMutation.isPending}>
-            {createProfileMutation.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="mr-2 h-4 w-4" />
-            )}
-            Create Knowledge Profile
-          </Button>
-        </div>
-      ) : (
-        <div className="mt-4 space-y-4">
-          {/* Profile Selector */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <Select
-                value={activeProfileId || ""}
-                onValueChange={(value) => setActiveProfileId(value)}
+      {/* Main Card */}
+      <div className="p-4 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded">
+        {profiles.length === 0 && !isCreatingProfile ? (
+          /* Empty State */
+          <div className="text-center py-6">
+            <BookOpen size={32} className="mx-auto text-gray-400 mb-2" />
+            <p className="text-sm font-medium text-black dark:text-white mb-1">
+              No Knowledge Profiles
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              Create a profile to start training Rōmy for your organization.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsCreatingProfile(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-black transition-colors"
+            >
+              <Plus size={14} />
+              Create Profile
+            </button>
+          </div>
+        ) : isCreatingProfile ? (
+          /* Create Profile Inline Form */
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs text-gray-500 dark:text-gray-400">Profile Name</Label>
+              <Input
+                value={newProfileName}
+                onChange={(e) => setNewProfileName(e.target.value)}
+                placeholder="e.g., Main Organization Profile"
+                className="mt-1"
+                autoFocus
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => createProfileMutation.mutate(newProfileName || "My Profile")}
+                disabled={createProfileMutation.isPending}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a profile" />
-                </SelectTrigger>
-                <SelectContent>
-                  {profiles.map((profile) => (
-                    <SelectItem key={profile.id} value={profile.id}>
-                      <div className="flex items-center gap-2">
-                        {profile.name}
-                        {profile.status === "active" && (
-                          <Badge variant="secondary" className="bg-[#B183FF]/20 text-[#B183FF] text-xs">
-                            Active
-                          </Badge>
+                {createProfileMutation.isPending && <Loader2 className="mr-1 size-3 animate-spin" />}
+                Create
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setIsCreatingProfile(false)
+                  setNewProfileName("")
+                }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          /* Profile Dashboard */
+          <div className="space-y-4">
+            {/* Profile Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {profiles.length > 1 ? (
+                  <Select value={activeProfileId || ""} onValueChange={setActiveProfileId}>
+                    <SelectTrigger className="h-8 w-auto min-w-[160px] text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {profiles.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="text-sm font-medium text-black dark:text-white">
+                    {activeProfile?.name}
+                  </span>
+                )}
+                {activeProfile?.status === "active" && (
+                  <CheckCircle size={14} weight="fill" className="text-green-500" />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {activeProfile?.status !== "active" && (
+                  <button
+                    type="button"
+                    onClick={() => activeProfile && activateProfileMutation.mutate(activeProfile.id)}
+                    disabled={activateProfileMutation.isPending}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded transition-colors"
+                  >
+                    {activateProfileMutation.isPending ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Lightning size={12} />
+                    )}
+                    Activate
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingProfile(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                >
+                  <Plus size={12} />
+                  New
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                >
+                  <Trash size={12} />
+                </button>
+              </div>
+            </div>
+
+            <hr className="border-gray-200 dark:border-[#333]" />
+
+            {/* Knowledge Sections Grid */}
+            {activeProfile && (
+              <div className="rounded-lg border border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] overflow-hidden">
+                <div className="grid grid-cols-2 sm:grid-cols-4">
+                  {/* Documents */}
+                  <SectionHeader
+                    icon={FilePdf}
+                    label="Documents"
+                    count={activeProfile.document_count}
+                    expanded={expandedSection === "documents"}
+                    onClick={() => toggleSection("documents")}
+                    className="border-r border-b sm:border-b-0 border-gray-200 dark:border-[#333]"
+                  />
+
+                  {/* Voice */}
+                  <SectionHeader
+                    icon={ChatText}
+                    label="Voice"
+                    count={activeProfile.voice_element_count}
+                    expanded={expandedSection === "voice"}
+                    onClick={() => toggleSection("voice")}
+                    className="border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-[#333]"
+                  />
+
+                  {/* Strategy */}
+                  <SectionHeader
+                    icon={ListChecks}
+                    label="Strategy"
+                    count={activeProfile.strategy_rule_count}
+                    expanded={expandedSection === "strategy"}
+                    onClick={() => toggleSection("strategy")}
+                    className="border-r border-gray-200 dark:border-[#333]"
+                  />
+
+                  {/* Facts */}
+                  <SectionHeader
+                    icon={Lightbulb}
+                    label="Facts"
+                    count={activeProfile.fact_count}
+                    expanded={expandedSection === "facts"}
+                    onClick={() => toggleSection("facts")}
+                  />
+                </div>
+
+                {/* Expanded Content */}
+                <AnimatePresence mode="wait">
+                  {expandedSection && (
+                    <motion.div
+                      key={expandedSection}
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden border-t border-gray-200 dark:border-[#333]"
+                    >
+                      <div className="p-4">
+                        {expandedSection === "documents" && (
+                          <DocumentsSection profileId={activeProfile.id} />
+                        )}
+                        {expandedSection === "voice" && (
+                          <VoiceSection profileId={activeProfile.id} />
+                        )}
+                        {expandedSection === "strategy" && (
+                          <StrategySection profileId={activeProfile.id} />
+                        )}
+                        {expandedSection === "facts" && (
+                          <FactsSection profileId={activeProfile.id} />
                         )}
                       </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => createProfileMutation.mutate()}
-              disabled={createProfileMutation.isPending}
-            >
-              {createProfileMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* Token Usage */}
+            {activeProfile?.prompt_token_count && (
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                {activeProfile.prompt_token_count} tokens used in knowledge prompt
+              </p>
+            )}
           </div>
+        )}
+      </div>
 
-          {activeProfile && (
-            <>
-              {/* Profile Stats Grid */}
-              <div className="grid grid-cols-5 gap-2">
-                <StatCard
-                  label="Documents"
-                  count={activeProfile.document_count}
-                  icon={FilePdf}
-                  active={activeTab === "documents"}
-                  onClick={() => setActiveTab("documents")}
-                />
-                <StatCard
-                  label="Voice"
-                  count={activeProfile.voice_element_count}
-                  icon={ChatText}
-                  active={activeTab === "voice"}
-                  onClick={() => setActiveTab("voice")}
-                />
-                <StatCard
-                  label="Strategy"
-                  count={activeProfile.strategy_rule_count}
-                  icon={ListChecks}
-                  active={activeTab === "strategy"}
-                  onClick={() => setActiveTab("strategy")}
-                />
-                <StatCard
-                  label="Facts"
-                  count={activeProfile.fact_count}
-                  icon={Lightbulb}
-                  active={activeTab === "facts"}
-                  onClick={() => setActiveTab("facts")}
-                />
-                <StatCard
-                  label="Preview"
-                  count={null}
-                  icon={Play}
-                  active={activeTab === "preview"}
-                  onClick={() => setActiveTab("preview")}
-                />
-              </div>
+      {/* Note */}
+      <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
+        Knowledge shapes how Rōmy communicates and advises, distinct from RAG document search.
+      </p>
 
-              {/* Profile Actions */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {activeProfile.status !== "active" && (
-                    <Button
-                      size="sm"
-                      onClick={() => activateProfileMutation.mutate(activeProfile.id)}
-                      disabled={activateProfileMutation.isPending}
-                    >
-                      {activateProfileMutation.isPending ? (
-                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Lightning className="mr-1 h-4 w-4" />
-                      )}
-                      Activate
-                    </Button>
-                  )}
-                  {activeProfile.status === "active" && (
-                    <Badge variant="secondary" className="bg-[#B183FF]/20 text-[#B183FF]">
-                      <CheckCircle className="mr-1 h-3 w-3" weight="fill" />
-                      Active
-                    </Badge>
-                  )}
-                  {activeProfile.prompt_token_count && (
-                    <span className="text-xs text-muted-foreground">
-                      {activeProfile.prompt_token_count} tokens
-                    </span>
-                  )}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setProfileToDelete(activeProfile.id)
-                    setDeleteDialogOpen(true)
-                  }}
-                >
-                  <Trash className="mr-1 h-4 w-4" />
-                  Delete Profile
-                </Button>
-              </div>
-
-              {/* Tab Content */}
-              <div className="mt-4">
-                {activeTab === "documents" && <DocumentsTab profileId={activeProfile.id} />}
-                {activeTab === "voice" && <VoiceTab profileId={activeProfile.id} />}
-                {activeTab === "strategy" && <StrategyTab profileId={activeProfile.id} />}
-                {activeTab === "facts" && <FactsTab profileId={activeProfile.id} />}
-                {activeTab === "preview" && <PreviewTab profileId={activeProfile.id} />}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Knowledge Profile</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this profile? This will remove all documents, voice
-              elements, strategy rules, and facts. This action cannot be undone.
+            <AlertDialogTitle className="text-black dark:text-white">
+              Delete Knowledge Profile
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-500 dark:text-gray-400">
+              This will delete all documents, voice elements, strategy rules, and facts.
+              This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel className="border-gray-300 dark:border-[#444]">
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => profileToDelete && deleteProfileMutation.mutate(profileToDelete)}
+              onClick={() => activeProfile && deleteProfileMutation.mutate(activeProfile.id)}
               disabled={deleteProfileMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {deleteProfileMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleteProfileMutation.isPending && <Loader2 className="mr-2 size-3 animate-spin" />}
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -368,221 +417,146 @@ export function KnowledgeDashboard() {
 }
 
 /**
- * Stat Card - clickable tab selector
+ * Section Header - Clickable grid item
  */
-function StatCard({
+function SectionHeader({
+  icon: Icon,
   label,
   count,
-  icon: Icon,
-  active,
+  expanded,
   onClick,
+  className,
 }: {
-  label: string
-  count: number | null
   icon: React.ElementType
-  active: boolean
+  label: string
+  count: number
+  expanded: boolean
   onClick: () => void
+  className?: string
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center justify-center rounded-lg border p-3 transition-colors",
-        active ? "border-primary ring-primary/30 ring-2 bg-accent/50" : "border-border hover:bg-accent/30"
+        "p-3 flex flex-col items-center justify-center text-center transition-colors",
+        expanded
+          ? "bg-gray-100 dark:bg-[#2a2a2a]"
+          : "hover:bg-gray-50 dark:hover:bg-[#252525]",
+        className
       )}
     >
-      <Icon className="mb-1 h-5 w-5 text-muted-foreground" />
-      {count !== null && <div className="text-lg font-semibold">{count}</div>}
-      <div className="text-xs text-muted-foreground">{label}</div>
+      <Icon size={18} className="text-gray-500 dark:text-gray-400 mb-1" />
+      <span className="text-lg font-semibold text-black dark:text-white">{count}</span>
+      <span className="text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+        {label}
+      </span>
     </button>
   )
 }
 
 /**
- * Status Badge for documents
+ * Documents Section
  */
-function StatusBadge({ status }: { status: KnowledgeDocument["status"] }) {
-  const config = {
-    pending: {
-      icon: Clock,
-      label: "Pending",
-      className: "bg-blue-500/10 text-blue-500",
-    },
-    processing: {
-      icon: Loader2,
-      label: "Processing",
-      className: "bg-[#422F10] text-yellow-600",
-    },
-    analyzed: {
-      icon: CheckCircle,
-      label: "Ready",
-      className: "bg-[#B183FF]/20 text-[#B183FF]",
-    },
-    failed: {
-      icon: WarningCircle,
-      label: "Failed",
-      className: "bg-red-500/10 text-red-500",
-    },
-  }
-
-  const { icon: Icon, label, className } = config[status]
-
-  return (
-    <Badge variant="secondary" className={cn("gap-1", className)}>
-      <Icon className={cn("h-3 w-3", status === "processing" && "animate-spin")} />
-      {label}
-    </Badge>
-  )
-}
-
-/**
- * Documents Tab - Upload and manage training documents
- */
-function DocumentsTab({ profileId }: { profileId: string }) {
+function DocumentsSection({ profileId }: { profileId: string }) {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
 
-  // Fetch documents
   const { data: documentsData, isLoading } = useQuery({
     queryKey: ["knowledge-documents", profileId],
     queryFn: async () => {
       const res = await fetchClient(`/api/knowledge/documents?profile_id=${profileId}`)
       if (!res.ok) throw new Error("Failed to fetch documents")
-      const data = await res.json()
-      return data.documents as KnowledgeDocument[]
+      return (await res.json()).documents as KnowledgeDocument[]
     },
   })
 
   const documents = documentsData || []
 
-  // Upload mutation
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData()
       formData.append("file", file)
       formData.append("profile_id", profileId)
-
-      const res = await fetch("/api/knowledge/documents", {
-        method: "POST",
-        body: formData,
-      })
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || "Upload failed")
-      }
+      const res = await fetch("/api/knowledge/documents", { method: "POST", body: formData })
+      if (!res.ok) throw new Error((await res.json()).error || "Upload failed")
       return res.json()
     },
-    onSuccess: (data) => {
-      toast({ title: "Document Uploaded", description: data.message })
+    onSuccess: () => {
+      toast({ title: "Document Uploaded" })
       queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
       queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
     },
     onError: (error) => {
-      toast({
-        title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-      })
+      toast({ title: "Upload Failed", description: error instanceof Error ? error.message : "Unknown error" })
     },
   })
 
-  // Analyze mutation
   const analyzeMutation = useMutation({
     mutationFn: async (documentId: string) => {
       const res = await fetchClient("/api/knowledge/documents/analyze", {
         method: "POST",
         body: JSON.stringify({ document_id: documentId }),
       })
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || "Analysis failed")
-      }
+      if (!res.ok) throw new Error((await res.json()).error || "Analysis failed")
       return res.json()
     },
-    onSuccess: (data) => {
-      toast({ title: "Document Analyzed", description: data.message })
+    onSuccess: () => {
+      toast({ title: "Document Analyzed" })
       queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
       queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
     },
     onError: (error) => {
-      toast({
-        title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Unknown error",
-      })
+      toast({ title: "Analysis Failed", description: error instanceof Error ? error.message : "Unknown error" })
     },
   })
 
-  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (documentId: string) => {
-      const res = await fetchClient(`/api/knowledge/documents/${documentId}`, {
-        method: "DELETE",
-      })
+      const res = await fetchClient(`/api/knowledge/documents/${documentId}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Delete failed")
       return res.json()
     },
     onSuccess: () => {
-      toast({ title: "Document Deleted" })
       queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
       queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
     },
   })
 
-  const handleFileSelect = useCallback(
-    (files: FileList | null) => {
-      if (!files) return
-      Array.from(files).forEach((file) => {
-        uploadMutation.mutate(file)
-      })
-    },
-    [uploadMutation]
-  )
+  const handleFiles = useCallback((files: FileList | null) => {
+    if (!files) return
+    Array.from(files).forEach((file) => uploadMutation.mutate(file))
+  }, [uploadMutation])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      setIsDragging(false)
-      handleFileSelect(e.dataTransfer.files)
-    },
-    [handleFileSelect]
-  )
-
-  const filteredDocuments = documents.filter((doc) =>
-    doc.file_name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
-
-  const getFileIcon = (fileType: string) => {
-    if (fileType.includes("pdf")) return FilePdf
-    if (fileType.includes("word") || fileType.includes("docx")) return FileDoc
+  const getFileIcon = (type: string) => {
+    if (type.includes("pdf")) return FilePdf
+    if (type.includes("word") || type.includes("docx")) return FileDoc
     return FileText
   }
 
+  const getStatusConfig = (status: KnowledgeDocument["status"]) => ({
+    pending: { label: "Pending", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+    processing: { label: "Processing", className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
+    analyzed: { label: "Ready", className: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+    failed: { label: "Failed", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+  }[status])
+
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <div className="flex justify-center py-4"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
   }
 
   return (
-    <div className="space-y-4">
-      {/* Upload Area */}
+    <div className="space-y-3">
+      {/* Upload Area - Compact */}
       <div
-        onDragOver={(e) => {
-          e.preventDefault()
-          setIsDragging(true)
-        }}
+        onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
         onDragLeave={() => setIsDragging(false)}
-        onDrop={handleDrop}
+        onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files) }}
         onClick={() => fileInputRef.current?.click()}
         className={cn(
-          "relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors",
-          isDragging
-            ? "border-primary bg-primary/5"
-            : "border-border hover:border-muted-foreground/50"
+          "flex items-center justify-center gap-2 px-4 py-3 rounded border-2 border-dashed cursor-pointer transition-colors",
+          isDragging ? "border-purple-500 bg-purple-50 dark:bg-purple-900/10" : "border-gray-200 dark:border-[#444] hover:border-gray-300 dark:hover:border-[#555]"
         )}
       >
         <input
@@ -590,157 +564,112 @@ function DocumentsTab({ profileId }: { profileId: string }) {
           type="file"
           accept=".pdf,.docx,.doc,.txt,.md"
           multiple
-          onChange={(e) => handleFileSelect(e.target.files)}
+          onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
         />
         {uploadMutation.isPending ? (
-          <>
-            <Loader2 className="mb-2 h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm font-medium">Uploading...</p>
-          </>
+          <Loader2 className="size-4 animate-spin text-purple-500" />
         ) : (
-          <>
-            <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
-            <p className="text-sm font-medium">Drop files here or click to browse</p>
-            <p className="text-xs text-muted-foreground">PDF, DOCX, TXT, MD - max 50MB</p>
-          </>
+          <Upload size={16} className="text-gray-400" />
         )}
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          {uploadMutation.isPending ? "Uploading..." : "Drop files or click to upload"}
+        </span>
       </div>
-
-      {/* Search */}
-      {documents.length > 0 && (
-        <div className="relative">
-          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search documents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      )}
 
       {/* Document List */}
       {documents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8">
-          <FilePdf className="mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            No documents uploaded yet. Upload documents to extract organizational knowledge.
-          </p>
-        </div>
-      ) : filteredDocuments.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8">
-          <MagnifyingGlass className="mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No documents match your search.</p>
-        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+          Upload documents to extract organizational knowledge.
+        </p>
       ) : (
-        <motion.div layout className="space-y-2">
-          <AnimatePresence mode="popLayout">
-            {filteredDocuments.map((doc) => {
-              const FileIcon = getFileIcon(doc.file_type)
-              return (
-                <motion.div
-                  key={doc.id}
-                  layout
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, x: -100 }}
-                  className="group flex items-center gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/50"
-                >
-                  <FileIcon className="h-8 w-8 flex-shrink-0 text-primary" weight="fill" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="truncate text-sm font-medium">{doc.file_name}</h4>
-                      <StatusBadge status={doc.status} />
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                      {doc.word_count && <span>{doc.word_count.toLocaleString()} words</span>}
-                      {doc.page_count && (
-                        <>
-                          <span>•</span>
-                          <span>{doc.page_count} pages</span>
-                        </>
-                      )}
-                      <span>•</span>
-                      <span>{formatRelativeTime(new Date(doc.created_at))}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {doc.status === "pending" && (
-                      <Button
-                        size="sm"
-                        onClick={() => analyzeMutation.mutate(doc.id)}
-                        disabled={analyzeMutation.isPending}
-                      >
-                        {analyzeMutation.isPending ? (
-                          <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Lightning className="mr-1 h-4 w-4" />
-                        )}
-                        Analyze
-                      </Button>
+        <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+          {documents.map((doc) => {
+            const FileIcon = getFileIcon(doc.file_type)
+            const statusConfig = getStatusConfig(doc.status)
+            return (
+              <div
+                key={doc.id}
+                className="flex items-center gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#252525] group"
+              >
+                <FileIcon size={14} className="text-gray-400 flex-shrink-0" weight="fill" />
+                <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300">
+                  {doc.file_name}
+                </span>
+                <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0", statusConfig.className)}>
+                  {statusConfig.label}
+                </span>
+                {doc.status === "pending" && (
+                  <button
+                    type="button"
+                    onClick={() => analyzeMutation.mutate(doc.id)}
+                    disabled={analyzeMutation.isPending}
+                    className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                  >
+                    {analyzeMutation.isPending ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <Sparkle size={12} className="text-purple-500" weight="fill" />
                     )}
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                        >
-                          <DotsThreeVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {doc.status === "pending" && (
-                          <DropdownMenuItem onClick={() => analyzeMutation.mutate(doc.id)}>
-                            <Lightning className="mr-2 h-4 w-4" />
-                            Analyze
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => deleteMutation.mutate(doc.id)}
-                          className="text-destructive"
-                        >
-                          <Trash className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </AnimatePresence>
-        </motion.div>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => deleteMutation.mutate(doc.id)}
+                  disabled={deleteMutation.isPending}
+                  className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+                >
+                  <Trash size={12} className="text-gray-400 hover:text-red-500" />
+                </button>
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
 }
 
 /**
- * Voice Tab - Manage voice and style settings
+ * Voice Section
  */
-function VoiceTab({ profileId }: { profileId: string }) {
+function VoiceSection({ profileId }: { profileId: string }) {
   const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
+  const [elementType, setElementType] = useState<VoiceElementType>("tone")
+  const [value, setValue] = useState("")
 
   const { data: voiceData, isLoading } = useQuery({
     queryKey: ["knowledge-voice", profileId],
     queryFn: async () => {
       const res = await fetchClient(`/api/knowledge/voice?profile_id=${profileId}`)
       if (!res.ok) throw new Error("Failed to fetch voice elements")
-      const data = await res.json()
-      return data.elements as KnowledgeVoiceElement[]
+      return (await res.json()).elements as KnowledgeVoiceElement[]
     },
   })
 
   const elements = voiceData || []
 
-  const deleteMutation = useMutation({
-    mutationFn: async (elementId: string) => {
-      const res = await fetchClient(`/api/knowledge/voice?id=${elementId}`, {
-        method: "DELETE",
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetchClient("/api/knowledge/voice", {
+        method: "POST",
+        body: JSON.stringify({ profile_id: profileId, element_type: elementType, value }),
       })
+      if (!res.ok) throw new Error("Failed to create")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["knowledge-voice", profileId] })
+      queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
+      setIsAdding(false)
+      setValue("")
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetchClient(`/api/knowledge/voice?id=${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Delete failed")
       return res.json()
     },
@@ -750,191 +679,132 @@ function VoiceTab({ profileId }: { profileId: string }) {
     },
   })
 
+  const typeLabels: Record<VoiceElementType, string> = {
+    tone: "Tone",
+    formality: "Formality",
+    terminology: "Term",
+    sentence_style: "Style",
+    emotional_register: "Emotion",
+    word_preference: "Prefer",
+    word_avoidance: "Avoid",
+  }
+
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <div className="flex justify-center py-4"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Define how Rōmy should communicate - tone, terminology, and style preferences.
-        </p>
-        <Button size="sm" onClick={() => setShowForm(true)}>
-          <Plus className="mr-1 h-4 w-4" />
-          Add
-        </Button>
-      </div>
-
-      {elements.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8">
-          <ChatText className="mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            No voice elements defined yet. Upload documents or add them manually.
-          </p>
-        </div>
-      ) : (
-        <motion.div layout className="space-y-2">
-          <AnimatePresence mode="popLayout">
-            {elements.map((element) => (
-              <motion.div
-                key={element.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -100 }}
-                className="group flex items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/50"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize">
-                      {element.element_type.replace("_", " ")}
-                    </Badge>
-                    <span className="font-medium">{element.value}</span>
-                  </div>
-                  {element.description && (
-                    <p className="mt-1 text-sm text-muted-foreground">{element.description}</p>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(element.id)}
-                  className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-      )}
-
-      {showForm && (
-        <VoiceForm profileId={profileId} onClose={() => setShowForm(false)} />
-      )}
-    </div>
-  )
-}
-
-/**
- * Voice Form Modal
- */
-function VoiceForm({ profileId, onClose }: { profileId: string; onClose: () => void }) {
-  const queryClient = useQueryClient()
-  const [elementType, setElementType] = useState<VoiceElementType>("tone")
-  const [value, setValue] = useState("")
-  const [description, setDescription] = useState("")
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetchClient("/api/knowledge/voice", {
-        method: "POST",
-        body: JSON.stringify({
-          profile_id: profileId,
-          element_type: elementType,
-          value,
-          description: description || undefined,
-        }),
-      })
-      if (!res.ok) throw new Error("Failed to create voice element")
-      return res.json()
-    },
-    onSuccess: () => {
-      toast({ title: "Voice Element Added" })
-      queryClient.invalidateQueries({ queryKey: ["knowledge-voice", profileId] })
-      queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
-      onClose()
-    },
-  })
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg border border-border bg-background p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-medium">Add Voice Element</h3>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
+    <div className="space-y-3">
+      {/* Add Form */}
+      {isAdding ? (
+        <div className="flex items-center gap-2">
+          <Select value={elementType} onValueChange={(v) => setElementType(v as VoiceElementType)}>
+            <SelectTrigger className="h-8 w-24 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="tone">Tone</SelectItem>
+              <SelectItem value="formality">Formality</SelectItem>
+              <SelectItem value="terminology">Terminology</SelectItem>
+              <SelectItem value="sentence_style">Sentence Style</SelectItem>
+              <SelectItem value="emotional_register">Emotional</SelectItem>
+              <SelectItem value="word_preference">Prefer Word</SelectItem>
+              <SelectItem value="word_avoidance">Avoid Word</SelectItem>
+            </SelectContent>
+          </Select>
+          <Input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder="e.g., warm and professional"
+            className="h-8 flex-1 text-xs"
+            autoFocus
+          />
+          <Button size="sm" className="h-8" onClick={() => createMutation.mutate()} disabled={!value || createMutation.isPending}>
+            {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add"}
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8" onClick={() => { setIsAdding(false); setValue("") }}>
+            <X size={14} />
           </Button>
         </div>
-        <div className="space-y-4">
-          <div>
-            <Label>Type</Label>
-            <Select value={elementType} onValueChange={(v) => setElementType(v as VoiceElementType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="tone">Tone</SelectItem>
-                <SelectItem value="formality">Formality</SelectItem>
-                <SelectItem value="terminology">Terminology</SelectItem>
-                <SelectItem value="sentence_style">Sentence Style</SelectItem>
-                <SelectItem value="emotional_register">Emotional Register</SelectItem>
-                <SelectItem value="word_preference">Word Preference</SelectItem>
-                <SelectItem value="word_avoidance">Word Avoidance</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Value</Label>
-            <Input
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="e.g., warm and professional"
-            />
-          </div>
-          <div>
-            <Label>Description (optional)</Label>
-            <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="When and how to use this"
-              rows={2}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button onClick={() => createMutation.mutate()} disabled={!value || createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add
-            </Button>
-          </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsAdding(true)}
+          className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 hover:underline"
+        >
+          <Plus size={12} />
+          Add voice element
+        </button>
+      )}
+
+      {/* Elements List */}
+      {elements.length === 0 ? (
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+          Define how Rōmy should communicate.
+        </p>
+      ) : (
+        <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+          {elements.map((el) => (
+            <div key={el.id} className="flex items-center gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#252525] group">
+              <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[10px] font-medium flex-shrink-0">
+                {typeLabels[el.element_type]}
+              </span>
+              <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300">{el.value}</span>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate(el.id)}
+                className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <Trash size={12} className="text-gray-400 hover:text-red-500" />
+              </button>
+            </div>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
 /**
- * Strategy Tab - Manage fundraising strategy rules
+ * Strategy Section
  */
-function StrategyTab({ profileId }: { profileId: string }) {
+function StrategySection({ profileId }: { profileId: string }) {
   const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
+  const [category, setCategory] = useState<StrategyCategory>("cultivation")
+  const [rule, setRule] = useState("")
 
   const { data: strategyData, isLoading } = useQuery({
     queryKey: ["knowledge-strategy", profileId],
     queryFn: async () => {
       const res = await fetchClient(`/api/knowledge/strategy?profile_id=${profileId}`)
       if (!res.ok) throw new Error("Failed to fetch strategy rules")
-      const data = await res.json()
-      return data.rules as KnowledgeStrategyRule[]
+      return (await res.json()).rules as KnowledgeStrategyRule[]
     },
   })
 
   const rules = strategyData || []
 
-  const deleteMutation = useMutation({
-    mutationFn: async (ruleId: string) => {
-      const res = await fetchClient(`/api/knowledge/strategy?id=${ruleId}`, {
-        method: "DELETE",
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetchClient("/api/knowledge/strategy", {
+        method: "POST",
+        body: JSON.stringify({ profile_id: profileId, category, rule, priority: 5 }),
       })
+      if (!res.ok) throw new Error("Failed to create")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["knowledge-strategy", profileId] })
+      queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
+      setIsAdding(false)
+      setRule("")
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetchClient(`/api/knowledge/strategy?id=${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Delete failed")
       return res.json()
     },
@@ -944,127 +814,29 @@ function StrategyTab({ profileId }: { profileId: string }) {
     },
   })
 
+  const categoryLabels: Record<StrategyCategory, string> = {
+    cultivation: "Cult",
+    solicitation: "Ask",
+    stewardship: "Steward",
+    objection_handling: "Objection",
+    ask_philosophy: "Philosophy",
+    donor_segmentation: "Segment",
+    communication: "Comms",
+    general: "General",
+  }
+
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <div className="flex justify-center py-4"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Define your fundraising approach - cultivation strategies, ask philosophies, and behavioral rules.
-        </p>
-        <Button size="sm" onClick={() => setShowForm(true)}>
-          <Plus className="mr-1 h-4 w-4" />
-          Add
-        </Button>
-      </div>
-
-      {rules.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8">
-          <ListChecks className="mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            No strategy rules defined yet. Add rules to guide Rōmy's advice.
-          </p>
-        </div>
-      ) : (
-        <motion.div layout className="space-y-2">
-          <AnimatePresence mode="popLayout">
-            {rules.map((rule) => (
-              <motion.div
-                key={rule.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -100 }}
-                className="group flex items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/50"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize">
-                      {rule.category.replace("_", " ")}
-                    </Badge>
-                    <Badge variant="secondary" className="text-xs">
-                      Priority {rule.priority}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-sm">{rule.rule}</p>
-                  {rule.rationale && (
-                    <p className="mt-1 text-xs text-muted-foreground">{rule.rationale}</p>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(rule.id)}
-                  className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-      )}
-
-      {showForm && (
-        <StrategyForm profileId={profileId} onClose={() => setShowForm(false)} />
-      )}
-    </div>
-  )
-}
-
-/**
- * Strategy Form Modal
- */
-function StrategyForm({ profileId, onClose }: { profileId: string; onClose: () => void }) {
-  const queryClient = useQueryClient()
-  const [category, setCategory] = useState<StrategyCategory>("cultivation")
-  const [rule, setRule] = useState("")
-  const [rationale, setRationale] = useState("")
-  const [priority, setPriority] = useState("5")
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetchClient("/api/knowledge/strategy", {
-        method: "POST",
-        body: JSON.stringify({
-          profile_id: profileId,
-          category,
-          rule,
-          rationale: rationale || undefined,
-          priority: parseInt(priority),
-        }),
-      })
-      if (!res.ok) throw new Error("Failed to create strategy rule")
-      return res.json()
-    },
-    onSuccess: () => {
-      toast({ title: "Strategy Rule Added" })
-      queryClient.invalidateQueries({ queryKey: ["knowledge-strategy", profileId] })
-      queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
-      onClose()
-    },
-  })
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg border border-border bg-background p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-medium">Add Strategy Rule</h3>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <Label>Category</Label>
+    <div className="space-y-3">
+      {/* Add Form */}
+      {isAdding ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
             <Select value={category} onValueChange={(v) => setCategory(v as StrategyCategory)}>
-              <SelectTrigger>
+              <SelectTrigger className="h-8 w-28 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1073,83 +845,107 @@ function StrategyForm({ profileId, onClose }: { profileId: string; onClose: () =
                 <SelectItem value="stewardship">Stewardship</SelectItem>
                 <SelectItem value="objection_handling">Objection Handling</SelectItem>
                 <SelectItem value="ask_philosophy">Ask Philosophy</SelectItem>
-                <SelectItem value="donor_segmentation">Donor Segmentation</SelectItem>
+                <SelectItem value="donor_segmentation">Segmentation</SelectItem>
                 <SelectItem value="communication">Communication</SelectItem>
                 <SelectItem value="general">General</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label>Rule</Label>
-            <Textarea
+            <Input
               value={rule}
               onChange={(e) => setRule(e.target.value)}
-              placeholder="Describe the rule or guideline..."
-              rows={3}
+              placeholder="Describe the rule..."
+              className="h-8 flex-1 text-xs"
+              autoFocus
             />
           </div>
-          <div>
-            <Label>Rationale (optional)</Label>
-            <Input
-              value={rationale}
-              onChange={(e) => setRationale(e.target.value)}
-              placeholder="Why is this rule important?"
-            />
-          </div>
-          <div>
-            <Label>Priority (1-10)</Label>
-            <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                  <SelectItem key={n} value={n.toString()}>
-                    {n} {n >= 8 ? "(High)" : n >= 4 ? "(Medium)" : "(Low)"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
+          <div className="flex gap-2">
+            <Button size="sm" className="h-7" onClick={() => createMutation.mutate()} disabled={!rule || createMutation.isPending}>
+              {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add Rule"}
             </Button>
-            <Button onClick={() => createMutation.mutate()} disabled={!rule || createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add
+            <Button size="sm" variant="ghost" className="h-7" onClick={() => { setIsAdding(false); setRule("") }}>
+              Cancel
             </Button>
           </div>
         </div>
-      </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsAdding(true)}
+          className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 hover:underline"
+        >
+          <Plus size={12} />
+          Add strategy rule
+        </button>
+      )}
+
+      {/* Rules List */}
+      {rules.length === 0 ? (
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+          Add rules to guide Rōmy's fundraising approach.
+        </p>
+      ) : (
+        <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+          {rules.map((r) => (
+            <div key={r.id} className="flex items-start gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#252525] group">
+              <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-medium flex-shrink-0 mt-0.5">
+                {categoryLabels[r.category]}
+              </span>
+              <span className="flex-1 min-w-0 text-gray-700 dark:text-gray-300 leading-relaxed">{r.rule}</span>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate(r.id)}
+                className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <Trash size={12} className="text-gray-400 hover:text-red-500" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 /**
- * Facts Tab - Manage organizational knowledge facts
+ * Facts Section
  */
-function FactsTab({ profileId }: { profileId: string }) {
+function FactsSection({ profileId }: { profileId: string }) {
   const queryClient = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
+  const [category, setCategory] = useState<FactCategory>("mission")
+  const [fact, setFact] = useState("")
 
   const { data: factsData, isLoading } = useQuery({
     queryKey: ["knowledge-facts", profileId],
     queryFn: async () => {
       const res = await fetchClient(`/api/knowledge/facts?profile_id=${profileId}`)
       if (!res.ok) throw new Error("Failed to fetch facts")
-      const data = await res.json()
-      return data.facts as KnowledgeFact[]
+      return (await res.json()).facts as KnowledgeFact[]
     },
   })
 
   const facts = factsData || []
 
-  const deleteMutation = useMutation({
-    mutationFn: async (factId: string) => {
-      const res = await fetchClient(`/api/knowledge/facts?id=${factId}`, {
-        method: "DELETE",
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetchClient("/api/knowledge/facts", {
+        method: "POST",
+        body: JSON.stringify({ profile_id: profileId, category, fact }),
       })
+      if (!res.ok) throw new Error("Failed to create")
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["knowledge-facts", profileId] })
+      queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
+      setIsAdding(false)
+      setFact("")
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetchClient(`/api/knowledge/facts?id=${id}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Delete failed")
       return res.json()
     },
@@ -1159,117 +955,31 @@ function FactsTab({ profileId }: { profileId: string }) {
     },
   })
 
+  const categoryLabels: Record<FactCategory, string> = {
+    mission: "Mission",
+    organization: "Org",
+    programs: "Programs",
+    impact: "Impact",
+    staff: "Staff",
+    board: "Board",
+    donors: "Donors",
+    campaigns: "Campaign",
+    history: "History",
+    values: "Values",
+  }
+
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <div className="flex justify-center py-4"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Add facts about your organization - mission, programs, impact stories, key people.
-        </p>
-        <Button size="sm" onClick={() => setShowForm(true)}>
-          <Plus className="mr-1 h-4 w-4" />
-          Add
-        </Button>
-      </div>
-
-      {facts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8">
-          <Lightbulb className="mb-3 h-12 w-12 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            No facts added yet. Add facts that Rōmy should always know.
-          </p>
-        </div>
-      ) : (
-        <motion.div layout className="space-y-2">
-          <AnimatePresence mode="popLayout">
-            {facts.map((fact) => (
-              <motion.div
-                key={fact.id}
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: -100 }}
-                className="group flex items-start gap-3 rounded-lg border border-border p-3 transition-colors hover:bg-accent/50"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="capitalize">
-                      {fact.category}
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-sm">{fact.fact}</p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteMutation.mutate(fact.id)}
-                  className="flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </motion.div>
-      )}
-
-      {showForm && (
-        <FactForm profileId={profileId} onClose={() => setShowForm(false)} />
-      )}
-    </div>
-  )
-}
-
-/**
- * Fact Form Modal
- */
-function FactForm({ profileId, onClose }: { profileId: string; onClose: () => void }) {
-  const queryClient = useQueryClient()
-  const [category, setCategory] = useState<FactCategory>("mission")
-  const [fact, setFact] = useState("")
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetchClient("/api/knowledge/facts", {
-        method: "POST",
-        body: JSON.stringify({
-          profile_id: profileId,
-          category,
-          fact,
-        }),
-      })
-      if (!res.ok) throw new Error("Failed to create fact")
-      return res.json()
-    },
-    onSuccess: () => {
-      toast({ title: "Fact Added" })
-      queryClient.invalidateQueries({ queryKey: ["knowledge-facts", profileId] })
-      queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
-      onClose()
-    },
-  })
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg border border-border bg-background p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-medium">Add Fact</h3>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-        <div className="space-y-4">
-          <div>
-            <Label>Category</Label>
+    <div className="space-y-3">
+      {/* Add Form */}
+      {isAdding ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
             <Select value={category} onValueChange={(v) => setCategory(v as FactCategory)}>
-              <SelectTrigger>
+              <SelectTrigger className="h-8 w-28 text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1285,91 +995,58 @@ function FactForm({ profileId, onClose }: { profileId: string; onClose: () => vo
                 <SelectItem value="values">Values</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label>Fact</Label>
-            <Textarea
+            <Input
               value={fact}
               onChange={(e) => setFact(e.target.value)}
               placeholder="Enter an organizational fact..."
-              rows={3}
+              className="h-8 flex-1 text-xs"
+              autoFocus
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
+          <div className="flex gap-2">
+            <Button size="sm" className="h-7" onClick={() => createMutation.mutate()} disabled={!fact || createMutation.isPending}>
+              {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add Fact"}
             </Button>
-            <Button onClick={() => createMutation.mutate()} disabled={!fact || createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Add
+            <Button size="sm" variant="ghost" className="h-7" onClick={() => { setIsAdding(false); setFact("") }}>
+              Cancel
             </Button>
           </div>
         </div>
-      </div>
-    </div>
-  )
-}
-
-/**
- * Preview Tab - Test how Rōmy responds with this profile
- */
-function PreviewTab({ profileId }: { profileId: string }) {
-  const [testPrompt, setTestPrompt] = useState("")
-  const [response, setResponse] = useState<string | null>(null)
-
-  const previewMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetchClient("/api/knowledge/preview", {
-        method: "POST",
-        body: JSON.stringify({
-          profile_id: profileId,
-          test_prompt: testPrompt,
-        }),
-      })
-      if (!res.ok) throw new Error("Preview failed")
-      return res.json()
-    },
-    onSuccess: (data) => {
-      setResponse(data.response)
-    },
-  })
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Test how Rōmy responds with your knowledge profile. Enter a sample prompt to see the difference.
-      </p>
-
-      <div className="space-y-3">
-        <Textarea
-          placeholder="e.g., Draft a thank you letter for a major donor who gave $10,000..."
-          value={testPrompt}
-          onChange={(e) => setTestPrompt(e.target.value)}
-          rows={3}
-        />
-        <Button
-          onClick={() => previewMutation.mutate()}
-          disabled={!testPrompt.trim() || previewMutation.isPending}
+      ) : (
+        <button
+          type="button"
+          onClick={() => setIsAdding(true)}
+          className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 hover:underline"
         >
-          {previewMutation.isPending ? (
-            <Loader2 className="mr-1 h-4 w-4 animate-spin" />
-          ) : (
-            <Play className="mr-1 h-4 w-4" />
-          )}
-          Test Response
-        </Button>
-      </div>
+          <Plus size={12} />
+          Add fact
+        </button>
+      )}
 
-      <div className="min-h-[200px] rounded-lg border border-border bg-muted/30 p-4">
-        {response ? (
-          <p className="whitespace-pre-wrap text-sm">{response}</p>
-        ) : (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            Enter a prompt and click "Test Response" to preview how Rōmy would respond with your
-            knowledge profile.
-          </p>
-        )}
-      </div>
+      {/* Facts List */}
+      {facts.length === 0 ? (
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+          Add facts that Rōmy should always know about your organization.
+        </p>
+      ) : (
+        <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+          {facts.map((f) => (
+            <div key={f.id} className="flex items-start gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#252525] group">
+              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-medium flex-shrink-0 mt-0.5">
+                {categoryLabels[f.category]}
+              </span>
+              <span className="flex-1 min-w-0 text-gray-700 dark:text-gray-300 leading-relaxed">{f.fact}</span>
+              <button
+                type="button"
+                onClick={() => deleteMutation.mutate(f.id)}
+                className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <Trash size={12} className="text-gray-400 hover:text-red-500" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
