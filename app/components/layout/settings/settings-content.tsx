@@ -14,6 +14,7 @@ import {
   XIcon,
   HardDrives,
   LinkSimple,
+  BookOpen,
 } from "@phosphor-icons/react"
 import { useState, useEffect } from "react"
 import { SubscriptionSection } from "@/components/subscription/subscription-section"
@@ -28,8 +29,9 @@ import { UserProfile } from "./general/user-profile"
 import { DataSection } from "./data/data-section"
 import { MemoryList } from "@/app/components/memory"
 import { IntegrationsSection } from "./integrations"
+import { KnowledgeDashboard } from "@/app/components/knowledge"
 
-export type TabType = "general" | "appearance" | "data" | "memory" | "subscription" | "integrations" | "connections"
+export type TabType = "general" | "appearance" | "data" | "memory" | "subscription" | "integrations" | "knowledge" | "connections"
 
 type SettingsContentProps = {
   isDrawer?: boolean
@@ -128,6 +130,15 @@ export function SettingsContent({
                     <span>Integrations</span>
                   </TabsTrigger>
                 )}
+                {isSupabaseEnabled && (
+                  <TabsTrigger
+                    value="knowledge"
+                    className="flex shrink-0 items-center gap-2"
+                  >
+                    <BookOpen className="size-4" />
+                    <span>Knowledge</span>
+                  </TabsTrigger>
+                )}
                 <TabsTrigger
                   value="connections"
                   className="flex shrink-0 items-center gap-2"
@@ -179,6 +190,10 @@ export function SettingsContent({
 
             <TabsContent value="integrations" className="space-y-6 px-6">
               {isSupabaseEnabled && <IntegrationsSection />}
+            </TabsContent>
+
+            <TabsContent value="knowledge" className="space-y-6 px-6">
+              {isSupabaseEnabled && <KnowledgeDashboard />}
             </TabsContent>
 
             <TabsContent value="connections" className="space-y-6 px-6">
@@ -260,6 +275,18 @@ export function SettingsContent({
                   </TabsTrigger>
                 )}
 
+                {isSupabaseEnabled && (
+                  <TabsTrigger
+                    value="knowledge"
+                    className="w-full justify-start rounded-md px-3 py-2 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="size-4" />
+                      <span>Knowledge</span>
+                    </div>
+                  </TabsTrigger>
+                )}
+
                 <TabsTrigger
                   value="connections"
                   className="w-full justify-start rounded-md px-3 py-2 text-left"
@@ -314,6 +341,10 @@ export function SettingsContent({
 
               <TabsContent value="integrations" className="mt-0 space-y-6">
                 {isSupabaseEnabled && <IntegrationsSection />}
+              </TabsContent>
+
+              <TabsContent value="knowledge" className="mt-0 space-y-6">
+                {isSupabaseEnabled && <KnowledgeDashboard />}
               </TabsContent>
 
               <TabsContent value="connections" className="mt-0 space-y-6">

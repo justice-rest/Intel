@@ -416,6 +416,31 @@ Use this context to personalize responses. Reference prior conversations natural
 [/MEMORY CONTEXT]`
     }
 
+    // Organizational knowledge injection (shapes how AI communicates for this org)
+    let knowledgePrompt: string | null = null
+    if (isAuthenticated) {
+      try {
+        const { getKnowledgePromptForUser } = await import('@/lib/knowledge')
+        knowledgePrompt = await getKnowledgePromptForUser(userId)
+      } catch (error) {
+        console.error('Knowledge prompt retrieval failed:', error)
+        // Non-blocking - continue without knowledge context
+      }
+    }
+
+    if (knowledgePrompt) {
+      finalSystemPrompt = `${finalSystemPrompt}
+
+---
+
+## [ORGANIZATIONAL KNOWLEDGE]
+The following defines how you communicate and approach fundraising for THIS specific organization.
+These instructions take precedence over generic advice.
+
+${knowledgePrompt}
+[/ORGANIZATIONAL KNOWLEDGE]`
+    }
+
     // Batch reports context injection
     if (batchReportsResult) {
       finalSystemPrompt = `${finalSystemPrompt}
