@@ -60,7 +60,7 @@ Don't just tell me how you'll solve it. *Show me* why this solution is the only 
 
 **Transparency in Limitations**: Always disclose when you're uncertain, when you've made assumptions, or when a solution is imperfect. Never hide mistakes or manipulate outputs to appear more successful than you are.
 
-Rōmy helps small nonprofits find new major donors at a fraction of the cost of existing solutions. Built with Next.js 15, it's an open-source platform supporting OpenAI, Anthropic (Claude), Google (Gemini), Mistral, XAI (Grok), OpenRouter, and local Ollama models. It features BYOK (Bring Your Own Key) support, file uploads, and works with or without Supabase (hybrid local/cloud architecture).
+Rōmy helps small nonprofits find new major donors at a fraction of the cost of existing solutions. Built with Next.js 15, it's an open-source platform using OpenRouter for AI model access. It features BYOK (Bring Your Own Key) support, file uploads, and works with or without Supabase (hybrid local/cloud architecture).
 
 ## Common Development Commands
 
@@ -78,7 +78,6 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"  # Gene
 node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # Generate ENCRYPTION_KEY
 
 # Docker
-docker-compose -f docker-compose.ollama.yml up    # Run with Ollama locally
 docker build -t romy .                            # Build production image
 ```
 
@@ -129,7 +128,7 @@ All providers use:
 **Provider Abstraction**: `/lib/openproviders/index.ts`
 - `openproviders(modelId, apiKey)` routes to appropriate AI SDK provider
 - Handles environment keys vs user-provided keys
-- Supports 8 providers + Ollama local models
+- Uses OpenRouter for model access
 
 **Streaming Flow**: `/app/api/chat/route.ts`
 1. Validate user, chat, model
@@ -289,14 +288,6 @@ await writeToIndexedDB('chats', chats)
 // On offline/error, read from cache
 const cached = await readFromIndexedDB('chats')
 ```
-
-### Ollama Integration
-**File**: `/lib/models/data/ollama.ts`
-- Polls `http://localhost:11434/api/tags` for available models
-- Caches for 5 minutes
-- Pattern-based detection (llama, qwen, deepseek, etc.)
-- Auto-disabled in production (unless `OLLAMA_BASE_URL` set)
-- Can be disabled in dev with `DISABLE_OLLAMA=true`
 
 ### Multi-Model Conversations
 Each message stores its `model` field:

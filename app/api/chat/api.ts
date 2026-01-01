@@ -29,7 +29,7 @@ import {
 import { checkUsageByModel, incrementUsage } from "@/lib/usage"
 import {
   getEffectiveApiKey,
-  type ProviderWithoutOllama,
+  type Provider,
 } from "@/lib/user-keys"
 
 /**
@@ -179,7 +179,7 @@ export async function validateAndTrackUsage({
     const provider = getProviderForModel(model)
     const effectiveApiKey = await getEffectiveApiKey(
       userId,
-      provider as ProviderWithoutOllama
+      provider as Provider
     )
 
     // If no API key and model is not in free list, deny access

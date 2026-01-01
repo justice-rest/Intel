@@ -14,7 +14,7 @@ const VALID_TABS: TabType[] = [
   "memory",
   "subscription",
   "integrations",
-  "connections",
+  "knowledge",
 ]
 
 /**

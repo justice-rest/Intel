@@ -88,7 +88,7 @@ import {
   createDriveTools,
   shouldEnableDriveTools,
 } from "@/lib/tools/drive-rag-tools"
-import type { ProviderWithoutOllama } from "@/lib/user-keys"
+import type { Provider } from "@/lib/user-keys"
 import {
   preCheckDeepResearchCredits,
   deductDeepResearchCredits,
@@ -202,7 +202,7 @@ export async function POST(req: Request) {
         if (!isAuthenticated || !userId) return undefined
         const { getEffectiveApiKey } = await import("@/lib/user-keys")
         const provider = getProviderForModel(normalizedModel)
-        return (await getEffectiveApiKey(userId, provider as ProviderWithoutOllama)) || undefined
+        return (await getEffectiveApiKey(userId, provider as Provider)) || undefined
       })(),
       // 5. USER NAME - Fetch the actual logged-in user's name for AI context
       (async (): Promise<string | null> => {

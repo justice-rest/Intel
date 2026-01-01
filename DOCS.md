@@ -29,36 +29,12 @@ Built with Next.js 15, powered by Grok via OpenRouter, with BYOK (Bring Your Own
 
 ## Quick Start
 
-### Option 1: With OpenRouter (Recommended)
-
 ```bash
 git clone https://github.com/ibelick/romy.git
 cd romy
 npm install
 echo "OPENROUTER_API_KEY=your-key" > .env.local
 npm run dev
-```
-
-### Option 2: With Ollama (Local AI)
-
-```bash
-# Install Ollama
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull llama3.2
-
-# Run Rōmy
-git clone https://github.com/ibelick/romy.git
-cd romy
-npm install
-npm run dev
-```
-
-### Option 3: Docker with Ollama
-
-```bash
-git clone https://github.com/ibelick/romy.git
-cd romy
-docker-compose -f docker-compose.ollama.yml up
 ```
 
 ---
@@ -97,10 +73,6 @@ AUTUMN_SECRET_KEY=              # For billing (am_sk_test_... or am_sk_live_...)
 # Analytics
 NEXT_PUBLIC_POSTHOG_KEY=
 NEXT_PUBLIC_POSTHOG_HOST=       # Defaults to https://us.i.posthog.com
-
-# Local AI
-OLLAMA_BASE_URL=http://localhost:11434
-DISABLE_OLLAMA=false            # Set true to disable in dev
 
 # Production
 NEXT_PUBLIC_VERCEL_URL=
@@ -492,7 +464,6 @@ npm run migrate          # Run migrations
 npm run migrate:manual   # Get manual instructions
 
 # Docker
-docker-compose -f docker-compose.ollama.yml up    # With Ollama
 docker build -t romy .                            # Build image
 
 # Generate secrets

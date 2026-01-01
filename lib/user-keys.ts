@@ -4,7 +4,6 @@ import { Provider } from "./openproviders/types"
 import { createClient } from "./supabase/server"
 
 export type { Provider } from "./openproviders/types"
-export type ProviderWithoutOllama = Exclude<Provider, "ollama">
 
 // ============================================================================
 // CACHING - Reduces repeated DB calls for API keys
@@ -65,14 +64,14 @@ export async function getUserKey(
 
 export async function getEffectiveApiKey(
   userId: string | null,
-  provider: ProviderWithoutOllama
+  provider: Provider
 ): Promise<string | null> {
   if (userId) {
     const userKey = await getUserKey(userId, provider)
     if (userKey) return userKey
   }
 
-  const envKeyMap: Record<ProviderWithoutOllama, string | undefined> = {
+  const envKeyMap: Record<Provider, string | undefined> = {
     openrouter: env.OPENROUTER_API_KEY,
   }
 

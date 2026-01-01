@@ -8,50 +8,23 @@
 
 ## Features
 
-- Multi-model support: OpenAI, Mistral, Claude, Gemini, Ollama (local models)
-- Bring your own API key (BYOK) support via OpenRouter
+- Multi-model support via OpenRouter (GPT-4, Claude, Gemini, and more)
+- Bring your own API key (BYOK) support
 - File uploads
 - Clean, responsive UI with light/dark themes
 - Built with Tailwind CSS, shadcn/ui, and prompt-kit
 - Open-source and self-hostable
 - Customizable: user system prompt, multiple layout options
-- Local AI with Ollama: Run models locally with automatic model detection
 - Full MCP support (wip)
 
 ## Quick Start
 
-### Option 1: With OpenAI (Cloud)
-
 ```bash
 git clone https://github.com/ibelick/romy.git
 cd romy
 npm install
-echo "OPENAI_API_KEY=your-key" > .env.local
+echo "OPENROUTER_API_KEY=your-key" > .env.local
 npm run dev
-```
-
-### Option 2: With Ollama (Local)
-
-```bash
-# Install and start Ollama
-curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull llama3.2  # or any model you prefer
-
-# Clone and run Rōmy
-git clone https://github.com/ibelick/romy.git
-cd romy
-npm install
-npm run dev
-```
-
-Rōmy will automatically detect your local Ollama models!
-
-### Option 3: Docker with Ollama
-
-```bash
-git clone https://github.com/ibelick/romy.git
-cd romy
-docker-compose -f docker-compose.ollama.yml up
 ```
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ibelick/romy)

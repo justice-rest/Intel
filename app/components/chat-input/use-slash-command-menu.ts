@@ -6,7 +6,6 @@ import {
   PaintBrushIcon,
   DatabaseIcon,
   HardDrives,
-  PlugsConnectedIcon,
   FileTextIcon,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
@@ -77,14 +76,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: "AI memory settings",
     icon: HardDrives,
     keywords: ["memory", "ai", "remember", "context"],
-  },
-  {
-    id: "settings-connections",
-    command: "/settings/connections",
-    label: "Connections",
-    description: "Ollama & developer tools",
-    icon: PlugsConnectedIcon,
-    keywords: ["connections", "ollama", "developer", "tools"],
   },
   {
     id: "draft",

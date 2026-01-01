@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { getEffectiveApiKey, ProviderWithoutOllama } from "@/lib/user-keys"
+import { getEffectiveApiKey, Provider } from "@/lib/user-keys"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
@@ -21,26 +21,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Skip Ollama since it doesn't use API keys
-    if (provider === "ollama") {
-      return NextResponse.json({
-        hasUserKey: false,
-        provider,
-      })
-    }
-
     const apiKey = await getEffectiveApiKey(
       userId,
-      provider as ProviderWithoutOllama
+      provider as Provider
     )
 
-    const envKeyMap: Record<ProviderWithoutOllama, string | undefined> = {
+    const envKeyMap: Record<Provider, string | undefined> = {
       openrouter: process.env.OPENROUTER_API_KEY,
     }
 
     return NextResponse.json({
       hasUserKey:
-        !!apiKey && apiKey !== envKeyMap[provider as ProviderWithoutOllama],
+        !!apiKey && apiKey !== envKeyMap[provider as Provider],
       provider,
     })
   } catch (error) {

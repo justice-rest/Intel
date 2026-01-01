@@ -4,12 +4,11 @@ import { Button } from "@/components/ui/button"
 import { DrawerClose } from "@/components/ui/drawer"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
-import { cn, isDev } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import {
   DatabaseIcon,
   GearSixIcon,
   PaintBrushIcon,
-  PlugsConnectedIcon,
   CreditCardIcon,
   XIcon,
   HardDrives,
@@ -21,9 +20,6 @@ import { SubscriptionSection } from "@/components/subscription/subscription-sect
 import { InteractionPreferences } from "./appearance/interaction-preferences"
 import { LayoutSettings } from "./appearance/layout-settings"
 import { ThemeSelection } from "./appearance/theme-selection"
-import { ConnectionsPlaceholder } from "./connections/connections-placeholder"
-import { DeveloperTools } from "./connections/developer-tools"
-import { OllamaSection } from "./connections/ollama-section"
 import { AccountManagement } from "./general/account-management"
 import { UserProfile } from "./general/user-profile"
 import { DataSection } from "./data/data-section"
@@ -31,7 +27,7 @@ import { MemoryList } from "@/app/components/memory"
 import { IntegrationsSection } from "./integrations"
 import { KnowledgeDashboard } from "@/app/components/knowledge"
 
-export type TabType = "general" | "appearance" | "data" | "memory" | "subscription" | "integrations" | "knowledge" | "connections"
+export type TabType = "general" | "appearance" | "data" | "memory" | "subscription" | "integrations" | "knowledge"
 
 type SettingsContentProps = {
   isDrawer?: boolean
@@ -139,13 +135,6 @@ export function SettingsContent({
                     <span>Knowledge</span>
                   </TabsTrigger>
                 )}
-                <TabsTrigger
-                  value="connections"
-                  className="flex shrink-0 items-center gap-2"
-                >
-                  <PlugsConnectedIcon className="size-4" />
-                  <span>Connections</span>
-                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -194,12 +183,6 @@ export function SettingsContent({
 
             <TabsContent value="knowledge" className="space-y-6 px-6">
               {isSupabaseEnabled && <KnowledgeDashboard />}
-            </TabsContent>
-
-            <TabsContent value="connections" className="space-y-6 px-6">
-              {!isDev && <ConnectionsPlaceholder />}
-              {isDev && <OllamaSection />}
-              {isDev && <DeveloperTools />}
             </TabsContent>
           </div>
         ) : (
@@ -286,16 +269,6 @@ export function SettingsContent({
                     </div>
                   </TabsTrigger>
                 )}
-
-                <TabsTrigger
-                  value="connections"
-                  className="w-full justify-start rounded-md px-3 py-2 text-left"
-                >
-                  <div className="flex items-center gap-2">
-                    <PlugsConnectedIcon className="size-4" />
-                    <span>Connections</span>
-                  </div>
-                </TabsTrigger>
               </div>
             </TabsList>
 
@@ -345,12 +318,6 @@ export function SettingsContent({
 
               <TabsContent value="knowledge" className="mt-0 space-y-6">
                 {isSupabaseEnabled && <KnowledgeDashboard />}
-              </TabsContent>
-
-              <TabsContent value="connections" className="mt-0 space-y-6">
-                {!isDev && <ConnectionsPlaceholder />}
-                {isDev && <OllamaSection />}
-                {isDev && <DeveloperTools />}
               </TabsContent>
             </div>
           </>
