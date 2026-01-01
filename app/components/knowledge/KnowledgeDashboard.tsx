@@ -35,7 +35,6 @@ import {
   CheckCircle,
   Lightning,
   Upload,
-  X,
   Sparkle,
 } from "@phosphor-icons/react"
 import { Loader2 } from "lucide-react"
@@ -689,73 +688,114 @@ function VoiceSection({ profileId }: { profileId: string }) {
     word_avoidance: "Avoid",
   }
 
+  const typeOptions: { value: VoiceElementType; label: string }[] = [
+    { value: "tone", label: "Tone" },
+    { value: "formality", label: "Formality" },
+    { value: "terminology", label: "Terminology" },
+    { value: "sentence_style", label: "Style" },
+    { value: "emotional_register", label: "Emotion" },
+    { value: "word_preference", label: "Prefer" },
+    { value: "word_avoidance", label: "Avoid" },
+  ]
+
   if (isLoading) {
     return <div className="flex justify-center py-4"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
   }
 
   return (
     <div className="space-y-3">
-      {/* Add Form */}
-      {isAdding ? (
-        <div className="flex items-center gap-2">
-          <Select value={elementType} onValueChange={(v) => setElementType(v as VoiceElementType)}>
-            <SelectTrigger className="h-8 w-24 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="tone">Tone</SelectItem>
-              <SelectItem value="formality">Formality</SelectItem>
-              <SelectItem value="terminology">Terminology</SelectItem>
-              <SelectItem value="sentence_style">Sentence Style</SelectItem>
-              <SelectItem value="emotional_register">Emotional</SelectItem>
-              <SelectItem value="word_preference">Prefer Word</SelectItem>
-              <SelectItem value="word_avoidance">Avoid Word</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="e.g., warm and professional"
-            className="h-8 flex-1 text-xs"
-            autoFocus
-          />
-          <Button size="sm" className="h-8" onClick={() => createMutation.mutate()} disabled={!value || createMutation.isPending}>
-            {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add"}
-          </Button>
-          <Button size="sm" variant="ghost" className="h-8" onClick={() => { setIsAdding(false); setValue("") }}>
-            <X size={14} />
-          </Button>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 hover:underline"
-        >
-          <Plus size={12} />
-          Add voice element
-        </button>
-      )}
+      {/* Add Form - Elegant inline */}
+      <AnimatePresence mode="wait">
+        {isAdding ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="p-3 rounded-lg bg-[#1a1a1a] border border-[#333] space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {typeOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setElementType(opt.value)}
+                    className={cn(
+                      "px-2 py-1 text-[11px] rounded transition-colors",
+                      elementType === opt.value
+                        ? "bg-purple-500 text-white font-medium"
+                        : "bg-[#2a2a2a] text-gray-400 hover:bg-[#333] hover:text-gray-300"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={elementType === "word_avoidance" ? "Word to avoid..." : elementType === "word_preference" ? "Word to prefer..." : "e.g., warm and professional"}
+                className="w-full bg-transparent text-sm text-white placeholder:text-gray-500 outline-none border-b border-[#444] pb-2 focus:border-purple-400 transition-colors"
+                autoFocus
+              />
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-gray-500">
+                  Defines how Rōmy communicates
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsAdding(false); setValue("") }}
+                    className="text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => createMutation.mutate()}
+                    disabled={!value.trim() || createMutation.isPending}
+                    className="px-3 py-1 text-xs font-medium rounded bg-purple-500 text-white hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            type="button"
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            <Plus size={12} />
+            Add voice element
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Elements List */}
-      {elements.length === 0 ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+      {elements.length === 0 && !isAdding ? (
+        <p className="text-xs text-gray-500 text-center py-2">
           Define how Rōmy should communicate.
         </p>
       ) : (
         <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
           {elements.map((el) => (
-            <div key={el.id} className="flex items-center gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#252525] group">
-              <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 text-[10px] font-medium flex-shrink-0">
+            <div key={el.id} className="flex items-center gap-2 text-xs p-2 rounded hover:bg-[#252525] group">
+              <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-medium flex-shrink-0">
                 {typeLabels[el.element_type]}
               </span>
-              <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300">{el.value}</span>
+              <span className="flex-1 min-w-0 truncate text-gray-300">{el.value}</span>
               <button
                 type="button"
                 onClick={() => deleteMutation.mutate(el.id)}
-                className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="flex-shrink-0 p-1 hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
               >
-                <Trash size={12} className="text-gray-400 hover:text-red-500" />
+                <Trash size={12} className="text-gray-500 hover:text-red-400" />
               </button>
             </div>
           ))}
@@ -825,78 +865,115 @@ function StrategySection({ profileId }: { profileId: string }) {
     general: "General",
   }
 
+  const categoryOptions: { value: StrategyCategory; label: string }[] = [
+    { value: "cultivation", label: "Cultivation" },
+    { value: "solicitation", label: "Solicitation" },
+    { value: "stewardship", label: "Stewardship" },
+    { value: "objection_handling", label: "Objection Handling" },
+    { value: "ask_philosophy", label: "Ask Philosophy" },
+    { value: "donor_segmentation", label: "Segmentation" },
+    { value: "communication", label: "Communication" },
+    { value: "general", label: "General" },
+  ]
+
   if (isLoading) {
     return <div className="flex justify-center py-4"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
   }
 
   return (
     <div className="space-y-3">
-      {/* Add Form */}
-      {isAdding ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Select value={category} onValueChange={(v) => setCategory(v as StrategyCategory)}>
-              <SelectTrigger className="h-8 w-28 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cultivation">Cultivation</SelectItem>
-                <SelectItem value="solicitation">Solicitation</SelectItem>
-                <SelectItem value="stewardship">Stewardship</SelectItem>
-                <SelectItem value="objection_handling">Objection Handling</SelectItem>
-                <SelectItem value="ask_philosophy">Ask Philosophy</SelectItem>
-                <SelectItem value="donor_segmentation">Segmentation</SelectItem>
-                <SelectItem value="communication">Communication</SelectItem>
-                <SelectItem value="general">General</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              value={rule}
-              onChange={(e) => setRule(e.target.value)}
-              placeholder="Describe the rule..."
-              className="h-8 flex-1 text-xs"
-              autoFocus
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" className="h-7" onClick={() => createMutation.mutate()} disabled={!rule || createMutation.isPending}>
-              {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add Rule"}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7" onClick={() => { setIsAdding(false); setRule("") }}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 hover:underline"
-        >
-          <Plus size={12} />
-          Add strategy rule
-        </button>
-      )}
+      {/* Add Form - Elegant inline */}
+      <AnimatePresence mode="wait">
+        {isAdding ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="p-3 rounded-lg bg-[#1a1a1a] border border-[#333] space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {categoryOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setCategory(opt.value)}
+                    className={cn(
+                      "px-2 py-1 text-[11px] rounded transition-colors",
+                      category === opt.value
+                        ? "bg-white text-black font-medium"
+                        : "bg-[#2a2a2a] text-gray-400 hover:bg-[#333] hover:text-gray-300"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={rule}
+                onChange={(e) => setRule(e.target.value)}
+                placeholder="Describe the strategy rule..."
+                className="w-full bg-transparent text-sm text-white placeholder:text-gray-500 outline-none border-b border-[#444] pb-2 focus:border-gray-400 transition-colors"
+                autoFocus
+              />
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-gray-500">
+                  Press Enter to add, Esc to cancel
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsAdding(false); setRule("") }}
+                    className="text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => createMutation.mutate()}
+                    disabled={!rule.trim() || createMutation.isPending}
+                    className="px-3 py-1 text-xs font-medium rounded bg-white text-black hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            type="button"
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            <Plus size={12} />
+            Add strategy rule
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Rules List */}
-      {rules.length === 0 ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+      {rules.length === 0 && !isAdding ? (
+        <p className="text-xs text-gray-500 text-center py-2">
           Add rules to guide Rōmy's fundraising approach.
         </p>
       ) : (
         <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
           {rules.map((r) => (
-            <div key={r.id} className="flex items-start gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#252525] group">
-              <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-[10px] font-medium flex-shrink-0 mt-0.5">
+            <div key={r.id} className="flex items-start gap-2 text-xs p-2 rounded hover:bg-[#252525] group">
+              <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-medium flex-shrink-0 mt-0.5">
                 {categoryLabels[r.category]}
               </span>
-              <span className="flex-1 min-w-0 text-gray-700 dark:text-gray-300 leading-relaxed">{r.rule}</span>
+              <span className="flex-1 min-w-0 text-gray-300 leading-relaxed">{r.rule}</span>
               <button
                 type="button"
                 onClick={() => deleteMutation.mutate(r.id)}
-                className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="flex-shrink-0 p-1 hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
               >
-                <Trash size={12} className="text-gray-400 hover:text-red-500" />
+                <Trash size={12} className="text-gray-500 hover:text-red-400" />
               </button>
             </div>
           ))}
@@ -968,80 +1045,117 @@ function FactsSection({ profileId }: { profileId: string }) {
     values: "Values",
   }
 
+  const categoryOptions: { value: FactCategory; label: string }[] = [
+    { value: "mission", label: "Mission" },
+    { value: "organization", label: "Organization" },
+    { value: "programs", label: "Programs" },
+    { value: "impact", label: "Impact" },
+    { value: "staff", label: "Staff" },
+    { value: "board", label: "Board" },
+    { value: "donors", label: "Donors" },
+    { value: "campaigns", label: "Campaigns" },
+    { value: "history", label: "History" },
+    { value: "values", label: "Values" },
+  ]
+
   if (isLoading) {
     return <div className="flex justify-center py-4"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
   }
 
   return (
     <div className="space-y-3">
-      {/* Add Form */}
-      {isAdding ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Select value={category} onValueChange={(v) => setCategory(v as FactCategory)}>
-              <SelectTrigger className="h-8 w-28 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mission">Mission</SelectItem>
-                <SelectItem value="organization">Organization</SelectItem>
-                <SelectItem value="programs">Programs</SelectItem>
-                <SelectItem value="impact">Impact</SelectItem>
-                <SelectItem value="staff">Staff</SelectItem>
-                <SelectItem value="board">Board</SelectItem>
-                <SelectItem value="donors">Donors</SelectItem>
-                <SelectItem value="campaigns">Campaigns</SelectItem>
-                <SelectItem value="history">History</SelectItem>
-                <SelectItem value="values">Values</SelectItem>
-              </SelectContent>
-            </Select>
-            <Input
-              value={fact}
-              onChange={(e) => setFact(e.target.value)}
-              placeholder="Enter an organizational fact..."
-              className="h-8 flex-1 text-xs"
-              autoFocus
-            />
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" className="h-7" onClick={() => createMutation.mutate()} disabled={!fact || createMutation.isPending}>
-              {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add Fact"}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7" onClick={() => { setIsAdding(false); setFact("") }}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setIsAdding(true)}
-          className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400 hover:underline"
-        >
-          <Plus size={12} />
-          Add fact
-        </button>
-      )}
+      {/* Add Form - Elegant inline */}
+      <AnimatePresence mode="wait">
+        {isAdding ? (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="p-3 rounded-lg bg-[#1a1a1a] border border-[#333] space-y-3">
+              <div className="flex flex-wrap gap-1.5">
+                {categoryOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setCategory(opt.value)}
+                    className={cn(
+                      "px-2 py-1 text-[11px] rounded transition-colors",
+                      category === opt.value
+                        ? "bg-amber-500 text-black font-medium"
+                        : "bg-[#2a2a2a] text-gray-400 hover:bg-[#333] hover:text-gray-300"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={fact}
+                onChange={(e) => setFact(e.target.value)}
+                placeholder="Enter an organizational fact..."
+                className="w-full bg-transparent text-sm text-white placeholder:text-gray-500 outline-none border-b border-[#444] pb-2 focus:border-amber-400 transition-colors"
+                autoFocus
+              />
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-gray-500">
+                  Facts Rōmy should always know
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setIsAdding(false); setFact("") }}
+                    className="text-xs text-gray-400 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => createMutation.mutate()}
+                    disabled={!fact.trim() || createMutation.isPending}
+                    className="px-3 py-1 text-xs font-medium rounded bg-amber-500 text-black hover:bg-amber-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {createMutation.isPending ? <Loader2 className="size-3 animate-spin" /> : "Add"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.button
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            type="button"
+            onClick={() => setIsAdding(true)}
+            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            <Plus size={12} />
+            Add fact
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Facts List */}
-      {facts.length === 0 ? (
-        <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-2">
+      {facts.length === 0 && !isAdding ? (
+        <p className="text-xs text-gray-500 text-center py-2">
           Add facts that Rōmy should always know about your organization.
         </p>
       ) : (
         <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
           {facts.map((f) => (
-            <div key={f.id} className="flex items-start gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#252525] group">
-              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 text-[10px] font-medium flex-shrink-0 mt-0.5">
+            <div key={f.id} className="flex items-start gap-2 text-xs p-2 rounded hover:bg-[#252525] group">
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-medium flex-shrink-0 mt-0.5">
                 {categoryLabels[f.category]}
               </span>
-              <span className="flex-1 min-w-0 text-gray-700 dark:text-gray-300 leading-relaxed">{f.fact}</span>
+              <span className="flex-1 min-w-0 text-gray-300 leading-relaxed">{f.fact}</span>
               <button
                 type="button"
                 onClick={() => deleteMutation.mutate(f.id)}
-                className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+                className="flex-shrink-0 p-1 hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
               >
-                <Trash size={12} className="text-gray-400 hover:text-red-500" />
+                <Trash size={12} className="text-gray-500 hover:text-red-400" />
               </button>
             </div>
           ))}
