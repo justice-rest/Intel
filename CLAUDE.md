@@ -103,7 +103,7 @@ Rōmy works with or without Supabase:
 - Fallback pattern: Try Supabase → fallback to IndexedDB cache
 
 ### State Management
-Uses **React Context + React Query** (NOT Zustand despite dependency):
+Uses **React Context + React Query**:
 - `UserPreferencesProvider` - UI settings (layout, prompt suggestions, hidden models)
 - `ModelProvider` - Available models, user key status, favorite models
 - `UserProvider` - User profile with realtime subscriptions
@@ -736,14 +736,13 @@ export const PRO_MODEL_LIMIT = 500            // Lifetime for pro models
 
 ## Common Pitfalls
 
-1. **Don't use Zustand** - It's a dependency but not actively used. Use React Context.
-2. **Always check `isSupabaseEnabled`** before database calls
-3. **Use optimistic updates** for better UX, but always revert on error
-4. **File uploads require Supabase** - No local-only fallback
-5. **CSRF tokens required** for POST/PUT/DELETE - Frontend must fetch from `/api/csrf`
-6. **Message parts are complex** - Contains text, tool invocations, reasoning (see `/app/api/chat/db.ts`)
-7. **Model IDs must match exactly** - Check `model.id` in model definitions
-8. **Encryption key must be 32 bytes** - Base64-encoded for BYOK feature
+1. **Always check `isSupabaseEnabled`** before database calls
+2. **Use optimistic updates** for better UX, but always revert on error
+3. **File uploads require Supabase** - No local-only fallback
+4. **CSRF tokens required** for POST/PUT/DELETE - Frontend must fetch from `/api/csrf`
+5. **Message parts are complex** - Contains text, tool invocations, reasoning (see `/app/api/chat/db.ts`)
+6. **Model IDs must match exactly** - Check `model.id` in model definitions
+7. **Encryption key must be 32 bytes** - Base64-encoded for BYOK feature
 
 ## Testing & Building
 

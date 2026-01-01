@@ -153,7 +153,7 @@ All database calls check `isSupabaseEnabled` before executing.
 
 ### State Management
 
-Uses **React Context + React Query** (not Zustand):
+Uses **React Context + React Query**:
 
 - `UserPreferencesProvider` - UI settings
 - `ModelProvider` - Available models, API key status
@@ -475,25 +475,23 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # E
 
 ## Common Pitfalls
 
-1. **Don't use Zustand** - Dependency exists but not used. Use React Context.
+1. **Always check `isSupabaseEnabled`** before database calls.
 
-2. **Always check `isSupabaseEnabled`** before database calls.
+2. **Use optimistic updates** for UX, but always revert on error.
 
-3. **Use optimistic updates** for UX, but always revert on error.
+3. **File uploads require Supabase** - No local fallback.
 
-4. **File uploads require Supabase** - No local fallback.
+4. **CSRF tokens required** for POST/PUT/DELETE - Frontend fetches from `/api/csrf`.
 
-5. **CSRF tokens required** for POST/PUT/DELETE - Frontend fetches from `/api/csrf`.
+5. **Message parts are complex** - Contains text, tool invocations, reasoning.
 
-6. **Message parts are complex** - Contains text, tool invocations, reasoning.
+6. **Model IDs must match exactly** - Check `model.id` in definitions.
 
-7. **Model IDs must match exactly** - Check `model.id` in definitions.
+7. **Encryption key must be 32 bytes** - Base64-encoded.
 
-8. **Encryption key must be 32 bytes** - Base64-encoded.
+8. **Memory retrieval has 200ms timeout** - Returns empty if slow.
 
-9. **Memory retrieval has 200ms timeout** - Returns empty if slow.
-
-10. **Autumn uses `expired` not `canceled`** for cancelled subscriptions.
+9. **Autumn uses `expired` not `canceled`** for cancelled subscriptions.
 
 ---
 
