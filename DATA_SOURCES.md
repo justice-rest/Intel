@@ -11,7 +11,7 @@ This document lists all data sources integrated into Romy, their purpose, and th
 | Metric | Value |
 |--------|-------|
 | **Total Tools** | 55+ |
-| **API Keys Required** | 4 optional (FEC, Linkup, LDA, FollowTheMoney) |
+| **API Keys Required** | 3 optional (FEC, Linkup, LDA) |
 | **States Covered** | All 50 (campaign finance), 25+ (professional licenses) |
 | **Counties Covered** | 30+ major metros |
 | **Annual Cost** | $0 (all FREE government APIs) |
@@ -203,7 +203,6 @@ This document lists all data sources integrated into Romy, their purpose, and th
 | FEC | `FEC_API_KEY` | [api.data.gov/signup](https://api.data.gov/signup) | FREE |
 | Linkup | `LINKUP_API_KEY` | [app.linkup.so](https://app.linkup.so) | FREE |
 | Senate LDA | `LDA_API_KEY` | [lda.senate.gov/api](https://lda.senate.gov/api) | FREE |
-| FollowTheMoney | `FOLLOWTHEMONEY_API_KEY` | [followthemoney.org/login](https://www.followthemoney.org/login) | FREE |
 
 ### Optional (Enhanced Features)
 
@@ -254,7 +253,6 @@ This document lists all data sources integrated into Romy, their purpose, and th
 
 | Source | Coverage | Notes |
 |--------|----------|-------|
-| FollowTheMoney | 50 states | Aggregated from states |
 | OpenCorporates | 50 states | Aggregated from SoS |
 | OpenPayrolls | 50 states | Government salary data |
 
@@ -308,4 +306,4 @@ Los Angeles, Cook (Chicago), Miami-Dade, Harris (Houston), Maricopa (Phoenix), S
 
 ---
 
-*Last updated: December 2024*
+*Last updated: January 2026*
