@@ -473,25 +473,6 @@ function DocumentsSection({ profileId }: { profileId: string }) {
 
   const documents = documentsData || []
 
-  const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("profile_id", profileId)
-      const res = await fetch("/api/knowledge/documents", { method: "POST", body: formData })
-      if (!res.ok) throw new Error((await res.json()).error || "Upload failed")
-      return res.json()
-    },
-    onSuccess: () => {
-      toast({ title: "Document Uploaded" })
-      queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
-      queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
-    },
-    onError: (error) => {
-      toast({ title: "Upload Failed", description: error instanceof Error ? error.message : "Unknown error" })
-    },
-  })
-
   const analyzeMutation = useMutation({
     mutationFn: async (documentId: string) => {
       const res = await fetchClient("/api/knowledge/documents/analyze", {
@@ -501,13 +482,39 @@ function DocumentsSection({ profileId }: { profileId: string }) {
       if (!res.ok) throw new Error((await res.json()).error || "Analysis failed")
       return res.json()
     },
-    onSuccess: () => {
-      toast({ title: "Document Analyzed" })
+    onSuccess: (data) => {
+      toast({ title: "Analysis Complete", description: `Extracted ${data.analysis?.counts?.voice_elements || 0} voice elements, ${data.analysis?.counts?.strategy_rules || 0} rules, ${data.analysis?.counts?.facts || 0} facts` })
       queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
       queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
+      queryClient.invalidateQueries({ queryKey: ["knowledge-voice", profileId] })
+      queryClient.invalidateQueries({ queryKey: ["knowledge-strategy", profileId] })
+      queryClient.invalidateQueries({ queryKey: ["knowledge-facts", profileId] })
     },
     onError: (error) => {
       toast({ title: "Analysis Failed", description: error instanceof Error ? error.message : "Unknown error" })
+      queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
+    },
+  })
+
+  const uploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("profile_id", profileId)
+      const res = await fetch("/api/knowledge/documents", { method: "POST", body: formData })
+      if (!res.ok) throw new Error((await res.json()).error || "Upload failed")
+      return res.json()
+    },
+    onSuccess: (data) => {
+      toast({ title: "Uploaded", description: "Starting AI analysis..." })
+      queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
+      // Auto-trigger analysis
+      if (data.document?.id) {
+        analyzeMutation.mutate(data.document.id)
+      }
+    },
+    onError: (error) => {
+      toast({ title: "Upload Failed", description: error instanceof Error ? error.message : "Unknown error" })
     },
   })
 
