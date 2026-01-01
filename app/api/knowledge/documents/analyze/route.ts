@@ -95,14 +95,26 @@ export async function POST(req: Request) {
       .eq('id', doc.id)
 
     try {
-      // Step 1: Download file from storage
+      // Step 1: Download file from storage using authenticated method
+      // Extract the file path from the stored URL
+      // URL format: https://xxx.supabase.co/storage/v1/object/public/knowledge-documents/{path}
       const fileUrl = doc.file_url
-      const response = await fetch(fileUrl)
-      if (!response.ok) {
-        throw new Error(`Failed to download file: ${response.statusText}`)
+      const pathMatch = fileUrl.match(/knowledge-documents\/(.+)$/)
+      if (!pathMatch) {
+        throw new Error('Invalid file URL format')
+      }
+      const filePath = pathMatch[1]
+
+      // Use Supabase storage download (handles auth automatically)
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('knowledge-documents')
+        .download(filePath)
+
+      if (downloadError || !fileData) {
+        throw new Error(`Failed to download file: ${downloadError?.message || 'No data returned'}`)
       }
 
-      const buffer = Buffer.from(await response.arrayBuffer())
+      const buffer = Buffer.from(await fileData.arrayBuffer())
 
       // Step 2: Extract text based on file type
       let extractedText = ''
