@@ -73,6 +73,7 @@ export async function GET(req: Request) {
       .from('knowledge_facts')
       .select('id, profile_id, category, fact, importance, valid_from, valid_until, source_document_id, is_user_defined, is_active, created_at')
       .eq('profile_id', profileId)
+      .eq('is_active', true)
       .order('category')
       .order('importance', { ascending: false })
 

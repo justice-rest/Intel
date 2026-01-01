@@ -68,6 +68,7 @@ export async function GET(req: Request) {
       .from('knowledge_voice_elements')
       .select('*')
       .eq('profile_id', profileId)
+      .eq('is_active', true)
       .order('element_type')
       .order('confidence', { ascending: false })
 

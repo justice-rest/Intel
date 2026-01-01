@@ -70,6 +70,7 @@ export async function GET(req: Request) {
       .from('knowledge_strategy_rules')
       .select('*')
       .eq('profile_id', profileId)
+      .eq('is_active', true)
       .order('category')
       .order('priority', { ascending: false })
 
