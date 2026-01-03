@@ -27,7 +27,6 @@ import {
 } from "@/components/ui/tooltip"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { APP_DOMAIN } from "@/lib/config"
-import { createClient } from "@/lib/supabase/client"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import {
   CaretDown,
@@ -83,26 +82,26 @@ export function DialogPublish() {
   const handlePublish = async () => {
     setIsLoading(true)
 
-    const supabase = createClient()
+    try {
+      // Use API endpoint for proper permission checking
+      const res = await fetch(`/api/chats/${chatId}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ public: true }),
+      })
 
-    if (!supabase) {
-      throw new Error("Supabase is not configured")
-    }
-
-    const { data, error } = await supabase
-      .from("chats")
-      .update({ public: true })
-      .eq("id", chatId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error(error)
-    }
-
-    if (data) {
+      if (res.ok) {
+        setIsLoading(false)
+        setOpenDialog(true)
+      } else {
+        const data = await res.json()
+        console.error("[publish] Error:", data.error)
+        setIsLoading(false)
+        // Could show a toast here for better UX
+      }
+    } catch (error) {
+      console.error("[publish] Failed:", error)
       setIsLoading(false)
-      setOpenDialog(true)
     }
   }
 
@@ -218,7 +217,7 @@ export function DialogPublish() {
           <span className="w-full border-t" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">
+          <span className="bg-popover px-2 text-muted-foreground">
             or send via email
           </span>
         </div>

@@ -123,12 +123,25 @@ export function generateSecureToken(): string {
 
 /**
  * Get collaborators for a chat with user details
+ * IMPORTANT: Also includes the chat owner even if they're not in chat_collaborators table
  */
 export async function getChatCollaborators(
   supabase: TypedSupabaseClient,
   chatId: string
 ) {
-  // First, get collaborators
+  // First, get the chat to find the owner
+  const { data: chat, error: chatError } = await supabase
+    .from("chats")
+    .select("user_id")
+    .eq("id", chatId)
+    .single()
+
+  if (chatError) {
+    console.error("[getChatCollaborators] Failed to fetch chat:", chatError)
+    // Don't throw - continue with collaborators only
+  }
+
+  // Get collaborators from the table
   const { data: collaborators, error: collabError } = await supabase
     .from("chat_collaborators")
     .select("*")
@@ -139,12 +152,33 @@ export async function getChatCollaborators(
     throw collabError
   }
 
-  if (!collaborators || collaborators.length === 0) {
+  // Build the list of collaborators, ensuring owner is included
+  const collabList = [...(collaborators || [])]
+
+  // Check if owner is already in the collaborators list
+  const ownerId = chat?.user_id
+  const ownerInList = ownerId && collabList.some(c => c.user_id === ownerId)
+
+  // If owner is not in collaborators list, add them as a virtual entry
+  if (ownerId && !ownerInList) {
+    collabList.unshift({
+      id: `owner-${ownerId}`, // Virtual ID
+      chat_id: chatId,
+      user_id: ownerId,
+      role: "owner",
+      invited_by: null,
+      invited_via_link_id: null,
+      created_at: new Date().toISOString(), // Use current time as fallback
+      updated_at: new Date().toISOString(),
+    })
+  }
+
+  if (collabList.length === 0) {
     return []
   }
 
-  // Get unique user IDs
-  const userIds = [...new Set(collaborators.map((c) => c.user_id))]
+  // Get unique user IDs (including owner)
+  const userIds = [...new Set(collabList.map((c) => c.user_id))]
 
   // Fetch user details separately (more reliable than nested join)
   const { data: users, error: usersError } = await supabase
@@ -163,7 +197,7 @@ export async function getChatCollaborators(
   )
 
   // Transform the data with user details
-  return collaborators.map((collab) => ({
+  return collabList.map((collab) => ({
     ...collab,
     user: userMap.get(collab.user_id) || null,
   }))
@@ -256,10 +290,19 @@ export async function hashShareLinkPassword(
   supabase: TypedSupabaseClient,
   password: string
 ): Promise<string> {
-  // Use Node.js bcryptjs for reliable cross-platform hashing
-  const bcrypt = await import("bcryptjs")
-  const saltRounds = 12
-  return bcrypt.hash(password, saltRounds)
+  try {
+    // Use Node.js bcryptjs for reliable cross-platform hashing
+    const bcrypt = await import("bcryptjs")
+    const saltRounds = 12
+    const hash = await bcrypt.hash(password, saltRounds)
+    if (!hash) {
+      throw new Error("bcrypt.hash returned empty result")
+    }
+    return hash
+  } catch (error) {
+    console.error("[hashShareLinkPassword] Failed to hash password:", error)
+    throw new Error("Failed to hash password")
+  }
 }
 
 /**

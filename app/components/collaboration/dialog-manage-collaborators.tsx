@@ -37,6 +37,8 @@ import {
   Eye,
   Spinner,
   SignOut,
+  Crown,
+  User,
 } from "@phosphor-icons/react"
 
 type DialogManageCollaboratorsProps = {
@@ -81,21 +83,25 @@ export function DialogManageCollaborators({
     }
   }
 
-  // Get display name with fallback
+  // Get display name with fallback chain
   const getDisplayName = (collab: typeof collaborators[0]) => {
     if (collab.user?.display_name) return collab.user.display_name
     if (collab.user?.email) return collab.user.email.split("@")[0]
-    return "Unknown"
+    return "Unknown User"
   }
 
   // Get initials for avatar
   const getInitials = (collab: typeof collaborators[0]) => {
     const name = getDisplayName(collab)
+    const parts = name.split(" ")
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase()
+    }
     return name.charAt(0).toUpperCase()
   }
 
   const content = (
-    <div className="px-5 py-2">
+    <div className="px-5 pb-2">
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
           <Spinner className="size-6 animate-spin text-muted-foreground" />
@@ -106,7 +112,7 @@ export function DialogManageCollaborators({
         </div>
       ) : (
         <ScrollArea className="max-h-[300px]">
-          <div className="space-y-1">
+          <div className="space-y-1 py-1">
             {collaborators.map((collab) => {
               const isCurrentUser = collab.user_id === user?.id
               const canManage = isOwner && !isCurrentUser && collab.role !== "owner"
@@ -117,12 +123,12 @@ export function DialogManageCollaborators({
                 <div
                   key={collab.id}
                   className={cn(
-                    "flex items-center gap-3 p-3 rounded-lg transition-colors",
-                    isCurrentUser ? "bg-accent/50" : "hover:bg-accent/30"
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                    isCurrentUser ? "bg-accent" : "hover:bg-accent/50"
                   )}
                 >
                   {/* Avatar */}
-                  <div className="size-10 rounded-full overflow-hidden bg-primary flex items-center justify-center shrink-0">
+                  <div className="size-9 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
                     {collab.user?.profile_image ? (
                       <img
                         src={collab.user.profile_image}
@@ -130,9 +136,7 @@ export function DialogManageCollaborators({
                         className="size-full object-cover"
                       />
                     ) : (
-                      <span className="text-sm font-semibold text-primary-foreground">
-                        {getInitials(collab)}
-                      </span>
+                      <User size={18} className="text-muted-foreground" />
                     )}
                   </div>
 
@@ -156,7 +160,7 @@ export function DialogManageCollaborators({
                   {/* Role badge */}
                   <CollaboratorBadge role={collab.role} />
 
-                  {/* Actions */}
+                  {/* Actions dropdown for owners managing others */}
                   {canManage && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -206,7 +210,7 @@ export function DialogManageCollaborators({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 h-8 px-2"
                       onClick={() => handleRemove(collab.user_id)}
                       disabled={isProcessing}
                     >

@@ -51,6 +51,7 @@ import { getWorkflowConfig } from "./config"
  * This is the main entry point for executing workflows.
  * It handles:
  * - Checking if workflows are enabled
+ * - Using the proper Workflow DevKit API (start)
  * - Logging execution start/end
  * - Error handling and result formatting
  *
@@ -95,9 +96,41 @@ export async function runDurableWorkflow<TParams, TResult>(
   console.log(`[Workflow] Starting: ${workflowName}`)
 
   try {
-    // Execute the workflow function
-    // The function should have the "use workflow" directive internally
-    const result = await workflowFn(params)
+    // Try to use the Workflow DevKit's start() API
+    // This properly handles the "use workflow" directive
+    let result: TResult
+
+    try {
+      // Dynamic import to handle environments where workflow/api isn't available
+      const workflowApi = await import("workflow/api")
+      // Use the workflow API to start the workflow properly
+      // The start function returns a promise that resolves to a Run object
+      const run = await workflowApi.start(workflowFn as Parameters<typeof workflowApi.start>[0])
+      // For workflows with params, we need to call the run with params
+      // @ts-expect-error - workflow API has complex typing
+      result = typeof run === "function" ? await run(params) : run
+    } catch (importError: unknown) {
+      // If workflow/api isn't available or start fails, fall back to direct call
+      // But only if the error is about the module not being found
+      const errorMessage = importError instanceof Error ? importError.message : String(importError)
+
+      if (errorMessage.includes("Cannot find module") ||
+          errorMessage.includes("Module not found")) {
+        console.warn(`[Workflow] Workflow API not available, using direct call for: ${workflowName}`)
+        result = await workflowFn(params)
+      } else if (errorMessage.includes("execute workflow") && errorMessage.includes("directly")) {
+        // The workflow directive error - workflow/api might not be properly configured
+        // Fall back to a workaround: we can't run durable workflows, so skip
+        console.warn(`[Workflow] Workflow runtime not configured, skipping: ${workflowName}`)
+        return {
+          success: false,
+          error: "Workflow runtime not available",
+          durationMs: Date.now() - startTime,
+        }
+      } else {
+        throw importError
+      }
+    }
 
     const durationMs = Date.now() - startTime
     console.log(`[Workflow] Completed: ${workflowName} (${durationMs}ms)`)
