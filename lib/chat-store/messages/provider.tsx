@@ -114,15 +114,22 @@ export function MessagesProvider({
     }
   }, [chatId])
 
-  // Subscribe to realtime updates for message changes (verification updates)
+  // Subscribe to realtime updates for message changes (verification updates + collaboration)
   useEffect(() => {
     if (!chatId || !isSupabaseEnabled) return
 
     const supabase = createClient()
     if (!supabase) return
 
+    // Get current user ID to filter out our own messages on INSERT
+    let currentUserId: string | null = null
+    supabase.auth.getUser().then(({ data }) => {
+      currentUserId = data.user?.id || null
+    })
+
     const channel = supabase
       .channel(`messages-updates:${chatId}`)
+      // Handle UPDATE events (existing behavior - verification updates, etc.)
       .on(
         "postgres_changes",
         {
@@ -152,6 +159,63 @@ export function MessagesProvider({
               return msg
             })
           )
+        }
+      )
+      // Handle INSERT events (new messages from collaborators)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `chat_id=eq.${chatId}`,
+        },
+        (payload) => {
+          const newMessage = payload.new as {
+            id: number
+            content: string
+            role: string
+            user_id: string | null
+            parts: unknown[] | null
+            experimental_attachments: unknown[] | null
+            model: string | null
+            created_at: string
+          }
+
+          // Skip if this is our own message (we already have it via optimistic update)
+          if (newMessage.user_id === currentUserId) {
+            return
+          }
+
+          const messageId = String(newMessage.id)
+
+          // Check if message already exists (avoid duplicates)
+          setMessages((prev) => {
+            const exists = prev.some((msg) => msg.id === messageId)
+            if (exists) {
+              return prev
+            }
+
+            // Convert DB message to AI SDK format
+            const aiMessage: MessageAISDK = {
+              id: messageId,
+              content: newMessage.content || "",
+              role: newMessage.role as "user" | "assistant" | "system" | "data",
+              createdAt: new Date(newMessage.created_at),
+            }
+
+            // Sort by created_at to maintain order
+            const updated = [...prev, aiMessage].sort((a, b) => {
+              const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0
+              const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0
+              return aTime - bTime
+            })
+
+            // Also cache the updated messages
+            writeToIndexedDB("messages", { id: chatId, messages: updated })
+
+            return updated
+          })
         }
       )
       .subscribe()

@@ -111,8 +111,8 @@ export function DialogManageCollaborators({
           No collaborators yet
         </div>
       ) : (
-        <ScrollArea className="max-h-[300px]">
-          <div className="space-y-1 py-1">
+        <ScrollArea className="max-h-[350px]">
+          <div className="space-y-1.5 py-1">
             {collaborators.map((collab) => {
               const isCurrentUser = collab.user_id === user?.id
               const canManage = isOwner && !isCurrentUser && collab.role !== "owner"
@@ -123,12 +123,12 @@ export function DialogManageCollaborators({
                 <div
                   key={collab.id}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
+                    "flex items-center gap-3 px-3 py-3 rounded-lg transition-all",
                     isCurrentUser ? "bg-accent" : "hover:bg-accent/50"
                   )}
                 >
                   {/* Avatar */}
-                  <div className="size-9 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
+                  <div className="size-10 rounded-full overflow-hidden bg-muted flex items-center justify-center shrink-0">
                     {collab.user?.profile_image ? (
                       <img
                         src={collab.user.profile_image}
@@ -136,94 +136,97 @@ export function DialogManageCollaborators({
                         className="size-full object-cover"
                       />
                     ) : (
-                      <User size={18} className="text-muted-foreground" />
+                      <User size={20} className="text-muted-foreground" />
                     )}
                   </div>
 
-                  {/* Name and email */}
-                  <div className="flex-1 min-w-0">
+                  {/* Name and email - takes all available space */}
+                  <div className="flex-1 min-w-0 overflow-hidden">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium truncate">
+                      <span className="text-sm font-medium truncate max-w-[180px]">
                         {displayName}
                       </span>
                       {isCurrentUser && (
-                        <span className="text-xs text-muted-foreground">(you)</span>
+                        <span className="text-xs text-muted-foreground shrink-0">(you)</span>
                       )}
                     </div>
                     {collab.user?.email && (
-                      <div className="text-xs text-muted-foreground truncate">
+                      <div className="text-xs text-muted-foreground truncate max-w-[200px]">
                         {collab.user.email}
                       </div>
                     )}
                   </div>
 
-                  {/* Role badge */}
-                  <CollaboratorBadge role={collab.role} />
+                  {/* Actions container - right aligned, fixed width area */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Role badge */}
+                    <CollaboratorBadge role={collab.role} />
 
-                  {/* Actions dropdown for owners managing others */}
-                  {canManage && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="size-8 shrink-0"
-                          disabled={isProcessing}
-                        >
-                          {isProcessing ? (
-                            <Spinner className="size-4 animate-spin" />
-                          ) : (
-                            <DotsThree size={16} weight="bold" />
+                    {/* Actions dropdown for owners managing others */}
+                    {canManage && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-8"
+                            disabled={isProcessing}
+                          >
+                            {isProcessing ? (
+                              <Spinner className="size-4 animate-spin" />
+                            ) : (
+                              <DotsThree size={16} weight="bold" />
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          {collab.role !== "editor" && (
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(collab.user_id, "editor")}
+                            >
+                              <PencilSimple size={16} className="mr-2" />
+                              Make editor
+                            </DropdownMenuItem>
                           )}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-40">
-                        {collab.role !== "editor" && (
+                          {collab.role !== "viewer" && (
+                            <DropdownMenuItem
+                              onClick={() => handleRoleChange(collab.user_id, "viewer")}
+                            >
+                              <Eye size={16} className="mr-2" />
+                              Make viewer
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem
-                            onClick={() => handleRoleChange(collab.user_id, "editor")}
+                            onClick={() => handleRemove(collab.user_id)}
+                            className="text-destructive focus:text-destructive"
                           >
-                            <PencilSimple size={16} className="mr-2" />
-                            Make editor
+                            <Trash size={16} className="mr-2" />
+                            Remove
                           </DropdownMenuItem>
-                        )}
-                        {collab.role !== "viewer" && (
-                          <DropdownMenuItem
-                            onClick={() => handleRoleChange(collab.user_id, "viewer")}
-                          >
-                            <Eye size={16} className="mr-2" />
-                            Make viewer
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => handleRemove(collab.user_id)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash size={16} className="mr-2" />
-                          Remove
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
 
-                  {/* Self-remove option for non-owners */}
-                  {isCurrentUser && !isOwner && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 h-8 px-2"
-                      onClick={() => handleRemove(collab.user_id)}
-                      disabled={isProcessing}
-                    >
-                      {isProcessing ? (
-                        <Spinner className="size-4 animate-spin" />
-                      ) : (
-                        <>
-                          <SignOut size={14} className="mr-1" />
-                          Leave
-                        </>
-                      )}
-                    </Button>
-                  )}
+                    {/* Self-remove option for non-owners */}
+                    {isCurrentUser && !isOwner && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 px-2"
+                        onClick={() => handleRemove(collab.user_id)}
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? (
+                          <Spinner className="size-4 animate-spin" />
+                        ) : (
+                          <>
+                            <SignOut size={14} className="mr-1" />
+                            Leave
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -254,7 +257,7 @@ export function DialogManageCollaborators({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-[480px] p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-4">
           <DialogTitle className="flex items-center gap-2.5 text-base font-semibold">
             <UsersThree size={20} weight="fill" className="text-muted-foreground" />
