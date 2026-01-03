@@ -128,38 +128,44 @@ export async function getChatCollaborators(
   supabase: TypedSupabaseClient,
   chatId: string
 ) {
-  const { data, error } = await supabase
+  // First, get collaborators
+  const { data: collaborators, error: collabError } = await supabase
     .from("chat_collaborators")
-    .select(
-      `
-      id,
-      chat_id,
-      user_id,
-      role,
-      invited_by,
-      invited_via_link_id,
-      created_at,
-      updated_at,
-      users:user_id (
-        id,
-        display_name,
-        email,
-        profile_image
-      )
-    `
-    )
+    .select("*")
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true })
 
-  if (error) {
-    throw error
+  if (collabError) {
+    throw collabError
   }
 
-  // Transform the nested user data
-  return (data || []).map((collab) => ({
+  if (!collaborators || collaborators.length === 0) {
+    return []
+  }
+
+  // Get unique user IDs
+  const userIds = [...new Set(collaborators.map((c) => c.user_id))]
+
+  // Fetch user details separately (more reliable than nested join)
+  const { data: users, error: usersError } = await supabase
+    .from("users")
+    .select("id, display_name, email, profile_image")
+    .in("id", userIds)
+
+  if (usersError) {
+    console.error("[getChatCollaborators] Failed to fetch users:", usersError)
+    // Continue without user details rather than failing completely
+  }
+
+  // Create a map for quick lookup
+  const userMap = new Map(
+    (users || []).map((u) => [u.id, u])
+  )
+
+  // Transform the data with user details
+  return collaborators.map((collab) => ({
     ...collab,
-    user: collab.users,
-    users: undefined,
+    user: userMap.get(collab.user_id) || null,
   }))
 }
 
@@ -244,40 +250,61 @@ export async function validateShareLink(
 
 /**
  * Hash a password for share link protection
- * Note: In production, this calls the database function
+ * Uses bcryptjs (Node.js) - more reliable than database function
  */
 export async function hashShareLinkPassword(
   supabase: TypedSupabaseClient,
   password: string
 ): Promise<string> {
-  const { data, error } = await supabase.rpc("hash_share_link_password", {
-    p_password: password,
-  })
-
-  if (error) {
-    throw new Error("Failed to hash password")
-  }
-
-  return data as string
+  // Use Node.js bcryptjs for reliable cross-platform hashing
+  const bcrypt = await import("bcryptjs")
+  const saltRounds = 12
+  return bcrypt.hash(password, saltRounds)
 }
 
 /**
  * Verify a password for a share link
+ * Uses bcryptjs (Node.js) for verification
  */
 export async function verifyShareLinkPassword(
   supabase: TypedSupabaseClient,
   linkId: string,
   password: string
 ): Promise<boolean> {
-  const { data, error } = await supabase.rpc("verify_share_link_password", {
-    p_link_id: linkId,
-    p_password: password,
-  })
+  // Fetch the password hash and failed attempts from the database
+  const { data: link, error } = await supabase
+    .from("chat_share_links")
+    .select("password_hash, failed_attempts")
+    .eq("id", linkId)
+    .eq("is_active", true)
+    .single()
 
-  if (error) {
-    console.error("Password verification error:", error)
+  if (error || !link) {
+    console.error("Failed to fetch link for verification:", error)
     return false
   }
 
-  return data as boolean
+  // If no password is set, any password is valid
+  if (!link.password_hash) {
+    return true
+  }
+
+  // Verify using bcryptjs
+  const bcrypt = await import("bcryptjs")
+  const isValid = await bcrypt.compare(password, link.password_hash)
+
+  // Track failed attempts in database (fire and forget)
+  if (!isValid) {
+    // Use direct update instead of RPC - increment failed_attempts counter
+    supabase
+      .from("chat_share_links")
+      .update({
+        failed_attempts: (link.failed_attempts || 0) + 1,
+        last_failed_attempt_at: new Date().toISOString(),
+      } as Record<string, unknown>)
+      .eq("id", linkId)
+      .then(() => {})
+  }
+
+  return isValid
 }
