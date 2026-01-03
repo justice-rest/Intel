@@ -1184,6 +1184,45 @@ export type Database = {
           },
         ]
       }
+      chat_read_receipts: {
+        Row: {
+          id: string
+          chat_id: string
+          user_id: string
+          last_read_message_id: number
+          read_at: string
+        }
+        Insert: {
+          id?: string
+          chat_id: string
+          user_id: string
+          last_read_message_id: number
+          read_at?: string
+        }
+        Update: {
+          id?: string
+          chat_id?: string
+          user_id?: string
+          last_read_message_id?: number
+          read_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_read_receipts_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_read_receipts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1303,6 +1342,26 @@ export type Database = {
           p_chat_id: string
         }
         Returns: Database["public"]["Tables"]["chats"]["Row"][]
+      }
+      get_message_readers: {
+        Args: {
+          p_chat_id: string
+          p_message_id: number
+        }
+        Returns: Array<{
+          user_id: string
+          display_name: string | null
+          profile_image: string | null
+          read_at: string
+        }>
+      }
+      mark_messages_read: {
+        Args: {
+          p_chat_id: string
+          p_user_id: string
+          p_last_message_id: number
+        }
+        Returns: void
       }
     }
     Enums: Record<string, never>

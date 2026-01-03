@@ -26,7 +26,9 @@ import {
   PencilSimpleSlashIcon,
 } from "@phosphor-icons/react"
 import Image from "next/image"
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState, useMemo } from "react"
+import { useReadReceiptsContext } from "@/lib/presence"
+import { ReadReceiptCheckmark } from "@/app/components/collaboration"
 
 const getTextPreview = (url: string, fileName: string) => {
   // If it's a data URL, extract base64
@@ -95,6 +97,26 @@ export function MessageUser({
   const [isEditing, setIsEditing] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Read receipts (optional - only available in collaborative chats)
+  const readReceiptsContext = useReadReceiptsContext()
+
+  // Parse numeric message ID for read receipts
+  const numericMessageId = useMemo(() => {
+    const parsed = parseInt(id, 10)
+    return isNaN(parsed) ? null : parsed
+  }, [id])
+
+  // Get read status for this message
+  const readStatus = useMemo(() => {
+    if (!readReceiptsContext || !numericMessageId) {
+      return { hasBeenRead: false, readerCount: 0 }
+    }
+    return {
+      hasBeenRead: readReceiptsContext.hasBeenRead(numericMessageId),
+      readerCount: readReceiptsContext.getReaderCount(numericMessageId),
+    }
+  }, [readReceiptsContext, numericMessageId])
 
   const handleEditCancel = () => {
     setIsEditing(false)
@@ -271,7 +293,16 @@ export function MessageUser({
           {children}
         </MessageContent>
       )}
-      <MessageActions className="flex gap-0 opacity-0 transition-opacity duration-0 group-hover:opacity-100">
+      {/* Read receipt indicator - always visible below message in collaborative chats */}
+      {readReceiptsContext && numericMessageId && (
+        <div className="flex items-center justify-end gap-1 pr-1 -mt-1 mb-0.5">
+          <ReadReceiptCheckmark
+            hasBeenRead={readStatus.hasBeenRead}
+            readerCount={readStatus.readerCount}
+          />
+        </div>
+      )}
+      <MessageActions className="flex items-center gap-0 opacity-0 transition-opacity duration-0 group-hover:opacity-100">
         <MessageAction tooltip={copied ? "Copied!" : "Copy text"} side="bottom">
           <button
             className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition"

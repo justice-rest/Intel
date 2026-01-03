@@ -6,8 +6,9 @@ import { TextShimmer } from "@/components/prompt-kit/loader"
 import { ScrollButton } from "@/components/prompt-kit/scroll-button"
 import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
 import { Message as MessageType } from "@ai-sdk/react"
-import { useRef } from "react"
+import { useRef, useEffect, useCallback } from "react"
 import { Message } from "./message"
+import { useReadReceiptsContext } from "@/lib/presence"
 
 type ConversationProps = {
   messages: MessageType[]
@@ -31,6 +32,60 @@ export function Conversation({
   isLoading,
 }: ConversationProps) {
   const initialMessageCount = useRef(messages.length)
+  const lastMarkedMessageId = useRef<number>(0)
+  const readReceiptsContext = useReadReceiptsContext()
+
+  // Auto-mark messages as read when viewing
+  // Only marks the last message to avoid excessive API calls
+  const markLastMessageAsRead = useCallback(() => {
+    if (!readReceiptsContext || !messages.length) return
+
+    // Get the last assistant message's ID (user wants to know when their messages are read by others)
+    // Actually, we should mark ALL messages as read when scrolling to the bottom
+    const lastMessage = messages[messages.length - 1]
+    if (!lastMessage) return
+
+    // Parse the numeric ID
+    const lastMessageId = parseInt(lastMessage.id, 10)
+    if (isNaN(lastMessageId)) return
+
+    // Skip if we've already marked this message
+    if (lastMessageId <= lastMarkedMessageId.current) return
+
+    // Mark as read
+    lastMarkedMessageId.current = lastMessageId
+    readReceiptsContext.markAsRead(lastMessageId).catch((err) => {
+      console.error("[read-receipts] Failed to mark as read:", err)
+      // Reset so we can retry
+      lastMarkedMessageId.current = 0
+    })
+  }, [readReceiptsContext, messages])
+
+  // Mark messages as read when:
+  // 1. Component mounts with messages
+  // 2. New messages arrive (status changes to ready)
+  // 3. Window regains focus
+  useEffect(() => {
+    if (status !== "ready" || !messages.length) return
+
+    // Mark after a short delay to ensure the user has seen the messages
+    const timeoutId = setTimeout(markLastMessageAsRead, 1000)
+
+    return () => clearTimeout(timeoutId)
+  }, [status, messages.length, markLastMessageAsRead])
+
+  // Also mark on window focus
+  useEffect(() => {
+    if (!readReceiptsContext) return
+
+    const handleFocus = () => {
+      // Mark after a short delay
+      setTimeout(markLastMessageAsRead, 500)
+    }
+
+    window.addEventListener("focus", handleFocus)
+    return () => window.removeEventListener("focus", handleFocus)
+  }, [markLastMessageAsRead, readReceiptsContext])
 
   // Show loading state when loading messages for an existing chat
   if (isLoading && (!messages || messages.length === 0)) {

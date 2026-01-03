@@ -8,7 +8,7 @@
 
 import { type ReactNode } from "react"
 import { CollaboratorsProvider } from "@/lib/collaboration"
-import { PresenceProvider } from "@/lib/presence"
+import { PresenceProvider, ReadReceiptsProvider } from "@/lib/presence"
 import { useRevocationListener } from "@/lib/presence/hooks/use-revocation-listener"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 
@@ -33,8 +33,10 @@ export function CollaborationWrapper({
   return (
     <CollaboratorsProvider chatId={chatId}>
       <PresenceProvider chatId={chatId}>
-        <RevocationHandler chatId={chatId} />
-        {children}
+        <ReadReceiptsProvider chatId={chatId}>
+          <RevocationHandler chatId={chatId} />
+          {children}
+        </ReadReceiptsProvider>
       </PresenceProvider>
     </CollaboratorsProvider>
   )

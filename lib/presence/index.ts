@@ -6,9 +6,11 @@
 // Types
 export * from "./types"
 
-// Provider
+// Providers
 export { PresenceProvider, usePresence, usePresenceOptional } from "./provider"
+export { ReadReceiptsProvider, useReadReceipts, useReadReceiptsContext } from "./read-receipts-provider"
 
 // Hooks
 export { useRevocationListener } from "./hooks/use-revocation-listener"
 export { useCollaborativeMessages } from "./hooks/use-collaborative-messages"
+export { useAutoMarkAsRead } from "./hooks/use-read-receipts"

@@ -5,7 +5,7 @@ import { Conversation } from "@/app/components/chat/conversation"
 import { LoaderOverlay } from "@/app/components/chat/loader-overlay"
 import { DropZone } from "@/app/components/split-view"
 import { useModel } from "@/app/components/chat/use-model"
-import { CollaborationWrapper, TypingIndicator, HeaderCollaboration } from "@/app/components/collaboration"
+import { CollaborationWrapper, HeaderCollaboration } from "@/app/components/collaboration"
 import { useCollaboratorsOptional } from "@/lib/collaboration"
 import { usePresenceOptional } from "@/lib/presence"
 import { useChatDraft } from "@/app/hooks/use-chat-draft"
@@ -467,11 +467,8 @@ export function Chat({
           enableSearch={enableSearch}
           startTime={responseStartTime ?? null}
           isExecutingTools={hasActiveToolCalls}
+          typingUsers={presenceContext?.typingUsers ?? []}
         />
-        {/* Show typing indicator when collaborators are typing */}
-        {presenceContext && presenceContext.typingUsers.length > 0 && (
-          <TypingIndicator className="mb-2 px-2" />
-        )}
         <ChatInput {...chatInputProps} />
       </motion.div>
 

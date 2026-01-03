@@ -121,107 +121,156 @@ export function MessagesProvider({
     const supabase = createClient()
     if (!supabase) return
 
-    // Get current user ID to filter out our own messages on INSERT
+    // Store current user ID in a ref-like variable that persists across the effect
+    // We'll fetch it once and use it in handlers
     let currentUserId: string | null = null
-    supabase.auth.getUser().then(({ data }) => {
-      currentUserId = data.user?.id || null
+    let userIdFetched = false
+
+    const setupSubscription = async () => {
+      // Fetch user ID BEFORE setting up handlers
+      try {
+        const { data } = await supabase.auth.getUser()
+        currentUserId = data.user?.id || null
+        userIdFetched = true
+      } catch (error) {
+        console.error("Failed to get current user for realtime:", error)
+        userIdFetched = true // Still mark as fetched to allow subscription
+      }
+
+      const channel = supabase
+        .channel(`messages-updates:${chatId}`)
+        // Handle UPDATE events (existing behavior - verification updates, etc.)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+            filter: `chat_id=eq.${chatId}`,
+          },
+          (payload) => {
+            // Update the specific message in state when it's updated
+            const updatedMessage = payload.new as {
+              id: number // Database ID is a number
+              content: string
+            }
+
+            // Convert to string for comparison since message IDs in state are strings
+            const updatedMessageId = String(updatedMessage.id)
+
+            setMessages((prev) =>
+              prev.map((msg) => {
+                if (msg.id === updatedMessageId) {
+                  return {
+                    ...msg,
+                    content: updatedMessage.content,
+                  } as MessageAISDK
+                }
+                return msg
+              })
+            )
+          }
+        )
+        // Handle INSERT events (new messages from collaborators)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `chat_id=eq.${chatId}`,
+          },
+          (payload) => {
+            const newMessage = payload.new as {
+              id: number
+              content: string
+              role: string
+              user_id: string | null
+              parts: unknown[] | null
+              experimental_attachments: unknown[] | null
+              model: string | null
+              created_at: string
+            }
+
+            // Skip if this is our own USER message (we already have it via optimistic update)
+            // IMPORTANT: Only skip if user_id matches AND both are non-null
+            // Assistant messages have user_id = null, which should NOT be skipped
+            // This prevents the null === null race condition
+            if (
+              userIdFetched &&
+              currentUserId !== null &&
+              newMessage.user_id !== null &&
+              newMessage.user_id === currentUserId
+            ) {
+              return
+            }
+
+            const messageId = String(newMessage.id)
+
+            // Check if message already exists (avoid duplicates)
+            setMessages((prev) => {
+              const exists = prev.some((msg) => msg.id === messageId)
+              if (exists) {
+                return prev
+              }
+
+              // Convert DB message to AI SDK format
+              const aiMessage: MessageAISDK = {
+                id: messageId,
+                content: newMessage.content || "",
+                role: newMessage.role as "user" | "assistant" | "system" | "data",
+                createdAt: new Date(newMessage.created_at),
+              }
+
+              // Sort by created_at to maintain order
+              const updated = [...prev, aiMessage].sort((a, b) => {
+                const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0
+                const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0
+                return aTime - bTime
+              })
+
+              // Also cache the updated messages
+              writeToIndexedDB("messages", { id: chatId, messages: updated })
+
+              return updated
+            })
+          }
+        )
+        // Handle DELETE events (message deletion from collaborators)
+        .on(
+          "postgres_changes",
+          {
+            event: "DELETE",
+            schema: "public",
+            table: "messages",
+            filter: `chat_id=eq.${chatId}`,
+          },
+          (payload) => {
+            const deletedMessage = payload.old as { id: number }
+            const deletedMessageId = String(deletedMessage.id)
+
+            setMessages((prev) => {
+              const updated = prev.filter((msg) => msg.id !== deletedMessageId)
+              // Update cache
+              writeToIndexedDB("messages", { id: chatId, messages: updated })
+              return updated
+            })
+          }
+        )
+        .subscribe()
+
+      return channel
+    }
+
+    let channelRef: ReturnType<typeof supabase.channel> | null = null
+    setupSubscription().then((channel) => {
+      channelRef = channel
     })
 
-    const channel = supabase
-      .channel(`messages-updates:${chatId}`)
-      // Handle UPDATE events (existing behavior - verification updates, etc.)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `chat_id=eq.${chatId}`,
-        },
-        (payload) => {
-          // Update the specific message in state when it's updated
-          const updatedMessage = payload.new as {
-            id: number // Database ID is a number
-            content: string
-          }
-
-          // Convert to string for comparison since message IDs in state are strings
-          const updatedMessageId = String(updatedMessage.id)
-
-          setMessages((prev) =>
-            prev.map((msg) => {
-              if (msg.id === updatedMessageId) {
-                return {
-                  ...msg,
-                  content: updatedMessage.content,
-                } as MessageAISDK
-              }
-              return msg
-            })
-          )
-        }
-      )
-      // Handle INSERT events (new messages from collaborators)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `chat_id=eq.${chatId}`,
-        },
-        (payload) => {
-          const newMessage = payload.new as {
-            id: number
-            content: string
-            role: string
-            user_id: string | null
-            parts: unknown[] | null
-            experimental_attachments: unknown[] | null
-            model: string | null
-            created_at: string
-          }
-
-          // Skip if this is our own message (we already have it via optimistic update)
-          if (newMessage.user_id === currentUserId) {
-            return
-          }
-
-          const messageId = String(newMessage.id)
-
-          // Check if message already exists (avoid duplicates)
-          setMessages((prev) => {
-            const exists = prev.some((msg) => msg.id === messageId)
-            if (exists) {
-              return prev
-            }
-
-            // Convert DB message to AI SDK format
-            const aiMessage: MessageAISDK = {
-              id: messageId,
-              content: newMessage.content || "",
-              role: newMessage.role as "user" | "assistant" | "system" | "data",
-              createdAt: new Date(newMessage.created_at),
-            }
-
-            // Sort by created_at to maintain order
-            const updated = [...prev, aiMessage].sort((a, b) => {
-              const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0
-              const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0
-              return aTime - bTime
-            })
-
-            // Also cache the updated messages
-            writeToIndexedDB("messages", { id: chatId, messages: updated })
-
-            return updated
-          })
-        }
-      )
-      .subscribe()
-
     return () => {
-      supabase.removeChannel(channel)
+      if (channelRef) {
+        supabase.removeChannel(channelRef)
+      }
     }
   }, [chatId])
 
