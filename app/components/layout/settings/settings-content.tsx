@@ -12,7 +12,6 @@ import {
   XIcon,
   LinkSimple,
   BookOpen,
-  UserCircle,
 } from "@phosphor-icons/react"
 import { useState, useEffect } from "react"
 import { SubscriptionSection } from "@/components/subscription/subscription-section"
@@ -23,9 +22,8 @@ import { AccountManagement } from "./general/account-management"
 import { UserProfile } from "./general/user-profile"
 import { IntegrationsSection } from "./integrations"
 import { KnowledgeDashboard } from "@/app/components/knowledge"
-import { PersonaManager } from "@/app/components/personas"
 
-export type TabType = "general" | "appearance" | "subscription" | "crms" | "knowledge" | "personas"
+export type TabType = "general" | "appearance" | "subscription" | "crms" | "knowledge"
 
 type SettingsContentProps = {
   isDrawer?: boolean
@@ -115,15 +113,6 @@ export function SettingsContent({
                     <span>Knowledge</span>
                   </TabsTrigger>
                 )}
-                {isSupabaseEnabled && (
-                  <TabsTrigger
-                    value="personas"
-                    className="mr-6 flex shrink-0 items-center gap-2"
-                  >
-                    <UserCircle className="size-4" />
-                    <span>Personas</span>
-                  </TabsTrigger>
-                )}
               </TabsList>
             </div>
 
@@ -151,9 +140,6 @@ export function SettingsContent({
               {isSupabaseEnabled && <KnowledgeDashboard />}
             </TabsContent>
 
-            <TabsContent value="personas" className="space-y-6 px-6">
-              {isSupabaseEnabled && <PersonaManager />}
-            </TabsContent>
           </div>
         ) : (
           // Desktop version - tabs on left
@@ -216,17 +202,6 @@ export function SettingsContent({
                   </TabsTrigger>
                 )}
 
-                {isSupabaseEnabled && (
-                  <TabsTrigger
-                    value="personas"
-                    className="w-full justify-start rounded-md px-3 py-2 text-left"
-                  >
-                    <div className="flex items-center gap-2">
-                      <UserCircle className="size-4" />
-                      <span>Personas</span>
-                    </div>
-                  </TabsTrigger>
-                )}
               </div>
             </TabsList>
 
@@ -255,9 +230,6 @@ export function SettingsContent({
                 {isSupabaseEnabled && <KnowledgeDashboard />}
               </TabsContent>
 
-              <TabsContent value="personas" className="mt-0 space-y-6">
-                {isSupabaseEnabled && <PersonaManager />}
-              </TabsContent>
             </div>
           </>
         )}

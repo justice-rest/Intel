@@ -13,13 +13,13 @@ const VALID_TABS: TabType[] = [
   "subscription",
   "crms",
   "knowledge",
-  "personas",
 ]
 
 // Redirect legacy tabs to their new locations
 const TAB_REDIRECTS: Record<string, TabType> = {
   "memory": "knowledge",   // Memory is now in Workspace (Knowledge tab)
   "data": "knowledge",     // RAG Documents is now in Workspace (Knowledge tab)
+  "personas": "knowledge", // Personas is now in Knowledge tab
 }
 
 /**
@@ -29,9 +29,9 @@ const TAB_REDIRECTS: Record<string, TabType> = {
  * - /settings → Opens general tab
  * - /settings/subscription → Opens subscription tab
  * - /settings/crms → Opens CRMs tab (CRM connections)
- * - /settings/knowledge → Opens knowledge tab (Knowledge profiles, Workspace: Gmail, Drive, Notion, Documents, Memory)
- * - /settings/personas → Opens personas tab (AI persona management)
+ * - /settings/knowledge → Opens knowledge tab (Knowledge profiles, Personas, Workspace: Gmail, Drive, Notion, Documents, Memory)
  * - /settings/memory → Redirects to knowledge tab (Memory is in Workspace)
+ * - /settings/personas → Redirects to knowledge tab (Personas is in Knowledge tab)
  */
 export function useSettingsCommand() {
   const processSettingsCommand = useCallback(

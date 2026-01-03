@@ -10,8 +10,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/toast"
-import { Check, User } from "@phosphor-icons/react"
+import { UserCircle, Plus, Check } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Loader2 } from "lucide-react"
@@ -38,12 +40,16 @@ export function DialogAssignPersona({
   const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isFetching, setIsFetching] = useState(false)
+  const [isCreatingNew, setIsCreatingNew] = useState(false)
+  const [newPersonaName, setNewPersonaName] = useState("")
 
   // Fetch personas when dialog opens
   useEffect(() => {
     if (isOpen) {
       fetchPersonas()
       setSelectedPersonaId(currentPersonaId || null)
+      setIsCreatingNew(false)
+      setNewPersonaName("")
     }
   }, [isOpen, currentPersonaId])
 
@@ -59,6 +65,46 @@ export function DialogAssignPersona({
       console.error("Error fetching personas:", error)
     } finally {
       setIsFetching(false)
+    }
+  }
+
+  const handleCreatePersona = async () => {
+    if (!newPersonaName.trim()) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch("/api/personas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newPersonaName.trim() }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        const newPersona = data.persona
+        setPersonas((prev) => [...prev, newPersona])
+        setSelectedPersonaId(newPersona.id)
+        setIsCreatingNew(false)
+        setNewPersonaName("")
+        toast({
+          title: "Persona created",
+          description: `Created "${newPersona.name}"`,
+        })
+      } else {
+        const error = await response.json()
+        toast({
+          title: "Error",
+          description: error.error || "Failed to create persona",
+        })
+      }
+    } catch (error) {
+      console.error("Error creating persona:", error)
+      toast({
+        title: "Error",
+        description: "Failed to create persona",
+      })
+    } finally {
+      setIsLoading(false)
     }
   }
 
@@ -110,30 +156,16 @@ export function DialogAssignPersona({
   // Truncate long chat titles for display
   const truncatedTitle = chatTitle.length > 50 ? `${chatTitle.slice(0, 50)}...` : chatTitle
 
-  // Render persona icon
-  const renderIcon = (iconName: string, color: string) => {
-    return (
-      <div
-        className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-        style={{ backgroundColor: `${color}20` }}
-      >
-        <span style={{ color }}>
-          <User className="w-4 h-4" weight="fill" />
-        </span>
-      </div>
-    )
-  }
-
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-4">
           <DialogTitle className="flex items-center gap-2.5 text-base font-semibold">
-            <User size={20} weight="fill" className="text-muted-foreground" />
+            <UserCircle size={20} weight="fill" className="text-muted-foreground" />
             Assign Persona
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground/80 mt-1.5 leading-relaxed">
-            Choose how the AI should respond in &quot;{truncatedTitle}&quot;.
+            Choose how Rōmy should respond in &quot;{truncatedTitle}&quot;.
           </DialogDescription>
         </DialogHeader>
 
@@ -142,10 +174,43 @@ export function DialogAssignPersona({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
+          ) : isCreatingNew ? (
+            <div className="space-y-3 py-2">
+              <Label htmlFor="personaName" className="text-sm font-medium">New persona name</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="personaName"
+                  value={newPersonaName}
+                  onChange={(e) => setNewPersonaName(e.target.value)}
+                  placeholder="Enter persona name"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleCreatePersona()
+                    if (e.key === "Escape") setIsCreatingNew(false)
+                  }}
+                  autoFocus
+                  className="h-9"
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCreatePersona}
+                  disabled={!newPersonaName.trim() || isLoading}
+                  className="h-9 px-3"
+                >
+                  Create
+                </Button>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCreatingNew(false)}
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           ) : (
-            <ScrollArea className="max-h-[280px]">
+            <ScrollArea className="max-h-[240px]">
               <div className="space-y-1 py-1">
-                {/* Default option (no persona) */}
+                {/* No persona option (Default) */}
                 <button
                   type="button"
                   onClick={() => setSelectedPersonaId(null)}
@@ -157,7 +222,7 @@ export function DialogAssignPersona({
                   )}
                 >
                   <div className={cn(
-                    "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
+                    "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
                     selectedPersonaId === null
                       ? "border-primary bg-primary"
                       : "border-muted-foreground/30"
@@ -166,15 +231,7 @@ export function DialogAssignPersona({
                       <Check size={12} className="text-primary-foreground" weight="bold" />
                     )}
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                    <User size={16} className="text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium">Default</span>
-                    <p className="text-xs text-muted-foreground truncate">
-                      Standard fundraising assistant
-                    </p>
-                  </div>
+                  <span className="text-sm text-muted-foreground">Default</span>
                 </button>
 
                 {/* Persona list */}
@@ -191,7 +248,7 @@ export function DialogAssignPersona({
                     )}
                   >
                     <div className={cn(
-                      "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors shrink-0",
+                      "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
                       selectedPersonaId === persona.id
                         ? "border-primary bg-primary"
                         : "border-muted-foreground/30"
@@ -200,29 +257,21 @@ export function DialogAssignPersona({
                         <Check size={12} className="text-primary-foreground" weight="bold" />
                       )}
                     </div>
-                    {renderIcon(persona.icon, persona.color)}
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium">{persona.name}</span>
-                      {persona.description && (
-                        <p className="text-xs text-muted-foreground truncate">
-                          {persona.description}
-                        </p>
-                      )}
-                    </div>
+                    <span className="text-sm font-medium">{persona.name}</span>
                   </button>
                 ))}
 
-                {/* Empty state */}
-                {personas.length === 0 && (
-                  <div className="text-center py-6">
-                    <p className="text-sm text-muted-foreground">
-                      No personas created yet
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Create personas in Settings
-                    </p>
+                {/* Create new persona button */}
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingNew(true)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all hover:bg-accent/50 mt-1"
+                >
+                  <div className="w-5 h-5 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                    <Plus size={12} className="text-muted-foreground" />
                   </div>
-                )}
+                  <span className="text-sm text-muted-foreground">Create new persona</span>
+                </button>
               </div>
             </ScrollArea>
           )}
@@ -239,7 +288,7 @@ export function DialogAssignPersona({
             </Button>
             <Button
               onClick={handleConfirm}
-              disabled={isLoading || isFetching}
+              disabled={isLoading || isCreatingNew || isFetching}
               className="flex-1 sm:flex-none h-9"
             >
               {isLoading ? "Saving..." : "Save"}
