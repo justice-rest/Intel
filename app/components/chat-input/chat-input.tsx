@@ -46,6 +46,10 @@ type ChatInputProps = {
   hasActiveSubscription?: boolean
   /** Callback for slash commands. Returns true if command was handled. */
   onSlashCommand?: (command: string) => boolean
+  /** Whether the user has view-only access (collaboration) */
+  isViewerRole?: boolean
+  /** Callback when typing status changes (collaboration) */
+  onTypingChange?: (isTyping: boolean) => void
 }
 
 export function ChatInput({
@@ -72,6 +76,8 @@ export function ChatInput({
   onWelcomeDismiss,
   hasActiveSubscription,
   onSlashCommand,
+  isViewerRole,
+  onTypingChange,
 }: ChatInputProps) {
   const isOnlyWhitespace = (text: string) => !/[^\s]/.test(text)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -80,6 +86,24 @@ export function ChatInput({
 
   // Unified processing state: blocks input during submission AND streaming
   const isProcessing = isSubmitting || status === "submitted" || status === "streaming"
+
+  // Track if input is disabled (viewer role or processing)
+  const isInputDisabled = isViewerRole || isProcessing
+
+  // Track typing status for collaboration
+  const wasTypingRef = useRef(false)
+
+  useEffect(() => {
+    if (!onTypingChange || isViewerRole) return
+
+    const isTyping = value.length > 0 && !isOnlyWhitespace(value)
+
+    // Only notify on change
+    if (isTyping !== wasTypingRef.current) {
+      wasTypingRef.current = isTyping
+      onTypingChange(isTyping)
+    }
+  }, [value, onTypingChange, isViewerRole])
 
   // Slash command menu state
   const handleCommandSelect = useCallback(
@@ -282,10 +306,11 @@ export function ChatInput({
               <FileList files={files} onFileRemove={onFileRemove} />
               <PromptInputTextarea
                 ref={textareaRef}
-                placeholder="Donor's full name and street address (& employer if known)"
+                placeholder={isViewerRole ? "View-only access" : "Donor's full name and street address (& employer if known)"}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                className="min-h-[44px] pt-3 pl-4 text-base leading-[1.3] sm:text-base md:text-base"
+                disabled={isViewerRole}
+                className="min-h-[44px] pt-3 pl-4 text-base leading-[1.3] sm:text-base md:text-base disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <PromptInputActions className="mt-3 w-full justify-between p-2">
                 <div className="flex gap-2">

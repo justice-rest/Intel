@@ -5,6 +5,9 @@ import { Conversation } from "@/app/components/chat/conversation"
 import { LoaderOverlay } from "@/app/components/chat/loader-overlay"
 import { DropZone } from "@/app/components/split-view"
 import { useModel } from "@/app/components/chat/use-model"
+import { CollaborationWrapper, TypingIndicator } from "@/app/components/collaboration"
+import { useCollaboratorsOptional } from "@/lib/collaboration"
+import { usePresenceOptional } from "@/lib/presence"
 import { useChatDraft } from "@/app/hooks/use-chat-draft"
 import { useSlashCommands } from "@/app/hooks/use-slash-commands"
 import { useChats } from "@/lib/chat-store/chats/provider"
@@ -161,6 +164,23 @@ export function Chat({
     [processSlashCommand]
   )
 
+  // Collaboration context (available when inside CollaborationWrapper)
+  // These hooks are called inside CollaborationWrapper's children render
+  const collaboratorsContext = useCollaboratorsOptional()
+  const presenceContext = usePresenceOptional()
+
+  // Derive collaboration state
+  const isViewerRole = collaboratorsContext?.currentUserRole === "viewer"
+  const canEdit = collaboratorsContext?.canEdit ?? true
+
+  // Typing handler for collaboration
+  const handleTypingChange = useCallback(
+    (isTyping: boolean) => {
+      presenceContext?.setTyping(isTyping)
+    },
+    [presenceContext]
+  )
+
   // Chat operations (utils + handlers) - created first
   const { checkLimitsAndNotify, ensureChatExists, handleDelete } =
     useChatOperations({
@@ -315,6 +335,8 @@ export function Chat({
       firstName,
       hasActiveSubscription,
       onSlashCommand: handleSlashCommand,
+      isViewerRole,
+      onTypingChange: handleTypingChange,
     }),
     [
       input,
@@ -338,6 +360,8 @@ export function Chat({
       firstName,
       hasActiveSubscription,
       handleSlashCommand,
+      isViewerRole,
+      handleTypingChange,
     ]
   )
 
@@ -359,15 +383,16 @@ export function Chat({
   const showOnboarding = !chatId && messages.length === 0 && !isSubmitting && !hasSentFirstMessageRef.current
 
   return (
-    <div
-      className={cn(
-        "@container/main relative flex h-full flex-col items-center justify-end md:justify-center"
-      )}
-    >
-      {/* Drop zone for initiating split view - only show when not already in split mode */}
-      {!isSplitActive && (
-        <DropZone onDrop={handleSplitDrop} currentChatId={chatId} />
-      )}
+    <CollaborationWrapper chatId={chatId}>
+      <div
+        className={cn(
+          "@container/main relative flex h-full flex-col items-center justify-end md:justify-center"
+        )}
+      >
+        {/* Drop zone for initiating split view - only show when not already in split mode */}
+        {!isSplitActive && (
+          <DropZone onDrop={handleSplitDrop} currentChatId={chatId} />
+        )}
 
       <DialogAuth open={hasDialogAuth} setOpen={setHasDialogAuth} />
       <DialogSubscriptionRequired
@@ -440,10 +465,15 @@ export function Chat({
           startTime={responseStartTime ?? null}
           isExecutingTools={hasActiveToolCalls}
         />
+        {/* Show typing indicator when collaborators are typing */}
+        {presenceContext && presenceContext.typingUsers.length > 0 && (
+          <TypingIndicator className="mb-2 px-2" />
+        )}
         <ChatInput {...chatInputProps} />
       </motion.div>
 
-      <FeedbackWidget authUserId={user?.id} />
-    </div>
+        <FeedbackWidget authUserId={user?.id} />
+      </div>
+    </CollaborationWrapper>
   )
 }

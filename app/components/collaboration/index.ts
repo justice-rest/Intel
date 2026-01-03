@@ -1,0 +1,12 @@
+/**
+ * Collaboration Components
+ * UI components for chat collaboration features
+ */
+
+export { DialogShareChat } from "./dialog-share-chat"
+export { DialogManageCollaborators } from "./dialog-manage-collaborators"
+export { PresenceIndicator } from "./presence-indicator"
+export { TypingIndicator } from "./typing-indicator"
+export { CollaboratorBadge } from "./collaborator-badge"
+export { CollaborationWrapper } from "./collaboration-wrapper"
+export { HeaderCollaboration } from "./header-collaboration"

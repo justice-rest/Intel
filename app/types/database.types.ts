@@ -988,6 +988,202 @@ export type Database = {
           },
         ]
       }
+      // ============================================================================
+      // COLLABORATIVE CHAT TABLES
+      // ============================================================================
+      chat_collaborators: {
+        Row: {
+          id: string
+          chat_id: string
+          user_id: string
+          role: "owner" | "editor" | "viewer"
+          invited_by: string | null
+          invited_via_link_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          chat_id: string
+          user_id: string
+          role: "owner" | "editor" | "viewer"
+          invited_by?: string | null
+          invited_via_link_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          chat_id?: string
+          user_id?: string
+          role?: "owner" | "editor" | "viewer"
+          invited_by?: string | null
+          invited_via_link_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_collaborators_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_collaborators_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_collaborators_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_collaborators_invited_via_link_id_fkey"
+            columns: ["invited_via_link_id"]
+            isOneToOne: false
+            referencedRelation: "chat_share_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_share_links: {
+        Row: {
+          id: string
+          chat_id: string
+          token: string
+          password_hash: string | null
+          grants_role: "editor" | "viewer"
+          max_uses: number | null
+          use_count: number
+          label: string | null
+          created_by: string
+          failed_attempts: number
+          last_failed_attempt_at: string | null
+          is_active: boolean
+          revoked_at: string | null
+          revoked_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          chat_id: string
+          token: string
+          password_hash?: string | null
+          grants_role?: "editor" | "viewer"
+          max_uses?: number | null
+          use_count?: number
+          label?: string | null
+          created_by: string
+          failed_attempts?: number
+          last_failed_attempt_at?: string | null
+          is_active?: boolean
+          revoked_at?: string | null
+          revoked_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          chat_id?: string
+          token?: string
+          password_hash?: string | null
+          grants_role?: "editor" | "viewer"
+          max_uses?: number | null
+          use_count?: number
+          label?: string | null
+          created_by?: string
+          failed_attempts?: number
+          last_failed_attempt_at?: string | null
+          is_active?: boolean
+          revoked_at?: string | null
+          revoked_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_share_links_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_share_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_share_links_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_access_log: {
+        Row: {
+          id: number
+          chat_id: string
+          actor_user_id: string | null
+          target_user_id: string | null
+          action: "collaborator_added" | "collaborator_removed" | "role_changed" | "link_created" | "link_used" | "link_revoked" | "link_password_failed" | "ownership_transferred"
+          details: Json
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          chat_id: string
+          actor_user_id?: string | null
+          target_user_id?: string | null
+          action: "collaborator_added" | "collaborator_removed" | "role_changed" | "link_created" | "link_used" | "link_revoked" | "link_password_failed" | "ownership_transferred"
+          details?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          chat_id?: string
+          actor_user_id?: string | null
+          target_user_id?: string | null
+          action?: "collaborator_added" | "collaborator_removed" | "role_changed" | "link_created" | "link_used" | "link_revoked" | "link_password_failed" | "ownership_transferred"
+          details?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_access_log_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_access_log_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_access_log_target_user_id_fkey"
+            columns: ["target_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1059,6 +1255,41 @@ export type Database = {
           memory_id: string
         }
         Returns: void
+      }
+      // ============================================================================
+      // COLLABORATIVE CHAT FUNCTIONS
+      // ============================================================================
+      user_has_chat_role: {
+        Args: {
+          p_user_id: string
+          p_chat_id: string
+          p_required_role: string // 'owner' | 'editor' | 'viewer'
+        }
+        Returns: boolean
+      }
+      get_user_chat_role: {
+        Args: {
+          p_user_id: string
+          p_chat_id: string
+        }
+        Returns: string | null // 'owner' | 'editor' | 'viewer' | null
+      }
+      hash_share_link_password: {
+        Args: {
+          p_password: string
+        }
+        Returns: string
+      }
+      verify_share_link_password: {
+        Args: {
+          p_link_id: string
+          p_password: string
+        }
+        Returns: boolean
+      }
+      generate_share_link_token: {
+        Args: Record<string, never>
+        Returns: string
       }
     }
     Enums: Record<string, never>
