@@ -14,3 +14,10 @@ export * from "./api"
 
 // Provider (client-side)
 export { CollaboratorsProvider, useCollaborators, useCollaboratorsOptional } from "./provider"
+
+// Dialog state store (client-side)
+export {
+  CollaborationDialogProvider,
+  useCollaborationDialogStore,
+  useCollaborationDialogStoreOptional
+} from "./dialog-store"

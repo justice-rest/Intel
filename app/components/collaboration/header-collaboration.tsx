@@ -1,37 +1,33 @@
 "use client"
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+/**
+ * Collaboration Dialogs Renderer
+ * Renders collaboration dialogs inside CollaborationWrapper
+ * Responds to store state set by header button
+ */
+
+import { useEffect } from "react"
 import { useCollaboratorsOptional } from "@/lib/collaboration"
 import { usePresenceOptional } from "@/lib/presence"
+import { useCollaborationDialogStore } from "@/lib/collaboration/dialog-store"
 import { useChatId } from "@/lib/chat-store/session/use-chat-id"
 import { useChats } from "@/lib/chat-store/chats/provider"
-import { Users } from "@phosphor-icons/react"
 import { PresenceIndicator } from "./presence-indicator"
 import { DialogShareChat } from "./dialog-share-chat"
 import { DialogManageCollaborators } from "./dialog-manage-collaborators"
 
 /**
- * Header collaboration controls
- * Shows presence indicator and collaborate button when in a chat
- * Only renders when inside CollaborationWrapper (provider context available)
+ * Collaboration Dialogs
+ * Renders dialogs that respond to the global store
+ * Must be rendered inside CollaborationWrapper for context access
  */
-export function HeaderCollaboration() {
+export function CollaborationDialogs() {
   const chatId = useChatId()
   const { getChatById } = useChats()
   const collaborators = useCollaboratorsOptional()
-  const presence = usePresenceOptional()
-  const [showShareDialog, setShowShareDialog] = useState(false)
-  const [showCollaboratorsDialog, setShowCollaboratorsDialog] = useState(false)
+  const { openDialog, closeDialog } = useCollaborationDialogStore()
 
   // Don't render if no chatId or no collaboration context
-  // (Header is outside CollaborationWrapper, so context will be null there)
   if (!chatId || !collaborators) {
     return null
   }
@@ -39,45 +35,53 @@ export function HeaderCollaboration() {
   const currentChat = getChatById(chatId)
   const chatTitle = currentChat?.title || "Untitled"
   const isOwner = collaborators.isOwner
-  const hasCollaborators = (collaborators.collaborators?.length ?? 0) > 1
+
+  // Determine which dialog to show based on role
+  const showShareDialog = openDialog === "share" && isOwner
+  const showCollaboratorsDialog = openDialog === "collaborators" || (openDialog === "share" && !isOwner)
 
   return (
     <>
-      {/* Presence indicator - only show if there are collaborators and presence context */}
-      {hasCollaborators && presence && <PresenceIndicator maxVisible={3} />}
-
-      {/* Collaborate button */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground hover:text-foreground hover:bg-muted bg-background rounded-full p-1.5 transition-colors"
-              onClick={() => isOwner ? setShowShareDialog(true) : setShowCollaboratorsDialog(true)}
-            >
-              <Users className="size-5" />
-              <span className="sr-only">
-                {isOwner ? "Share with collaborators" : "View collaborators"}
-              </span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{isOwner ? "Share" : "Collaborators"}</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-
-      {/* Dialogs - only rendered when context is available */}
       <DialogShareChat
         isOpen={showShareDialog}
-        setIsOpen={setShowShareDialog}
+        setIsOpen={(open) => !open && closeDialog()}
         chatTitle={chatTitle}
       />
       <DialogManageCollaborators
         isOpen={showCollaboratorsDialog}
-        setIsOpen={setShowCollaboratorsDialog}
+        setIsOpen={(open) => !open && closeDialog()}
       />
     </>
   )
+}
+
+/**
+ * Presence Indicator Wrapper
+ * Shows online collaborators - only renders when there are collaborators
+ */
+export function CollaborationPresence() {
+  const chatId = useChatId()
+  const collaborators = useCollaboratorsOptional()
+  const presence = usePresenceOptional()
+
+  if (!chatId || !collaborators || !presence) {
+    return null
+  }
+
+  const hasCollaborators = (collaborators.collaborators?.length ?? 0) > 1
+
+  if (!hasCollaborators) {
+    return null
+  }
+
+  return <PresenceIndicator maxVisible={3} />
+}
+
+/**
+ * Header Collaboration (Legacy)
+ * Kept for backwards compatibility - now just renders dialogs
+ * @deprecated Use CollaborationDialogs instead
+ */
+export function HeaderCollaboration() {
+  return <CollaborationDialogs />
 }

@@ -394,10 +394,8 @@ export function Chat({
           <DropZone onDrop={handleSplitDrop} currentChatId={chatId} />
         )}
 
-        {/* Collaboration controls - positioned at top right of chat area */}
-        <div className="pointer-events-auto absolute top-4 right-4 z-40 flex items-center gap-2">
-          <HeaderCollaboration />
-        </div>
+        {/* Collaboration dialogs - rendered inline, triggered by header button */}
+        <HeaderCollaboration />
 
       <DialogAuth open={hasDialogAuth} setOpen={setHasDialogAuth} />
       <DialogSubscriptionRequired
