@@ -1291,6 +1291,19 @@ export type Database = {
         Args: Record<string, never>
         Returns: string
       }
+      get_user_accessible_chats: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Database["public"]["Tables"]["chats"]["Row"][]
+      }
+      get_chat_if_accessible: {
+        Args: {
+          p_user_id: string
+          p_chat_id: string
+        }
+        Returns: Database["public"]["Tables"]["chats"]["Row"][]
+      }
     }
     Enums: Record<string, never>
     CompositeTypes: {
