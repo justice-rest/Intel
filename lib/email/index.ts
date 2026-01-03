@@ -22,3 +22,9 @@ export type {
   DataExportEmailData,
   AccountDeletionEmailData,
 } from "./templates/gdpr-emails"
+
+export {
+  getShareConversationEmailHtml,
+  getShareConversationEmailSubject,
+} from "./templates/share-conversation"
+export type { ShareConversationEmailData } from "./templates/share-conversation"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Image from "next/image"
 import {
   AlertDialog,
@@ -27,6 +27,8 @@ import {
   CaretUp,
   Lock,
   ArrowUpRight,
+  FilePdf,
+  CloudArrowUp,
 } from "@phosphor-icons/react"
 import { Button } from "@/components/ui/button"
 import { motion, AnimatePresence } from "motion/react"
@@ -34,6 +36,10 @@ import type { GoogleIntegrationStatus, GoogleDriveDocument } from "@/lib/google/
 import { GoogleDriveBrowser } from "./google-drive-browser"
 import { NotionPagePicker } from "../connectors/notion-page-picker"
 import { useCustomer } from "autumn-js/react"
+import type { RAGDocument, RAGStorageUsage } from "@/lib/rag/types"
+import { formatBytes } from "@/lib/rag/config"
+import type { UserMemory, MemoryStats } from "@/lib/memory/types"
+import { Brain } from "@phosphor-icons/react"
 
 interface NotionIntegrationStatus {
   connected: boolean
@@ -79,6 +85,17 @@ export function GoogleIntegrationSection() {
   const [notionDisconnectDialogOpen, setNotionDisconnectDialogOpen] = useState(false)
   const [showNotionDocuments, setShowNotionDocuments] = useState(false)
   const [deletingNotionDocId, setDeletingNotionDocId] = useState<string | null>(null)
+
+  // RAG Documents state
+  const [showRagDocuments, setShowRagDocuments] = useState(false)
+  const [deletingRagDocId, setDeletingRagDocId] = useState<string | null>(null)
+  const [isRagUploading, setIsRagUploading] = useState(false)
+  const [ragIsDragging, setRagIsDragging] = useState(false)
+  const ragFileInputRef = useRef<HTMLInputElement>(null)
+
+  // Memory state
+  const [showMemorySection, setShowMemorySection] = useState(false)
+  const [deletingMemoryId, setDeletingMemoryId] = useState<string | null>(null)
 
   // Check if user is on an eligible plan (Pro or Scale)
   const activeProduct = customer?.products?.find(
@@ -165,6 +182,196 @@ export function GoogleIntegrationSection() {
   })
 
   const notionDocuments = notionDocsData?.documents || []
+
+  // ============ RAG DOCUMENTS INTEGRATION ============
+
+  // Check if user has Scale plan for RAG (Ultra access)
+  const hasRagAccess = activeProduct?.id?.toLowerCase().includes("scale") ?? false
+
+  // Fetch RAG documents
+  const { data: ragDocsData, isLoading: isRagLoading } = useQuery({
+    queryKey: ["rag-documents"],
+    queryFn: async () => {
+      const res = await fetch("/api/rag/documents")
+      if (!res.ok) return { documents: [], usage: { document_count: 0, total_bytes: 0, chunk_count: 0 } }
+      return res.json() as Promise<{ documents: RAGDocument[]; usage: RAGStorageUsage }>
+    },
+    enabled: hasRagAccess,
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
+    staleTime: 5000,
+  })
+
+  const ragDocuments = ragDocsData?.documents || []
+  const ragUsage = ragDocsData?.usage || { document_count: 0, total_bytes: 0, chunk_count: 0 }
+
+  // RAG upload mutation
+  const uploadRagMutation = useMutation({
+    mutationFn: async ({ file, tags }: { file: File; tags: string[] }) => {
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("tags", tags.join(","))
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 min timeout
+
+      try {
+        const res = await fetch("/api/rag/upload", {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({ error: "Upload failed" }))
+          throw new Error(error.error || "Upload failed")
+        }
+        return res.json()
+      } catch (err) {
+        clearTimeout(timeoutId)
+        if (err instanceof Error && err.name === "AbortError") {
+          throw new Error("Upload timed out. Try a smaller file.")
+        }
+        throw err
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Document Uploaded",
+        description: "Document uploaded and processing started.",
+      })
+      queryClient.invalidateQueries({ queryKey: ["rag-documents"] })
+      setIsRagUploading(false)
+    },
+    onError: (error) => {
+      toast({
+        title: "Upload Failed",
+        description: error instanceof Error ? error.message : "Failed to upload document",
+      })
+      setIsRagUploading(false)
+    },
+  })
+
+  // RAG delete mutation
+  const deleteRagMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const res = await fetch(`/api/rag/documents?id=${documentId}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || "Delete failed")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast({
+        title: "Document Removed",
+        description: "The document has been removed from your index.",
+      })
+      queryClient.invalidateQueries({ queryKey: ["rag-documents"] })
+      setDeletingRagDocId(null)
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : "Failed to delete document",
+      })
+      setDeletingRagDocId(null)
+    },
+  })
+
+  // RAG file handling
+  const handleRagFileSelect = useCallback((file: File) => {
+    if (file.type !== "application/pdf") {
+      toast({
+        title: "Invalid File",
+        description: "Only PDF files are supported.",
+      })
+      return
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Maximum file size is 50MB.",
+      })
+      return
+    }
+    setIsRagUploading(true)
+    uploadRagMutation.mutate({ file, tags: [] })
+  }, [uploadRagMutation])
+
+  const handleRagDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setRagIsDragging(false)
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length > 0) {
+      handleRagFileSelect(files[0])
+    }
+  }, [handleRagFileSelect])
+
+  // ============ END RAG DOCUMENTS INTEGRATION ============
+
+  // ============ MEMORY INTEGRATION ============
+
+  // Fetch memory stats
+  const { data: memoryData, isLoading: isMemoryLoading } = useQuery({
+    queryKey: ["memory-stats"],
+    queryFn: async () => {
+      const [memoriesRes, statsRes] = await Promise.all([
+        fetch("/api/memories"),
+        fetch("/api/memories/profile"),
+      ])
+
+      const memories: UserMemory[] = memoriesRes.ok
+        ? (await memoriesRes.json()).memories || []
+        : []
+
+      const stats: MemoryStats = statsRes.ok
+        ? (await statsRes.json()).stats || { total_memories: 0, auto_memories: 0, explicit_memories: 0, avg_importance: 0, most_recent_memory: null }
+        : { total_memories: 0, auto_memories: 0, explicit_memories: 0, avg_importance: 0, most_recent_memory: null }
+
+      return { memories, stats }
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 30000,
+  })
+
+  const memories = memoryData?.memories || []
+  const memoryStats = memoryData?.stats || { total_memories: 0, auto_memories: 0, explicit_memories: 0, avg_importance: 0, most_recent_memory: null }
+
+  // Memory delete mutation
+  const deleteMemoryMutation = useMutation({
+    mutationFn: async (memoryId: string) => {
+      const res = await fetch(`/api/memories/${memoryId}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.error || "Delete failed")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast({
+        title: "Memory Removed",
+        description: "The memory has been deleted.",
+      })
+      queryClient.invalidateQueries({ queryKey: ["memory-stats"] })
+      setDeletingMemoryId(null)
+    },
+    onError: (error) => {
+      toast({
+        title: "Delete Failed",
+        description: error instanceof Error ? error.message : "Failed to delete memory",
+      })
+      setDeletingMemoryId(null)
+    },
+  })
+
+  // ============ END MEMORY INTEGRATION ============
 
   // Notion delete document mutation
   const deleteNotionDocumentMutation = useMutation({
@@ -451,148 +658,213 @@ export function GoogleIntegrationSection() {
               Currently in beta. Rolling out to all Pro & Scale users soon.
             </p>
           </div>
-        ) : isConnected ? (
+        ) : (
           <div className="space-y-4">
-            {/* Connected Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle size={18} weight="fill" className="text-green-500" />
-                <span className="text-sm font-medium text-black dark:text-white">Connected</span>
-                {status?.googleEmail && (
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    ({status.googleEmail})
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => setDisconnectDialogOpen(true)}
-                disabled={disconnectMutation.isPending}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-              >
-                <Trash size={12} />
-                Disconnect
-              </button>
-            </div>
-
-            <hr className="border-gray-200 dark:border-[#333]" />
-
-            {/* Services - Combined Box with Divider */}
-            <div className="rounded-lg border border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] overflow-hidden">
-              <div className="grid grid-cols-1 sm:grid-cols-2">
-                {/* Gmail */}
-                <div className={cn(
-                  "p-4 flex flex-col",
-                  !hasGmail && "opacity-60"
-                )}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Image
-                      src="/svgs/Gmail SVG Icon.svg"
-                      alt="Gmail"
-                      width={18}
-                      height={18}
-                      className="size-[18px]"
-                    />
-                    <span className="text-sm font-medium text-black dark:text-white">Gmail</span>
-                    {hasGmail && <CheckCircle size={12} weight="fill" className="text-green-500" />}
+            {/* Google Connection Section */}
+            {isConnected ? (
+              <>
+                {/* Connected Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle size={18} weight="fill" className="text-green-500" />
+                    <span className="text-sm font-medium text-black dark:text-white">Google Connected</span>
+                    {status?.googleEmail && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({status.googleEmail})
+                      </span>
+                    )}
                   </div>
-                  {hasGmail && (
-                    <div className="flex-1 flex flex-col">
-                      <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400 flex-1">
-                        <div className="flex justify-between">
-                          <span>Pending drafts</span>
-                          <span className="font-medium text-black dark:text-white">{status?.pendingDrafts || 0}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Style analyzed</span>
-                          <span className={cn(
-                            "font-medium",
-                            status?.styleAnalyzedAt
-                              ? "text-black dark:text-white"
-                              : "text-amber-600 dark:text-amber-400"
-                          )}>
-                            {status?.styleAnalyzedAt
-                              ? `${formatDate(status.styleAnalyzedAt)} (${status.emailsAnalyzed})`
-                              : "Not yet"}
-                          </span>
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => analyzeStyleMutation.mutate()}
-                        disabled={analyzeStyleMutation.isPending}
-                        className="w-full mt-3"
-                      >
-                        {analyzeStyleMutation.isPending ? (
-                          <Spinner size={16} className="mr-2 animate-spin" />
-                        ) : (
-                          <Sparkle size={16} weight="fill" className="mr-2" />
-                        )}
-                        {status?.styleAnalyzedAt ? "Re-analyze Style" : "Analyze Style"}
-                      </Button>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDisconnectDialogOpen(true)}
+                    disabled={disconnectMutation.isPending}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                  >
+                    <Trash size={12} />
+                    Disconnect
+                  </button>
                 </div>
 
-                {/* Mobile Divider */}
-                <div className="sm:hidden h-px bg-white/10 dark:bg-white/5" />
+                <hr className="border-gray-200 dark:border-[#333]" />
+              </>
+            ) : (
+              /* Not Connected State - Google Only */
+              <div className="text-center py-4 border border-gray-200 dark:border-[#333] rounded-lg bg-white dark:bg-[#1a1a1a]">
+                {status?.status === "error" || status?.status === "revoked" ? (
+                  <>
+                    <WarningCircle size={32} weight="fill" className="mx-auto text-amber-500 mb-2" />
+                    <p className="text-sm font-medium text-black dark:text-white mb-1">
+                      {status.status === "revoked" ? "Access Revoked" : "Connection Error"}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                      {status.errorMessage || "Please reconnect your Google account."}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-center gap-3 mb-3">
+                      <Image
+                        src="/svgs/Gmail SVG Icon.svg"
+                        alt="Gmail"
+                        width={24}
+                        height={24}
+                        className="size-6 opacity-50"
+                      />
+                      <Image
+                        src="/svgs/Drive Color Icon.svg"
+                        alt="Drive"
+                        width={24}
+                        height={24}
+                        className="size-6 opacity-50"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                      Connect your Google account to enable Gmail and Drive features.
+                    </p>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={() => connectMutation.mutate()}
+                  disabled={connectMutation.isPending}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 border border-black dark:border-white text-white dark:text-black transition-colors disabled:opacity-50"
+                >
+                  {connectMutation.isPending && (
+                    <Spinner size={14} className="animate-spin" />
+                  )}
+                  <Image
+                    src="/svgs/Google Color Icon.svg"
+                    alt="Google"
+                    width={16}
+                    height={16}
+                    className="size-4"
+                  />
+                  Connect Google Account
+                </button>
+              </div>
+            )}
 
-                {/* Drive */}
-                <div className={cn(
-                  "p-4 flex flex-col border-t sm:border-t-0 sm:border-l border-white/10 dark:border-white/5",
-                  !hasDrive && "opacity-60"
-                )}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Image
-                      src="/svgs/Drive Color Icon.svg"
-                      alt="Drive"
-                      width={18}
-                      height={18}
-                      className="size-[18px]"
-                    />
-                    <span className="text-sm font-medium text-black dark:text-white">Drive</span>
-                    {hasDrive && <CheckCircle size={12} weight="fill" className="text-green-500" />}
-                  </div>
-                  {hasDrive && (
-                    <div className="flex-1 flex flex-col">
-                      <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400 flex-1">
-                        <div className="flex items-center justify-between">
-                          <span>Indexed documents</span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-black dark:text-white">{driveDocuments.length}</span>
-                            {driveDocuments.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => setShowDriveDocuments(!showDriveDocuments)}
-                                className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
-                              >
-                                {showDriveDocuments ? (
-                                  <CaretUp size={12} />
-                                ) : (
-                                  <CaretDown size={12} />
-                                )}
-                              </button>
+            {/* Services Bento - Always visible for eligible plans */}
+            <div className="rounded-lg border border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] overflow-hidden">
+              {/* Gmail & Drive - Only show when Google is connected */}
+              {isConnected && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2">
+                    {/* Gmail */}
+                    <div className={cn(
+                      "p-4 flex flex-col",
+                      !hasGmail && "opacity-60"
+                    )}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Image
+                          src="/svgs/Gmail SVG Icon.svg"
+                          alt="Gmail"
+                          width={18}
+                          height={18}
+                          className="size-[18px]"
+                        />
+                        <span className="text-sm font-medium text-black dark:text-white">Gmail</span>
+                        {hasGmail && <CheckCircle size={12} weight="fill" className="text-green-500" />}
+                      </div>
+                      {hasGmail && (
+                        <div className="flex-1 flex flex-col">
+                          <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400 flex-1">
+                            <div className="flex justify-between">
+                              <span>Pending drafts</span>
+                              <span className="font-medium text-black dark:text-white">{status?.pendingDrafts || 0}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Style analyzed</span>
+                              <span className={cn(
+                                "font-medium",
+                                status?.styleAnalyzedAt
+                                  ? "text-black dark:text-white"
+                                  : "text-amber-600 dark:text-amber-400"
+                              )}>
+                                {status?.styleAnalyzedAt
+                                  ? `${formatDate(status.styleAnalyzedAt)} (${status.emailsAnalyzed})`
+                                  : "Not yet"}
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => analyzeStyleMutation.mutate()}
+                            disabled={analyzeStyleMutation.isPending}
+                            className="w-full mt-3"
+                          >
+                            {analyzeStyleMutation.isPending ? (
+                              <Spinner size={16} className="mr-2 animate-spin" />
+                            ) : (
+                              <Sparkle size={16} weight="fill" className="mr-2" />
                             )}
+                            {status?.styleAnalyzedAt ? "Re-analyze Style" : "Analyze Style"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Mobile Divider */}
+                    <div className="sm:hidden h-px bg-white/10 dark:bg-white/5" />
+
+                    {/* Drive */}
+                    <div className={cn(
+                      "p-4 flex flex-col border-t sm:border-t-0 sm:border-l border-white/10 dark:border-white/5",
+                      !hasDrive && "opacity-60"
+                    )}>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Image
+                          src="/svgs/Drive Color Icon.svg"
+                          alt="Drive"
+                          width={18}
+                          height={18}
+                          className="size-[18px]"
+                        />
+                        <span className="text-sm font-medium text-black dark:text-white">Drive</span>
+                        {hasDrive && <CheckCircle size={12} weight="fill" className="text-green-500" />}
+                      </div>
+                      {hasDrive && (
+                        <div className="flex-1 flex flex-col">
+                          <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400 flex-1">
+                            <div className="flex items-center justify-between">
+                              <span>Indexed documents</span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-black dark:text-white">{driveDocuments.length}</span>
+                                {driveDocuments.length > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowDriveDocuments(!showDriveDocuments)}
+                                    className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                                  >
+                                    {showDriveDocuments ? (
+                                      <CaretUp size={12} />
+                                    ) : (
+                                      <CaretDown size={12} />
+                                    )}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <GoogleDriveBrowser
+                              onFilesImported={() => {
+                                queryClient.invalidateQueries({ queryKey: ["drive-documents"] })
+                              }}
+                            />
                           </div>
                         </div>
-                      </div>
-                      <div className="mt-3">
-                        <GoogleDriveBrowser
-                          onFilesImported={() => {
-                            queryClient.invalidateQueries({ queryKey: ["drive-documents"] })
-                          }}
-                        />
-                      </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              {/* Horizontal Divider between Google services and Notion */}
-              <div className="h-px bg-gray-200 dark:bg-[#333]" />
+                  {/* Horizontal Divider between Google services and Notion */}
+                  <div className="h-px bg-gray-200 dark:bg-[#333]" />
+                </>
+              )}
 
-              {/* Notion Section */}
+              {/* Notion Section - Always visible for eligible plans */}
               <div className="p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -693,6 +965,169 @@ export function GoogleIntegrationSection() {
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* Horizontal Divider between Notion and RAG */}
+              <div className="h-px bg-gray-200 dark:bg-[#333]" />
+
+              {/* RAG Documents Section - Always visible for eligible plans */}
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <FilePdf size={18} weight="fill" className="text-red-500" />
+                    <span className="text-sm font-medium text-black dark:text-white">Documents</span>
+                    {!hasRagAccess && (
+                      <span className="rounded px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        SCALE
+                      </span>
+                    )}
+                  </div>
+                  {hasRagAccess && ragDocuments.length > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span>{ragUsage.document_count}/50</span>
+                      <span>•</span>
+                      <span>{formatBytes(ragUsage.total_bytes)}/500MB</span>
+                    </div>
+                  )}
+                </div>
+
+                {!hasRagAccess ? (
+                  <div className="text-center py-2">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      Upload PDFs for AI-powered document search. <span className="text-amber-600 dark:text-amber-400">Requires Scale plan.</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.dispatchEvent(new CustomEvent("open-settings", { detail: { tab: "subscription" } }))
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 border border-black dark:border-white text-white dark:text-black transition-colors"
+                    >
+                      Upgrade to Scale
+                      <ArrowUpRight size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center justify-between">
+                        <span>Indexed documents</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-black dark:text-white">{ragDocuments.length}</span>
+                          {ragDocuments.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setShowRagDocuments(!showRagDocuments)}
+                              className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                            >
+                              {showRagDocuments ? (
+                                <CaretUp size={12} />
+                              ) : (
+                                <CaretDown size={12} />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Compact Upload Area */}
+                    <div
+                      onDragEnter={(e) => { e.preventDefault(); setRagIsDragging(true) }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDragLeave={() => setRagIsDragging(false)}
+                      onDrop={handleRagDrop}
+                      onClick={() => ragFileInputRef.current?.click()}
+                      className={cn(
+                        "flex items-center justify-center gap-2 px-3 py-2.5 rounded border border-dashed cursor-pointer transition-colors",
+                        ragIsDragging
+                          ? "border-red-500 bg-red-50 dark:bg-red-900/10"
+                          : "border-gray-300 dark:border-[#444] hover:border-gray-400 dark:hover:border-[#555]"
+                      )}
+                    >
+                      <input
+                        ref={ragFileInputRef}
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleRagFileSelect(file)
+                          e.target.value = ""
+                        }}
+                        className="hidden"
+                        disabled={isRagUploading}
+                      />
+                      {isRagUploading ? (
+                        <Spinner size={14} className="animate-spin text-red-500" />
+                      ) : (
+                        <CloudArrowUp size={14} className="text-gray-400" />
+                      )}
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        {isRagUploading ? "Uploading..." : "Drop PDF or click to upload"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Horizontal Divider between RAG and Memory */}
+              <div className="h-px bg-gray-200 dark:bg-[#333]" />
+
+              {/* Memory Section - Always visible for eligible plans */}
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Brain size={18} weight="fill" className="text-purple-500" />
+                    <span className="text-sm font-medium text-black dark:text-white">Memory</span>
+                    <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[10px] font-medium text-purple-600 dark:text-purple-400">
+                      BETA
+                    </span>
+                  </div>
+                  {memoryStats.total_memories > 0 && (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                      <span>{memoryStats.auto_memories} auto</span>
+                      <span>•</span>
+                      <span>{memoryStats.explicit_memories} explicit</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center justify-between">
+                      <span>Total memories</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-black dark:text-white">{memoryStats.total_memories}</span>
+                        {memories.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowMemorySection(!showMemorySection)}
+                            className="p-0.5 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors"
+                          >
+                            {showMemorySection ? (
+                              <CaretUp size={12} />
+                            ) : (
+                              <CaretDown size={12} />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {memoryStats.avg_importance > 0 && (
+                      <div className="flex justify-between">
+                        <span>Avg importance</span>
+                        <span className="font-medium text-black dark:text-white">
+                          {(memoryStats.avg_importance * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Memory Info */}
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                    AI automatically saves important facts from your conversations.
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -821,61 +1256,133 @@ export function GoogleIntegrationSection() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-        ) : (
-          /* Not Connected State */
-          <div className="text-center py-4">
-            {status?.status === "error" || status?.status === "revoked" ? (
-              <>
-                <WarningCircle size={32} weight="fill" className="mx-auto text-amber-500 mb-2" />
-                <p className="text-sm font-medium text-black dark:text-white mb-1">
-                  {status.status === "revoked" ? "Access Revoked" : "Connection Error"}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  {status.errorMessage || "Please reconnect your Google account."}
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="flex justify-center gap-3 mb-3">
-                  <Image
-                    src="/svgs/Gmail SVG Icon.svg"
-                    alt="Gmail"
-                    width={24}
-                    height={24}
-                    className="size-6 opacity-50"
-                  />
-                  <Image
-                    src="/svgs/Drive Color Icon.svg"
-                    alt="Drive"
-                    width={24}
-                    height={24}
-                    className="size-6 opacity-50"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                  Connect your Google account to enable Gmail and Drive features.
-                </p>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => connectMutation.mutate()}
-              disabled={connectMutation.isPending}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-black dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 border border-black dark:border-white text-white dark:text-black transition-colors disabled:opacity-50"
-            >
-              {connectMutation.isPending && (
-                <Spinner size={14} className="animate-spin" />
+
+            {/* RAG Documents List */}
+            <AnimatePresence>
+              {showRagDocuments && ragDocuments.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-3 border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#1a1a1a]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Uploaded Documents
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {ragDocuments.length} file{ragDocuments.length !== 1 ? "s" : ""}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+                      {ragDocuments.map((doc) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#222] group"
+                        >
+                          <FilePdf size={14} weight="fill" className="text-red-500 flex-shrink-0" />
+                          <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300" title={doc.file_name}>
+                            {doc.file_name}
+                          </span>
+                          <span className={cn(
+                            "px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0",
+                            doc.status === "ready"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                              : doc.status === "processing"
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : doc.status === "failed"
+                                  ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                          )}>
+                            {doc.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeletingRagDocId(doc.id)
+                              deleteRagMutation.mutate(doc.id)
+                            }}
+                            disabled={deletingRagDocId === doc.id}
+                            className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            {deletingRagDocId === doc.id ? (
+                              <Spinner size={12} className="animate-spin" />
+                            ) : (
+                              <Trash size={12} className="text-gray-400 hover:text-red-500" />
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
               )}
-              <Image
-                src="/svgs/Google Color Icon.svg"
-                alt="Google"
-                width={16}
-                height={16}
-                className="size-4"
-              />
-              Connect Google Account
-            </button>
+            </AnimatePresence>
+
+            {/* Memory Expandable Section */}
+            <AnimatePresence>
+              {showMemorySection && memories.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-3 border border-gray-200 dark:border-[#333] rounded bg-white dark:bg-[#1a1a1a]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Saved Memories
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {memories.length} memor{memories.length !== 1 ? "ies" : "y"}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                      {memories.slice(0, 10).map((memory) => (
+                        <div
+                          key={memory.id}
+                          className="flex items-start gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#222] group"
+                        >
+                          <Brain size={14} className="text-purple-500 flex-shrink-0 mt-0.5" />
+                          <span className="flex-1 min-w-0 text-gray-700 dark:text-gray-300 line-clamp-2" title={memory.content}>
+                            {memory.content}
+                          </span>
+                          <span className={cn(
+                            "px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0",
+                            memory.memory_type === "explicit"
+                              ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                              : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          )}>
+                            {memory.memory_type}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeletingMemoryId(memory.id)
+                              deleteMemoryMutation.mutate(memory.id)
+                            }}
+                            disabled={deletingMemoryId === memory.id}
+                            className="flex-shrink-0 p-1 hover:bg-gray-200 dark:hover:bg-[#333] rounded transition-colors opacity-0 group-hover:opacity-100"
+                          >
+                            {deletingMemoryId === memory.id ? (
+                              <Spinner size={12} className="animate-spin" />
+                            ) : (
+                              <Trash size={12} className="text-gray-400 hover:text-red-500" />
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                      {memories.length > 10 && (
+                        <p className="text-[10px] text-gray-400 text-center py-1">
+                          +{memories.length - 10} more memories
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
       </div>

@@ -23,7 +23,6 @@ import { KeyIcon, PlusIcon, ArrowSquareOut } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Loader2, Trash2, RefreshCw } from "lucide-react"
-import { GoogleIntegrationSection } from "./google-section"
 
 export function IntegrationsSection() {
   const queryClient = useQueryClient()
@@ -444,10 +443,6 @@ export function IntegrationsSection() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Google Workspace + Notion Integration */}
-      <div className="mt-8">
-        <GoogleIntegrationSection />
-      </div>
     </div>
   )
 }

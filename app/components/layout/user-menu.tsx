@@ -46,7 +46,7 @@ export function UserMenu() {
       const section = event.detail?.section
 
       // Tabs that require Supabase - fall back to general if Supabase is disabled
-      const supabaseRequiredTabs: TabType[] = ["data", "memory", "subscription", "integrations"]
+      const supabaseRequiredTabs: TabType[] = ["subscription", "crms", "knowledge"]
       if (!isSupabaseEnabled && supabaseRequiredTabs.includes(tab)) {
         tab = "general"
       }
@@ -100,8 +100,8 @@ export function UserMenu() {
         })
       }
 
-      // Open settings modal to integrations tab
-      setSettingsDefaultTab("integrations")
+      // Open settings modal to knowledge tab (where Google/Notion integrations are)
+      setSettingsDefaultTab("knowledge")
       setSettingsOpen(true)
       setMenuOpen(true)
 

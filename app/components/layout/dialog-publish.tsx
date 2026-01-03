@@ -18,6 +18,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Tooltip,
   TooltipContent,
@@ -28,7 +29,15 @@ import { useChatSession } from "@/lib/chat-store/session/provider"
 import { APP_DOMAIN } from "@/lib/config"
 import { createClient } from "@/lib/supabase/client"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
-import { Check, Copy, Globe, Spinner } from "@phosphor-icons/react"
+import {
+  CaretDown,
+  CaretUp,
+  Check,
+  Copy,
+  Globe,
+  PaperPlaneTilt,
+  Spinner,
+} from "@phosphor-icons/react"
 import type React from "react"
 import { useState } from "react"
 
@@ -38,6 +47,15 @@ export function DialogPublish() {
   const { chatId } = useChatSession()
   const isMobile = useBreakpoint(768)
   const [copied, setCopied] = useState(false)
+
+  // Email share state
+  const [recipientEmail, setRecipientEmail] = useState("")
+  const [recipientName, setRecipientName] = useState("")
+  const [personalNote, setPersonalNote] = useState("")
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [isSendingEmail, setIsSendingEmail] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   if (!isSupabaseEnabled) {
     return null
@@ -97,6 +115,46 @@ export function DialogPublish() {
     }, 2000)
   }
 
+  const handleSendEmail = async () => {
+    if (!recipientEmail.trim()) return
+
+    setIsSendingEmail(true)
+    setEmailError(null)
+
+    try {
+      const res = await fetch("/api/share-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId,
+          recipientEmail: recipientEmail.trim(),
+          recipientName: recipientName.trim() || undefined,
+          personalNote: personalNote.trim() || undefined,
+        }),
+      })
+
+      if (res.ok) {
+        setEmailSent(true)
+        setTimeout(() => setEmailSent(false), 3000)
+        setRecipientEmail("")
+        setRecipientName("")
+        setPersonalNote("")
+        setShowAdvanced(false)
+      } else {
+        const data = await res.json()
+        setEmailError(data.error || "Failed to send email")
+      }
+    } catch {
+      setEmailError("Failed to send email")
+    }
+
+    setIsSendingEmail(false)
+  }
+
+  const isValidEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  }
+
   const trigger = (
     <TooltipProvider>
       <Tooltip>
@@ -152,6 +210,89 @@ export function DialogPublish() {
         <Button onClick={shareOnX} className="flex-1">
           Share on <XIcon className="text-primary-foreground size-4" />
         </Button>
+      </div>
+
+      {/* Email Share Section */}
+      <div className="relative mt-4">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-background px-2 text-muted-foreground">
+            or send via email
+          </span>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3">
+        {/* Email input with Send button */}
+        <div className="flex items-center gap-2">
+          <Input
+            type="email"
+            placeholder="Enter recipient's email"
+            value={recipientEmail}
+            onChange={(e) => {
+              setRecipientEmail(e.target.value)
+              setEmailError(null)
+            }}
+            className="flex-1"
+          />
+          <Button
+            onClick={handleSendEmail}
+            disabled={
+              !recipientEmail.trim() ||
+              !isValidEmail(recipientEmail) ||
+              isSendingEmail
+            }
+            size="icon"
+            className="shrink-0"
+          >
+            {isSendingEmail ? (
+              <Spinner className="size-4 animate-spin" />
+            ) : emailSent ? (
+              <Check className="size-4" />
+            ) : (
+              <PaperPlaneTilt className="size-4" />
+            )}
+          </Button>
+        </div>
+
+        {/* Advanced toggle */}
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-sm transition-colors"
+        >
+          {showAdvanced ? (
+            <CaretUp className="size-3" />
+          ) : (
+            <CaretDown className="size-3" />
+          )}
+          Add a personal note
+        </button>
+
+        {/* Advanced fields (collapsible) */}
+        {showAdvanced && (
+          <div className="grid gap-3">
+            <Input
+              placeholder="Recipient's name (optional)"
+              value={recipientName}
+              onChange={(e) => setRecipientName(e.target.value)}
+            />
+            <Textarea
+              placeholder="Add a personal note (optional)"
+              value={personalNote}
+              onChange={(e) => setPersonalNote(e.target.value)}
+              className="min-h-[80px] resize-none"
+            />
+          </div>
+        )}
+
+        {/* Feedback messages */}
+        {emailSent && (
+          <p className="text-sm text-green-600">Email sent successfully!</p>
+        )}
+        {emailError && <p className="text-sm text-red-600">{emailError}</p>}
       </div>
     </>
   )

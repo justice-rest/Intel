@@ -1,4 +1,5 @@
 import { SYSTEM_PROMPT_DEFAULT, AI_MAX_OUTPUT_TOKENS } from "@/lib/config"
+import type { EffectiveChatConfig } from "@/lib/personas"
 import { getAllModels, normalizeModelId } from "@/lib/models"
 import { getProviderForModel } from "@/lib/openproviders/provider-map"
 import { isWorkflowEnabled, runDurableWorkflow } from "@/lib/workflows"
@@ -186,6 +187,7 @@ export async function POST(req: Request) {
       deepResearchCreditCheck,
       hasGmail,
       hasDrive,
+      chatConfig,
     ] = await Promise.all([
       // 1. Validate user and check rate limits (critical - blocks streaming)
       validateAndTrackUsage({
@@ -330,6 +332,20 @@ export async function POST(req: Request) {
           return false
         }
       })(),
+      // 11. CHAT CONFIG - Get persona and knowledge profile for this chat
+      (async (): Promise<EffectiveChatConfig | null> => {
+        if (!isAuthenticated || !chatId) return null
+        try {
+          const { getEffectiveChatConfig } = await import("@/lib/personas")
+          const { createClient } = await import("@/lib/supabase/server")
+          const supabaseClient = await createClient()
+          if (!supabaseClient) return null
+          return await getEffectiveChatConfig(supabaseClient, chatId, userId)
+        } catch (error) {
+          console.error("Failed to get chat config:", error)
+          return null
+        }
+      })(),
     ])
 
     // Verify model config exists
@@ -375,8 +391,119 @@ export async function POST(req: Request) {
 
     const userMessage = messages[messages.length - 1]
 
-    // Combine system prompt with user name, memory and batch reports context (if retrieved)
-    let finalSystemPrompt = effectiveSystemPrompt
+    // =========================================================================
+    // SYSTEM PROMPT CONSTRUCTION
+    // Priority: Persona > Knowledge Profile > Default
+    // Uses buildEffectiveSystemPrompt for proper layering
+    // =========================================================================
+
+    let finalSystemPrompt: string
+
+    // Check if chat has a persona with full mode (complete replacement)
+    if (chatConfig?.persona_system_prompt && chatConfig.persona_prompt_mode === 'full') {
+      // Persona in 'full' mode replaces the default system prompt entirely
+      finalSystemPrompt = chatConfig.persona_system_prompt
+      console.log(`[Chat] Using persona "${chatConfig.persona_name}" in full mode`)
+    } else {
+      // Start with the provided system prompt or default
+      finalSystemPrompt = effectiveSystemPrompt
+
+      // Apply persona prompt based on mode (prepend, append, inject)
+      if (chatConfig?.persona_system_prompt) {
+        const personaHeader = chatConfig.persona_name
+          ? `## [PERSONA: ${chatConfig.persona_name}]`
+          : '## [PERSONA]'
+
+        switch (chatConfig.persona_prompt_mode) {
+          case 'prepend':
+            finalSystemPrompt = `${personaHeader}
+
+${chatConfig.persona_system_prompt}
+
+[/PERSONA]
+
+---
+
+${finalSystemPrompt}`
+            break
+          case 'inject':
+            // Look for injection marker
+            const marker = '<!-- PERSONA_INJECT -->'
+            if (finalSystemPrompt.includes(marker)) {
+              finalSystemPrompt = finalSystemPrompt.replace(
+                marker,
+                `${personaHeader}
+
+${chatConfig.persona_system_prompt}
+
+[/PERSONA]`
+              )
+            } else {
+              // Fallback to append if no marker
+              finalSystemPrompt = `${finalSystemPrompt}
+
+---
+
+${personaHeader}
+
+${chatConfig.persona_system_prompt}
+
+[/PERSONA]`
+            }
+            break
+          case 'append':
+          default:
+            finalSystemPrompt = `${finalSystemPrompt}
+
+---
+
+${personaHeader}
+
+${chatConfig.persona_system_prompt}
+
+[/PERSONA]`
+            break
+        }
+        console.log(`[Chat] Applied persona "${chatConfig.persona_name}" in ${chatConfig.persona_prompt_mode} mode`)
+      }
+
+      // Apply voice configuration from persona
+      if (chatConfig?.voice_config && Object.keys(chatConfig.voice_config).length > 0) {
+        const voiceInstructions: string[] = []
+        const vc = chatConfig.voice_config as Record<string, unknown>
+
+        if (vc.tone) voiceInstructions.push(`- **Tone**: ${vc.tone}`)
+        if (vc.formality_level) {
+          const formalityDescriptions: Record<number, string> = {
+            1: 'very casual, friendly',
+            2: 'casual, approachable',
+            3: 'balanced, professional-casual',
+            4: 'professional, formal',
+            5: 'highly formal, executive',
+          }
+          voiceInstructions.push(`- **Formality**: ${formalityDescriptions[vc.formality_level as number] || 'balanced'}`)
+        }
+        if (vc.use_emojis !== undefined) {
+          voiceInstructions.push(`- **Emojis**: ${vc.use_emojis ? 'Use sparingly where appropriate' : 'Do not use emojis'}`)
+        }
+        if (vc.greeting_style) voiceInstructions.push(`- **Greeting Style**: ${vc.greeting_style}`)
+        if (vc.signature) voiceInstructions.push(`- **Signature**: End messages with: "${vc.signature}"`)
+
+        if (voiceInstructions.length > 0) {
+          finalSystemPrompt = `${finalSystemPrompt}
+
+---
+
+## [VOICE STYLE]
+
+Apply these communication preferences:
+
+${voiceInstructions.join('\n')}
+
+[/VOICE STYLE]`
+        }
+      }
+    }
 
     // =========================================================================
     // CONTEXT INJECTION WITH BOUNDARIES (Prompt Engineering Technique)
@@ -416,9 +543,16 @@ Use this context to personalize responses. Reference prior conversations natural
 [/MEMORY CONTEXT]`
     }
 
-    // Organizational knowledge injection (shapes how AI communicates for this org)
+    // Organizational knowledge injection
+    // Priority: Chat-level override > Persona's profile > User's active profile
     let knowledgePrompt: string | null = null
-    if (isAuthenticated) {
+
+    // First check if we have knowledge from chat config (persona or chat-level override)
+    if (chatConfig?.knowledge_prompt) {
+      knowledgePrompt = chatConfig.knowledge_prompt
+      console.log(`[Chat] Using knowledge profile from chat config`)
+    } else if (isAuthenticated) {
+      // Fallback to user's active profile
       try {
         const { getKnowledgePromptForUser } = await import('@/lib/knowledge')
         knowledgePrompt = await getKnowledgePromptForUser(userId)
@@ -439,6 +573,22 @@ These instructions take precedence over generic advice.
 
 ${knowledgePrompt}
 [/ORGANIZATIONAL KNOWLEDGE]`
+    }
+
+    // Apply chat-level custom system prompt override (highest priority)
+    if (chatConfig?.custom_system_prompt) {
+      finalSystemPrompt = `${finalSystemPrompt}
+
+---
+
+## [CHAT-SPECIFIC INSTRUCTIONS]
+
+The following instructions are specific to this conversation and take highest priority:
+
+${chatConfig.custom_system_prompt}
+
+[/CHAT-SPECIFIC INSTRUCTIONS]`
+      console.log(`[Chat] Applied chat-level custom system prompt`)
     }
 
     // Batch reports context injection

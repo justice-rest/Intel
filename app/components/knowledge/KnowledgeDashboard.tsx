@@ -52,6 +52,7 @@ import type {
   StrategyCategory,
   FactCategory,
 } from "@/lib/knowledge/types"
+import { GoogleIntegrationSection } from "@/app/components/layout/settings/integrations/google-section"
 
 /**
  * KnowledgeDashboard
@@ -383,6 +384,11 @@ export function KnowledgeDashboard() {
       <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
         Knowledge shapes how Rōmy communicates and advises, distinct from RAG document search.
       </p>
+
+      {/* Workspace Section (Google + Notion Integration) */}
+      <div className="mt-8">
+        <GoogleIntegrationSection />
+      </div>
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
