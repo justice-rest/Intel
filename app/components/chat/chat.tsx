@@ -5,7 +5,7 @@ import { Conversation } from "@/app/components/chat/conversation"
 import { LoaderOverlay } from "@/app/components/chat/loader-overlay"
 import { DropZone } from "@/app/components/split-view"
 import { useModel } from "@/app/components/chat/use-model"
-import { CollaborationWrapper, TypingIndicator } from "@/app/components/collaboration"
+import { CollaborationWrapper, TypingIndicator, HeaderCollaboration } from "@/app/components/collaboration"
 import { useCollaboratorsOptional } from "@/lib/collaboration"
 import { usePresenceOptional } from "@/lib/presence"
 import { useChatDraft } from "@/app/hooks/use-chat-draft"
@@ -393,6 +393,11 @@ export function Chat({
         {!isSplitActive && (
           <DropZone onDrop={handleSplitDrop} currentChatId={chatId} />
         )}
+
+        {/* Collaboration controls - positioned at top right of chat area */}
+        <div className="pointer-events-auto absolute top-4 right-4 z-40 flex items-center gap-2">
+          <HeaderCollaboration />
+        </div>
 
       <DialogAuth open={hasDialogAuth} setOpen={setHasDialogAuth} />
       <DialogSubscriptionRequired

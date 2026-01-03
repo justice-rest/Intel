@@ -14,7 +14,6 @@ import Image from "next/image"
 import Link from "next/link"
 import { DialogPublish } from "./dialog-publish"
 import { HeaderSidebarTrigger } from "./header-sidebar-trigger"
-import { HeaderCollaboration } from "@/app/components/collaboration/header-collaboration"
 
 export function Header({ hasSidebar }: { hasSidebar: boolean }) {
   const isMobile = useBreakpoint(768)
@@ -90,7 +89,6 @@ export function Header({ hasSidebar }: { hasSidebar: boolean }) {
                 </div>
               ) : (
                 <div className="pointer-events-auto flex flex-1 items-center justify-end gap-2">
-                  <HeaderCollaboration />
                   <DialogPublish />
                   <ButtonNewChat />
                   {!hasSidebar && <HistoryTrigger hasSidebar={hasSidebar} />}

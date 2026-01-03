@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useCollaboratorsOptional } from "@/lib/collaboration"
+import { usePresenceOptional } from "@/lib/presence"
 import { useChatId } from "@/lib/chat-store/session/use-chat-id"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { Users } from "@phosphor-icons/react"
@@ -19,28 +20,31 @@ import { DialogManageCollaborators } from "./dialog-manage-collaborators"
 /**
  * Header collaboration controls
  * Shows presence indicator and collaborate button when in a chat
+ * Only renders when inside CollaborationWrapper (provider context available)
  */
 export function HeaderCollaboration() {
   const chatId = useChatId()
   const { getChatById } = useChats()
   const collaborators = useCollaboratorsOptional()
+  const presence = usePresenceOptional()
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [showCollaboratorsDialog, setShowCollaboratorsDialog] = useState(false)
 
-  // Don't show if no chatId
-  if (!chatId) {
+  // Don't render if no chatId or no collaboration context
+  // (Header is outside CollaborationWrapper, so context will be null there)
+  if (!chatId || !collaborators) {
     return null
   }
 
   const currentChat = getChatById(chatId)
   const chatTitle = currentChat?.title || "Untitled"
-  const isOwner = collaborators?.isOwner ?? false
-  const hasCollaborators = (collaborators?.collaborators?.length ?? 0) > 1
+  const isOwner = collaborators.isOwner
+  const hasCollaborators = (collaborators.collaborators?.length ?? 0) > 1
 
   return (
     <>
-      {/* Presence indicator - only show if there are collaborators */}
-      {hasCollaborators && <PresenceIndicator maxVisible={3} />}
+      {/* Presence indicator - only show if there are collaborators and presence context */}
+      {hasCollaborators && presence && <PresenceIndicator maxVisible={3} />}
 
       {/* Collaborate button */}
       <TooltipProvider>
@@ -64,7 +68,7 @@ export function HeaderCollaboration() {
         </Tooltip>
       </TooltipProvider>
 
-      {/* Dialogs */}
+      {/* Dialogs - only rendered when context is available */}
       <DialogShareChat
         isOpen={showShareDialog}
         setIsOpen={setShowShareDialog}
