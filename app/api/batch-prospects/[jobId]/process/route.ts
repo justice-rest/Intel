@@ -8,9 +8,7 @@
  * - Resume capability (client can stop and restart)
  * - Stays within Vercel timeout limits
  *
- * Feature Flag: `durable-batch-processing`
- * - When enabled: Uses Workflow DevKit for durable processing
- * - When disabled: Uses existing pipeline (default)
+ * SIMPLIFIED: Direct call to generateProspectReport() - no workflows, no pipelines.
  */
 
 import {
@@ -25,10 +23,7 @@ import {
   normalizeProspectAddress,
   STALE_ITEM_THRESHOLD_MS,
 } from "@/lib/batch-processing/config"
-import {
-  adaptPipelineResultToDbFormat,
-  createResearchPipeline,
-} from "@/lib/batch-processing/pipeline"
+import { generateProspectReport } from "@/lib/batch-processing/report-generator"
 import {
   getBatchCompleteEmailHtml,
   getBatchCompleteEmailSubject,
@@ -36,8 +31,6 @@ import {
 } from "@/lib/email"
 import { createClient } from "@/lib/supabase/server"
 import { getEffectiveApiKey } from "@/lib/user-keys"
-import { isWorkflowEnabled, runDurableWorkflow } from "@/lib/workflows"
-import { batchResearchWorkflow } from "@/lib/workflows/batch-research.workflow"
 import { NextResponse } from "next/server"
 
 // Allow up to 2 minutes for processing (web searches + AI generation)
@@ -323,106 +316,18 @@ export async function POST(
       apiKey = undefined
     }
 
-    // Generate the prospect report using Parallel AI (comprehensive mode)
+    // Process the prospect using direct LinkUp research
     console.log(
       `[BatchProcess] Processing item ${nextItem.item_index + 1}/${job.total_prospects}: ${nextItem.prospect_name}`
     )
 
-    // Check if durable workflow is enabled for this user
-    const useDurableWorkflow = isWorkflowEnabled(
-      "durable-batch-processing",
-      user.id
-    )
-
-    if (useDurableWorkflow) {
-      // NEW: Durable workflow with automatic retry and observability
-      console.log(`[BatchProcess] Using durable workflow for user ${user.id}`)
-
-      try {
-        const workflowResult = await runDurableWorkflow(batchResearchWorkflow, {
-          jobId,
-          itemId: nextItem.id,
-          userId: user.id,
-          prospect: nextItem.input_data,
-          apiKey,
-        })
-
-        // Workflow completed (success or failure) - fetch updated state from DB
-        // The workflow already updated item status and job counts
-
-        // Fetch updated job counts
-        const { data: updatedJob } = (await (supabase as any)
-          .from("batch_prospect_jobs")
-          .select("*")
-          .eq("id", jobId)
-          .single()) as { data: BatchProspectJob | null }
-
-        // Fetch updated item
-        const { data: updatedItem } = (await (supabase as any)
-          .from("batch_prospect_items")
-          .select("*")
-          .eq("id", nextItem.id)
-          .single()) as { data: BatchProspectItem | null }
-
-        // Check if there are more items
-        const { count: pendingCount } = (await (supabase as any)
-          .from("batch_prospect_items")
-          .select("*", { count: "exact", head: true })
-          .eq("job_id", jobId)
-          .eq("user_id", user.id)
-          .eq("status", "pending")) as { count: number | null }
-
-        const { count: retryableCount } = (await (supabase as any)
-          .from("batch_prospect_items")
-          .select("*", { count: "exact", head: true })
-          .eq("job_id", jobId)
-          .eq("user_id", user.id)
-          .eq("status", "failed")
-          .lt("retry_count", MAX_RETRIES_PER_PROSPECT)) as {
-          count: number | null
-        }
-
-        const hasMore = (pendingCount || 0) + (retryableCount || 0) > 0
-
-        const data = workflowResult.data
-        const response: ProcessNextItemResponse = {
-          item: updatedItem as BatchProspectItem,
-          job_status: (updatedJob?.status as BatchJobStatus) || "processing",
-          progress: {
-            completed: updatedJob?.completed_count || 0,
-            total: updatedJob?.total_prospects || 0,
-            failed: updatedJob?.failed_count || 0,
-          },
-          has_more: hasMore,
-          message: data?.success
-            ? `Processed ${nextItem.prospect_name}`
-            : `Failed to process ${nextItem.prospect_name}: ${data?.errorMessage || workflowResult.error || "Unknown error"}`,
-        }
-
-        return NextResponse.json(response)
-      } catch (workflowError) {
-        console.error(`[BatchProcess] Durable workflow failed:`, workflowError)
-        // Fall through to legacy processing on workflow infrastructure failure
-        console.log(`[BatchProcess] Falling back to legacy processing`)
-      }
-    }
-
-    // ResearchPipeline v4.0 - With SEC/FEC/ProPublica verification
-    console.log(`[BatchProcess] Using ResearchPipeline v4.0 with verification`)
-
-    let pipelineSuccess = false
+    let processSuccess = false
     let errorMessage: string | null = null
 
     try {
-      // FIX: Ensure prospect has all address fields by merging JSONB with individual columns
-      // When input_data JSONB is stored, JavaScript undefined values are omitted during
-      // JSON serialization. The individual columns (prospect_city, etc.) store data correctly,
-      // so we use them as fallback to ensure complete address data reaches the AI.
-
-      // Merge address data from both JSONB and individual columns (individual columns take precedence as fallback)
+      // Merge address data from both JSONB and individual columns
       const mergedInputData: Record<string, string | undefined> = {
         ...(nextItem.input_data as Record<string, string | undefined>),
-        // Use individual DB columns as fallback when JSONB values are missing
         address:
           nextItem.input_data?.address ||
           nextItem.prospect_address ||
@@ -433,85 +338,74 @@ export async function POST(
         zip: nextItem.input_data?.zip || nextItem.prospect_zip || undefined,
       }
 
-      // Use the centralized normalization function to ensure consistent address data
+      // Use the centralized normalization function
       const enrichedProspect = normalizeProspectAddress(mergedInputData)
 
-      // Log for debugging address data flow
       console.log(
-        `[BatchProcess] Address data for ${nextItem.prospect_name}:`,
-        {
-          input_data_address: nextItem.input_data?.address,
-          input_data_city: nextItem.input_data?.city,
-          input_data_state: nextItem.input_data?.state,
-          input_data_zip: nextItem.input_data?.zip,
-          db_prospect_address: nextItem.prospect_address,
-          db_prospect_city: nextItem.prospect_city,
-          db_prospect_state: nextItem.prospect_state,
-          db_prospect_zip: nextItem.prospect_zip,
-          enriched_full_address: enrichedProspect.full_address,
-        }
+        `[BatchProcess] Researching ${nextItem.prospect_name} at ${enrichedProspect.full_address || "unknown address"}`
       )
 
-      // Create and execute the research pipeline
-      const pipeline = createResearchPipeline()
-      const pipelineResult = await pipeline.executeForItem(
-        nextItem.id,
-        enrichedProspect,
-        { apiKey }
-      )
+      // DIRECT CALL to generateProspectReport - no pipeline, no workflow
+      const result = await generateProspectReport({
+        prospect: enrichedProspect,
+        apiKey,
+      })
 
-      // Adapt pipeline result to database format
-      const { success, updateData, verification } =
-        adaptPipelineResultToDbFormat(pipelineResult, startTime)
+      if (result.success) {
+        processSuccess = true
 
-      pipelineSuccess = success
+        // Update item with results
+        await (supabase as any)
+          .from("batch_prospect_items")
+          .update({
+            status: "completed",
+            report_content: result.report_content,
+            report_format: "markdown",
+            romy_score: result.romy_score,
+            romy_score_tier: result.romy_score_tier,
+            capacity_rating: result.capacity_rating,
+            estimated_net_worth: result.estimated_net_worth,
+            estimated_gift_capacity: result.estimated_gift_capacity,
+            recommended_ask: result.recommended_ask,
+            sources_found: result.sources_found,
+            tokens_used: result.tokens_used,
+            model_used: "linkup/search",
+            processing_completed_at: new Date().toISOString(),
+            processing_duration_ms: Date.now() - startTime,
+          })
+          .eq("id", nextItem.id)
 
-      // Log verification results
-      console.log(
-        `[BatchProcess] Verification: ${verification.status} (confidence: ${(verification.confidence * 100).toFixed(1)}%, ` +
-          `verified: ${verification.verifiedClaimsCount}, hallucinations: ${verification.hallucinationsCount})`
-      )
-
-      if (verification.recommendations.length > 0) {
-        console.log(
-          `[BatchProcess] Verification recommendations:`,
-          verification.recommendations
-        )
-      }
-
-      // Update item with results
-      await (supabase as any)
-        .from("batch_prospect_items")
-        .update(updateData)
-        .eq("id", nextItem.id)
-
-      if (success) {
         console.log(
           `[BatchProcess] Completed item ${nextItem.item_index + 1}: ` +
-            `RōmyScore ${updateData.romy_score || "N/A"}/41 (${updateData.romy_score_tier || "N/A"}) ` +
-            `[${verification.status}]`
+            `RōmyScore ${result.romy_score || "N/A"}/41 (${result.romy_score_tier || "N/A"}), ` +
+            `Rating: ${result.capacity_rating || "N/A"}, ` +
+            `Sources: ${result.sources_found?.length || 0}`
         )
       } else {
-        errorMessage = updateData.error_message || "Pipeline execution failed"
+        errorMessage = result.error_message || "Research failed"
         console.error(
           `[BatchProcess] Failed item ${nextItem.item_index + 1}: ${errorMessage}`
         )
+
+        // Mark item as failed
+        await (supabase as any)
+          .from("batch_prospect_items")
+          .update({
+            status: "failed",
+            error_message: errorMessage,
+            processing_completed_at: new Date().toISOString(),
+            processing_duration_ms: Date.now() - startTime,
+            last_retry_at: new Date().toISOString(),
+          })
+          .eq("id", nextItem.id)
       }
     } catch (error) {
-      console.error(`[BatchProcess] Pipeline research failed:`, error)
-      // Use centralized error classification for consistent handling
+      console.error(`[BatchProcess] Research failed:`, error)
       const classifiedError = classifyBatchError(error)
       errorMessage = classifiedError.userMessage
 
-      // Log detailed error for debugging
       console.log(
-        `[BatchProcess] Error classified as ${classifiedError.code}:`,
-        {
-          original: classifiedError.message,
-          userMessage: classifiedError.userMessage,
-          retryable: classifiedError.retryable,
-          retryAfterMs: classifiedError.retryAfterMs,
-        }
+        `[BatchProcess] Error: ${classifiedError.code} - ${classifiedError.message}`
       )
 
       // Mark item as failed
@@ -569,7 +463,7 @@ export async function POST(
         failed: updatedJob?.failed_count || 0,
       },
       has_more: hasMore,
-      message: pipelineSuccess
+      message: processSuccess
         ? `Processed ${nextItem.prospect_name}`
         : `Failed to process ${nextItem.prospect_name}: ${errorMessage}`,
     }
