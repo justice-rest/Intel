@@ -100,6 +100,7 @@ export type Database = {
           public: boolean
           pinned: boolean
           pinned_at: string | null
+          system_prompt: string | null
         }
         Insert: {
           created_at?: string | null
@@ -112,6 +113,7 @@ export type Database = {
           public?: boolean
           pinned?: boolean
           pinned_at?: string | null
+          system_prompt?: string | null
         }
         Update: {
           created_at?: string | null
@@ -124,6 +126,7 @@ export type Database = {
           public?: boolean
           pinned?: boolean
           pinned_at?: string | null
+          system_prompt?: string | null
         }
         Relationships: [
           {
@@ -182,6 +185,45 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "messages_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          id: number
+          message_id: number
+          user_id: string
+          emoji: string
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          message_id: number
+          user_id: string
+          emoji: string
+          created_at?: string
+        }
+        Update: {
+          id?: number
+          message_id?: number
+          user_id?: string
+          emoji?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
@@ -1362,6 +1404,15 @@ export type Database = {
           p_last_message_id: number
         }
         Returns: void
+      }
+      get_user_unread_counts: {
+        Args: {
+          p_user_id: string
+        }
+        Returns: Array<{
+          chat_id: string
+          unread_count: number
+        }>
       }
     }
     Enums: Record<string, never>

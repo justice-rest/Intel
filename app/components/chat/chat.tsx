@@ -311,9 +311,15 @@ export function Chat({
   // Keep loader visible throughout entire streaming process (including tool execution)
   const isWaitingForResponse = status === "submitted" || status === "streaming"
 
+  // Track previous status to detect streaming completion
+  const prevStatusRef = useRef<string | undefined>(undefined)
+
   // Broadcast AI status to collaborators when status changes
   useEffect(() => {
     if (!presenceContext) return
+
+    const prevStatus = prevStatusRef.current
+    prevStatusRef.current = status
 
     if (status === "submitted") {
       presenceContext.broadcastAIStatus("thinking")
@@ -329,9 +335,54 @@ export function Chat({
         presenceContext.broadcastAIStatus("streaming")
       }
     } else if (status === "ready" || status === "error") {
+      // When streaming just completed, broadcast final content before clearing
+      // This ensures collaborators see the complete message before it transitions
+      // to the database-synced message
+      if (prevStatus === "streaming" && lastMessage?.role === "assistant") {
+        const content = lastMessage.content || ""
+        const parts = lastMessage.parts
+        if (content || (parts && parts.length > 0)) {
+          presenceContext.broadcastStreamingContent(content, parts)
+        }
+      }
+
       presenceContext.clearAIStatus()
+      // Delay clearing streaming content slightly to ensure smooth transition
+      // The database INSERT event should arrive within this window
+      setTimeout(() => {
+        presenceContext.clearStreamingContent()
+      }, 500)
     }
-  }, [status, hasActiveToolCalls, presenceContext, lastMessage?.parts])
+  }, [status, hasActiveToolCalls, presenceContext, lastMessage?.parts, lastMessage?.content, lastMessage?.role])
+
+  // Broadcast streaming content to collaborators in real-time
+  // Throttled to avoid overwhelming the channel (every 100ms)
+  const lastBroadcastRef = useRef<number>(0)
+  const BROADCAST_THROTTLE_MS = 100
+
+  useEffect(() => {
+    if (!presenceContext || status !== "streaming") return
+    if (!lastMessage || lastMessage.role !== "assistant") return
+
+    const now = Date.now()
+    if (now - lastBroadcastRef.current < BROADCAST_THROTTLE_MS) return
+    lastBroadcastRef.current = now
+
+    // Broadcast the current streaming content
+    const content = lastMessage.content || ""
+    const parts = lastMessage.parts
+
+    // Only broadcast if there's actual content
+    if (content || (parts && parts.length > 0)) {
+      presenceContext.broadcastStreamingContent(content, parts)
+    }
+  }, [status, lastMessage?.content, lastMessage?.parts, lastMessage?.role, presenceContext])
+
+  // Derive if a collaborator's AI is currently responding
+  // This blocks input to prevent race conditions in collaborative chats
+  const collaboratorAIStatus = presenceContext?.aiStatus ?? null
+  const isCollaboratorAIResponding = collaboratorAIStatus !== null &&
+    collaboratorAIStatus.status !== "idle"
 
   // Memoize the chat input props
   const chatInputProps = useMemo(
@@ -359,6 +410,16 @@ export function Chat({
       onSlashCommand: handleSlashCommand,
       isViewerRole,
       onTypingChange: handleTypingChange,
+      collaboratorAIStatus: isCollaboratorAIResponding ? collaboratorAIStatus : null,
+      // Transform online users to collaborator format for @mention support
+      collaborators: presenceContext?.onlineUsers.map((u) => ({
+        user_id: u.user_id,
+        user: {
+          display_name: u.display_name,
+          profile_image: u.profile_image,
+        },
+      })) ?? [],
+      isCollaborativeChat: presenceContext?.isCollaborativeChat ?? false,
     }),
     [
       input,
@@ -384,6 +445,10 @@ export function Chat({
       handleSlashCommand,
       isViewerRole,
       handleTypingChange,
+      isCollaboratorAIResponding,
+      collaboratorAIStatus,
+      presenceContext?.onlineUsers,
+      presenceContext?.isCollaborativeChat,
     ]
   )
 

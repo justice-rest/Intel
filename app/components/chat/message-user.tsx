@@ -26,10 +26,18 @@ import {
   PencilSimpleSlashIcon,
 } from "@phosphor-icons/react"
 import Image from "next/image"
-import React, { useEffect, useRef, useState, useMemo } from "react"
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react"
 import { useReadReceiptsContext } from "@/lib/presence"
+import { useReactionsOptional } from "@/lib/reactions"
 import { ReadReceiptCheckmark } from "@/app/components/collaboration"
+import { ReactionDisplay, ReactionPicker } from "./reactions"
+import { formatMessageTimestamp, formatFullTimestamp } from "./format-timestamp"
 import { useUser } from "@/lib/user-store/provider"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 const getTextPreview = (url: string, fileName: string) => {
   // If it's a data URL, extract base64
@@ -82,6 +90,8 @@ export type MessageUserProps = {
   isUserAuthenticated?: boolean
   /** The user ID who sent this message (for collaborative chat sender attribution) */
   userId?: string
+  /** Message creation timestamp */
+  createdAt?: Date
 }
 
 export function MessageUser({
@@ -96,6 +106,7 @@ export function MessageUser({
   messageGroupId,
   isUserAuthenticated,
   userId,
+  createdAt,
 }: MessageUserProps) {
   const [editInput, setEditInput] = useState(children)
   const [isEditing, setIsEditing] = useState(false)
@@ -105,12 +116,38 @@ export function MessageUser({
 
   // Read receipts (optional - only available in collaborative chats)
   const readReceiptsContext = useReadReceiptsContext()
+  // Reactions (optional - only available in collaborative chats)
+  const reactionsContext = useReactionsOptional()
 
-  // Parse numeric message ID for read receipts
+  // Parse numeric message ID for read receipts and reactions
   const numericMessageId = useMemo(() => {
     const parsed = parseInt(id, 10)
     return isNaN(parsed) ? null : parsed
   }, [id])
+
+  // Get reactions for this message
+  const reactions = useMemo(() => {
+    if (!reactionsContext || !numericMessageId) return []
+    return reactionsContext.getReactionsForMessage(numericMessageId)
+  }, [reactionsContext, numericMessageId])
+
+  // Handle reaction toggle
+  const handleReactionToggle = useCallback(
+    async (emoji: string) => {
+      if (!reactionsContext || !numericMessageId) return
+      await reactionsContext.toggleReaction(numericMessageId, emoji)
+    },
+    [reactionsContext, numericMessageId]
+  )
+
+  // Handle adding new reaction
+  const handleAddReaction = useCallback(
+    async (emoji: string) => {
+      if (!reactionsContext || !numericMessageId) return
+      await reactionsContext.addReaction(numericMessageId, emoji)
+    },
+    [reactionsContext, numericMessageId]
+  )
 
   // Get read status for this message
   const readStatus = useMemo(() => {
@@ -346,15 +383,38 @@ export function MessageUser({
           {children}
         </MessageContent>
       )}
-      {/* Read receipt indicator - only visible in collaborative chats (chats with multiple collaborators) */}
-      {readReceiptsContext?.isCollaborativeChat && numericMessageId && (
-        <div className="flex items-center justify-end gap-1 pr-1 -mt-1 mb-0.5">
+      {/* Reactions display - show existing reactions */}
+      {reactions.length > 0 && (
+        <div className="flex justify-end pr-1 -mt-0.5 mb-0.5">
+          <ReactionDisplay
+            reactions={reactions}
+            onToggle={handleReactionToggle}
+          />
+        </div>
+      )}
+      {/* Timestamp and read receipt indicator */}
+      <div className="flex items-center justify-end gap-1.5 pr-1 -mt-1 mb-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Timestamp - visible on hover */}
+        {createdAt && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-[10px] text-muted-foreground/70 cursor-default">
+                {formatMessageTimestamp(createdAt)}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {formatFullTimestamp(createdAt)}
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {/* Read receipt indicator - only visible in collaborative chats */}
+        {readReceiptsContext?.isCollaborativeChat && numericMessageId && (
           <ReadReceiptCheckmark
             hasBeenRead={readStatus.hasBeenRead}
             readerCount={readStatus.readerCount}
           />
-        </div>
-      )}
+        )}
+      </div>
       <MessageActions className="flex items-center gap-0 opacity-0 transition-opacity duration-0 group-hover:opacity-100">
         <MessageAction tooltip={copied ? "Copied!" : "Copy text"} side="bottom">
           <button
@@ -370,6 +430,12 @@ export function MessageUser({
             )}
           </button>
         </MessageAction>
+        {/* Reaction picker - only visible in collaborative chats */}
+        {reactionsContext && numericMessageId && (
+          <MessageAction tooltip="Add reaction" side="bottom">
+            <ReactionPicker onSelect={handleAddReaction} />
+          </MessageAction>
+        )}
         {messageGroupId === null && isUserAuthenticated && (
           // Enabled if NOT multi-model chat & user is Authenticated
           <MessageAction

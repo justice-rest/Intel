@@ -64,13 +64,22 @@ export async function GET(
       )
     }
 
-    // Fetch completed items (using type assertion since table is added via migration)
-    const { data: items, error: itemsError } = await (supabase as any)
+    // Parse additional options
+    const includeAll = searchParams.get("include_all") === "true" // Include failed/pending items
+
+    // Fetch items based on filter (using type assertion since table is added via migration)
+    let itemsQuery = (supabase as any)
       .from("batch_prospect_items")
       .select("*")
       .eq("job_id", jobId)
-      .eq("status", "completed")
-      .order("item_index", { ascending: true }) as { data: BatchProspectItem[] | null; error: any }
+      .order("item_index", { ascending: true })
+
+    // By default, only export completed items
+    if (!includeAll) {
+      itemsQuery = itemsQuery.eq("status", "completed")
+    }
+
+    const { data: items, error: itemsError } = await itemsQuery as { data: BatchProspectItem[] | null; error: any }
 
     if (itemsError) {
       return NextResponse.json(
@@ -81,10 +90,25 @@ export async function GET(
 
     if (!items || items.length === 0) {
       return NextResponse.json(
-        { error: "No completed items to export" },
+        {
+          error: "No items to export",
+          message: includeAll
+            ? "No items found in this batch job"
+            : "No completed items to export. Process some prospects first or use ?include_all=true to export all items.",
+          job_status: job.status,
+          total_prospects: job.total_prospects,
+          completed_count: job.completed_count,
+        },
         { status: 400 }
       )
     }
+
+    // Calculate export stats for partial exports
+    const completedItems = items.filter(i => i.status === "completed")
+    const failedItems = items.filter(i => i.status === "failed")
+    const pendingItems = items.filter(i => i.status === "pending" || i.status === "processing")
+
+    console.log(`[BatchExport] Exporting ${items.length} items (${completedItems.length} completed, ${failedItems.length} failed, ${pendingItems.length} pending)`)
 
     // Generate CSV
     if (format === "csv") {

@@ -32,10 +32,13 @@ import type {
   AIStatus,
   AIStatusType,
   ExtendedPresenceContextValue,
+  StreamingContent,
 } from "./types"
 
 // AI status timeout (clear after 60 seconds of no updates)
 const AI_STATUS_TIMEOUT_MS = 60000
+// Streaming content timeout (clear after 10 seconds of no updates)
+const STREAMING_CONTENT_TIMEOUT_MS = 10000
 
 const PresenceContext = createContext<ExtendedPresenceContextValue | null>(null)
 
@@ -64,6 +67,7 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [myStatus, setMyStatus] = useState<PresenceStatus>("active")
   const [aiStatus, setAIStatus] = useState<AIStatus | null>(null)
+  const [collaboratorStreaming, setCollaboratorStreaming] = useState<StreamingContent | null>(null)
 
   // Refs for cleanup
   const presenceChannelRef = useRef<RealtimeChannel | null>(null)
@@ -72,6 +76,7 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const awayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const aiStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const streamingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Track last activity for idle detection
   const lastActivityRef = useRef<number>(Date.now())
@@ -231,6 +236,35 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
           }, AI_STATUS_TIMEOUT_MS)
         }
       })
+      // Streaming content events - actual AI response content from collaborators
+      .on("broadcast", { event: "streaming_content" }, ({ payload }) => {
+        if (payload.user_id === user.id) return // Ignore own events
+
+        const streaming = payload as StreamingContent
+
+        // Clear existing timeout
+        if (streamingTimeoutRef.current) {
+          clearTimeout(streamingTimeoutRef.current)
+        }
+
+        // Update streaming content
+        setCollaboratorStreaming(streaming)
+
+        // Auto-clear after timeout (in case "complete" never arrives)
+        streamingTimeoutRef.current = setTimeout(() => {
+          setCollaboratorStreaming(null)
+        }, STREAMING_CONTENT_TIMEOUT_MS)
+      })
+      // Streaming complete event - clear streaming content
+      .on("broadcast", { event: "streaming_complete" }, ({ payload }) => {
+        if (payload.user_id === user.id) return
+
+        // Clear streaming content when complete
+        setCollaboratorStreaming(null)
+        if (streamingTimeoutRef.current) {
+          clearTimeout(streamingTimeoutRef.current)
+        }
+      })
       .subscribe()
 
     return () => {
@@ -238,6 +272,9 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
       supabase.removeChannel(collabChannel)
       if (aiStatusTimeoutRef.current) {
         clearTimeout(aiStatusTimeoutRef.current)
+      }
+      if (streamingTimeoutRef.current) {
+        clearTimeout(streamingTimeoutRef.current)
       }
     }
   }, [chatId, user?.id])
@@ -381,6 +418,41 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
     })
   }, [user?.id, displayName])
 
+  // Broadcast streaming content to collaborators
+  const broadcastStreamingContent = useCallback(
+    (content: string, parts?: unknown[]) => {
+      if (!collabChannelRef.current || !user?.id) return
+
+      const streamingPayload: StreamingContent = {
+        user_id: user.id,
+        display_name: displayName,
+        content,
+        parts,
+        updated_at: Date.now(),
+      }
+
+      collabChannelRef.current.send({
+        type: "broadcast",
+        event: "streaming_content",
+        payload: streamingPayload,
+      })
+    },
+    [user?.id, displayName]
+  )
+
+  // Clear streaming content (broadcast complete)
+  const clearStreamingContent = useCallback(() => {
+    if (!collabChannelRef.current || !user?.id) return
+
+    collabChannelRef.current.send({
+      type: "broadcast",
+      event: "streaming_complete",
+      payload: {
+        user_id: user.id,
+      },
+    })
+  }, [user?.id])
+
   // Check if this is a collaborative chat (has other online users or collaborators)
   const isCollaborativeChat = onlineUsers.length > 0
 
@@ -395,6 +467,9 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
     broadcastAIStatus,
     clearAIStatus,
     isCollaborativeChat,
+    collaboratorStreaming,
+    broadcastStreamingContent,
+    clearStreamingContent,
   }
 
   return (

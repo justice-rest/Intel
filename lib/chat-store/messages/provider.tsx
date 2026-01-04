@@ -5,6 +5,9 @@ import { useChatSession } from "@/lib/chat-store/session/provider"
 import { useStandaloneChatSession } from "@/lib/chat-store/session/standalone-provider"
 import { createClient } from "@/lib/supabase/client"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
+import { useUnreadOptional } from "@/lib/unread"
+import { useNotificationsOptional } from "@/lib/notifications"
+import { useChats } from "@/lib/chat-store/chats/provider"
 import type { Message as MessageAISDK } from "ai"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { writeToIndexedDB } from "../persist"
@@ -55,6 +58,15 @@ export function MessagesProvider({
       ? chatIdOverride
       : standaloneSession.chatId ?? urlSession.chatId
 
+  // Get unread context to mark chat as read when viewing
+  const unreadContext = useUnreadOptional()
+
+  // Get notifications context to show notifications for new messages
+  const notificationsContext = useNotificationsOptional()
+
+  // Get chats context to get chat title for notifications
+  const { chats } = useChats()
+
   useEffect(() => {
     // Track if this is initial mount (not a chatId change during navigation)
     const isInitialMount = prevChatIdRef.current === undefined
@@ -98,6 +110,11 @@ export function MessagesProvider({
           cacheMessages(chatId, fresh)
         }
         // If fresh is empty but cache has data, keep showing cached messages
+
+        // Mark chat as read when viewing (after messages are loaded)
+        if (chatId && unreadContext?.markChatRead) {
+          unreadContext.markChatRead(chatId)
+        }
       } catch (error) {
         console.error("Failed to fetch messages:", error)
       } finally {
@@ -203,6 +220,23 @@ export function MessagesProvider({
               newMessage.user_id === currentUserId
             ) {
               return
+            }
+
+            // Trigger notification for new message from collaborator
+            // Only for user messages (role === "user") from other users
+            if (
+              notificationsContext?.isEnabled &&
+              newMessage.role === "user" &&
+              newMessage.user_id !== null &&
+              chatId
+            ) {
+              const chat = chats.find((c) => c.id === chatId)
+              notificationsContext.showMessageNotification({
+                chatId,
+                chatTitle: chat?.title || "Chat",
+                senderName: "Collaborator", // We don't have the sender name here
+                messagePreview: newMessage.content || "New message",
+              })
             }
 
             const messageId = String(newMessage.id)

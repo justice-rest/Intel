@@ -16,13 +16,19 @@ import {
 } from "@/lib/batch-processing"
 import { generateComprehensiveReportWithTools } from "@/lib/batch-processing/report-generator"
 import { getEffectiveApiKey } from "@/lib/user-keys"
-import { MAX_RETRIES_PER_PROSPECT } from "@/lib/batch-processing/config"
+import {
+  MAX_RETRIES_PER_PROSPECT,
+  STALE_ITEM_THRESHOLD_MS,
+  normalizeProspectAddress,
+  classifyBatchError,
+} from "@/lib/batch-processing/config"
 import { getCustomerData, normalizePlanId } from "@/lib/subscription/autumn-client"
 import {
   sendEmail,
   getBatchCompleteEmailHtml,
   getBatchCompleteEmailSubject,
 } from "@/lib/email"
+import { triggerBatchCompletionWebhook } from "@/lib/batch-processing/webhooks"
 
 // Allow up to 2 minutes for processing
 export const runtime = "nodejs"
@@ -50,6 +56,15 @@ interface ProcessBatchResponse {
   has_more: boolean
   processing_time_ms: number
   message: string
+  // Continuation token for resumable processing
+  continuation_token?: string
+  // Details of processed items for real-time updates
+  items_details?: Array<{
+    id: string
+    prospect_name: string
+    status: "completed" | "failed"
+    error?: string
+  }>
 }
 
 async function getConcurrentLimit(userId: string): Promise<number> {
@@ -164,7 +179,27 @@ export async function POST(
 
     let itemsToProcess: BatchProspectItem[] = pendingItems || []
 
-    // If not enough pending items, check for retryable failed items
+    // If not enough pending items, check for stale "processing" items
+    if (itemsToProcess.length < concurrentLimit && !itemError) {
+      const remainingSlots = concurrentLimit - itemsToProcess.length
+      const staleThreshold = new Date(Date.now() - STALE_ITEM_THRESHOLD_MS).toISOString()
+      const { data: staleItems } = await (supabase as any)
+        .from("batch_prospect_items")
+        .select("*")
+        .eq("job_id", jobId)
+        .eq("user_id", user.id)
+        .eq("status", "processing")
+        .lt("processing_started_at", staleThreshold)
+        .order("item_index", { ascending: true })
+        .limit(remainingSlots) as { data: BatchProspectItem[] | null }
+
+      if (staleItems && staleItems.length > 0) {
+        console.log(`[BatchProcessParallel] Found ${staleItems.length} stale items to retry`)
+        itemsToProcess = [...itemsToProcess, ...staleItems]
+      }
+    }
+
+    // If still not enough, check for retryable failed items
     if (itemsToProcess.length < concurrentLimit && !itemError) {
       const remainingSlots = concurrentLimit - itemsToProcess.length
       const { data: failedItems } = await (supabase as any)
@@ -231,6 +266,40 @@ export async function POST(
             to: user.email,
             subject: getBatchCompleteEmailSubject(finalJob?.name || job.name || "Batch Research"),
             html: emailHtml,
+          })
+        }
+
+        // Trigger webhook notification if configured (fire-and-forget)
+        if (finalJob?.webhook_url) {
+          // Fetch all items for webhook payload
+          const { data: allItems } = await (supabase as any)
+            .from("batch_prospect_items")
+            .select("*")
+            .eq("job_id", jobId)
+            .order("item_index", { ascending: true }) as { data: BatchProspectItem[] | null }
+
+          // Helper to update webhook status in the job
+          const updateJobWebhookStatus = async (
+            id: string,
+            success: boolean,
+            error?: string
+          ) => {
+            await (supabase as any)
+              .from("batch_prospect_jobs")
+              .update({
+                last_webhook_sent_at: new Date().toISOString(),
+                webhook_error: success ? null : error,
+              })
+              .eq("id", id)
+          }
+
+          // Fire-and-forget webhook trigger (don't await, don't block response)
+          triggerBatchCompletionWebhook(
+            finalJob,
+            allItems || [],
+            updateJobWebhookStatus
+          ).catch((err) => {
+            console.error("[BatchProcessParallel] Webhook trigger error:", err)
           })
         }
 
@@ -463,12 +532,29 @@ export async function POST(
       })
     )
 
-    // Count successes and failures
+    // Count successes and failures, and build items details
     let itemsSucceeded = 0
     let itemsFailed = 0
+    const itemsDetails: ProcessBatchResponse["items_details"] = []
+
     results.forEach(result => {
-      if (result.status === "fulfilled" && result.value.success) {
-        itemsSucceeded++
+      if (result.status === "fulfilled") {
+        if (result.value.success) {
+          itemsSucceeded++
+          itemsDetails.push({
+            id: result.value.itemId,
+            prospect_name: result.value.name || "Unknown",
+            status: "completed",
+          })
+        } else {
+          itemsFailed++
+          itemsDetails.push({
+            id: result.value.itemId,
+            prospect_name: result.value.name || "Unknown",
+            status: "failed",
+            error: result.value.error || undefined,
+          })
+        }
       } else {
         itemsFailed++
       }
@@ -504,6 +590,18 @@ export async function POST(
       `[BatchProcessParallel] Completed batch: ${itemsSucceeded} succeeded, ${itemsFailed} failed in ${processingTime}ms`
     )
 
+    // Generate continuation token for resumable processing
+    const lastProcessedIndex = itemsToProcess.length > 0
+      ? Math.max(...itemsToProcess.map(i => i.item_index))
+      : 0
+    const continuationToken = hasMore
+      ? Buffer.from(JSON.stringify({
+          jobId,
+          lastIndex: lastProcessedIndex,
+          timestamp: Date.now(),
+        })).toString("base64")
+      : undefined
+
     const response: ProcessBatchResponse = {
       items_processed: itemsToProcess.length,
       items_succeeded: itemsSucceeded,
@@ -517,6 +615,8 @@ export async function POST(
       has_more: hasMore,
       processing_time_ms: processingTime,
       message: `Processed ${itemsToProcess.length} prospects (${itemsSucceeded} succeeded, ${itemsFailed} failed)`,
+      continuation_token: continuationToken,
+      items_details: itemsDetails,
     }
 
     return NextResponse.json(response)

@@ -20,4 +20,5 @@ export type {
   AIStatus,
   AIStatusType,
   ExtendedPresenceContextValue,
+  StreamingContent,
 } from "./types"

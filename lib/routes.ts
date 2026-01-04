@@ -1,5 +1,8 @@
 export const API_ROUTE_CHAT = "/api/chat"
 export const API_ROUTE_CREATE_GUEST = "/api/create-guest"
 export const API_ROUTE_UPDATE_CHAT_MODEL = "/api/update-chat-model"
+export const API_ROUTE_UPDATE_CHAT_INSTRUCTIONS = "/api/update-chat-instructions"
 export const API_ROUTE_CSRF = "/api/csrf"
 export const API_ROUTE_TOGGLE_CHAT_PIN = "/api/toggle-chat-pin"
+export const API_ROUTE_MARK_CHAT_READ = "/api/mark-chat-read"
+export const API_ROUTE_UNREAD_COUNTS = "/api/unread-counts"

@@ -19,6 +19,9 @@ import { type ResearchMode } from "./research-mode-selector"
 import { ResearchSelector } from "@/components/common/model-selector/base"
 import { SlashCommandMenu } from "./slash-command-menu"
 import { useSlashCommandMenu } from "./use-slash-command-menu"
+import { MentionMenu } from "./mention-menu"
+import { useMentionMenu, type MentionTarget, type Collaborator } from "./use-mention-menu"
+import type { AIStatus } from "@/lib/presence"
 
 type ChatInputProps = {
   value: string
@@ -50,6 +53,12 @@ type ChatInputProps = {
   isViewerRole?: boolean
   /** Callback when typing status changes (collaboration) */
   onTypingChange?: (isTyping: boolean) => void
+  /** AI status from a collaborator (blocks input when collaborator's AI is responding) */
+  collaboratorAIStatus?: AIStatus | null
+  /** List of collaborators for @mention support */
+  collaborators?: Collaborator[]
+  /** Whether this is a collaborative chat (enables @mention of collaborators) */
+  isCollaborativeChat?: boolean
 }
 
 export function ChatInput({
@@ -78,17 +87,26 @@ export function ChatInput({
   onSlashCommand,
   isViewerRole,
   onTypingChange,
+  collaboratorAIStatus,
+  collaborators,
+  isCollaborativeChat,
 }: ChatInputProps) {
   const isOnlyWhitespace = (text: string) => !/[^\s]/.test(text)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [isWelcomeOpen, setIsWelcomeOpen] = useState(false)
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false)
+  const [cursorPosition, setCursorPosition] = useState(0)
+
+  // Check if a collaborator's AI is currently responding
+  const isCollaboratorAIResponding = collaboratorAIStatus !== null && collaboratorAIStatus !== undefined
 
   // Unified processing state: blocks input during submission AND streaming
+  // Also blocks when a collaborator's AI is responding (prevents race conditions)
   const isProcessing = isSubmitting || status === "submitted" || status === "streaming"
+  const isAnyAIResponding = isProcessing || isCollaboratorAIResponding
 
-  // Track if input is disabled (viewer role or processing)
-  const isInputDisabled = isViewerRole || isProcessing
+  // Track if input is disabled (viewer role or any AI responding)
+  const isInputDisabled = isViewerRole || isAnyAIResponding
 
   // Track typing status for collaboration
   const wasTypingRef = useRef(false)
@@ -130,6 +148,61 @@ export function ChatInput({
     onSelectCommand: handleCommandSelect,
   })
 
+  // Reference for mention start position (updated by the hook)
+  const mentionStartPosRef = useRef(-1)
+
+  // @Mention menu state - needs to be defined before handleMentionSelect
+  const mentionMenuState = useMentionMenu({
+    inputValue: value,
+    cursorPosition,
+    onSelectMention: (mention: MentionTarget) => {
+      // Replace the @query with @DisplayName
+      const textarea = textareaRef.current
+      if (!textarea) return
+
+      const mentionStartPosition = mentionStartPosRef.current
+      if (mentionStartPosition === -1) return
+
+      // Build the mention text (use display name with spaces replaced)
+      const mentionText = `@${mention.displayName} `
+
+      // Replace from @ to cursor with the mention
+      const beforeMention = value.slice(0, mentionStartPosition)
+      const afterCursor = value.slice(cursorPosition)
+      const newValue = beforeMention + mentionText + afterCursor
+
+      onValueChange(newValue)
+
+      // Move cursor to after the mention
+      const newCursorPos = mentionStartPosition + mentionText.length
+      requestAnimationFrame(() => {
+        textarea.setSelectionRange(newCursorPos, newCursorPos)
+        setCursorPosition(newCursorPos)
+      })
+    },
+    collaborators,
+    isCollaborativeChat,
+  })
+
+  // Keep ref in sync with hook state
+  mentionStartPosRef.current = mentionMenuState.mentionStartPosition
+
+  const {
+    isOpen: isMentionMenuOpen,
+    filteredMentions,
+    selectedIndex: mentionSelectedIndex,
+    handleKeyDown: handleMentionMenuKeyDown,
+    selectMention,
+    setSelectedIndex: setMentionSelectedIndex,
+  } = mentionMenuState
+
+  // Track cursor position on selection change
+  const handleSelectionChange = useCallback(() => {
+    if (textareaRef.current) {
+      setCursorPosition(textareaRef.current.selectionStart)
+    }
+  }, [])
+
   // Auto-open welcome popover when showWelcome prop changes to true
   useEffect(() => {
     if (showWelcome) {
@@ -138,6 +211,11 @@ export function ChatInput({
   }, [showWelcome])
 
   const handleSend = useCallback(() => {
+    // If collaborator's AI is responding, don't allow sending
+    if (isCollaboratorAIResponding) {
+      return
+    }
+
     // If currently processing (submitted or streaming), stop the generation
     if (isProcessing) {
       if (status === "submitted" || status === "streaming") {
@@ -161,18 +239,23 @@ export function ChatInput({
     }
 
     onSend()
-  }, [isProcessing, onSend, status, stop, isUserAuthenticated, hasActiveSubscription, onSlashCommand, value, onValueChange])
+  }, [isCollaboratorAIResponding, isProcessing, onSend, status, stop, isUserAuthenticated, hasActiveSubscription, onSlashCommand, value, onValueChange])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Block all Enter key actions while processing
-      if (isProcessing && e.key === "Enter") {
+      // Block all Enter key actions while any AI is responding
+      if (isAnyAIResponding && e.key === "Enter") {
         e.preventDefault()
         return
       }
 
       // Let command menu handle navigation keys first (arrows, tab, enter, escape)
       if (isCommandMenuOpen && handleCommandMenuKeyDown(e)) {
+        return
+      }
+
+      // Let mention menu handle navigation keys (arrows, tab, enter, escape)
+      if (isMentionMenuOpen && handleMentionMenuKeyDown(e)) {
         return
       }
 
@@ -207,7 +290,7 @@ export function ChatInput({
         onSend()
       }
     },
-    [isProcessing, onSend, value, isUserAuthenticated, hasActiveSubscription, onSlashCommand, onValueChange, isCommandMenuOpen, handleCommandMenuKeyDown]
+    [isAnyAIResponding, onSend, value, isUserAuthenticated, hasActiveSubscription, onSlashCommand, onValueChange, isCommandMenuOpen, handleCommandMenuKeyDown, isMentionMenuOpen, handleMentionMenuKeyDown]
   )
 
   const handlePaste = useCallback(
@@ -297,6 +380,14 @@ export function ChatInput({
               onHover={setSelectedIndex}
               hasQuery={hasQuery}
             />
+            {/* @Mention menu - positioned above the input */}
+            <MentionMenu
+              isOpen={isMentionMenuOpen && !isCommandMenuOpen}
+              mentions={filteredMentions}
+              selectedIndex={mentionSelectedIndex}
+              onSelect={selectMention}
+              onHover={setMentionSelectedIndex}
+            />
             <PromptInput
               className="bg-popover relative z-10 p-0 pt-1 shadow-xs backdrop-blur-xl"
               maxHeight={300}
@@ -306,10 +397,19 @@ export function ChatInput({
               <FileList files={files} onFileRemove={onFileRemove} />
               <PromptInputTextarea
                 ref={textareaRef}
-                placeholder={isViewerRole ? "View-only access" : "Donor's full name and street address (& employer if known)"}
+                placeholder={
+                  isViewerRole
+                    ? "View-only access"
+                    : isCollaboratorAIResponding
+                    ? `${collaboratorAIStatus?.display_name}'s AI is responding...`
+                    : "Donor's full name and street address (& employer if known)"
+                }
                 onKeyDown={handleKeyDown}
+                onKeyUp={handleSelectionChange}
+                onClick={handleSelectionChange}
                 onPaste={handlePaste}
-                disabled={isViewerRole}
+                onInput={handleSelectionChange}
+                disabled={isInputDisabled}
                 className="min-h-[44px] pt-3 pl-4 text-base leading-[1.3] sm:text-base md:text-base disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <PromptInputActions className="mt-3 w-full justify-between p-2">

@@ -26,7 +26,12 @@ import {
   generateComprehensiveReportWithTools,
 } from "@/lib/batch-processing/report-generator"
 import { getEffectiveApiKey } from "@/lib/user-keys"
-import { MAX_RETRIES_PER_PROSPECT } from "@/lib/batch-processing/config"
+import {
+  MAX_RETRIES_PER_PROSPECT,
+  STALE_ITEM_THRESHOLD_MS,
+  normalizeProspectAddress,
+  classifyBatchError,
+} from "@/lib/batch-processing/config"
 import {
   sendEmail,
   getBatchCompleteEmailHtml,
@@ -123,22 +128,23 @@ export async function POST(
 
     let nextItem: BatchProspectItem | null = pendingItems?.[0] || null
 
-    // If no pending items, check for stale "processing" items (stuck for >5 min)
+    // If no pending items, check for stale "processing" items (stuck for >STALE_ITEM_THRESHOLD_MS)
     if (!nextItem && !itemError) {
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+      const staleThreshold = new Date(Date.now() - STALE_ITEM_THRESHOLD_MS).toISOString()
       const { data: staleItems } = await (supabase as any)
         .from("batch_prospect_items")
         .select("*")
         .eq("job_id", jobId)
         .eq("user_id", user.id)
         .eq("status", "processing")
-        .lt("processing_started_at", fiveMinutesAgo)  // Stuck for >5 min
+        .lt("processing_started_at", staleThreshold)  // Stuck for >threshold
         .order("item_index", { ascending: true })
         .limit(1) as { data: BatchProspectItem[] | null }
 
       nextItem = staleItems?.[0] || null
       if (nextItem) {
-        console.log(`[BatchProcess] Found stale processing item: ${nextItem.prospect_name} (started ${nextItem.processing_started_at})`)
+        const staleMinutes = Math.floor(STALE_ITEM_THRESHOLD_MS / 60000)
+        console.log(`[BatchProcess] Found stale processing item (>${staleMinutes}m): ${nextItem.prospect_name} (started ${nextItem.processing_started_at})`)
       }
     }
 
@@ -252,8 +258,11 @@ export async function POST(
       return NextResponse.json(response)
     }
 
-    // Mark item as processing
-    await (supabase as any)
+    // RACE CONDITION PROTECTION: Atomically claim the item
+    // Only update if the item is still in the expected status
+    // This prevents multiple workers from processing the same item
+    const expectedStatus = nextItem.status // "pending" or "failed" (for retry)
+    const { data: claimedItem, error: claimError } = await (supabase as any)
       .from("batch_prospect_items")
       .update({
         status: "processing",
@@ -261,6 +270,27 @@ export async function POST(
         retry_count: nextItem.status === "failed" ? nextItem.retry_count + 1 : 0,
       })
       .eq("id", nextItem.id)
+      .eq("status", expectedStatus) // Atomic check - only update if still in expected status
+      .select()
+      .single() as { data: BatchProspectItem | null; error: any }
+
+    // If we couldn't claim the item, another worker got it first
+    if (claimError || !claimedItem) {
+      console.log(`[BatchProcess] Item ${nextItem.id} was already claimed by another worker`)
+
+      // Try to get the next item instead
+      const response: ProcessNextItemResponse = {
+        job_status: job.status as BatchJobStatus,
+        progress: {
+          completed: job.completed_count,
+          total: job.total_prospects,
+          failed: job.failed_count,
+        },
+        has_more: true, // There might be more items
+        message: "Item was claimed by another worker, try again",
+      }
+      return NextResponse.json(response)
+    }
 
     // Get user's API key for OpenRouter
     let apiKey: string | undefined
@@ -364,31 +394,18 @@ export async function POST(
       // JSON serialization. The individual columns (prospect_city, etc.) store data correctly,
       // so we use them as fallback to ensure complete address data reaches the AI.
 
-      // Helper to get non-empty string value
-      const getNonEmpty = (primary: string | null | undefined, fallback: string | null | undefined): string | undefined => {
-        const val = primary?.trim() || fallback?.trim()
-        return val && val.length > 0 ? val : undefined
+      // Merge address data from both JSONB and individual columns (individual columns take precedence as fallback)
+      const mergedInputData: Record<string, string | undefined> = {
+        ...(nextItem.input_data as Record<string, string | undefined>),
+        // Use individual DB columns as fallback when JSONB values are missing
+        address: nextItem.input_data?.address || nextItem.prospect_address || undefined,
+        city: nextItem.input_data?.city || nextItem.prospect_city || undefined,
+        state: nextItem.input_data?.state || nextItem.prospect_state || undefined,
+        zip: nextItem.input_data?.zip || nextItem.prospect_zip || undefined,
       }
 
-      // Extract address components from all available sources
-      const address = getNonEmpty(nextItem.input_data?.address, nextItem.prospect_address)
-      const city = getNonEmpty(nextItem.input_data?.city, nextItem.prospect_city)
-      const state = getNonEmpty(nextItem.input_data?.state, nextItem.prospect_state)
-      const zip = getNonEmpty(nextItem.input_data?.zip, nextItem.prospect_zip)
-
-      // ALWAYS construct full_address from components - don't trust existing full_address
-      // because it might be incomplete (e.g., just street address without city/state/zip)
-      const constructedFullAddress = [address, city, state, zip].filter(Boolean).join(", ")
-
-      const enrichedProspect = {
-        ...nextItem.input_data,
-        address,
-        city,
-        state,
-        zip,
-        // CRITICAL: Always set full_address to ensure complete address reaches the AI
-        full_address: constructedFullAddress || undefined,
-      }
+      // Use the centralized normalization function to ensure consistent address data
+      const enrichedProspect = normalizeProspectAddress(mergedInputData)
 
       // Log for debugging address data flow
       console.log(`[BatchProcess] Address data for ${nextItem.prospect_name}:`, {
@@ -396,7 +413,6 @@ export async function POST(
         input_data_city: nextItem.input_data?.city,
         input_data_state: nextItem.input_data?.state,
         input_data_zip: nextItem.input_data?.zip,
-        input_data_full_address: nextItem.input_data?.full_address,
         db_prospect_address: nextItem.prospect_address,
         db_prospect_city: nextItem.prospect_city,
         db_prospect_state: nextItem.prospect_state,
@@ -431,13 +447,17 @@ export async function POST(
       }
     } catch (error) {
       console.error(`[BatchProcess] Comprehensive research failed:`, error)
-      // Handle HTML error responses from OpenRouter
-      const errMsg = error instanceof Error ? error.message : String(error)
-      if (errMsg.includes("<!DOCTYPE") || errMsg.includes("<html") || errMsg.includes("An error")) {
-        errorMessage = "API returned an error page - will retry"
-      } else {
-        errorMessage = errMsg
-      }
+      // Use centralized error classification for consistent handling
+      const classifiedError = classifyBatchError(error)
+      errorMessage = classifiedError.userMessage
+
+      // Log detailed error for debugging
+      console.log(`[BatchProcess] Error classified as ${classifiedError.code}:`, {
+        original: classifiedError.message,
+        userMessage: classifiedError.userMessage,
+        retryable: classifiedError.retryable,
+        retryAfterMs: classifiedError.retryAfterMs,
+      })
     }
 
     const processingDuration = Date.now() - startTime

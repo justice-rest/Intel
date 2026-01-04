@@ -18,6 +18,9 @@ import {
   MAX_PROSPECTS_PER_BATCH,
   MAX_CONCURRENT_JOBS_PER_USER,
   validateProspectData,
+  normalizeProspectAddress,
+  detectDuplicates,
+  scoreAddressQuality,
 } from "@/lib/batch-processing/config"
 import { checkBatchCredits, trackBatchUsage } from "@/lib/subscription/autumn-client"
 
@@ -92,17 +95,42 @@ export async function POST(request: Request) {
       )
     }
 
-    // Validate each prospect and filter invalid ones
+    // Step 1: Normalize all prospects first
+    const normalizedProspects = body.prospects.map((prospect) =>
+      normalizeProspectAddress(prospect) as ProspectInputData
+    )
+
+    // Step 2: Detect duplicates
+    const duplicateResult = detectDuplicates(normalizedProspects)
+    const duplicateSet = new Set(duplicateResult.duplicateIndices)
+
+    // Step 3: Validate each prospect and filter invalid ones
     const validProspects: ProspectInputData[] = []
     const invalidProspects: Array<{ index: number; errors: string[] }> = []
+    const skippedDuplicates: number[] = []
+    const lowQualityWarnings: Array<{ index: number; warnings: string[] }> = []
 
-    body.prospects.forEach((prospect, index) => {
-      const validation = validateProspectData(prospect)
-      if (validation.valid) {
-        validProspects.push(prospect)
-      } else {
-        invalidProspects.push({ index: index + 1, errors: validation.errors })
+    normalizedProspects.forEach((prospect, index) => {
+      // Skip duplicates (keep first occurrence)
+      if (duplicateSet.has(index)) {
+        skippedDuplicates.push(index + 1) // 1-indexed for user display
+        return
       }
+
+      // Validate required fields
+      const validation = validateProspectData(prospect)
+      if (!validation.valid) {
+        invalidProspects.push({ index: index + 1, errors: validation.errors })
+        return
+      }
+
+      // Check address quality and add warnings (but don't reject)
+      const qualityScore = scoreAddressQuality(prospect)
+      if (qualityScore.warnings.length > 0) {
+        lowQualityWarnings.push({ index: index + 1, warnings: qualityScore.warnings })
+      }
+
+      validProspects.push(prospect)
     })
 
     if (validProspects.length === 0) {
@@ -110,9 +138,18 @@ export async function POST(request: Request) {
         {
           error: "No valid prospects found",
           details: invalidProspects,
+          duplicatesRemoved: skippedDuplicates.length,
         },
         { status: 400 }
       )
+    }
+
+    // Log duplicate and quality warnings for debugging
+    if (duplicateResult.duplicateCount > 0) {
+      console.log(`[BatchAPI] Removed ${duplicateResult.duplicateCount} duplicate prospects`)
+    }
+    if (lowQualityWarnings.length > 0) {
+      console.log(`[BatchAPI] ${lowQualityWarnings.length} prospects have low address quality`)
     }
 
     // Check if user has enough credits (1 credit per row)
@@ -138,6 +175,26 @@ export async function POST(request: Request) {
       ...body.settings,
     }
 
+    // Validate webhook URL if provided
+    let webhookUrl: string | null = null
+    if (body.webhook_url) {
+      try {
+        const url = new URL(body.webhook_url)
+        if (!["http:", "https:"].includes(url.protocol)) {
+          return NextResponse.json(
+            { error: "Webhook URL must use HTTP or HTTPS protocol" },
+            { status: 400 }
+          )
+        }
+        webhookUrl = body.webhook_url
+      } catch {
+        return NextResponse.json(
+          { error: "Invalid webhook URL format" },
+          { status: 400 }
+        )
+      }
+    }
+
     // Create the batch job (using type assertion since table is added via migration)
     const { data: job, error: jobError } = await (supabase as any)
       .from("batch_prospect_jobs")
@@ -151,6 +208,9 @@ export async function POST(request: Request) {
         source_file_size: body.source_file_size || null,
         column_mapping: body.column_mapping || null,
         settings,
+        // Webhook configuration
+        webhook_url: webhookUrl,
+        webhook_secret: body.webhook_secret || null,
       })
       .select()
       .single() as { data: BatchProspectJob | null; error: any }
@@ -164,17 +224,22 @@ export async function POST(request: Request) {
     }
 
     // Create batch items for each prospect
+    // The prospects are already normalized, so all address fields are consistent
     const batchItems = validProspects.map((prospect, index) => ({
       job_id: job.id,
       user_id: user.id,
       item_index: index,
       status: "pending",
+      // Store full prospect data (already normalized, includes full_address)
       input_data: prospect,
+      // Also store key fields in individual columns for reliable access
+      // (JSONB can lose undefined values during serialization)
       prospect_name: prospect.name,
-      prospect_address: prospect.address || prospect.full_address,
-      prospect_city: prospect.city,
-      prospect_state: prospect.state,
-      prospect_zip: prospect.zip,
+      // For prospect_address, use the constructed full_address if street address is missing
+      prospect_address: prospect.address || prospect.full_address || null,
+      prospect_city: prospect.city || null,
+      prospect_state: prospect.state || null,
+      prospect_zip: prospect.zip || null,
     }))
 
     const { error: itemsError } = await (supabase as any)
@@ -195,13 +260,30 @@ export async function POST(request: Request) {
       `[BatchAPI] Created batch job ${job.id} with ${validProspects.length} prospects`
     )
 
+    // Build a detailed response message
+    const messageParts: string[] = [`Created job with ${validProspects.length} prospects.`]
+    if (skippedDuplicates.length > 0) {
+      messageParts.push(`${skippedDuplicates.length} duplicate(s) removed.`)
+    }
+    if (invalidProspects.length > 0) {
+      messageParts.push(`${invalidProspects.length} invalid prospect(s) skipped.`)
+    }
+    if (lowQualityWarnings.length > 0) {
+      messageParts.push(`${lowQualityWarnings.length} prospect(s) have limited address data.`)
+    }
+
     const response: CreateBatchJobResponse = {
       job,
       items_created: validProspects.length,
-      message:
-        invalidProspects.length > 0
-          ? `Created job with ${validProspects.length} prospects. ${invalidProspects.length} invalid prospects were skipped.`
-          : `Created job with ${validProspects.length} prospects.`,
+      message: messageParts.join(" "),
+      // Include additional details for transparency
+      duplicates_removed: skippedDuplicates.length,
+      invalid_skipped: invalidProspects.length,
+      low_quality_count: lowQualityWarnings.length,
+    } as CreateBatchJobResponse & {
+      duplicates_removed: number
+      invalid_skipped: number
+      low_quality_count: number
     }
 
     return NextResponse.json(response, { status: 201 })

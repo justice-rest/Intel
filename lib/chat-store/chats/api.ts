@@ -8,6 +8,7 @@ import { normalizeModelId } from "../../models"
 import {
   API_ROUTE_TOGGLE_CHAT_PIN,
   API_ROUTE_UPDATE_CHAT_MODEL,
+  API_ROUTE_UPDATE_CHAT_INSTRUCTIONS,
 } from "../../routes"
 
 /**
@@ -258,6 +259,35 @@ export async function updateChatModel(chatId: string, model: string) {
   }
 }
 
+export async function updateChatInstructions(chatId: string, instructions: string) {
+  try {
+    const res = await fetchClient(API_ROUTE_UPDATE_CHAT_INSTRUCTIONS, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chatId, instructions }),
+    })
+    const responseData = await res.json()
+
+    if (!res.ok) {
+      throw new Error(
+        responseData.error ||
+          `Failed to update chat instructions: ${res.status} ${res.statusText}`
+      )
+    }
+
+    const all = await getCachedChats()
+    const updated = (all as Chats[]).map((c) =>
+      c.id === chatId ? { ...c, system_prompt: instructions || null } : c
+    )
+    await writeToIndexedDB("chats", updated)
+
+    return responseData
+  } catch (error) {
+    console.error("Error updating chat instructions:", error)
+    throw error
+  }
+}
+
 export async function toggleChatPin(chatId: string, pinned: boolean) {
   try {
     const res = await fetchClient(API_ROUTE_TOGGLE_CHAT_PIN, {
@@ -334,6 +364,7 @@ export async function createNewChat(
       project_id: responseData.chat.project_id || null,
       pinned: responseData.chat.pinned ?? false,
       pinned_at: responseData.chat.pinned_at ?? null,
+      system_prompt: responseData.chat.system_prompt ?? null,
     }
 
     await writeToIndexedDB("chats", chat)

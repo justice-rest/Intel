@@ -158,6 +158,12 @@ export interface BatchProspectJob {
   column_mapping?: ColumnMapping
   settings: BatchJobSettings
 
+  // Webhook configuration
+  webhook_url?: string
+  webhook_secret?: string
+  last_webhook_sent_at?: string
+  webhook_error?: string
+
   // Timestamps
   created_at: string
   updated_at: string
@@ -243,6 +249,10 @@ export interface CreateBatchJobRequest {
   settings?: Partial<BatchJobSettings>
   source_file_name?: string
   source_file_size?: number
+  // Webhook notification URL (receives POST on job completion)
+  webhook_url?: string
+  // Optional secret for webhook signature verification
+  webhook_secret?: string
 }
 
 export interface CreateBatchJobResponse {

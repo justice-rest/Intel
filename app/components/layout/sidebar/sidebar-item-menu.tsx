@@ -10,7 +10,8 @@ import { useChats } from "@/lib/chat-store/chats/provider"
 import { useMessages } from "@/lib/chat-store/messages/provider"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { Chat } from "@/lib/chat-store/types"
-import { DotsThree, FolderPlus, PencilSimple, Trash, UserCircle } from "@phosphor-icons/react"
+import { useNotificationsOptional } from "@/lib/notifications"
+import { Bell, BellSlash, DotsThree, FolderPlus, PencilSimple, Trash, UserCircle } from "@phosphor-icons/react"
 import { Pin, PinOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -37,6 +38,8 @@ export function SidebarItemMenu({
   const { deleteChat, togglePinned, refresh } = useChats()
   const { chatId } = useChatSession()
   const isMobile = useBreakpoint(768)
+  const notifications = useNotificationsOptional()
+  const isMuted = notifications?.isChatMuted(chat.id) ?? false
 
   const handleConfirmDelete = async () => {
     await deleteMessages()
@@ -107,6 +110,32 @@ export function SidebarItemMenu({
             <UserCircle size={16} className="mr-2" />
             Assign Persona
           </DropdownMenuItem>
+          {notifications && (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (isMuted) {
+                  notifications.unmuteChat(chat.id)
+                } else {
+                  notifications.muteChat(chat.id)
+                }
+              }}
+            >
+              {isMuted ? (
+                <>
+                  <Bell size={16} className="mr-2" />
+                  Unmute
+                </>
+              ) : (
+                <>
+                  <BellSlash size={16} className="mr-2" />
+                  Mute
+                </>
+              )}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             className="text-destructive"

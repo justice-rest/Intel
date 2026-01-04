@@ -3,6 +3,7 @@
 import { HistoryTrigger } from "@/app/components/history/history-trigger"
 import { AppInfoTrigger } from "@/app/components/layout/app-info/app-info-trigger"
 import { ButtonCollaborate } from "@/app/components/layout/button-collaborate"
+import { ButtonChatInstructions } from "@/app/components/layout/button-chat-instructions"
 import { ButtonNewChat } from "@/app/components/layout/button-new-chat"
 import { UserMenu } from "@/app/components/layout/user-menu"
 import { CollaborationPresence } from "@/app/components/collaboration"
@@ -93,6 +94,7 @@ export function Header({ hasSidebar }: { hasSidebar: boolean }) {
                 <div className="pointer-events-auto flex flex-1 items-center justify-end gap-2">
                   {/* Show online collaborators in collaborative chats */}
                   <CollaborationPresence />
+                  <ButtonChatInstructions />
                   <ButtonCollaborate />
                   <DialogPublish />
                   <ButtonNewChat />

@@ -16,6 +16,8 @@ import { UserProvider } from "@/lib/user-store/provider"
 import { getUserProfile } from "@/lib/user/api"
 import { PostHogProvider } from "@/lib/posthog/provider"
 import { MemoryProvider } from "@/lib/memory-store"
+import { UnreadProvider } from "@/lib/unread"
+import { NotificationsProvider } from "@/lib/notifications"
 import { TransitionProvider } from "@/lib/transitions"
 import { DraftsWrapper } from "@/app/components/drafts"
 import { ThemeProvider } from "next-themes"
@@ -67,6 +69,8 @@ export default async function RootLayout({
               <AutumnWrapper>
                 <ModelProvider>
                   <ChatsProvider userId={userProfile?.id}>
+                    <UnreadProvider>
+                    <NotificationsProvider>
                     <ChatSessionProvider>
                       <MessagesProvider>
                         <Suspense fallback={null}>
@@ -102,6 +106,8 @@ export default async function RootLayout({
                         </Suspense>
                       </MessagesProvider>
                     </ChatSessionProvider>
+                    </NotificationsProvider>
+                    </UnreadProvider>
                   </ChatsProvider>
                 </ModelProvider>
               </AutumnWrapper>

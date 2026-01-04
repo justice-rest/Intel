@@ -220,3 +220,23 @@ export type {
   ProvenanceInput,
   AuditReport,
 } from "./provenance/manager"
+
+// ============================================================================
+// WEBHOOKS
+// ============================================================================
+
+export {
+  sendWebhookNotification,
+  buildWebhookPayload,
+  triggerBatchCompletionWebhook,
+  type WebhookPayload,
+  type WebhookResult,
+} from "./webhooks"
+
+// ============================================================================
+// REALTIME
+// ============================================================================
+
+// NOTE: Realtime hooks use client-side Supabase and React hooks.
+// Import directly in components:
+//   import { useBatchRealtimeUpdates, useBatchItemsRealtime } from "@/lib/batch-processing/realtime"

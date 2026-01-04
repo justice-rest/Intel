@@ -10,6 +10,7 @@ import {
   fetchAndCacheChats,
   getCachedChats,
   updateChatModel as updateChatModelFromDb,
+  updateChatInstructions as updateChatInstructionsFromDb,
   updateChatTitle,
 } from "./api"
 
@@ -35,6 +36,7 @@ interface ChatsContextType {
   resetChats: () => Promise<void>
   getChatById: (id: string) => Chats | undefined
   updateChatModel: (id: string, model: string) => Promise<void>
+  updateChatInstructions: (id: string, instructions: string) => Promise<void>
   bumpChat: (id: string) => Promise<void>
   togglePinned: (id: string, pinned: boolean) => Promise<void>
   pinnedChats: Chats[]
@@ -202,6 +204,21 @@ export function ChatsProvider({
     }
   }
 
+  const updateChatInstructions = async (id: string, instructions: string) => {
+    const prev = [...chats]
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, system_prompt: instructions || null } : c
+      )
+    )
+    try {
+      await updateChatInstructionsFromDb(id, instructions)
+    } catch {
+      setChats(prev)
+      toast({ title: "Failed to update instructions", status: "error" })
+    }
+  }
+
   const bumpChat = async (id: string) => {
     setChats((prev) => {
       const updatedChatWithNewUpdatedAt = prev.map((c) =>
@@ -266,6 +283,7 @@ export function ChatsProvider({
         resetChats,
         getChatById,
         updateChatModel,
+        updateChatInstructions,
         bumpChat,
         isLoading,
         togglePinned,

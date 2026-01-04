@@ -76,6 +76,15 @@ export interface AIStatus {
   started_at: number
 }
 
+// Streaming content from a collaborator's AI
+export interface StreamingContent {
+  user_id: string
+  display_name: string
+  content: string
+  parts?: unknown[]
+  updated_at: number
+}
+
 // Extended presence context with AI status
 export interface ExtendedPresenceContextValue extends PresenceContextValue {
   // AI status from all users in the chat
@@ -86,4 +95,10 @@ export interface ExtendedPresenceContextValue extends PresenceContextValue {
   clearAIStatus: () => void
   // Check if this is a collaborative chat (has other collaborators)
   isCollaborativeChat: boolean
+  // Streaming content from another collaborator's AI
+  collaboratorStreaming: StreamingContent | null
+  // Broadcast streaming content to collaborators
+  broadcastStreamingContent: (content: string, parts?: unknown[]) => void
+  // Clear streaming content
+  clearStreamingContent: () => void
 }

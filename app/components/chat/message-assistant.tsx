@@ -8,10 +8,11 @@ import { useChats } from "@/lib/chat-store/chats/provider"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { exportToPdf } from "@/lib/pdf-export"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
+import { useReactionsOptional } from "@/lib/reactions"
 import { cn } from "@/lib/utils"
 import type { Message as MessageAISDK } from "@ai-sdk/react"
 import { ArrowClockwise, Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { getSources } from "./get-sources"
 import { getCitations } from "./get-citations"
 import { QuoteButton } from "./quote-button"
@@ -22,6 +23,13 @@ import { CitationSources } from "./citation-sources"
 import { ToolInvocation } from "./tool-invocation"
 import { useAssistantMessageSelection } from "./useAssistantMessageSelection"
 import { NotesTrigger } from "./notes/notes-trigger"
+import { ReactionDisplay, ReactionPicker } from "./reactions"
+import { formatMessageTimestamp, formatFullTimestamp } from "./format-timestamp"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 type MessageAssistantProps = {
   children: string
@@ -35,6 +43,8 @@ type MessageAssistantProps = {
   className?: string
   messageId: string
   onQuote?: (text: string, messageId: string) => void
+  /** Message creation timestamp */
+  createdAt?: Date
 }
 
 export function MessageAssistant({
@@ -49,11 +59,45 @@ export function MessageAssistant({
   className,
   messageId,
   onQuote,
+  createdAt,
 }: MessageAssistantProps) {
   const { preferences } = useUserPreferences()
   const { chatId } = useChatSession()
   const { getChatById } = useChats()
   const [isExporting, setIsExporting] = useState(false)
+
+  // Reactions (optional - only available in collaborative chats)
+  const reactionsContext = useReactionsOptional()
+
+  // Parse numeric message ID for reactions
+  const numericMessageId = useMemo(() => {
+    const parsed = parseInt(messageId, 10)
+    return isNaN(parsed) ? null : parsed
+  }, [messageId])
+
+  // Get reactions for this message
+  const reactions = useMemo(() => {
+    if (!reactionsContext || !numericMessageId) return []
+    return reactionsContext.getReactionsForMessage(numericMessageId)
+  }, [reactionsContext, numericMessageId])
+
+  // Handle reaction toggle
+  const handleReactionToggle = useCallback(
+    async (emoji: string) => {
+      if (!reactionsContext || !numericMessageId) return
+      await reactionsContext.toggleReaction(numericMessageId, emoji)
+    },
+    [reactionsContext, numericMessageId]
+  )
+
+  // Handle adding new reaction
+  const handleAddReaction = useCallback(
+    async (emoji: string) => {
+      if (!reactionsContext || !numericMessageId) return
+      await reactionsContext.addReaction(numericMessageId, emoji)
+    },
+    [reactionsContext, numericMessageId]
+  )
   const sources = getSources(parts)
   const citations = getCitations(parts) // Extract RAG citations
   const toolInvocationParts = parts?.filter(
@@ -169,6 +213,31 @@ export function MessageAssistant({
           <CitationSources citations={citations} />
         )}
 
+        {/* Reactions display - show existing reactions */}
+        {reactions.length > 0 && (
+          <ReactionDisplay
+            reactions={reactions}
+            onToggle={handleReactionToggle}
+            className="-ml-1"
+          />
+        )}
+
+        {/* Timestamp - visible on hover */}
+        {createdAt && !isLastStreaming && (
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-[10px] text-muted-foreground/70 cursor-default">
+                  {formatMessageTimestamp(createdAt)}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">
+                {formatFullTimestamp(createdAt)}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
         {Boolean(isLastStreaming || contentNullOrEmpty) ? null : (
           <MessageActions
             className={cn(
@@ -192,6 +261,12 @@ export function MessageAssistant({
                 )}
               </button>
             </MessageAction>
+            {/* Reaction picker - only visible in collaborative chats */}
+            {reactionsContext && numericMessageId && (
+              <MessageAction tooltip="Add reaction" side="bottom">
+                <ReactionPicker onSelect={handleAddReaction} />
+              </MessageAction>
+            )}
             <MessageAction
               tooltip={isExporting ? "Exporting..." : "Export PDF"}
               side="bottom"

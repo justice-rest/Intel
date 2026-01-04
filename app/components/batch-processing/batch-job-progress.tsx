@@ -33,6 +33,7 @@ import {
   Check,
   FilePdf,
   SpinnerGap,
+  ArrowClockwise,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import {
@@ -239,9 +240,13 @@ function StatusCard({
 function ProspectTableRow({
   item,
   onViewReport,
+  onRetry,
+  isRetrying,
 }: {
   item: BatchProspectItem
   onViewReport: (item: BatchProspectItem) => void
+  onRetry?: (item: BatchProspectItem) => Promise<void>
+  isRetrying?: boolean
 }) {
   const formatCurrency = (value?: number) => {
     if (!value) return "—"
@@ -342,16 +347,45 @@ function ProspectTableRow({
         </div>
       </td>
       <td className="py-3 px-3">
-        {item.status === "completed" && item.report_content && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onViewReport(item)}
-            className="h-7 px-2"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {item.status === "completed" && item.report_content && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onViewReport(item)}
+                  className="h-7 px-2"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>View Report</TooltipContent>
+            </Tooltip>
+          )}
+          {item.status === "failed" && onRetry && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onRetry(item)}
+                  disabled={isRetrying}
+                  className="h-7 px-2 text-[#45ffbc] hover:text-[#3de0a6] hover:bg-[#45ffbc]/10"
+                >
+                  {isRetrying ? (
+                    <Spinner className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ArrowClockwise className="h-4 w-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                Retry (Attempt {item.retry_count + 1}/3)
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </td>
     </tr>
   )
@@ -377,6 +411,7 @@ export function BatchJobProgress({
   const [currentItem, setCurrentItem] = useState<BatchProspectItem | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedItem, setSelectedItem] = useState<BatchProspectItem | null>(null)
+  const [retryingItemId, setRetryingItemId] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const delayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -510,6 +545,40 @@ export function BatchJobProgress({
     onRefresh()
   }, [job.id, onRefresh, invalidateSidebarQuery])
 
+  // Retry a single failed item
+  const retryItem = useCallback(async (item: BatchProspectItem) => {
+    if (retryingItemId) return // Prevent concurrent retries
+
+    setRetryingItemId(item.id)
+    setError(null)
+
+    try {
+      const response = await fetch(
+        `/api/batch-prospects/${job.id}/items/${item.id}/retry`,
+        { method: "POST" }
+      )
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || "Retry failed")
+      }
+
+      const result = await response.json()
+
+      // Update item in the list
+      setItems((prev) =>
+        prev.map((i) => (i.id === result.item.id ? result.item : i))
+      )
+
+      // Invalidate queries to refresh sidebar
+      invalidateSidebarQuery()
+    } catch (err: any) {
+      setError(err.message || "Failed to retry item")
+    } finally {
+      setRetryingItemId(null)
+    }
+  }, [job.id, retryingItemId, invalidateSidebarQuery])
+
   // Restart processing (for jobs incorrectly marked as completed)
   const restartProcessing = useCallback(async () => {
     setError(null)
@@ -570,16 +639,24 @@ export function BatchJobProgress({
         </div>
 
         <div className="flex items-center gap-2">
-          {processingState === "completed" && (
+          {/* Show export button if there are any completed items */}
+          {completed > 0 && (
             <Button
               size="sm"
               onClick={() => {
                 window.open(`/api/batch-prospects/${job.id}/export?format=csv`, "_blank")
               }}
-              className="bg-green-600 hover:bg-green-700 text-white gap-2"
+              className={cn(
+                "gap-2",
+                processingState === "completed"
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "bg-secondary hover:bg-secondary/80"
+              )}
             >
               <Download className="h-4 w-4" />
-              Export CSV
+              {processingState === "completed"
+                ? "Export CSV"
+                : `Export ${completed} Completed`}
             </Button>
           )}
         </div>
@@ -770,6 +847,8 @@ export function BatchJobProgress({
                     key={item.id}
                     item={item}
                     onViewReport={setSelectedItem}
+                    onRetry={retryItem}
+                    isRetrying={retryingItemId === item.id}
                   />
                 ))}
               </tbody>

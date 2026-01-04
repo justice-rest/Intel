@@ -91,6 +91,21 @@ export const MAX_RETRIES_PER_PROSPECT = 3
 export const PROSPECT_PROCESSING_TIMEOUT_MS = 120000 // 2 minutes
 
 /**
+ * Stale item detection threshold (ms)
+ * Items in "processing" status for longer than this are considered stale
+ * and will be retried.
+ *
+ * Set to 10 minutes because:
+ * - LinkUp multi-query search: 5 parallel queries × ~15-30s each = ~30-60s
+ * - AI report generation: ~15-30s
+ * - Network variability: +30-60s
+ * - Total: ~1.5-2.5 minutes per prospect normally
+ * - With retries/delays: up to 5-7 minutes
+ * - 10 minutes gives generous buffer for slow networks
+ */
+export const STALE_ITEM_THRESHOLD_MS = 10 * 60 * 1000 // 10 minutes
+
+/**
  * Maximum tokens for prospect report output
  */
 export const MAX_REPORT_OUTPUT_TOKENS = 16000
@@ -359,3 +374,345 @@ export const ALLOWED_BATCH_FILE_TYPES = [
 ] as const
 
 export const ALLOWED_BATCH_EXTENSIONS = [".csv", ".xlsx", ".xls"]
+
+// ============================================================================
+// ADDRESS NORMALIZATION
+// ============================================================================
+
+/**
+ * Normalize a string value - return undefined for empty/null values
+ */
+export function normalizeString(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : undefined
+}
+
+/**
+ * Normalize prospect address data to ensure consistency
+ * This fixes the JSONB serialization issue where undefined values are lost
+ */
+export function normalizeProspectAddress<T extends {
+  name?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  full_address?: string
+  [key: string]: string | undefined
+}>(prospect: T): T & {
+  name: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  full_address?: string
+} {
+  const address = normalizeString(prospect.address)
+  const city = normalizeString(prospect.city)
+  const state = normalizeString(prospect.state)
+  const zip = normalizeString(prospect.zip)
+
+  // Construct full_address from components if not provided
+  const components = [address, city, state, zip].filter(Boolean)
+  const constructedFullAddress = components.length > 0 ? components.join(", ") : undefined
+  const full_address = normalizeString(prospect.full_address) || constructedFullAddress
+
+  return {
+    ...prospect,
+    name: normalizeString(prospect.name) || "",
+    address,
+    city,
+    state,
+    zip,
+    full_address,
+  } as T & {
+    name: string
+    address?: string
+    city?: string
+    state?: string
+    zip?: string
+    full_address?: string
+  }
+}
+
+// ============================================================================
+// DUPLICATE DETECTION
+// ============================================================================
+
+/**
+ * Generate a hash for duplicate detection
+ * Uses name + normalized address components
+ */
+export function generateProspectHash(prospect: {
+  name?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  full_address?: string
+}): string {
+  const name = normalizeString(prospect.name)?.toLowerCase() || ""
+  const address = normalizeString(prospect.address)?.toLowerCase() || ""
+  const city = normalizeString(prospect.city)?.toLowerCase() || ""
+  const state = normalizeString(prospect.state)?.toLowerCase() || ""
+  const zip = normalizeString(prospect.zip)?.toLowerCase() || ""
+
+  // Create a normalized key for duplicate detection
+  // Using name + city + state as the primary key since address/zip may vary
+  return `${name}|${city}|${state}`.replace(/\s+/g, " ").trim()
+}
+
+/**
+ * Detect duplicates in a list of prospects
+ * Returns indices of duplicate rows (keeps first occurrence)
+ */
+export function detectDuplicates(prospects: Array<{
+  name?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  full_address?: string
+}>): {
+  duplicateIndices: number[]
+  uniqueCount: number
+  duplicateCount: number
+  duplicateGroups: Map<string, number[]>
+} {
+  const seen = new Map<string, number>()
+  const duplicateIndices: number[] = []
+  const duplicateGroups = new Map<string, number[]>()
+
+  prospects.forEach((prospect, index) => {
+    const hash = generateProspectHash(prospect)
+
+    if (seen.has(hash)) {
+      duplicateIndices.push(index)
+      const group = duplicateGroups.get(hash) || [seen.get(hash)!]
+      group.push(index)
+      duplicateGroups.set(hash, group)
+    } else {
+      seen.set(hash, index)
+    }
+  })
+
+  return {
+    duplicateIndices,
+    uniqueCount: prospects.length - duplicateIndices.length,
+    duplicateCount: duplicateIndices.length,
+    duplicateGroups,
+  }
+}
+
+// ============================================================================
+// ERROR CLASSIFICATION
+// ============================================================================
+
+export type BatchErrorCode =
+  | "LINKUP_UNAVAILABLE"
+  | "LINKUP_RATE_LIMITED"
+  | "LINKUP_TIMEOUT"
+  | "OPENROUTER_ERROR"
+  | "OPENROUTER_RATE_LIMITED"
+  | "INSUFFICIENT_ADDRESS"
+  | "NETWORK_ERROR"
+  | "DATABASE_ERROR"
+  | "TIMEOUT"
+  | "UNKNOWN_ERROR"
+
+export interface ClassifiedError {
+  code: BatchErrorCode
+  message: string
+  userMessage: string
+  retryable: boolean
+  retryAfterMs?: number
+}
+
+/**
+ * Classify an error for better handling and user messaging
+ */
+export function classifyBatchError(error: unknown): ClassifiedError {
+  const message = error instanceof Error ? error.message : String(error)
+  const lowerMessage = message.toLowerCase()
+
+  // LinkUp errors
+  if (lowerMessage.includes("linkup") || lowerMessage.includes("search api")) {
+    if (lowerMessage.includes("rate limit") || lowerMessage.includes("429")) {
+      return {
+        code: "LINKUP_RATE_LIMITED",
+        message,
+        userMessage: "Search API rate limit reached. Will retry automatically.",
+        retryable: true,
+        retryAfterMs: 60000, // 1 minute
+      }
+    }
+    if (lowerMessage.includes("timeout") || lowerMessage.includes("timed out")) {
+      return {
+        code: "LINKUP_TIMEOUT",
+        message,
+        userMessage: "Search request timed out. Will retry automatically.",
+        retryable: true,
+        retryAfterMs: 5000,
+      }
+    }
+    if (lowerMessage.includes("not configured") || lowerMessage.includes("not available")) {
+      return {
+        code: "LINKUP_UNAVAILABLE",
+        message,
+        userMessage: "Web search is not configured. Please check your API keys.",
+        retryable: false,
+      }
+    }
+  }
+
+  // OpenRouter/AI errors
+  if (lowerMessage.includes("openrouter") || lowerMessage.includes("<!doctype") || lowerMessage.includes("<html")) {
+    if (lowerMessage.includes("rate limit") || lowerMessage.includes("429")) {
+      return {
+        code: "OPENROUTER_RATE_LIMITED",
+        message,
+        userMessage: "AI service rate limit reached. Will retry automatically.",
+        retryable: true,
+        retryAfterMs: 30000,
+      }
+    }
+    return {
+      code: "OPENROUTER_ERROR",
+      message: "AI service returned an error",
+      userMessage: "AI service temporarily unavailable. Will retry automatically.",
+      retryable: true,
+      retryAfterMs: 10000,
+    }
+  }
+
+  // Network errors
+  if (
+    lowerMessage.includes("network") ||
+    lowerMessage.includes("fetch") ||
+    lowerMessage.includes("econnrefused") ||
+    lowerMessage.includes("enotfound")
+  ) {
+    return {
+      code: "NETWORK_ERROR",
+      message,
+      userMessage: "Network error occurred. Will retry automatically.",
+      retryable: true,
+      retryAfterMs: 5000,
+    }
+  }
+
+  // Timeout errors
+  if (lowerMessage.includes("timeout") || lowerMessage.includes("timed out")) {
+    return {
+      code: "TIMEOUT",
+      message,
+      userMessage: "Request timed out. Will retry automatically.",
+      retryable: true,
+      retryAfterMs: 5000,
+    }
+  }
+
+  // Database errors
+  if (lowerMessage.includes("supabase") || lowerMessage.includes("database") || lowerMessage.includes("postgres")) {
+    return {
+      code: "DATABASE_ERROR",
+      message,
+      userMessage: "Database error occurred. Please try again.",
+      retryable: true,
+      retryAfterMs: 2000,
+    }
+  }
+
+  // Unknown error
+  return {
+    code: "UNKNOWN_ERROR",
+    message,
+    userMessage: "An unexpected error occurred. Will retry automatically.",
+    retryable: true,
+    retryAfterMs: 5000,
+  }
+}
+
+// ============================================================================
+// ADDRESS QUALITY SCORING
+// ============================================================================
+
+export type AddressQuality = "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT"
+
+/**
+ * Score address data quality for research effectiveness
+ */
+export function scoreAddressQuality(prospect: {
+  name?: string
+  address?: string
+  city?: string
+  state?: string
+  zip?: string
+  full_address?: string
+}): {
+  quality: AddressQuality
+  score: number
+  maxScore: number
+  missing: string[]
+  warnings: string[]
+} {
+  const missing: string[] = []
+  const warnings: string[] = []
+  let score = 0
+  const maxScore = 10
+
+  // Name is critical (3 points)
+  const name = normalizeString(prospect.name)
+  if (name) {
+    score += 3
+    // Check for common name that might cause false matches
+    const commonNames = ["john smith", "michael johnson", "david williams", "james brown"]
+    if (commonNames.includes(name.toLowerCase())) {
+      warnings.push("Common name may result in less accurate research")
+    }
+  } else {
+    missing.push("name")
+  }
+
+  // Street address (2 points)
+  if (normalizeString(prospect.address)) {
+    score += 2
+  } else if (!normalizeString(prospect.full_address)) {
+    missing.push("street address")
+  }
+
+  // City (2 points)
+  if (normalizeString(prospect.city)) {
+    score += 2
+  } else {
+    missing.push("city")
+  }
+
+  // State (2 points)
+  if (normalizeString(prospect.state)) {
+    score += 2
+  } else {
+    missing.push("state")
+  }
+
+  // ZIP (1 point - nice to have)
+  if (normalizeString(prospect.zip)) {
+    score += 1
+  }
+
+  // Determine quality level
+  let quality: AddressQuality
+  if (score >= 8) {
+    quality = "HIGH"
+  } else if (score >= 5) {
+    quality = "MEDIUM"
+  } else if (score >= 3) {
+    quality = "LOW"
+    warnings.push("Limited address data may result in incomplete research")
+  } else {
+    quality = "INSUFFICIENT"
+    warnings.push("Insufficient data for reliable research")
+  }
+
+  return { quality, score, maxScore, missing, warnings }
+}
