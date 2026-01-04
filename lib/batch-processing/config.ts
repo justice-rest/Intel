@@ -215,7 +215,6 @@ export const COLUMN_NAME_PATTERNS: Record<string, RegExp[]> = {
     /^prospect[_\s-]?name$/i,
     /^donor[_\s-]?name$/i,
     /^contact[_\s-]?name$/i,
-    /^first[_\s-]?name$/i,  // Will need to combine with last_name
     /^person$/i,
     /^individual$/i,
     /^contact$/i,
@@ -227,7 +226,20 @@ export const COLUMN_NAME_PATTERNS: Record<string, RegExp[]> = {
     /^client$/i,
     /^customer$/i,
     /^lead$/i,
-    /name/i,  // Fallback: any column containing "name"
+  ],
+  first_name: [
+    /^first[_\s-]?name$/i,
+    /^first$/i,
+    /^fname$/i,
+    /^given[_\s-]?name$/i,
+    /^forename$/i,
+  ],
+  last_name: [
+    /^last[_\s-]?name$/i,
+    /^last$/i,
+    /^lname$/i,
+    /^surname$/i,
+    /^family[_\s-]?name$/i,
   ],
   address: [
     /^address$/i,
@@ -638,6 +650,55 @@ export function classifyBatchError(error: unknown): ClassifiedError {
 // ============================================================================
 
 export type AddressQuality = "HIGH" | "MEDIUM" | "LOW" | "INSUFFICIENT"
+
+/**
+ * Parse a full name into first and last name components
+ * Handles common formats: "First Last", "Last, First", "First Middle Last"
+ */
+export function parseFullName(fullName: string): {
+  first_name: string
+  last_name: string
+} {
+  const trimmed = fullName.trim()
+  if (!trimmed) {
+    return { first_name: "", last_name: "" }
+  }
+
+  // Check for "Last, First" format
+  if (trimmed.includes(",")) {
+    const parts = trimmed.split(",").map((p) => p.trim())
+    return {
+      first_name: parts[1] || "",
+      last_name: parts[0] || "",
+    }
+  }
+
+  // Standard "First Last" or "First Middle Last" format
+  const parts = trimmed.split(/\s+/)
+  if (parts.length === 1) {
+    // Single name - treat as first name
+    return { first_name: parts[0], last_name: "" }
+  }
+
+  // First name is first part, last name is everything else
+  const firstName = parts[0]
+  const lastName = parts.slice(1).join(" ")
+
+  return { first_name: firstName, last_name: lastName }
+}
+
+/**
+ * Combine first and last name into a full name
+ */
+export function combineNames(firstName?: string, lastName?: string): string {
+  const first = firstName?.trim() || ""
+  const last = lastName?.trim() || ""
+
+  if (first && last) {
+    return `${first} ${last}`
+  }
+  return first || last || ""
+}
 
 /**
  * Score address data quality for research effectiveness

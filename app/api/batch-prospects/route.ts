@@ -235,6 +235,8 @@ export async function POST(request: Request) {
       // Also store key fields in individual columns for reliable access
       // (JSONB can lose undefined values during serialization)
       prospect_name: prospect.name,
+      prospect_first_name: prospect.first_name || null,
+      prospect_last_name: prospect.last_name || null,
       // For prospect_address, use the constructed full_address if street address is missing
       prospect_address: prospect.address || prospect.full_address || null,
       prospect_city: prospect.city || null,

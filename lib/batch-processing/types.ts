@@ -80,6 +80,10 @@ export interface ProspectInputData {
   // Required fields
   name: string
 
+  // Name components (optional - parsed from name or provided separately)
+  first_name?: string
+  last_name?: string
+
   // Address fields (at least one required for research)
   address?: string
   city?: string
@@ -103,7 +107,9 @@ export interface ProspectInputData {
  * Maps CSV column headers to our normalized field names
  */
 export interface ColumnMapping {
-  name: string | null  // Required - column containing prospect name
+  name: string | null  // Required - column containing prospect name (or will combine first_name + last_name)
+  first_name?: string | null  // Optional - column containing first name
+  last_name?: string | null   // Optional - column containing last name
   address?: string | null
   city?: string | null
   state?: string | null
@@ -193,6 +199,8 @@ export interface BatchProspectItem {
 
   // Normalized fields (for querying)
   prospect_name?: string
+  prospect_first_name?: string
+  prospect_last_name?: string
   prospect_address?: string
   prospect_city?: string
   prospect_state?: string

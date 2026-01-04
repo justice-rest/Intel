@@ -114,7 +114,9 @@ export async function GET(
     if (format === "csv") {
       const headers = [
         "Index",
-        "Name",
+        "Full Name",
+        "First Name",
+        "Last Name",
         "Address",
         "City",
         "State",
@@ -132,7 +134,9 @@ export async function GET(
       const rows = items.map((item) => {
         const row = [
           item.item_index + 1,
-          item.input_data?.name || "",
+          item.input_data?.name || item.prospect_name || "",
+          item.input_data?.first_name || item.prospect_first_name || "",
+          item.input_data?.last_name || item.prospect_last_name || "",
           item.input_data?.address || item.input_data?.full_address || "",
           item.input_data?.city || "",
           item.input_data?.state || "",
@@ -199,7 +203,9 @@ export async function GET(
         },
         prospects: items.map((item) => ({
           index: item.item_index + 1,
-          name: item.input_data?.name,
+          full_name: item.input_data?.name || item.prospect_name,
+          first_name: item.input_data?.first_name || item.prospect_first_name,
+          last_name: item.input_data?.last_name || item.prospect_last_name,
           address: item.input_data?.address || item.input_data?.full_address,
           city: item.input_data?.city,
           state: item.input_data?.state,

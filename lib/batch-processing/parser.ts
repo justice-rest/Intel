@@ -15,6 +15,8 @@ import {
   validateProspectData,
   MAX_PROSPECTS_PER_BATCH,
   ALLOWED_BATCH_EXTENSIONS,
+  parseFullName,
+  combineNames,
 } from "./config"
 
 // ============================================================================
@@ -245,9 +247,37 @@ export function transformToProspectData(
   const rowErrors: Array<{ row: number; errors: string[] }> = []
 
   rows.forEach((row, index) => {
+    // Get first_name and last_name from mapping if available
+    const mappedFirstName = mapping.first_name ? row[mapping.first_name]?.trim() : undefined
+    const mappedLastName = mapping.last_name ? row[mapping.last_name]?.trim() : undefined
+    const mappedName = mapping.name ? row[mapping.name]?.trim() || "" : ""
+
+    // Determine the full name and name components
+    let fullName: string
+    let firstName: string | undefined
+    let lastName: string | undefined
+
+    if (mappedFirstName || mappedLastName) {
+      // CSV has separate first/last name columns - combine them for full name
+      firstName = mappedFirstName
+      lastName = mappedLastName
+      fullName = combineNames(mappedFirstName, mappedLastName)
+    } else if (mappedName) {
+      // CSV has full name - parse it into components
+      fullName = mappedName
+      const parsed = parseFullName(mappedName)
+      firstName = parsed.first_name || undefined
+      lastName = parsed.last_name || undefined
+    } else {
+      // No name data
+      fullName = ""
+    }
+
     // Apply mapping to get normalized data
     const prospect: ProspectInputData = {
-      name: mapping.name ? row[mapping.name]?.trim() || "" : "",
+      name: fullName,
+      first_name: firstName,
+      last_name: lastName,
       address: mapping.address ? row[mapping.address]?.trim() : undefined,
       city: mapping.city ? row[mapping.city]?.trim() : undefined,
       state: mapping.state ? row[mapping.state]?.trim() : undefined,
