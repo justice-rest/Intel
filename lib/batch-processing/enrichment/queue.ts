@@ -81,10 +81,10 @@ export interface QueueConfig {
 }
 
 const DEFAULT_CONFIG: QueueConfig = {
-  maxConcurrent: 3, // Process 3 prospects at a time
-  delayBetweenItems: 1000, // 1 second between batches
-  maxRetries: 2,
-  retryDelayBase: 2000, // 2 seconds, exponential backoff
+  maxConcurrent: 1, // Process 1 prospect at a time - batch enrichment is HEAVY
+  delayBetweenItems: 500, // 500ms between items
+  maxRetries: 1, // Only 1 retry to avoid compounding timeouts
+  retryDelayBase: 1000, // 1 second base delay
 }
 
 // ============================================================================

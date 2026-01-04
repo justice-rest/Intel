@@ -4,7 +4,6 @@ import { useChats } from "@/lib/chat-store/chats/provider"
 import { Chat } from "@/lib/chat-store/types"
 import { useDragDrop } from "@/lib/drag-drop-store/provider"
 import { useSplitView } from "@/lib/split-view-store/provider"
-import { useUnreadOptional } from "@/lib/unread"
 import { useNotificationsOptional } from "@/lib/notifications"
 import { cn } from "@/lib/utils"
 import { BellSlash, Check, X } from "@phosphor-icons/react"
@@ -30,8 +29,6 @@ export function SidebarItem({ chat, currentChatId }: SidebarItemProps) {
   const { isActive: isSplitActive, leftChatId, rightChatId, deactivateSplit } = useSplitView()
   const isMobile = useBreakpoint(768)
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const unreadContext = useUnreadOptional()
-  const unreadCount = unreadContext?.getUnreadCount(chat.id) ?? 0
   const notifications = useNotificationsOptional()
   const isMuted = notifications?.isChatMuted(chat.id) ?? false
 
@@ -241,11 +238,6 @@ export function SidebarItem({ chat, currentChatId }: SidebarItemProps) {
                   )}
                   {displayTitle}
                 </span>
-                {unreadCount > 0 && (
-                  <span className="absolute right-8 top-1/2 -translate-y-1/2 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold text-primary-foreground">
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
-                )}
               </div>
             </Link>
           </PanelChoiceMenu>

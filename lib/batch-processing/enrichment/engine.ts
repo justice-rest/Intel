@@ -41,6 +41,33 @@ import type {
 // HELPER FUNCTIONS
 // ============================================================================
 
+/**
+ * Wrap a promise with a timeout
+ */
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operationName: string
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`${operationName} timed out after ${timeoutMs}ms`)),
+        timeoutMs
+      )
+    ),
+  ])
+}
+
+// Operation timeouts (in ms)
+const TIMEOUT_LINKUP = 45000    // 45 seconds for LinkUp (heavy queries)
+const TIMEOUT_SEC = 15000       // 15 seconds for SEC
+const TIMEOUT_FEC = 15000       // 15 seconds for FEC
+const TIMEOUT_NONPROFIT = 15000 // 15 seconds for nonprofit
+const TIMEOUT_ROMY = 10000      // 10 seconds for RōmyScore
+const TIMEOUT_SYNTHESIS = 30000 // 30 seconds for AI synthesis
+
 function createEnrichedDataPoint<T>(
   value: T,
   confidence: DataConfidence = "UNVERIFIED",
@@ -89,14 +116,6 @@ async function collectLinkupData(
   const sources: SourceCitation[] = []
 
   try {
-    // Build query string
-    const queryParts = [prospect.name]
-    if (prospect.city) queryParts.push(prospect.city)
-    if (prospect.state) queryParts.push(prospect.state)
-    if (prospect.company) queryParts.push(prospect.company)
-
-    const queryString = queryParts.join(", ")
-
     // Build full address
     const addressParts = [
       prospect.address,
@@ -106,13 +125,21 @@ async function collectLinkupData(
     ].filter(Boolean)
     const fullAddress = addressParts.join(", ")
 
-    // Call linkupBatchSearch with prospect object
-    const result = await linkupBatchSearch({
-      name: prospect.name,
-      address: fullAddress || undefined,
-      employer: prospect.company,
-      title: prospect.title,
-    })
+    console.log(`[EnrichmentEngine] Starting LinkUp search for ${prospect.name}`)
+
+    // Call linkupBatchSearch with prospect object, wrapped with timeout
+    const result = await withTimeout(
+      linkupBatchSearch({
+        name: prospect.name,
+        address: fullAddress || undefined,
+        employer: prospect.company,
+        title: prospect.title,
+      }),
+      TIMEOUT_LINKUP,
+      "LinkUp search"
+    )
+
+    console.log(`[EnrichmentEngine] LinkUp search completed for ${prospect.name}`)
 
     // Add sources from LinkUp results
     if (result.sources) {
@@ -139,7 +166,11 @@ async function collectSecData(
   const sources: SourceCitation[] = []
 
   try {
-    const secResult = await verifySecInsider(prospectName)
+    const secResult = await withTimeout(
+      verifySecInsider(prospectName),
+      TIMEOUT_SEC,
+      "SEC verification"
+    )
 
     if (secResult && secResult.hasFilings) {
       sources.push(createSource(
@@ -163,7 +194,11 @@ async function collectFecData(
   const sources: SourceCitation[] = []
 
   try {
-    const fecResult = await verifyFecContributions(prospectName)
+    const fecResult = await withTimeout(
+      verifyFecContributions(prospectName),
+      TIMEOUT_FEC,
+      "FEC verification"
+    )
 
     if (fecResult && fecResult.totalAmount && fecResult.totalAmount > 0) {
       sources.push(createSource(
@@ -187,7 +222,11 @@ async function collectNonprofitData(
   const sources: SourceCitation[] = []
 
   try {
-    const nonprofitResult = await verifyNonprofitAffiliations(prospectName)
+    const nonprofitResult = await withTimeout(
+      verifyNonprofitAffiliations(prospectName),
+      TIMEOUT_NONPROFIT,
+      "Nonprofit verification"
+    )
 
     if (nonprofitResult && nonprofitResult.affiliations && nonprofitResult.affiliations.length > 0) {
       sources.push(createSource(
@@ -501,15 +540,25 @@ export async function enrichProspect(
       totalPoliticalGiving: philanthropy.politicalGiving.totalContributions.value,
     }
 
-    // getRomyScore(name, city?, state?, newData?) - returns Promise<RomyScoreBreakdown>
-    const romyResult = await getRomyScore(
-      request.prospect.name,
-      request.prospect.city,
-      request.prospect.state,
-      romyDataPoints
-    )
+    // getRomyScore with timeout
+    let romyResult: { totalScore: number; tier: { name: string } }
+    try {
+      romyResult = await withTimeout(
+        getRomyScore(
+          request.prospect.name,
+          request.prospect.city,
+          request.prospect.state,
+          romyDataPoints
+        ),
+        TIMEOUT_ROMY,
+        "RōmyScore calculation"
+      )
+    } catch (error) {
+      console.warn("[EnrichmentEngine] RōmyScore timed out, using default:", error)
+      romyResult = { totalScore: 0, tier: { name: "Unknown" } }
+    }
 
-    // AI synthesis for strategic intelligence
+    // AI synthesis for strategic intelligence with timeout
     const synthesisContext = {
       prospectName: request.prospect.name,
       wealth,
@@ -520,7 +569,23 @@ export async function enrichProspect(
       romyScore: romyResult.totalScore,
     }
 
-    const synthesis = await synthesizeFullStrategy(synthesisContext, request.mode, apiKey)
+    let synthesis
+    try {
+      synthesis = await withTimeout(
+        synthesizeFullStrategy(synthesisContext, request.mode, apiKey),
+        TIMEOUT_SYNTHESIS,
+        "AI synthesis"
+      )
+    } catch (error) {
+      console.warn("[EnrichmentEngine] AI synthesis timed out, using defaults:", error)
+      synthesis = {
+        executiveSummary: null,
+        askStrategy: null,
+        cultivationStrategy: null,
+        conversationIntelligence: null,
+        competitiveIntelligence: null,
+      }
+    }
     tokensUsed += 2000  // Approximate tokens for synthesis
 
     // Build complete intelligence output

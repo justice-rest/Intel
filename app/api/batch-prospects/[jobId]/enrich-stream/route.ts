@@ -65,7 +65,8 @@ export async function POST(
     }
 
     const mode: EnrichmentMode = body.mode || "STANDARD"
-    const maxConcurrent = body.maxConcurrent || 3
+    // IMPORTANT: Keep concurrency LOW - enrichment is very heavy (5+ API calls per prospect)
+    const maxConcurrent = Math.min(body.maxConcurrent || 1, 2) // Max 2 concurrent
 
     // Fetch job to verify ownership
     const { data: job, error: jobError } = await (supabase as any)
