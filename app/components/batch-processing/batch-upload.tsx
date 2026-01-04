@@ -52,6 +52,8 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
   const [parseResult, setParseResult] = useState<ParsedFileResult | null>(null)
   const [columnMapping, setColumnMapping] = useState<ColumnMapping>({
     name: null,
+    first_name: null,
+    last_name: null,
   })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -83,6 +85,8 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
         // Set suggested mapping
         setColumnMapping({
           name: result.suggested_mapping.name || null,
+          first_name: result.suggested_mapping.first_name || null,
+          last_name: result.suggested_mapping.last_name || null,
           address: result.suggested_mapping.address || null,
           city: result.suggested_mapping.city || null,
           state: result.suggested_mapping.state || null,
@@ -131,8 +135,12 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
   }
 
   const handleProceedToReview = () => {
-    if (!columnMapping.name) {
-      setError("Name column is required")
+    // Accept either: name column OR first_name/last_name columns
+    const hasName = !!columnMapping.name
+    const hasFirstOrLast = !!columnMapping.first_name || !!columnMapping.last_name
+
+    if (!hasName && !hasFirstOrLast) {
+      setError("Name column is required (either Full Name or First/Last Name)")
       return
     }
     setError(null)
@@ -156,13 +164,14 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
     setStep("upload")
     setFile(null)
     setParseResult(null)
-    setColumnMapping({ name: null })
+    setColumnMapping({ name: null, first_name: null, last_name: null })
     setError(null)
   }
 
   // Get validation summary for review step
+  const hasValidNameMapping = columnMapping.name || columnMapping.first_name || columnMapping.last_name
   const validationSummary =
-    parseResult && columnMapping.name
+    parseResult && hasValidNameMapping
       ? (() => {
           const { prospects, errors } = transformToProspectData(
             parseResult.rows,
@@ -290,9 +299,12 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Required Fields */}
               <div className="space-y-3">
-                <h4 className="text-sm font-medium">Required</h4>
+                <h4 className="text-sm font-medium">Name (Required)</h4>
+                <p className="text-xs text-muted-foreground -mt-2">
+                  Use Full Name OR First/Last Name
+                </p>
                 <div className="space-y-2">
-                  <Label htmlFor="map-name">Name *</Label>
+                  <Label htmlFor="map-name">Full Name</Label>
                   <Select
                     value={columnMapping.name || "__none__"}
                     onValueChange={(v) => handleMappingChange("name", v)}
@@ -309,6 +321,46 @@ export function BatchUpload({ onUploadComplete, isCreatingJob }: BatchUploadProp
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="map-first-name">First Name</Label>
+                    <Select
+                      value={columnMapping.first_name || "__none__"}
+                      onValueChange={(v) => handleMappingChange("first_name", v)}
+                    >
+                      <SelectTrigger id="map-first-name">
+                        <SelectValue placeholder="First" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">--</SelectItem>
+                        {parseResult.columns.map((col) => (
+                          <SelectItem key={col} value={col}>
+                            {col}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="map-last-name">Last Name</Label>
+                    <Select
+                      value={columnMapping.last_name || "__none__"}
+                      onValueChange={(v) => handleMappingChange("last_name", v)}
+                    >
+                      <SelectTrigger id="map-last-name">
+                        <SelectValue placeholder="Last" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">--</SelectItem>
+                        {parseResult.columns.map((col) => (
+                          <SelectItem key={col} value={col}>
+                            {col}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
 
