@@ -311,6 +311,28 @@ export function Chat({
   // Keep loader visible throughout entire streaming process (including tool execution)
   const isWaitingForResponse = status === "submitted" || status === "streaming"
 
+  // Broadcast AI status to collaborators when status changes
+  useEffect(() => {
+    if (!presenceContext) return
+
+    if (status === "submitted") {
+      presenceContext.broadcastAIStatus("thinking")
+    } else if (status === "streaming") {
+      if (hasActiveToolCalls) {
+        // Get the active tool name if available
+        const activeTool = lastMessage?.parts?.find(
+          (part: { type: string; toolInvocation?: { state?: string; toolName?: string } }) =>
+            part.type === "tool-invocation" && part.toolInvocation?.state !== "result"
+        ) as { toolInvocation?: { toolName?: string } } | undefined
+        presenceContext.broadcastAIStatus("using_tools", activeTool?.toolInvocation?.toolName)
+      } else {
+        presenceContext.broadcastAIStatus("streaming")
+      }
+    } else if (status === "ready" || status === "error") {
+      presenceContext.clearAIStatus()
+    }
+  }, [status, hasActiveToolCalls, presenceContext, lastMessage?.parts])
+
   // Memoize the chat input props
   const chatInputProps = useMemo(
     () => ({
@@ -468,6 +490,7 @@ export function Chat({
           startTime={responseStartTime ?? null}
           isExecutingTools={hasActiveToolCalls}
           typingUsers={presenceContext?.typingUsers ?? []}
+          collaboratorAIStatus={presenceContext?.aiStatus ?? null}
         />
         <ChatInput {...chatInputProps} />
       </motion.div>

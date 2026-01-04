@@ -14,3 +14,10 @@ export { ReadReceiptsProvider, useReadReceipts, useReadReceiptsContext } from ".
 export { useRevocationListener } from "./hooks/use-revocation-listener"
 export { useCollaborativeMessages } from "./hooks/use-collaborative-messages"
 export { useAutoMarkAsRead } from "./hooks/use-read-receipts"
+
+// Re-export types for convenience
+export type {
+  AIStatus,
+  AIStatusType,
+  ExtendedPresenceContextValue,
+} from "./types"

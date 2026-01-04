@@ -6,6 +6,8 @@ import { readFromIndexedDB, writeToIndexedDB } from "../persist"
 export interface ExtendedMessageAISDK extends MessageAISDK {
   message_group_id?: string
   model?: string
+  /** The user ID who sent this message (for collaborative chats) */
+  user_id?: string
 }
 
 export async function getMessagesFromDb(
@@ -23,7 +25,7 @@ export async function getMessagesFromDb(
   const { data, error } = await supabase
     .from("messages")
     .select(
-      "id, content, role, experimental_attachments, created_at, parts, message_group_id, model"
+      "id, content, role, experimental_attachments, created_at, parts, message_group_id, model, user_id"
     )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: true })
@@ -44,6 +46,7 @@ export async function getMessagesFromDb(
     parts: (message.parts as MessageAISDK["parts"]) || undefined,
     message_group_id: message.message_group_id as string | undefined,
     model: message.model as string | undefined,
+    user_id: message.user_id as string | undefined,
   }))
 }
 
@@ -62,7 +65,7 @@ export async function getLastMessagesFromDb(
   const { data, error } = await supabase
     .from("messages")
     .select(
-      "id, content, role, experimental_attachments, created_at, parts, message_group_id, model"
+      "id, content, role, experimental_attachments, created_at, parts, message_group_id, model, user_id"
     )
     .eq("chat_id", chatId)
     .order("created_at", { ascending: false })
@@ -82,6 +85,7 @@ export async function getLastMessagesFromDb(
     parts: (message?.parts as MessageAISDK["parts"]) || undefined,
     message_group_id: message.message_group_id,
     model: message.model,
+    user_id: message.user_id as string | undefined,
   }))
 }
 

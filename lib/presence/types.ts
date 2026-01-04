@@ -64,3 +64,26 @@ export interface MessageSyncEvent {
     created_at: string | null
   }
 }
+
+// AI Status - for broadcasting when AI is thinking/responding
+export type AIStatusType = "idle" | "thinking" | "streaming" | "using_tools"
+
+export interface AIStatus {
+  user_id: string // Who triggered the AI
+  display_name: string
+  status: AIStatusType
+  tool_name?: string // If using tools, which tool
+  started_at: number
+}
+
+// Extended presence context with AI status
+export interface ExtendedPresenceContextValue extends PresenceContextValue {
+  // AI status from all users in the chat
+  aiStatus: AIStatus | null
+  // Broadcast AI status to other collaborators
+  broadcastAIStatus: (status: AIStatusType, toolName?: string) => void
+  // Clear AI status
+  clearAIStatus: () => void
+  // Check if this is a collaborative chat (has other collaborators)
+  isCollaborativeChat: boolean
+}

@@ -47,6 +47,8 @@ export interface ReadReceiptsContextValue {
       profile_image: string | null
     }
   }>
+  /** Whether this is a collaborative chat (has multiple collaborators) */
+  isCollaborativeChat: boolean
 }
 
 const ReadReceiptsContext = createContext<ReadReceiptsContextValue | null>(null)
@@ -210,6 +212,9 @@ export function ReadReceiptsProvider({
       : undefined,
   }))
 
+  // A chat is collaborative if it has more than 1 collaborator (owner + at least 1 other)
+  const isCollaborativeChat = (collaboratorsContext?.collaborators?.length ?? 0) > 1
+
   const value: ReadReceiptsContextValue = {
     readStatuses,
     isLoading,
@@ -218,6 +223,7 @@ export function ReadReceiptsProvider({
     hasBeenRead,
     getReaderCount,
     collaborators,
+    isCollaborativeChat,
   }
 
   return (

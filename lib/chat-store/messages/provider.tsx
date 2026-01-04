@@ -215,11 +215,13 @@ export function MessagesProvider({
               }
 
               // Convert DB message to AI SDK format
-              const aiMessage: MessageAISDK = {
+              // Include user_id for sender attribution in collaborative chats
+              const aiMessage: MessageAISDK & { user_id?: string } = {
                 id: messageId,
                 content: newMessage.content || "",
                 role: newMessage.role as "user" | "assistant" | "system" | "data",
                 createdAt: new Date(newMessage.created_at),
+                user_id: newMessage.user_id || undefined,
               }
 
               // Sort by created_at to maintain order

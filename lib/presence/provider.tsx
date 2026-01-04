@@ -29,11 +29,17 @@ import type {
   PresenceUser,
   PresenceStatus,
   TypingUser,
+  AIStatus,
+  AIStatusType,
+  ExtendedPresenceContextValue,
 } from "./types"
 
-const PresenceContext = createContext<PresenceContextValue | null>(null)
+// AI status timeout (clear after 60 seconds of no updates)
+const AI_STATUS_TIMEOUT_MS = 60000
 
-export function usePresence() {
+const PresenceContext = createContext<ExtendedPresenceContextValue | null>(null)
+
+export function usePresence(): ExtendedPresenceContextValue {
   const context = useContext(PresenceContext)
   if (!context) {
     throw new Error("usePresence must be used within a PresenceProvider")
@@ -42,7 +48,7 @@ export function usePresence() {
 }
 
 // Optional hook that returns null outside provider (for conditional use)
-export function usePresenceOptional(): PresenceContextValue | null {
+export function usePresenceOptional(): ExtendedPresenceContextValue | null {
   return useContext(PresenceContext)
 }
 
@@ -57,6 +63,7 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [myStatus, setMyStatus] = useState<PresenceStatus>("active")
+  const [aiStatus, setAIStatus] = useState<AIStatus | null>(null)
 
   // Refs for cleanup
   const presenceChannelRef = useRef<RealtimeChannel | null>(null)
@@ -64,6 +71,7 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const idleTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const awayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const aiStatusTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Track last activity for idle detection
   const lastActivityRef = useRef<number>(Date.now())
@@ -199,11 +207,38 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
           prev.filter((u) => u.user_id !== payload.user_id)
         )
       })
+      // AI status events - when another user's AI is thinking/streaming
+      .on("broadcast", { event: "ai_status" }, ({ payload }) => {
+        if (payload.user_id === user.id) return // Ignore own events
+
+        const status = payload as AIStatus
+
+        // Clear existing timeout
+        if (aiStatusTimeoutRef.current) {
+          clearTimeout(aiStatusTimeoutRef.current)
+        }
+
+        if (status.status === "idle") {
+          // Clear AI status
+          setAIStatus(null)
+        } else {
+          // Update AI status
+          setAIStatus(status)
+
+          // Auto-clear after timeout
+          aiStatusTimeoutRef.current = setTimeout(() => {
+            setAIStatus(null)
+          }, AI_STATUS_TIMEOUT_MS)
+        }
+      })
       .subscribe()
 
     return () => {
       collabChannel.unsubscribe()
       supabase.removeChannel(collabChannel)
+      if (aiStatusTimeoutRef.current) {
+        clearTimeout(aiStatusTimeoutRef.current)
+      }
     }
   }, [chatId, user?.id])
 
@@ -308,13 +343,58 @@ export function PresenceProvider({ chatId, children }: PresenceProviderProps) {
     setMyStatus(status)
   }, [])
 
-  const value: PresenceContextValue = {
+  // Broadcast AI status to other collaborators
+  const broadcastAIStatus = useCallback(
+    (status: AIStatusType, toolName?: string) => {
+      if (!collabChannelRef.current || !user?.id) return
+
+      const aiStatusPayload: AIStatus = {
+        user_id: user.id,
+        display_name: displayName,
+        status,
+        tool_name: toolName,
+        started_at: Date.now(),
+      }
+
+      collabChannelRef.current.send({
+        type: "broadcast",
+        event: "ai_status",
+        payload: aiStatusPayload,
+      })
+    },
+    [user?.id, displayName]
+  )
+
+  // Clear AI status (broadcast idle)
+  const clearAIStatus = useCallback(() => {
+    if (!collabChannelRef.current || !user?.id) return
+
+    collabChannelRef.current.send({
+      type: "broadcast",
+      event: "ai_status",
+      payload: {
+        user_id: user.id,
+        display_name: displayName,
+        status: "idle" as AIStatusType,
+        started_at: Date.now(),
+      },
+    })
+  }, [user?.id, displayName])
+
+  // Check if this is a collaborative chat (has other online users or collaborators)
+  const isCollaborativeChat = onlineUsers.length > 0
+
+  const value: ExtendedPresenceContextValue = {
     onlineUsers,
     typingUsers,
     isConnected,
     myStatus,
     setTyping,
     setStatus,
+    aiStatus,
+    broadcastAIStatus,
+    clearAIStatus,
+    isCollaborativeChat,
   }
 
   return (

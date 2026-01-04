@@ -19,6 +19,8 @@ type MessageProps = {
   onQuote?: (text: string, messageId: string) => void
   messageGroupId?: string | null
   isUserAuthenticated?: boolean
+  /** The user ID who sent this message (for collaborative chat sender attribution) */
+  userId?: string
 }
 
 export function Message({
@@ -36,6 +38,7 @@ export function Message({
   onQuote,
   messageGroupId,
   isUserAuthenticated,
+  userId,
 }: MessageProps) {
   const [copied, setCopied] = useState(false)
 
@@ -58,6 +61,7 @@ export function Message({
         className={className}
         messageGroupId={messageGroupId}
         isUserAuthenticated={isUserAuthenticated}
+        userId={userId}
       >
         {children}
       </MessageUser>

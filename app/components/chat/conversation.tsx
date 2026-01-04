@@ -137,6 +137,7 @@ export function Conversation({
                   (message as ExtendedMessageAISDK).message_group_id ?? null
                 }
                 isUserAuthenticated={isUserAuthenticated}
+                userId={(message as ExtendedMessageAISDK).user_id}
               >
                 {message.content}
               </Message>

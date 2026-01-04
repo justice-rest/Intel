@@ -29,6 +29,7 @@ import Image from "next/image"
 import React, { useEffect, useRef, useState, useMemo } from "react"
 import { useReadReceiptsContext } from "@/lib/presence"
 import { ReadReceiptCheckmark } from "@/app/components/collaboration"
+import { useUser } from "@/lib/user-store/provider"
 
 const getTextPreview = (url: string, fileName: string) => {
   // If it's a data URL, extract base64
@@ -79,6 +80,8 @@ export type MessageUserProps = {
   onEdit?: (id: string, newText: string) => void
   messageGroupId?: string | null
   isUserAuthenticated?: boolean
+  /** The user ID who sent this message (for collaborative chat sender attribution) */
+  userId?: string
 }
 
 export function MessageUser({
@@ -92,11 +95,13 @@ export function MessageUser({
   onEdit,
   messageGroupId,
   isUserAuthenticated,
+  userId,
 }: MessageUserProps) {
   const [editInput, setEditInput] = useState(children)
   const [isEditing, setIsEditing] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { user: currentUser } = useUser()
 
   // Read receipts (optional - only available in collaborative chats)
   const readReceiptsContext = useReadReceiptsContext()
@@ -117,6 +122,33 @@ export function MessageUser({
       readerCount: readReceiptsContext.getReaderCount(numericMessageId),
     }
   }, [readReceiptsContext, numericMessageId])
+
+  // Get sender info for collaborative chats
+  // Only show attribution for messages from OTHER users, not the current user
+  const senderInfo = useMemo(() => {
+    if (!readReceiptsContext?.isCollaborativeChat || !userId) return null
+
+    // Skip attribution for current user's own messages
+    if (currentUser?.id === userId) return null
+
+    // Look up sender in collaborators list
+    const collaborator = readReceiptsContext.collaborators.find(
+      (c) => c.user_id === userId
+    )
+
+    if (!collaborator?.user) return null
+
+    return {
+      displayName: collaborator.user.display_name || "Unknown",
+      profileImage: collaborator.user.profile_image,
+      initials: (collaborator.user.display_name || "U")
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase(),
+    }
+  }, [readReceiptsContext?.isCollaborativeChat, readReceiptsContext?.collaborators, userId, currentUser?.id])
 
   const handleEditCancel = () => {
     setIsEditing(false)
@@ -158,6 +190,27 @@ export function MessageUser({
         className
       )}
     >
+      {/* Sender attribution for collaborative chats */}
+      {senderInfo && (
+        <div className="flex items-center gap-2 mb-1 mr-1">
+          <span className="text-xs text-muted-foreground font-medium">
+            {senderInfo.displayName}
+          </span>
+          <div className="size-5 rounded-full overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
+            {senderInfo.profileImage ? (
+              <img
+                src={senderInfo.profileImage}
+                alt={senderInfo.displayName}
+                className="size-full object-cover"
+              />
+            ) : (
+              <span className="text-[8px] font-medium text-muted-foreground">
+                {senderInfo.initials}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       {attachments?.map((attachment, index) => {
         const isImage = attachment.contentType?.startsWith("image")
         const isTextFile = attachment.contentType?.startsWith("text") ||
@@ -293,8 +346,8 @@ export function MessageUser({
           {children}
         </MessageContent>
       )}
-      {/* Read receipt indicator - always visible below message in collaborative chats */}
-      {readReceiptsContext && numericMessageId && (
+      {/* Read receipt indicator - only visible in collaborative chats (chats with multiple collaborators) */}
+      {readReceiptsContext?.isCollaborativeChat && numericMessageId && (
         <div className="flex items-center justify-end gap-1 pr-1 -mt-1 mb-0.5">
           <ReadReceiptCheckmark
             hasBeenRead={readStatus.hasBeenRead}
