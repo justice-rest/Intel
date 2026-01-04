@@ -215,7 +215,16 @@ ${address ? `- Search Zillow, Redfin, Realtor.com, Trulia for "${streetAddress}"
 - "${firstName} ${lastName}" real estate holdings
 - "${lastName} family" properties "${state}"
 
-REPORT FORMAT: List each property with address, estimated value (with source), and property type. Calculate total real estate portfolio value.`
+**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
+Return property data in this EXACT format for each property found:
+PROPERTY: [full address]
+VALUE: $[amount] (e.g., $1,500,000 or $2.3M)
+SOURCE: [Zillow/Redfin/County Records]
+
+At the end, include:
+TOTAL REAL ESTATE: $[sum of all properties]
+
+If no properties found, state: "NO PROPERTY RECORDS FOUND"`
 
     queries.push({
       query: reQuery,
@@ -270,7 +279,17 @@ ${location ? `- Search ${state} Secretary of State business database for "${last
 - "${firstName} ${lastName}" company
 - "${name}" entrepreneur OR investor
 
-REPORT FORMAT: List each business with company name, role/title, estimated revenue or valuation, industry, and years involved. Flag if they are majority owner vs employee.`
+**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
+Return business data in this EXACT format for each company found:
+COMPANY: [company name]
+ROLE: [CEO/Founder/Owner/President/Partner/Director]
+REVENUE: $[amount] (if known, e.g., $5M or $50M)
+OWNERSHIP: [Owner/Employee/Board Member]
+
+At the end, include:
+TOTAL BUSINESSES: [count of businesses where person has ownership/executive role]
+
+If no businesses found, state: "NO BUSINESS OWNERSHIP FOUND"`
 
     queries.push({
       query: bizQuery,
@@ -329,7 +348,26 @@ CRITICAL SEARCH OBJECTIVES - Find ALL of the following:
 - What causes do they support? (education, healthcare, arts, environment, religion)
 - What organizations have they supported historically?
 
-REPORT FORMAT: List all foundation affiliations with assets, all board positions with org type, all known gifts with amounts and recipients, total political giving with party lean.`
+**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
+Return philanthropy data in these EXACT formats:
+
+FOUNDATIONS (if any):
+FOUNDATION: [name]
+ASSETS: $[amount]
+ROLE: [Trustee/Director/Donor]
+
+BOARD MEMBERSHIPS (if any):
+BOARD: [organization name]
+TYPE: [University/Hospital/Arts/Religious/Other]
+
+POLITICAL GIVING (from FEC):
+TOTAL POLITICAL: $[total amount]
+PARTY LEAN: [Republican/Democratic/Bipartisan]
+
+MAJOR GIFTS (if any):
+GIFT: $[amount] to [recipient] ([year if known])
+
+If none found in a category, state: "NONE FOUND"`
 
     queries.push({
       query: philQuery,
@@ -391,7 +429,22 @@ Schedule 13D/13G (Beneficial Ownership >5%):
 - "${name}" executive compensation proxy
 - "${lastName}" beneficial owner 13D
 
-REPORT FORMAT: List each public company affiliation with ticker symbol, role, shares owned, estimated value of holdings, and any recent transactions. Calculate total public securities portfolio value.`
+**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
+Return SEC data in this EXACT format:
+
+SEC FILINGS FOUND: [YES/NO]
+
+For each company affiliation:
+COMPANY: [company name]
+TICKER: [symbol, e.g., AAPL]
+ROLE: [Officer/Director/10%+ Owner]
+SHARES: [number of shares]
+VALUE: $[estimated value at current price]
+
+At the end, include:
+TOTAL SECURITIES VALUE: $[sum of all holdings]
+
+If no SEC filings found, state: "NO SEC FILINGS FOUND"`
 
     queries.push({
       query: secQuery,
@@ -457,7 +510,21 @@ CRITICAL SEARCH OBJECTIVES - Find ALL of the following:
 - "${name}" "${city}" background
 - "${lastName}" family "${state}"
 
-REPORT FORMAT: Provide age, spouse name, education credentials (all degrees), career summary with key positions, and notable affiliations. Calculate estimated years of high earning for wealth accumulation estimate.`
+**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
+Return biographical data in this EXACT format:
+
+AGE: [number] (or "UNKNOWN")
+SPOUSE: [full name] (or "NOT FOUND")
+EDUCATION:
+- [Degree] from [University] ([Year])
+- [Additional degrees...]
+
+CAREER: [Current title] at [Current company]. Previously: [key positions]
+
+YEARS OF HIGH EARNING: [estimated number, e.g., 25 years]
+ESTIMATED WEALTH ACCUMULATION PERIOD: [e.g., "$200K+ salary for 25 years"]
+
+If key data not found, state specific field as "NOT FOUND" rather than omitting.`
 
     queries.push({
       query: bioQuery,
@@ -579,7 +646,13 @@ function aggregateResults(
 }
 
 /**
- * Extract structured data from research text using regex patterns
+ * Extract structured data from research text using IMPROVED regex patterns
+ *
+ * ENHANCED EXTRACTION STRATEGY:
+ * - Multiple patterns per data type for better coverage
+ * - Aggressive dollar amount extraction
+ * - Property address detection
+ * - Business revenue/valuation extraction
  */
 function extractStructuredData(name: string, text: string): ProspectStructuredData {
   const structured: ProspectStructuredData = {
@@ -587,89 +660,326 @@ function extractStructuredData(name: string, text: string): ProspectStructuredDa
     summary: text.substring(0, 500) + (text.length > 500 ? "..." : ""),
   }
 
-  // Extract age
-  const ageMatch = text.match(/(?:age|aged?|born|is)\s*(?:in\s+)?(\d{2,3})(?:\s+years)?/i)
-  if (ageMatch) {
-    const age = parseInt(ageMatch[1], 10)
-    if (age > 18 && age < 120) {
-      structured.age = age
+  // =========================================================================
+  // AGE EXTRACTION - Including structured output format
+  // =========================================================================
+  const agePatterns = [
+    /AGE:\s*(\d{2,3})/i, // Structured output: AGE: 55
+    /(?:is|was|aged?|,)\s*(\d{2})(?:\s*years?\s*old|\s*,)/i,
+    /born\s+(?:in\s+)?(\d{4})/i, // Birth year
+    /age[:\s]+(\d{2})/i,
+    /(\d{2})\s*years?\s*old/i,
+  ]
+  for (const pattern of agePatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      let age = parseInt(match[1], 10)
+      // If it's a birth year, calculate age
+      if (age > 1900 && age < 2010) {
+        age = new Date().getFullYear() - age
+      }
+      if (age > 18 && age < 100) {
+        structured.age = age
+        break
+      }
     }
   }
 
-  // Extract spouse
-  const spouseMatch = text.match(/(?:spouse|wife|husband|partner|married to)\s*(?:is\s+)?["']?([A-Z][a-z]+ [A-Z][a-z]+)/i)
-  if (spouseMatch) {
-    structured.spouse = spouseMatch[1]
+  // =========================================================================
+  // SPOUSE EXTRACTION - Including structured output format
+  // =========================================================================
+  const spousePatterns = [
+    /SPOUSE:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/i, // Structured: SPOUSE: Jane Smith
+    /(?:spouse|wife|husband|partner|married\s+to)[:\s]+["']?([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})/i,
+    /(?:he|she)\s+(?:and|&)\s+(?:his|her)\s+(?:wife|husband)\s+([A-Z][a-z]+)/i,
+  ]
+  for (const pattern of spousePatterns) {
+    const match = text.match(pattern)
+    if (match && match[1] && !match[1].match(/NOT FOUND|UNKNOWN/i)) {
+      structured.spouse = match[1].trim()
+      break
+    }
   }
 
-  // Extract property values
-  const propertyMatches = text.matchAll(/\$([0-9,]+(?:\.[0-9]+)?)\s*(?:million|M|K)?\s*(?:home|property|house|estate|residence)/gi)
+  // =========================================================================
+  // PROPERTY VALUE EXTRACTION - Including structured output format
+  // =========================================================================
   const properties: Array<{ address: string; estimatedValue: number }> = []
   let totalRE = 0
-  for (const match of propertyMatches) {
-    const value = parseMoneyValue(match[0])
-    if (value > 50000) {
-      properties.push({ address: "Property", estimatedValue: value })
+
+  // NEW: Extract structured output format first (PROPERTY: / VALUE: pairs)
+  const structuredPropertyPattern = /PROPERTY:\s*([^\n]+)\s*\n\s*VALUE:\s*\$([0-9,.]+)\s*(million|M|billion|B|K|thousand)?/gi
+  const structuredMatches = text.matchAll(structuredPropertyPattern)
+  for (const match of structuredMatches) {
+    const address = match[1].trim()
+    const value = parseMoneyValue(`$${match[2]}${match[3] || ""}`)
+    if (value > 50000 && value < 500000000) {
+      properties.push({ address, estimatedValue: value })
+    }
+  }
+
+  // NEW: Extract TOTAL REAL ESTATE if provided
+  const totalREMatch = text.match(/TOTAL\s+REAL\s+ESTATE:\s*\$([0-9,.]+)\s*(million|M|billion|B|K|thousand)?/i)
+  if (totalREMatch) {
+    totalRE = parseMoneyValue(totalREMatch[0])
+  }
+
+  // Pattern 1: Dollar amounts near property words (fallback)
+  const propertyValuePatterns = [
+    /\$([0-9,.]+)\s*(million|M|billion|B|K|thousand)?\s*(?:home|house|property|residence|estate|mansion|condo|apartment)/gi,
+    /(?:home|house|property|residence|estate|valued?|worth|estimated)\s*(?:at|of|:)?\s*\$([0-9,.]+)\s*(million|M|billion|B|K|thousand)?/gi,
+    /(?:Zillow|Zestimate|Redfin|assessed|market\s+value)[:\s]*\$([0-9,.]+)\s*(million|M|billion|B|K|thousand)?/gi,
+    /(?:purchased|bought|sold)\s+(?:for|at)\s*\$([0-9,.]+)\s*(million|M|billion|B|K|thousand)?/gi,
+  ]
+
+  for (const pattern of propertyValuePatterns) {
+    const matches = text.matchAll(pattern)
+    for (const match of matches) {
+      const value = parseMoneyValue(match[0])
+      if (value > 100000 && value < 500000000) { // $100K - $500M reasonable range
+        properties.push({ address: "Property", estimatedValue: value })
+        totalRE += value
+      }
+    }
+  }
+
+  // Pattern 2: Address + value pattern (123 Main St... $1.5M)
+  const addressValuePattern = /(\d+\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*(?:\s+(?:St|Street|Ave|Avenue|Rd|Road|Dr|Drive|Ln|Lane|Way|Blvd|Court|Ct))[^$]*)\$([0-9,.]+)\s*(million|M|K)?/gi
+  const addressMatches = text.matchAll(addressValuePattern)
+  for (const match of addressMatches) {
+    const value = parseMoneyValue(`$${match[2]}${match[3] || ""}`)
+    if (value > 100000) {
+      properties.push({ address: match[1].trim().substring(0, 100), estimatedValue: value })
       totalRE += value
     }
   }
+
+  // Dedupe properties and take top values
   if (properties.length > 0) {
-    structured.realEstate = properties
-    structured.totalRealEstateValue = totalRE
+    const uniqueProperties = properties
+      .sort((a, b) => b.estimatedValue - a.estimatedValue)
+      .slice(0, 5) // Top 5 properties
+    structured.realEstate = uniqueProperties
+    structured.totalRealEstateValue = uniqueProperties.reduce((sum, p) => sum + p.estimatedValue, 0)
   }
 
-  // Extract businesses
-  const bizMatches = text.matchAll(/(?:CEO|founder|owner|president|chairman)\s+(?:of\s+)?["']?([A-Z][A-Za-z\s&]+?)["']?(?:\.|,|\s+and|\s+with)/gi)
-  const businesses: Array<{ name: string; role: string }> = []
-  for (const match of bizMatches) {
+  // =========================================================================
+  // BUSINESS EXTRACTION - Including structured output format
+  // =========================================================================
+  const businesses: Array<{ name: string; role: string; estimatedRevenue?: number }> = []
+
+  // NEW: Extract structured output format (COMPANY: / ROLE: pairs)
+  const structuredBizPattern = /COMPANY:\s*([^\n]+)\s*\n\s*ROLE:\s*([^\n]+)/gi
+  const structuredBizMatches = text.matchAll(structuredBizPattern)
+  for (const match of structuredBizMatches) {
     const bizName = match[1].trim()
-    if (bizName.length > 2 && bizName.length < 50) {
-      businesses.push({ name: bizName, role: match[0].split(/\s+/)[0] })
+    const role = match[2].trim()
+    if (bizName.length > 2 && bizName.length < 80 && !bizName.match(/NO BUSINESS|NONE FOUND/i)) {
+      // Look for revenue in nearby text
+      const revenueMatch = text.match(new RegExp(`${bizName}[^$]*REVENUE:\\s*\\$([0-9,.]+)\\s*(million|M|billion|B|K)?`, "i"))
+      businesses.push({
+        name: bizName,
+        role: role,
+        estimatedRevenue: revenueMatch ? parseMoneyValue(revenueMatch[0]) : undefined,
+      })
     }
   }
-  if (businesses.length > 0) {
-    structured.businesses = businesses
-  }
 
-  // Extract SEC mentions
-  const secMatch = text.match(/SEC|Form 4|insider|10-K|10-Q|proxy/i)
-  if (secMatch) {
-    structured.securities = { hasSecFilings: true }
-    const tickerMatches = text.matchAll(/\(([A-Z]{1,5})\)|\b([A-Z]{2,5})\s+stock/g)
-    const companies: Array<{ ticker: string; companyName: string }> = []
-    for (const match of tickerMatches) {
-      const ticker = match[1] || match[2]
-      if (ticker && ticker.length <= 5) {
-        companies.push({ ticker, companyName: ticker })
+  // Fallback: Pattern for role + company
+  const bizPatterns = [
+    /(?:CEO|Chief\s+Executive|founder|co-founder|owner|president|chairman|partner|managing\s+director)\s+(?:of|at|,)?\s*["']?([A-Z][A-Za-z0-9\s&.,'-]+?)["']?(?:\.|,|;|\s+and\s|\s+with\s|\s+since|\s+from)/gi,
+    /([A-Z][A-Za-z0-9\s&]+(?:LLC|Inc|Corp|Co|LP|Partners|Holdings|Enterprises|Group|Capital|Investments))/g,
+  ]
+
+  for (const pattern of bizPatterns) {
+    const matches = text.matchAll(pattern)
+    for (const match of matches) {
+      const bizName = (match[1] || match[0]).trim().replace(/[.,;]+$/, "")
+      if (bizName.length > 3 && bizName.length < 60 && !bizName.match(/^(The|A|An|And|Or|For|To)$/i)) {
+        const roleMatch = match[0].match(/CEO|founder|owner|president|chairman|partner|director/i)
+        businesses.push({
+          name: bizName,
+          role: roleMatch ? roleMatch[0] : "Executive",
+        })
       }
     }
+  }
+
+  // Dedupe businesses
+  if (businesses.length > 0) {
+    const seen = new Set<string>()
+    structured.businesses = businesses.filter(b => {
+      const key = b.name.toLowerCase()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    }).slice(0, 5)
+  }
+
+  // =========================================================================
+  // SEC FILINGS - ENHANCED
+  // =========================================================================
+  const secPatterns = [
+    /SEC\s+(?:EDGAR|filing|form)/i,
+    /Form\s+[34]/i,
+    /insider\s+(?:trading|transaction|filing)/i,
+    /beneficial\s+owner/i,
+    /proxy\s+statement/i,
+    /10-K|10-Q|DEF\s*14A/i,
+  ]
+
+  const hasSEC = secPatterns.some(p => p.test(text))
+  if (hasSEC) {
+    structured.securities = { hasSecFilings: true }
+
+    // Extract tickers
+    const tickerPatterns = [
+      /\(([A-Z]{1,5})\)/g, // (AAPL)
+      /(?:NYSE|NASDAQ|ticker)[:\s]+([A-Z]{1,5})/gi,
+      /\b([A-Z]{2,5})\s+(?:stock|shares)/g,
+    ]
+
+    const companies: Array<{ ticker: string; companyName: string }> = []
+    const seenTickers = new Set<string>()
+
+    for (const pattern of tickerPatterns) {
+      const matches = text.matchAll(pattern)
+      for (const match of matches) {
+        const ticker = match[1].toUpperCase()
+        // Filter out common false positives
+        if (ticker && ticker.length <= 5 && !seenTickers.has(ticker) &&
+            !["CEO", "CFO", "COO", "LLC", "INC", "USA", "THE", "AND", "FOR"].includes(ticker)) {
+          seenTickers.add(ticker)
+          companies.push({ ticker, companyName: ticker })
+        }
+      }
+    }
+
     if (companies.length > 0) {
-      structured.securities.companies = companies
+      structured.securities.companies = companies.slice(0, 10)
     }
   }
 
-  // Extract philanthropy
-  const foundationMatch = text.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:Family\s+)?Foundation/g)
-  if (foundationMatch) {
+  // =========================================================================
+  // PHILANTHROPY - ENHANCED
+  // =========================================================================
+  const foundations: Array<{ name: string }> = []
+
+  // Foundation patterns
+  const foundationPatterns = [
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+(?:Family\s+)?Foundation/g,
+    /([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\s+Charitable\s+(?:Trust|Fund)/g,
+  ]
+
+  for (const pattern of foundationPatterns) {
+    const matches = text.matchAll(pattern)
+    for (const match of matches) {
+      foundations.push({ name: match[0] })
+    }
+  }
+
+  // Board memberships
+  const boards: Array<{ organization: string }> = []
+  const boardPatterns = [
+    /(?:board|trustee|director)\s+(?:of|at|,)\s*(?:the\s+)?([A-Z][A-Za-z\s]+(?:Foundation|Hospital|University|Museum|Center|Institute|Association|Society))/gi,
+  ]
+
+  for (const pattern of boardPatterns) {
+    const matches = text.matchAll(pattern)
+    for (const match of matches) {
+      boards.push({ organization: match[1].trim() })
+    }
+  }
+
+  if (foundations.length > 0 || boards.length > 0) {
     structured.philanthropy = {
-      foundations: foundationMatch.map((f) => ({ name: f })),
+      foundations: foundations.slice(0, 5),
+      boardMemberships: boards.slice(0, 10),
     }
   }
 
-  // Extract political giving
-  const fecMatch = text.match(/\$([0-9,]+)\s*(?:to|in)\s*(?:political|FEC|campaign|contributions)/i)
-  if (fecMatch) {
-    const amount = parseMoneyValue(fecMatch[0])
-    structured.politicalGiving = { totalAmount: amount }
-    const partyMatch = text.match(/(Republican|Democrat|Democratic|GOP)/i)
-    if (partyMatch) {
-      structured.politicalGiving.partyLean = partyMatch[1].toUpperCase().includes("REPUB") ? "REPUBLICAN" : "DEMOCRATIC"
+  // =========================================================================
+  // POLITICAL GIVING - Including structured output format
+  // =========================================================================
+
+  // NEW: Extract structured output format first
+  const structuredPoliticalMatch = text.match(/TOTAL\s+POLITICAL:\s*\$([0-9,.]+)\s*(million|M|K|thousand)?/i)
+  let totalPolitical = structuredPoliticalMatch ? parseMoneyValue(structuredPoliticalMatch[0]) : 0
+
+  // Extract structured party lean
+  const structuredPartyMatch = text.match(/PARTY\s+LEAN:\s*(Republican|Democratic|Bipartisan)/i)
+
+  // Fallback patterns
+  const politicalPatterns = [
+    /\$([0-9,]+(?:\.[0-9]+)?)\s*(?:million|M|K|thousand)?\s*(?:to|in|of)?\s*(?:political|FEC|campaign|contribution|donation)/gi,
+    /(?:contributed|donated|gave)\s*\$([0-9,]+(?:\.[0-9]+)?)\s*(?:million|M|K|thousand)?/gi,
+    /(?:political|campaign)\s+(?:contribution|donation)[s]?\s*(?:of|totaling|:)?\s*\$([0-9,]+(?:\.[0-9]+)?)\s*(?:million|M|K|thousand)?/gi,
+    /FEC[^$]*\$([0-9,]+(?:\.[0-9]+)?)\s*(?:million|M|K|thousand)?/gi,
+  ]
+
+  if (totalPolitical === 0) {
+    for (const pattern of politicalPatterns) {
+      const matches = text.matchAll(pattern)
+      for (const match of matches) {
+        const amount = parseMoneyValue(match[0])
+        if (amount > 100 && amount < 100000000) { // $100 - $100M reasonable
+          totalPolitical = Math.max(totalPolitical, amount)
+        }
+      }
     }
   }
 
-  // Calculate giving capacity rating
+  if (totalPolitical > 0) {
+    structured.politicalGiving = { totalAmount: totalPolitical }
+
+    // Use structured party lean if available, otherwise detect from text
+    if (structuredPartyMatch) {
+      structured.politicalGiving.partyLean = structuredPartyMatch[1].toUpperCase() as "REPUBLICAN" | "DEMOCRATIC" | "BIPARTISAN"
+    } else {
+      // Party lean detection
+      const repMatch = text.match(/republican|GOP|conservative|trump|RNC/i)
+      const demMatch = text.match(/democrat|liberal|progressive|biden|DNC/i)
+      if (repMatch && !demMatch) {
+        structured.politicalGiving.partyLean = "REPUBLICAN"
+      } else if (demMatch && !repMatch) {
+        structured.politicalGiving.partyLean = "DEMOCRATIC"
+      } else if (repMatch && demMatch) {
+        structured.politicalGiving.partyLean = "BIPARTISAN"
+      }
+    }
+  }
+
+  // =========================================================================
+  // NET WORTH ESTIMATION
+  // =========================================================================
+  const netWorthPatterns = [
+    /net\s+worth[:\s]+\$([0-9,.]+)\s*(million|M|billion|B)?/gi,
+    /worth\s+(?:an?\s+)?(?:estimated\s+)?\$([0-9,.]+)\s*(million|M|billion|B)?/gi,
+    /estimated\s+(?:net\s+)?worth[:\s]+\$([0-9,.]+)\s*(million|M|billion|B)?/gi,
+  ]
+
+  for (const pattern of netWorthPatterns) {
+    const match = text.match(pattern)
+    if (match) {
+      const value = parseMoneyValue(match[0])
+      if (value > 100000) {
+        structured.netWorthEstimate = {
+          low: Math.round(value * 0.7),
+          high: Math.round(value * 1.3),
+        }
+        break
+      }
+    }
+  }
+
+  // =========================================================================
+  // GIVING CAPACITY RATING
+  // =========================================================================
   const totalWealth = (structured.totalRealEstateValue || 0) +
-    (structured.businesses?.length || 0) * 1000000 // Estimate $1M per business
+    (structured.businesses?.length || 0) * 1000000 + // $1M per business
+    (structured.securities?.hasSecFilings ? 500000 : 0) + // $500K if SEC filings
+    (totalPolitical * 10) // Political giving × 10 as wealth indicator
+
   if (totalWealth >= 5000000) {
     structured.givingCapacityRating = "A"
   } else if (totalWealth >= 1000000) {

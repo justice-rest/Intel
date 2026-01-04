@@ -367,6 +367,23 @@ function buildStructuredOutputFromLinkUp(
     capacityRating = ratingMap[structuredData.givingCapacityRating] || capacityRating
   }
 
+  // Calculate estimated gift capacity (5% of net worth - industry standard)
+  // Major donors typically give 3-7% of net worth over time
+  const estimatedGiftCapacity = avgNetWorth > 0 ? Math.round(avgNetWorth * 0.05) : null
+
+  // Calculate recommended ask based on capacity rating
+  // Use 1-2% of net worth for initial major gift ask
+  let recommendedAsk: number | null = null
+  if (avgNetWorth >= 5000000) {
+    recommendedAsk = Math.round(avgNetWorth * 0.01) // 1% for major donors ($50K+ ask)
+  } else if (avgNetWorth >= 1000000) {
+    recommendedAsk = Math.round(avgNetWorth * 0.015) // 1.5% for principal donors ($15K-$50K)
+  } else if (avgNetWorth >= 500000) {
+    recommendedAsk = Math.round(avgNetWorth * 0.02) // 2% for leadership donors ($10K-$15K)
+  } else if (avgNetWorth >= 100000) {
+    recommendedAsk = Math.round(avgNetWorth * 0.025) // 2.5% for emerging donors ($2.5K-$10K)
+  }
+
   // Determine confidence level
   let confidenceLevel: ResearchConfidence = "LOW"
   const hasPropertyData = (structuredData?.realEstate?.length || 0) > 0
@@ -434,8 +451,8 @@ function buildStructuredOutputFromLinkUp(
       estimated_net_worth_high: estimatedNetWorthHigh || null,
       capacity_rating: capacityRating,
       romy_score: 0, // Will be calculated later
-      estimated_gift_capacity: null,
-      recommended_ask: null,
+      estimated_gift_capacity: estimatedGiftCapacity,
+      recommended_ask: recommendedAsk,
     },
     wealth: {
       real_estate: {

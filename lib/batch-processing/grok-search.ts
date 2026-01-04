@@ -1,9 +1,11 @@
 /**
- * Grok Native Web Search Module
- * Uses Grok 4.1 Fast with native web search (includes X/Twitter search)
+ * Grok + Exa Web Search Module
+ * Uses Grok 4.1 Fast with Exa search engine for comprehensive web research
  *
- * Key advantage: Native engine provides both web search AND X (Twitter) search
- * in a single call, with structured annotations for reliable source extraction.
+ * Key advantage: Exa provides neural search combining keyword + embeddings
+ * for better relevance and coverage than native search alone.
+ *
+ * Exa Search: $4 per 1000 results (~$0.02 per call at 5 results)
  */
 
 // ============================================================================
@@ -476,7 +478,14 @@ export async function grokBatchSearch(
             ],
             max_tokens: MAX_OUTPUT_TOKENS,
             temperature: 0.1,
-            plugins: [{ id: "web", engine: "native" }],
+            // Exa search: Neural search combining keyword + embeddings for better relevance
+            // Cost: ~$0.02 per call (5 results × $4/1000)
+            plugins: [{
+              id: "web",
+              engine: "exa",
+              max_results: 8,
+              search_prompt: "Search for wealth indicators, property records, business ownership, philanthropic activity, SEC filings, and political contributions. Prioritize: Zillow, Redfin, SEC EDGAR, FEC, ProPublica, LinkedIn, Bloomberg, Forbes. Extract specific dollar amounts and dates.",
+            }],
             reasoning: { effort: "high" },
           }),
         }),
