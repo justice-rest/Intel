@@ -1028,10 +1028,32 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     console.log("[Chat API] Messages being sent:")
     cleanedMessages.forEach((msg, i) => {
       const msgAny = msg as any
-      console.log(`[Chat API]   [${i}] role: ${msg.role}, contentType: ${typeof msg.content}, hasAttachments: ${!!msgAny.experimental_attachments}`)
+      const contentEmpty = !msg.content || (typeof msg.content === "string" && !msg.content.trim()) || (Array.isArray(msg.content) && msg.content.length === 0)
+      console.log(`[Chat API]   [${i}] role: ${msg.role}, contentType: ${typeof msg.content}, isEmpty: ${contentEmpty}, hasAttachments: ${!!msgAny.experimental_attachments}`)
       if (Array.isArray(msg.content)) {
-        console.log(`[Chat API]       content parts: ${(msg.content as any[]).map((p: any) => p.type || 'text').join(', ')}`)
+        console.log(`[Chat API]       content parts: ${(msg.content as any[]).map((p: any) => `${p.type || 'unknown'}(${p.text ? 'has text' : 'no text'})`).join(', ')}`)
       }
+    })
+
+    // SAFETY NET: Final check for empty content (xAI/Grok requires non-empty content in every message)
+    // This should never trigger if cleanMessagesForTools is working correctly, but prevents API errors
+    const finalMessages = cleanedMessages.map((msg) => {
+      // Check if content is effectively empty
+      const isEmpty = !msg.content ||
+        (typeof msg.content === "string" && !msg.content.trim()) ||
+        (Array.isArray(msg.content) && (
+          msg.content.length === 0 ||
+          !msg.content.some((p: any) => (p.type === "text" && p.text?.trim()) || (p.type && p.type !== "text"))
+        ))
+
+      if (isEmpty) {
+        console.warn(`[Chat API] WARNING: Empty content detected in message ${msg.id}, role: ${msg.role}. Adding placeholder.`)
+        return {
+          ...msg,
+          content: msg.role === "assistant" ? "[Assistant response]" : "[User message]",
+        }
+      }
+      return msg
     })
 
     // =========================================================================
@@ -1044,7 +1066,7 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     const result = streamText({
       model: modelConfig.apiSdk(apiKey, { enableSearch, enableReasoning: true }),
       system: finalSystemPrompt,
-      messages: cleanedMessages,
+      messages: finalMessages,
       // Only pass tools if model supports them
       ...(modelSupportsTools && { tools }),
       // Allow multiple tool call steps for complex research workflows

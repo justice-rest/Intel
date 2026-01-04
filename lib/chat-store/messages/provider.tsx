@@ -248,11 +248,30 @@ export function MessagesProvider({
                 return prev
               }
 
+              // Get effective content - fallback to placeholder if empty (xAI/Grok requires non-empty)
+              let effectiveContent = newMessage.content || ""
+              if (!effectiveContent.trim()) {
+                // Try to extract from parts if available
+                if (newMessage.parts && Array.isArray(newMessage.parts)) {
+                  const texts: string[] = []
+                  for (const part of newMessage.parts as Array<{ type?: string; text?: string }>) {
+                    if (part?.type === "text" && part.text?.trim()) {
+                      texts.push(part.text)
+                    }
+                  }
+                  effectiveContent = texts.join("\n")
+                }
+                // Final fallback
+                if (!effectiveContent.trim()) {
+                  effectiveContent = newMessage.role === "assistant" ? "[Assistant response]" : "[User message]"
+                }
+              }
+
               // Convert DB message to AI SDK format
               // Include user_id for sender attribution in collaborative chats
               const aiMessage: MessageAISDK & { user_id?: string } = {
                 id: messageId,
-                content: newMessage.content || "",
+                content: effectiveContent,
                 role: newMessage.role as "user" | "assistant" | "system" | "data",
                 createdAt: new Date(newMessage.created_at),
                 user_id: newMessage.user_id || undefined,

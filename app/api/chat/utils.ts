@@ -12,16 +12,56 @@ export function cleanMessagesForTools(
   hasVision: boolean = true // Default to true for backwards compatibility
 ): MessageAISDK[] {
   // Helper to check if content is empty/invalid
+  // This handles both string content and array content with empty text parts
   const isEmptyContent = (content: unknown): boolean => {
     if (content === null || content === undefined) return true
     if (typeof content === "string") return content.trim() === ""
-    if (Array.isArray(content)) return content.length === 0
+    if (Array.isArray(content)) {
+      // Empty array is empty
+      if (content.length === 0) return true
+      // Check if all text parts are empty (xAI requires at least one non-empty content element)
+      const hasNonEmptyText = content.some((part: any) => {
+        if (part && typeof part === "object") {
+          // Text part - check if text is non-empty
+          if (part.type === "text" && typeof part.text === "string") {
+            return part.text.trim() !== ""
+          }
+          // Non-text parts (tool-invocation, image, etc.) count as content
+          if (part.type && part.type !== "text") {
+            return true
+          }
+        }
+        return false
+      })
+      return !hasNonEmptyText
+    }
     return false
+  }
+
+  // Helper to extract meaningful text from content arrays
+  const extractTextFromArray = (content: unknown[]): string => {
+    const texts: string[] = []
+    for (const part of content) {
+      if (part && typeof part === "object" && (part as any).type === "text") {
+        const text = (part as any).text
+        if (typeof text === "string" && text.trim()) {
+          texts.push(text.trim())
+        }
+      }
+    }
+    return texts.join("\n")
   }
 
   // Always sanitize messages to ensure no empty content (xAI/Grok requires non-empty)
   const sanitizedMessages = messages.map((message) => {
     if (isEmptyContent(message.content)) {
+      // For arrays with empty text, try to extract any meaningful content first
+      if (Array.isArray(message.content)) {
+        const extractedText = extractTextFromArray(message.content)
+        if (extractedText) {
+          return { ...message, content: extractedText }
+        }
+      }
       return {
         ...message,
         content: message.role === "assistant" ? "[Assistant response]" : "[User message]",

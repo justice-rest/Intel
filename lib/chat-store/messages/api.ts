@@ -10,6 +10,45 @@ export interface ExtendedMessageAISDK extends MessageAISDK {
   user_id?: string
 }
 
+/**
+ * Extract text content from message parts array
+ * Used when content field is empty but parts have data
+ */
+function extractContentFromParts(parts: unknown[] | null): string {
+  if (!parts || !Array.isArray(parts) || parts.length === 0) return ""
+
+  const texts: string[] = []
+  for (const part of parts) {
+    if (part && typeof part === "object") {
+      const p = part as { type?: string; text?: string }
+      if (p.type === "text" && typeof p.text === "string" && p.text.trim()) {
+        texts.push(p.text)
+      }
+    }
+  }
+  return texts.join("\n")
+}
+
+/**
+ * Get effective content, preferring content field but falling back to parts
+ * This ensures messages always have non-empty content for xAI/Grok
+ */
+function getEffectiveContent(content: string | null, parts: unknown[] | null, role: string): string {
+  // If content has text, use it
+  if (content && content.trim()) {
+    return content
+  }
+
+  // Try to extract from parts
+  const partsContent = extractContentFromParts(parts)
+  if (partsContent) {
+    return partsContent
+  }
+
+  // Fallback placeholder to prevent xAI empty content errors
+  return role === "assistant" ? "[Assistant response]" : "[User message]"
+}
+
 export async function getMessagesFromDb(
   chatId: string
 ): Promise<MessageAISDK[]> {
@@ -40,7 +79,12 @@ export async function getMessagesFromDb(
   return data.map((message) => ({
     id: String(message.id),
     role: message.role as MessageAISDK["role"],
-    content: (message.content as string) ?? "",
+    // Use getEffectiveContent to ensure non-empty content for xAI/Grok
+    content: getEffectiveContent(
+      message.content as string | null,
+      message.parts as unknown[] | null,
+      message.role as string
+    ),
     createdAt: new Date((message.created_at as string) || ""),
     experimental_attachments: message.experimental_attachments as MessageAISDK["experimental_attachments"],
     parts: (message.parts as MessageAISDK["parts"]) || undefined,
@@ -80,7 +124,12 @@ export async function getLastMessagesFromDb(
   return ascendingData.map((message) => ({
     ...message,
     id: String(message.id),
-    content: message.content ?? "",
+    // Use getEffectiveContent to ensure non-empty content for xAI/Grok
+    content: getEffectiveContent(
+      message.content as string | null,
+      message.parts as unknown[] | null,
+      message.role as string
+    ),
     createdAt: new Date(message.created_at || ""),
     parts: (message?.parts as MessageAISDK["parts"]) || undefined,
     message_group_id: message.message_group_id,
