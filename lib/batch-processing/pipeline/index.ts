@@ -19,3 +19,9 @@ export {
   type ResearchPipelineConfig,
   type ResearchPipelineResult,
 } from "./research-pipeline"
+
+export {
+  adaptPipelineResultToDbFormat,
+  type BatchItemUpdateData,
+  type AdaptedPipelineResult,
+} from "./pipeline-adapter"
