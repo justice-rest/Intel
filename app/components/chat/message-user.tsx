@@ -175,15 +175,26 @@ export function MessageUser({
 
     if (!collaborator?.user) return null
 
+    // Use display_name, fall back to email username (truncated), then "Unknown"
+    let displayName = collaborator.user.display_name
+      || collaborator.user.email?.split("@")[0]
+      || "Unknown"
+
+    // Truncate long names (e.g., email usernames) to 12 chars with ellipsis
+    if (displayName.length > 12 && !collaborator.user.display_name) {
+      displayName = displayName.slice(0, 10) + ".."
+    }
+
     return {
-      displayName: collaborator.user.display_name || "Unknown",
+      displayName,
       profileImage: collaborator.user.profile_image,
-      initials: (collaborator.user.display_name || "U")
+      initials: displayName
         .split(" ")
+        .filter((n) => n.length > 0)
         .map((n) => n[0])
         .slice(0, 2)
         .join("")
-        .toUpperCase(),
+        .toUpperCase() || "U",
     }
   }, [readReceiptsContext?.isCollaborativeChat, readReceiptsContext?.collaborators, userId, currentUser?.id])
 

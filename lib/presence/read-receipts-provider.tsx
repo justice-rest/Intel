@@ -45,6 +45,7 @@ export interface ReadReceiptsContextValue {
     user?: {
       display_name: string | null
       profile_image: string | null
+      email?: string | null
     }
   }>
   /** Whether this is a collaborative chat (has multiple collaborators) */
@@ -208,6 +209,7 @@ export function ReadReceiptsProvider({
       ? {
           display_name: c.user.display_name,
           profile_image: c.user.profile_image,
+          email: c.user.email,
         }
       : undefined,
   }))
