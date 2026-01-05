@@ -26,53 +26,22 @@ export async function getChatsForUserInDb(userId: string): Promise<Chats[]> {
   const supabase = createClient()
   if (!supabase) return []
 
-  // Use RPC function to get both owned AND shared (collaborated) chats
-  // This ensures users can see chats they've been invited to via share links
-  const { data, error } = await supabase.rpc("get_user_accessible_chats", {
-    p_user_id: userId,
-  })
+  // Direct query for user's own chats (collaborative chats feature was removed)
+  const { data, error } = await supabase
+    .from("chats")
+    .select("*")
+    .eq("user_id", userId)
+    .order("pinned", { ascending: false })
+    .order("pinned_at", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false })
 
   if (!data || error) {
     console.error("Failed to fetch chats:", error)
-    // Fallback to owned chats only if RPC fails (e.g., function not deployed yet)
-    if (error?.code === "42883") {
-      // Function does not exist - fallback to direct query
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from("chats")
-        .select("*")
-        .eq("user_id", userId)
-        .order("pinned", { ascending: false })
-        .order("pinned_at", { ascending: false, nullsFirst: false })
-        .order("updated_at", { ascending: false })
-
-      if (!fallbackData || fallbackError) {
-        console.error("Fallback query also failed:", fallbackError)
-        return []
-      }
-      return normalizeChatsModelIds(fallbackData)
-    }
     return []
   }
 
-  // Sort results since RPC returns in order but we need to ensure pinned are first
-  const sortedData = [...data].sort((a, b) => {
-    // Pinned chats first
-    if (a.pinned && !b.pinned) return -1
-    if (!a.pinned && b.pinned) return 1
-    // Then by pinned_at for pinned chats
-    if (a.pinned && b.pinned) {
-      const aPinnedAt = a.pinned_at ? new Date(a.pinned_at).getTime() : 0
-      const bPinnedAt = b.pinned_at ? new Date(b.pinned_at).getTime() : 0
-      return bPinnedAt - aPinnedAt
-    }
-    // Then by updated_at for non-pinned chats
-    const aUpdated = a.updated_at ? new Date(a.updated_at).getTime() : 0
-    const bUpdated = b.updated_at ? new Date(b.updated_at).getTime() : 0
-    return bUpdated - aUpdated
-  })
-
   // Normalize model IDs for backwards compatibility
-  return normalizeChatsModelIds(sortedData)
+  return normalizeChatsModelIds(data)
 }
 
 export async function updateChatTitleInDb(id: string, title: string) {
@@ -98,35 +67,20 @@ export async function getAllUserChatsInDb(userId: string): Promise<Chats[]> {
   const supabase = createClient()
   if (!supabase) return []
 
-  // Use RPC function to get both owned AND shared (collaborated) chats
-  const { data, error } = await supabase.rpc("get_user_accessible_chats", {
-    p_user_id: userId,
-  })
+  // Direct query for user's own chats (collaborative chats feature was removed)
+  const { data, error } = await supabase
+    .from("chats")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
 
   if (!data || error) {
-    // Fallback to owned chats only if RPC fails
-    if (error?.code === "42883") {
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from("chats")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-
-      if (!fallbackData || fallbackError) return []
-      return normalizeChatsModelIds(fallbackData)
-    }
+    console.error("Failed to fetch all user chats:", error)
     return []
   }
 
-  // Sort by created_at descending
-  const sortedData = [...data].sort((a, b) => {
-    const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0
-    const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0
-    return bCreated - aCreated
-  })
-
   // Normalize model IDs for backwards compatibility
-  return normalizeChatsModelIds(sortedData)
+  return normalizeChatsModelIds(data)
 }
 
 export async function createChatInDb(
@@ -365,6 +319,10 @@ export async function createNewChat(
       pinned: responseData.chat.pinned ?? false,
       pinned_at: responseData.chat.pinned_at ?? null,
       system_prompt: responseData.chat.system_prompt ?? null,
+      // Persona system columns
+      persona_id: responseData.chat.persona_id ?? null,
+      knowledge_profile_id: responseData.chat.knowledge_profile_id ?? null,
+      custom_system_prompt: responseData.chat.custom_system_prompt ?? null,
     }
 
     await writeToIndexedDB("chats", chat)

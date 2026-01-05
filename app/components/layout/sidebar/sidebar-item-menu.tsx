@@ -173,7 +173,7 @@ export function SidebarItemMenu({
         setIsOpen={setIsAssignPersonaOpen}
         chatId={chat.id}
         chatTitle={chat.title || "Untitled chat"}
-        currentPersonaId={(chat as any).persona_id}
+        currentPersonaId={chat.persona_id}
         onPersonaChange={() => refresh()}
       />
     </>

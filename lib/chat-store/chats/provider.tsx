@@ -148,7 +148,7 @@ export function ChatsProvider({
     const prev = [...chats]
 
     const optimisticId = `optimistic-${Date.now().toString()}`
-    const optimisticChat = {
+    const optimisticChat: Chats = {
       id: optimisticId,
       title: title || "New Chat",
       created_at: new Date().toISOString(),
@@ -160,6 +160,10 @@ export function ChatsProvider({
       project_id: null,
       pinned: false,
       pinned_at: null,
+      // Persona system columns (null for new chats)
+      persona_id: null,
+      knowledge_profile_id: null,
+      custom_system_prompt: null,
     }
     setChats((prev) => [optimisticChat, ...prev])
 
