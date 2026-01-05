@@ -27,12 +27,6 @@ import {
 } from "@phosphor-icons/react"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
-import { formatMessageTimestamp, formatFullTimestamp } from "./format-timestamp"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 const getTextPreview = (url: string, fileName: string) => {
   // If it's a data URL, extract base64
@@ -279,21 +273,6 @@ export function MessageUser({
         >
           {children}
         </MessageContent>
-      )}
-      {/* Timestamp */}
-      {createdAt && (
-        <div className="flex items-center justify-end gap-1.5 pr-1 -mt-1 mb-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="text-[10px] text-muted-foreground/70 cursor-default">
-                {formatMessageTimestamp(createdAt)}
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              {formatFullTimestamp(createdAt)}
-            </TooltipContent>
-          </Tooltip>
-        </div>
       )}
       <MessageActions className="flex items-center gap-0 opacity-0 transition-opacity duration-0 group-hover:opacity-100">
         <MessageAction tooltip={copied ? "Copied!" : "Copy text"} side="bottom">

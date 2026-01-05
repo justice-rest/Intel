@@ -22,12 +22,6 @@ import { CitationSources } from "./citation-sources"
 import { ToolInvocation } from "./tool-invocation"
 import { useAssistantMessageSelection } from "./useAssistantMessageSelection"
 import { NotesTrigger } from "./notes/notes-trigger"
-import { formatMessageTimestamp, formatFullTimestamp } from "./format-timestamp"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 
 type MessageAssistantProps = {
   children: string
@@ -177,22 +171,6 @@ export function MessageAssistant({
 
         {citations && citations.length > 0 && (
           <CitationSources citations={citations} />
-        )}
-
-        {/* Timestamp - visible on hover */}
-        {createdAt && !isLastStreaming && (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-[10px] text-muted-foreground/70 cursor-default">
-                  {formatMessageTimestamp(createdAt)}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">
-                {formatFullTimestamp(createdAt)}
-              </TooltipContent>
-            </Tooltip>
-          </div>
         )}
 
         {Boolean(isLastStreaming || contentNullOrEmpty) ? null : (
