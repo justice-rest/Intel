@@ -5,9 +5,6 @@ import { Conversation } from "@/app/components/chat/conversation"
 import { LoaderOverlay } from "@/app/components/chat/loader-overlay"
 import { DropZone } from "@/app/components/split-view"
 import { useModel } from "@/app/components/chat/use-model"
-import { CollaborationWrapper, HeaderCollaboration } from "@/app/components/collaboration"
-import { useCollaboratorsOptional } from "@/lib/collaboration"
-import { usePresenceOptional } from "@/lib/presence"
 import { useChatDraft } from "@/app/hooks/use-chat-draft"
 import { useSlashCommands } from "@/app/hooks/use-slash-commands"
 import { useChats } from "@/lib/chat-store/chats/provider"
@@ -164,23 +161,6 @@ export function Chat({
     [processSlashCommand]
   )
 
-  // Collaboration context (available when inside CollaborationWrapper)
-  // These hooks are called inside CollaborationWrapper's children render
-  const collaboratorsContext = useCollaboratorsOptional()
-  const presenceContext = usePresenceOptional()
-
-  // Derive collaboration state
-  const isViewerRole = collaboratorsContext?.currentUserRole === "viewer"
-  const canEdit = collaboratorsContext?.canEdit ?? true
-
-  // Typing handler for collaboration
-  const handleTypingChange = useCallback(
-    (isTyping: boolean) => {
-      presenceContext?.setTyping(isTyping)
-    },
-    [presenceContext]
-  )
-
   // Chat operations (utils + handlers) - created first
   const { checkLimitsAndNotify, ensureChatExists, handleDelete } =
     useChatOperations({
@@ -311,79 +291,6 @@ export function Chat({
   // Keep loader visible throughout entire streaming process (including tool execution)
   const isWaitingForResponse = status === "submitted" || status === "streaming"
 
-  // Track previous status to detect streaming completion
-  const prevStatusRef = useRef<string | undefined>(undefined)
-
-  // Broadcast AI status to collaborators when status changes
-  useEffect(() => {
-    if (!presenceContext) return
-
-    const prevStatus = prevStatusRef.current
-    prevStatusRef.current = status
-
-    if (status === "submitted") {
-      presenceContext.broadcastAIStatus("thinking")
-    } else if (status === "streaming") {
-      if (hasActiveToolCalls) {
-        // Get the active tool name if available
-        const activeTool = lastMessage?.parts?.find(
-          (part: { type: string; toolInvocation?: { state?: string; toolName?: string } }) =>
-            part.type === "tool-invocation" && part.toolInvocation?.state !== "result"
-        ) as { toolInvocation?: { toolName?: string } } | undefined
-        presenceContext.broadcastAIStatus("using_tools", activeTool?.toolInvocation?.toolName)
-      } else {
-        presenceContext.broadcastAIStatus("streaming")
-      }
-    } else if (status === "ready" || status === "error") {
-      // When streaming just completed, broadcast final content before clearing
-      // This ensures collaborators see the complete message before it transitions
-      // to the database-synced message
-      if (prevStatus === "streaming" && lastMessage?.role === "assistant") {
-        const content = lastMessage.content || ""
-        const parts = lastMessage.parts
-        if (content || (parts && parts.length > 0)) {
-          presenceContext.broadcastStreamingContent(content, parts)
-        }
-      }
-
-      presenceContext.clearAIStatus()
-      // Delay clearing streaming content slightly to ensure smooth transition
-      // The database INSERT event should arrive within this window
-      setTimeout(() => {
-        presenceContext.clearStreamingContent()
-      }, 500)
-    }
-  }, [status, hasActiveToolCalls, presenceContext, lastMessage?.parts, lastMessage?.content, lastMessage?.role])
-
-  // Broadcast streaming content to collaborators in real-time
-  // Throttled to avoid overwhelming the channel (every 100ms)
-  const lastBroadcastRef = useRef<number>(0)
-  const BROADCAST_THROTTLE_MS = 100
-
-  useEffect(() => {
-    if (!presenceContext || status !== "streaming") return
-    if (!lastMessage || lastMessage.role !== "assistant") return
-
-    const now = Date.now()
-    if (now - lastBroadcastRef.current < BROADCAST_THROTTLE_MS) return
-    lastBroadcastRef.current = now
-
-    // Broadcast the current streaming content
-    const content = lastMessage.content || ""
-    const parts = lastMessage.parts
-
-    // Only broadcast if there's actual content
-    if (content || (parts && parts.length > 0)) {
-      presenceContext.broadcastStreamingContent(content, parts)
-    }
-  }, [status, lastMessage?.content, lastMessage?.parts, lastMessage?.role, presenceContext])
-
-  // Derive if a collaborator's AI is currently responding
-  // This blocks input to prevent race conditions in collaborative chats
-  const collaboratorAIStatus = presenceContext?.aiStatus ?? null
-  const isCollaboratorAIResponding = collaboratorAIStatus !== null &&
-    collaboratorAIStatus.status !== "idle"
-
   // Memoize the chat input props
   const chatInputProps = useMemo(
     () => ({
@@ -408,18 +315,6 @@ export function Chat({
       firstName,
       hasActiveSubscription,
       onSlashCommand: handleSlashCommand,
-      isViewerRole,
-      onTypingChange: handleTypingChange,
-      collaboratorAIStatus: isCollaboratorAIResponding ? collaboratorAIStatus : null,
-      // Transform online users to collaborator format for @mention support
-      collaborators: presenceContext?.onlineUsers.map((u) => ({
-        user_id: u.user_id,
-        user: {
-          display_name: u.display_name,
-          profile_image: u.profile_image,
-        },
-      })) ?? [],
-      isCollaborativeChat: presenceContext?.isCollaborativeChat ?? false,
     }),
     [
       input,
@@ -443,12 +338,6 @@ export function Chat({
       firstName,
       hasActiveSubscription,
       handleSlashCommand,
-      isViewerRole,
-      handleTypingChange,
-      isCollaboratorAIResponding,
-      collaboratorAIStatus,
-      presenceContext?.onlineUsers,
-      presenceContext?.isCollaborativeChat,
     ]
   )
 
@@ -470,19 +359,15 @@ export function Chat({
   const showOnboarding = !chatId && messages.length === 0 && !isSubmitting && !hasSentFirstMessageRef.current
 
   return (
-    <CollaborationWrapper chatId={chatId}>
-      <div
-        className={cn(
-          "@container/main relative flex h-full flex-col items-center justify-end md:justify-center"
-        )}
-      >
-        {/* Drop zone for initiating split view - only show when not already in split mode */}
-        {!isSplitActive && (
-          <DropZone onDrop={handleSplitDrop} currentChatId={chatId} />
-        )}
-
-        {/* Collaboration dialogs - rendered inline, triggered by header button */}
-        <HeaderCollaboration />
+    <div
+      className={cn(
+        "@container/main relative flex h-full flex-col items-center justify-end md:justify-center"
+      )}
+    >
+      {/* Drop zone for initiating split view - only show when not already in split mode */}
+      {!isSplitActive && (
+        <DropZone onDrop={handleSplitDrop} currentChatId={chatId} />
+      )}
 
       <DialogAuth open={hasDialogAuth} setOpen={setHasDialogAuth} />
       <DialogSubscriptionRequired
@@ -554,14 +439,11 @@ export function Chat({
           enableSearch={enableSearch}
           startTime={responseStartTime ?? null}
           isExecutingTools={hasActiveToolCalls}
-          typingUsers={presenceContext?.typingUsers ?? []}
-          collaboratorAIStatus={presenceContext?.aiStatus ?? null}
         />
         <ChatInput {...chatInputProps} />
       </motion.div>
 
-        <FeedbackWidget authUserId={user?.id} />
-      </div>
-    </CollaborationWrapper>
+      <FeedbackWidget authUserId={user?.id} />
+    </div>
   )
 }

@@ -47,55 +47,35 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // First check if user is the owner of the chat
-    const { data: chat, error: chatError } = await supabase
-      .from("chats")
-      .select("id, user_id, system_prompt")
-      .eq("id", chatId)
-      .single()
-
-    if (chatError || !chat) {
-      return NextResponse.json(
-        { error: "Chat not found" },
-        { status: 404 }
-      )
-    }
-
-    // Check permissions: must be owner or have editor role
-    let hasPermission = chat.user_id === user.id
-
-    if (!hasPermission) {
-      // Check if user is a collaborator with editor+ role
-      const { data: collaborator } = await supabase
-        .from("chat_collaborators")
-        .select("role")
-        .eq("chat_id", chatId)
-        .eq("user_id", user.id)
-        .single()
-
-      if (collaborator && (collaborator.role === "owner" || collaborator.role === "editor")) {
-        hasPermission = true
-      }
-    }
-
-    if (!hasPermission) {
-      return NextResponse.json(
-        { error: "You don't have permission to edit this chat's instructions" },
-        { status: 403 }
-      )
-    }
-
-    // Update the system_prompt field
-    const { error: updateError } = await supabase
+    // Update the system_prompt field - RLS enforces ownership
+    const { data: updatedChat, error: updateError } = await supabase
       .from("chats")
       .update({ system_prompt: instructions || null })
       .eq("id", chatId)
+      .eq("user_id", user.id) // Only owner can update
+      .select()
+      .single()
 
     if (updateError) {
       console.error("[update-chat-instructions] Update error:", updateError)
+
+      if (updateError.code === "PGRST116") {
+        return NextResponse.json(
+          { error: "Chat not found or you don't have permission" },
+          { status: 404 }
+        )
+      }
+
       return NextResponse.json(
         { error: "Failed to update instructions" },
         { status: 500 }
+      )
+    }
+
+    if (!updatedChat) {
+      return NextResponse.json(
+        { error: "Chat not found or you don't have permission" },
+        { status: 404 }
       )
     }
 

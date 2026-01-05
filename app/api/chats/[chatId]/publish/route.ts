@@ -2,18 +2,16 @@
  * Publish Chat API
  * POST /api/chats/[chatId]/publish - Make a chat public
  *
- * This endpoint allows chat owners and editors to make a chat public.
- * Uses server-side auth and RLS bypass for editors.
+ * This endpoint allows chat owners to make a chat public.
  */
 
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
-import { checkUserChatRole } from "@/lib/collaboration"
 
 /**
  * POST /api/chats/[chatId]/publish
  * Make a chat public
- * Requires: Editor+ role (owner or editor can publish)
+ * Requires: Chat owner
  */
 export async function POST(
   request: Request,
@@ -39,21 +37,6 @@ export async function POST(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Check if user has at least editor role on this chat
-    const { hasAccess, userRole } = await checkUserChatRole(
-      supabase,
-      user.id,
-      chatId,
-      "editor" // Editors and owners can publish
-    )
-
-    if (!hasAccess) {
-      return NextResponse.json(
-        { error: "You don't have permission to publish this chat" },
-        { status: 403 }
-      )
-    }
-
     // Parse request body for public status
     let makePublic = true
     try {
@@ -65,26 +48,22 @@ export async function POST(
       // Default to making public if no body provided
     }
 
-    // Use service role or RPC to update the chat
-    // Since we've verified the user has editor+ access, we can safely update
+    // Update the chat - RLS will enforce that user owns the chat
     const { data, error } = await supabase
       .from("chats")
       .update({ public: makePublic })
       .eq("id", chatId)
+      .eq("user_id", user.id) // Ensure user owns the chat
       .select()
       .single()
 
     if (error) {
       console.error("[publish] Update error:", error)
 
-      // If RLS blocks the update, try using RPC
-      // This happens when a collaborator (not owner) tries to publish
-      if (error.code === "42501" || error.message?.includes("policy")) {
-        // Create an RPC function or use service role for this
-        // For now, return a helpful error
+      if (error.code === "PGRST116") {
         return NextResponse.json(
-          { error: "Unable to publish. Please ask the chat owner to publish." },
-          { status: 403 }
+          { error: "Chat not found or you don't have permission" },
+          { status: 404 }
         )
       }
 

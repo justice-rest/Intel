@@ -26,11 +26,8 @@ import {
   PencilSimpleSlashIcon,
 } from "@phosphor-icons/react"
 import Image from "next/image"
-import React, { useEffect, useRef, useState, useMemo, useCallback } from "react"
-import { useReadReceiptsContext } from "@/lib/presence"
-import { ReadReceiptCheckmark } from "@/app/components/collaboration"
+import React, { useEffect, useRef, useState } from "react"
 import { formatMessageTimestamp, formatFullTimestamp } from "./format-timestamp"
-import { useUser } from "@/lib/user-store/provider"
 import {
   Tooltip,
   TooltipContent,
@@ -86,8 +83,6 @@ export type MessageUserProps = {
   onEdit?: (id: string, newText: string) => void
   messageGroupId?: string | null
   isUserAuthenticated?: boolean
-  /** The user ID who sent this message (for collaborative chat sender attribution) */
-  userId?: string
   /** Message creation timestamp */
   createdAt?: Date
 }
@@ -103,72 +98,12 @@ export function MessageUser({
   onEdit,
   messageGroupId,
   isUserAuthenticated,
-  userId,
   createdAt,
 }: MessageUserProps) {
   const [editInput, setEditInput] = useState(children)
   const [isEditing, setIsEditing] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const { user: currentUser } = useUser()
-
-  // Read receipts (optional - only available in collaborative chats)
-  const readReceiptsContext = useReadReceiptsContext()
-
-  // Parse numeric message ID for read receipts
-  const numericMessageId = useMemo(() => {
-    const parsed = parseInt(id, 10)
-    return isNaN(parsed) ? null : parsed
-  }, [id])
-
-  // Get read status for this message
-  const readStatus = useMemo(() => {
-    if (!readReceiptsContext || !numericMessageId) {
-      return { hasBeenRead: false, readerCount: 0 }
-    }
-    return {
-      hasBeenRead: readReceiptsContext.hasBeenRead(numericMessageId),
-      readerCount: readReceiptsContext.getReaderCount(numericMessageId),
-    }
-  }, [readReceiptsContext, numericMessageId])
-
-  // Get sender info for collaborative chats
-  // Only show attribution for messages from OTHER users, not the current user
-  const senderInfo = useMemo(() => {
-    if (!readReceiptsContext?.isCollaborativeChat || !userId) return null
-
-    // Skip attribution for current user's own messages
-    if (currentUser?.id === userId) return null
-
-    // Look up sender in collaborators list
-    const collaborator = readReceiptsContext.collaborators.find(
-      (c) => c.user_id === userId
-    )
-
-    if (!collaborator?.user) return null
-
-    // Use display_name, fall back to email username (truncated), then "Unknown"
-    let displayName = collaborator.user.display_name
-      || collaborator.user.email?.split("@")[0]
-      || "Unknown"
-
-    // Truncate long names (e.g., email usernames) to 12 chars with ellipsis
-    if (displayName.length > 12 && !collaborator.user.display_name) {
-      displayName = displayName.slice(0, 10) + ".."
-    }
-
-    return {
-      displayName,
-      profileImage: collaborator.user.profile_image,
-      initials: displayName
-        .split(" ")
-        .filter((n) => n.length > 0)
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join("")
-        .toUpperCase() || "U",
-    }
-  }, [readReceiptsContext?.isCollaborativeChat, readReceiptsContext?.collaborators, userId, currentUser?.id])
 
   const handleEditCancel = () => {
     setIsEditing(false)
@@ -210,27 +145,6 @@ export function MessageUser({
         className
       )}
     >
-      {/* Sender attribution for collaborative chats */}
-      {senderInfo && (
-        <div className="flex items-center gap-2 mb-1 mr-1">
-          <span className="text-xs text-muted-foreground font-medium">
-            {senderInfo.displayName}
-          </span>
-          <div className="size-5 rounded-full overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-            {senderInfo.profileImage ? (
-              <img
-                src={senderInfo.profileImage}
-                alt={senderInfo.displayName}
-                className="size-full object-cover"
-              />
-            ) : (
-              <span className="text-[8px] font-medium text-muted-foreground">
-                {senderInfo.initials}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
       {attachments?.map((attachment, index) => {
         const isImage = attachment.contentType?.startsWith("image")
         const isTextFile = attachment.contentType?.startsWith("text") ||
@@ -366,10 +280,9 @@ export function MessageUser({
           {children}
         </MessageContent>
       )}
-      {/* Timestamp and read receipt indicator */}
-      <div className="flex items-center justify-end gap-1.5 pr-1 -mt-1 mb-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* Timestamp - visible on hover */}
-        {createdAt && (
+      {/* Timestamp */}
+      {createdAt && (
+        <div className="flex items-center justify-end gap-1.5 pr-1 -mt-1 mb-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="text-[10px] text-muted-foreground/70 cursor-default">
@@ -380,15 +293,8 @@ export function MessageUser({
               {formatFullTimestamp(createdAt)}
             </TooltipContent>
           </Tooltip>
-        )}
-        {/* Read receipt indicator - only visible in collaborative chats */}
-        {readReceiptsContext?.isCollaborativeChat && numericMessageId && (
-          <ReadReceiptCheckmark
-            hasBeenRead={readStatus.hasBeenRead}
-            readerCount={readStatus.readerCount}
-          />
-        )}
-      </div>
+        </div>
+      )}
       <MessageActions className="flex items-center gap-0 opacity-0 transition-opacity duration-0 group-hover:opacity-100">
         <MessageAction tooltip={copied ? "Copied!" : "Copy text"} side="bottom">
           <button

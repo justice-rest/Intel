@@ -28,9 +28,3 @@ export {
   getShareConversationEmailSubject,
 } from "./templates/share-conversation"
 export type { ShareConversationEmailData } from "./templates/share-conversation"
-
-export {
-  getCollaborationInviteEmailHtml,
-  getCollaborationInviteEmailSubject,
-} from "./templates/collaboration-invite"
-export type { CollaborationInviteEmailData } from "./templates/collaboration-invite"
