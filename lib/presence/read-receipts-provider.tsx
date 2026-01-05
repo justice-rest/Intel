@@ -111,9 +111,13 @@ export function ReadReceiptsProvider({
     const supabase = createClient()
     if (!supabase) return
 
+    // Generate unique instance ID for this subscription (prevents "subscribe multiple times" error in split-view)
+    const instanceId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+    let isCancelled = false
+
     // Subscribe to read receipt changes
     const channel = supabase
-      .channel(`read-receipts:${chatId}`)
+      .channel(`read-receipts:${chatId}:${instanceId}`)
       .on(
         "postgres_changes",
         {
@@ -123,13 +127,16 @@ export function ReadReceiptsProvider({
           filter: `chat_id=eq.${chatId}`,
         },
         () => {
-          // Invalidate and refetch on any change
-          queryClient.invalidateQueries({ queryKey: ["read-receipts", chatId] })
+          if (!isCancelled) {
+            // Invalidate and refetch on any change
+            queryClient.invalidateQueries({ queryKey: ["read-receipts", chatId] })
+          }
         }
       )
       .subscribe()
 
     return () => {
+      isCancelled = true
       supabase.removeChannel(channel)
     }
   }, [chatId, user?.id, queryClient])

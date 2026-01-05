@@ -117,7 +117,7 @@ export function UserMenu() {
     const productStatus = customer.products?.[0]?.status
     const productId = customer.products?.[0]?.id
 
-    // Normalize tier to match database constraint ('starter', 'pro', 'scale', or null)
+    // Normalize tier to match database constraint ('growth', 'pro', 'scale', or null)
     let tier: string | null = null
     if (productId) {
       const normalizedId = productId.toLowerCase()
@@ -125,6 +125,8 @@ export function UserMenu() {
         tier = "scale"
       } else if (normalizedId.includes("pro")) {
         tier = "pro"
+      } else if (normalizedId.includes("growth")) {
+        tier = "growth"
       } else if (normalizedId.includes("starter")) {
         tier = "starter"
       }

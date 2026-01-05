@@ -53,20 +53,33 @@ export const REALTIME_CHANNELS = {
   PRESENCE: "presence:chat:",
   COLLAB: "collab:chat:",
   PERMISSIONS: "permissions:user:",
+  MESSAGES: "messages-updates:",
+  READ_RECEIPTS: "read-receipts:",
 } as const
+
+// Generate unique instance ID for channel subscriptions
+// This prevents "subscribe called multiple times" errors in split-view
+let instanceCounter = 0
+function generateInstanceId(): string {
+  return `${Date.now()}-${++instanceCounter}`
+}
 
 /**
  * Get presence channel name for a chat
+ * Includes unique instance ID to prevent duplicate subscriptions in split-view
  */
-export function getPresenceChannel(chatId: string): string {
-  return `${REALTIME_CHANNELS.PRESENCE}${chatId}`
+export function getPresenceChannel(chatId: string, instanceId?: string): string {
+  const suffix = instanceId || generateInstanceId()
+  return `${REALTIME_CHANNELS.PRESENCE}${chatId}:${suffix}`
 }
 
 /**
  * Get collaboration channel name for a chat (typing indicators, etc.)
+ * Includes unique instance ID to prevent duplicate subscriptions in split-view
  */
-export function getCollabChannel(chatId: string): string {
-  return `${REALTIME_CHANNELS.COLLAB}${chatId}`
+export function getCollabChannel(chatId: string, instanceId?: string): string {
+  const suffix = instanceId || generateInstanceId()
+  return `${REALTIME_CHANNELS.COLLAB}${chatId}:${suffix}`
 }
 
 /**
@@ -74,6 +87,24 @@ export function getCollabChannel(chatId: string): string {
  */
 export function getPermissionsChannel(userId: string): string {
   return `${REALTIME_CHANNELS.PERMISSIONS}${userId}`
+}
+
+/**
+ * Get messages channel name for a chat
+ * Includes unique instance ID to prevent duplicate subscriptions in split-view
+ */
+export function getMessagesChannel(chatId: string, instanceId?: string): string {
+  const suffix = instanceId || generateInstanceId()
+  return `${REALTIME_CHANNELS.MESSAGES}${chatId}:${suffix}`
+}
+
+/**
+ * Get read receipts channel name for a chat
+ * Includes unique instance ID to prevent duplicate subscriptions in split-view
+ */
+export function getReadReceiptsChannel(chatId: string, instanceId?: string): string {
+  const suffix = instanceId || generateInstanceId()
+  return `${REALTIME_CHANNELS.READ_RECEIPTS}${chatId}:${suffix}`
 }
 
 // Presence timing configuration

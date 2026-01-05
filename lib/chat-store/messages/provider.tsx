@@ -142,8 +142,15 @@ export function MessagesProvider({
     // We'll fetch it once and use it in handlers
     let currentUserId: string | null = null
     let userIdFetched = false
+    let isSubscribed = false
+    let isCancelled = false
+
+    // Generate unique instance ID for this subscription (prevents "subscribe multiple times" error in split-view)
+    const instanceId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
     const setupSubscription = async () => {
+      if (isCancelled) return null
+
       // Fetch user ID BEFORE setting up handlers
       try {
         const { data } = await supabase.auth.getUser()
@@ -154,8 +161,10 @@ export function MessagesProvider({
         userIdFetched = true // Still mark as fetched to allow subscription
       }
 
+      if (isCancelled) return null
+
       const channel = supabase
-        .channel(`messages-updates:${chatId}`)
+        .channel(`messages-updates:${chatId}:${instanceId}`)
         // Handle UPDATE events (existing behavior - verification updates, etc.)
         .on(
           "postgres_changes",
@@ -312,17 +321,27 @@ export function MessagesProvider({
             })
           }
         )
-        .subscribe()
+        .subscribe((status) => {
+          if (status === "SUBSCRIBED") {
+            isSubscribed = true
+          }
+        })
 
       return channel
     }
 
     let channelRef: ReturnType<typeof supabase.channel> | null = null
     setupSubscription().then((channel) => {
-      channelRef = channel
+      if (!isCancelled && channel) {
+        channelRef = channel
+      } else if (channel) {
+        // Effect was cancelled while setting up, cleanup immediately
+        supabase.removeChannel(channel)
+      }
     })
 
     return () => {
+      isCancelled = true
       if (channelRef) {
         supabase.removeChannel(channelRef)
       }
