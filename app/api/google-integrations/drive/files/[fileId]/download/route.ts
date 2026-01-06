@@ -103,7 +103,14 @@ export async function GET(request: Request, { params }: RouteParams) {
     const fileContent = await downloadFile(user.id, fileId, mimeType)
 
     // Return the file content as binary
-    return new NextResponse(fileContent.content, {
+    // Convert to ArrayBuffer for TypeScript 5.x compatibility
+    // Node.js Buffer always uses ArrayBuffer (not SharedArrayBuffer), so cast is safe
+    const content = fileContent.content
+    const blobContent = typeof content === "string"
+      ? content
+      : content.buffer.slice(content.byteOffset, content.byteOffset + content.byteLength) as ArrayBuffer
+    const blob = new Blob([blobContent], { type: fileContent.mimeType })
+    return new NextResponse(blob, {
       status: 200,
       headers: {
         "Content-Type": fileContent.mimeType,

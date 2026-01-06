@@ -287,7 +287,11 @@ export async function GET(
       const duration = Date.now() - startTime
       console.log(`[BatchExport] PDF generated in ${duration}ms, size: ${buffer.length} bytes`)
 
-      return new NextResponse(buffer, {
+      // Convert Buffer to ArrayBuffer for TypeScript 5.x compatibility
+      // Node.js Buffer always uses ArrayBuffer (not SharedArrayBuffer), so cast is safe
+      const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer
+      const blob = new Blob([arrayBuffer], { type: "application/pdf" })
+      return new NextResponse(blob, {
         status: 200,
         headers: {
           "Content-Type": "application/pdf",

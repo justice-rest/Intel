@@ -499,7 +499,11 @@ export async function POST(request: NextRequest) {
     const dateStr = new Date().toISOString().split("T")[0]
     const filename = `romy-${sanitizedTitle}-${dateStr}.pdf`
 
-    return new NextResponse(pdfBuffer, {
+    // Convert Uint8Array to ArrayBuffer for TypeScript 5.x compatibility
+    // Puppeteer returns Uint8Array with regular ArrayBuffer, so cast is safe
+    const arrayBuffer = pdfBuffer.buffer.slice(pdfBuffer.byteOffset, pdfBuffer.byteOffset + pdfBuffer.byteLength) as ArrayBuffer
+    const blob = new Blob([arrayBuffer], { type: "application/pdf" })
+    return new NextResponse(blob, {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
