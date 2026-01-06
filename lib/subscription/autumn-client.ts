@@ -128,6 +128,41 @@ export function normalizePlanId(productId?: string): string | null {
 }
 
 /**
+ * Check if a user has a Pro or Scale plan (server-side)
+ * Used to gate access to premium features like PDF branding
+ *
+ * @param userId - The user's ID
+ * @returns Promise<boolean> - True if user has Pro or Scale plan
+ */
+export async function hasPaidPlan(userId: string): Promise<boolean> {
+  try {
+    const customerData = await getCustomerData(userId, 2000) // 2 second timeout for non-latency-critical check
+
+    if (!customerData?.products) {
+      return false
+    }
+
+    // Find an active product
+    const activeProduct = customerData.products.find(
+      (p: { status: string }) => p.status === "active" || p.status === "trialing"
+    )
+
+    if (!activeProduct?.id) {
+      return false
+    }
+
+    // Normalize the plan ID and check for Pro or Scale
+    const planId = normalizePlanId(activeProduct.id)
+    return planId === "pro" || planId === "scale"
+  } catch (error) {
+    console.error("[Autumn] Error checking paid plan status:", error)
+    // Fail open for now - if we can't check, allow access
+    // This prevents blocking users when Autumn is down
+    return true
+  }
+}
+
+/**
  * Check if Autumn is enabled
  */
 export function isAutumnEnabled(): boolean {

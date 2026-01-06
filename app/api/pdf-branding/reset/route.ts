@@ -9,6 +9,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
 import { extractPathFromUrl } from "@/lib/pdf-branding"
+import { hasPaidPlan, isAutumnEnabled } from "@/lib/subscription/autumn-client"
 
 const STORAGE_BUCKET = "pdf-branding"
 
@@ -31,6 +32,17 @@ export async function POST() {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check for Pro/Scale plan (required for branding customization)
+    if (isAutumnEnabled()) {
+      const hasAccess = await hasPaidPlan(user.id)
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "Branding reset requires a Pro or Scale plan" },
+          { status: 403 }
+        )
+      }
     }
 
     // Get existing branding to find logo URL for cleanup

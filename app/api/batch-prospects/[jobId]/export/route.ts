@@ -16,6 +16,7 @@ import {
   batchItemToReportData,
   isPdfGenerationAvailable,
 } from "@/lib/prospect-pdf"
+import { toBrandingSettings, type BrandingSettings } from "@/lib/pdf-branding"
 
 export const runtime = "nodejs"
 export const maxDuration = 60 // Allow up to 60s for PDF generation
@@ -271,17 +272,47 @@ export async function GET(
         )
       }
 
+      // Fetch user's custom branding settings
+      let branding: BrandingSettings | undefined
+      try {
+        const { data: brandingData } = await supabase
+          .from("pdf_branding")
+          .select("*")
+          .eq("user_id", user.id)
+          .single()
+
+        if (brandingData) {
+          branding = toBrandingSettings({
+            id: brandingData.id,
+            userId: brandingData.user_id,
+            primaryColor: brandingData.primary_color,
+            accentColor: brandingData.accent_color,
+            logoUrl: brandingData.logo_url,
+            logoBase64: brandingData.logo_base64,
+            logoContentType: brandingData.logo_content_type,
+            hideDefaultFooter: brandingData.hide_default_footer,
+            customFooterText: brandingData.custom_footer_text,
+            createdAt: brandingData.created_at,
+            updatedAt: brandingData.updated_at,
+          })
+        }
+      } catch {
+        // No branding settings found, use defaults
+        console.log("[BatchExport] No custom branding found, using defaults")
+      }
+
       // Convert batch item to PDF report data
       const reportData = batchItemToReportData(targetItem, job.name)
 
       // Generate PDF
-      console.log(`[BatchExport] Generating PDF for: ${targetItem.input_data?.name}`)
+      console.log(`[BatchExport] Generating PDF for: ${targetItem.input_data?.name}${branding ? " (with custom branding)" : ""}`)
       const startTime = Date.now()
 
       const { buffer, filename } = await generateProspectPdf({
         data: reportData,
         format: "Letter",
         printBackground: true,
+        branding,
       })
 
       const duration = Date.now() - startTime

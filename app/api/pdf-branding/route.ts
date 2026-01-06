@@ -16,6 +16,7 @@ import {
   validateFooterText,
   sanitizeFooterText,
 } from "@/lib/pdf-branding"
+import { hasPaidPlan, isAutumnEnabled } from "@/lib/subscription/autumn-client"
 
 // ============================================================================
 // GET: Fetch branding settings
@@ -119,6 +120,17 @@ export async function PUT(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check for Pro/Scale plan (required for branding customization)
+    if (isAutumnEnabled()) {
+      const hasAccess = await hasPaidPlan(user.id)
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "PDF branding customization requires a Pro or Scale plan" },
+          { status: 403 }
+        )
+      }
     }
 
     // Parse the request body

@@ -11,6 +11,7 @@ import {
   type BrandingSettings,
   DEFAULT_PRIMARY_COLOR,
   DEFAULT_ACCENT_COLOR,
+  HEX_COLOR_REGEX,
 } from "@/lib/pdf-branding"
 
 // Re-export BrandingSettings for convenience
@@ -189,6 +190,20 @@ function escapeHtml(text: string): string {
 }
 
 /**
+ * Sanitize a color for safe use in CSS
+ * Returns the color if valid hex, otherwise returns the default
+ */
+function sanitizeColor(color: string | undefined, defaultColor: string): string {
+  if (!color) return defaultColor
+  // Only allow valid hex colors (defense-in-depth)
+  if (HEX_COLOR_REGEX.test(color)) {
+    return color
+  }
+  console.warn(`[PDF Template] Invalid color "${color}", using default`)
+  return defaultColor
+}
+
+/**
  * Convert markdown-style bold to HTML
  */
 function formatText(text: string): string {
@@ -213,9 +228,9 @@ export function generateProspectReportHtml(
   data: ProspectReportData,
   branding?: BrandingSettings
 ): string {
-  // Use custom branding or defaults
-  const primaryColor = branding?.primaryColor || DEFAULT_PRIMARY_COLOR
-  const accentColor = branding?.accentColor || DEFAULT_ACCENT_COLOR
+  // Use custom branding or defaults (with CSS-safe validation)
+  const primaryColor = sanitizeColor(branding?.primaryColor, DEFAULT_PRIMARY_COLOR)
+  const accentColor = sanitizeColor(branding?.accentColor, DEFAULT_ACCENT_COLOR)
   const logoBase64 = branding?.logoBase64 || getLogoBase64()
   const hideDefaultFooter = branding?.hideDefaultFooter || false
   const customFooterText = branding?.customFooterText || null
@@ -232,9 +247,9 @@ export function generateProspectReportHtml(
     <style>
         :root {
             --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            --color-primary: ${escapeHtml(primaryColor)};
+            --color-primary: ${primaryColor};
             --color-secondary: #475569;
-            --color-accent: ${escapeHtml(accentColor)};
+            --color-accent: ${accentColor};
             --color-accent-light: #f0f9ff;
             --color-text: #334155;
             --color-muted: #64748b;

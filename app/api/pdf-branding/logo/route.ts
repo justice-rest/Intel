@@ -16,6 +16,7 @@ import {
   getExtensionForMimeType,
   extractPathFromUrl,
 } from "@/lib/pdf-branding"
+import { hasPaidPlan, isAutumnEnabled } from "@/lib/subscription/autumn-client"
 
 const STORAGE_BUCKET = "pdf-branding"
 
@@ -42,6 +43,17 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check for Pro/Scale plan (required for branding customization)
+    if (isAutumnEnabled()) {
+      const hasAccess = await hasPaidPlan(user.id)
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "Logo upload requires a Pro or Scale plan" },
+          { status: 403 }
+        )
+      }
     }
 
     // Parse form data
@@ -199,6 +211,17 @@ export async function DELETE() {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check for Pro/Scale plan (required for branding customization)
+    if (isAutumnEnabled()) {
+      const hasAccess = await hasPaidPlan(user.id)
+      if (!hasAccess) {
+        return NextResponse.json(
+          { error: "Logo management requires a Pro or Scale plan" },
+          { status: 403 }
+        )
+      }
     }
 
     // Get existing branding to find logo URL
