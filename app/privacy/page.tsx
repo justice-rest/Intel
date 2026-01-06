@@ -276,6 +276,79 @@ export default function PrivacyPolicy() {
             <li>Share your donor lists or CRM data with anyone</li>
           </ul>
 
+          <h3>6.1 Client Data Protection Assurance</h3>
+          <div className="rounded-lg border-2 border-green-500/30 bg-green-500/5 p-4">
+            <p className="font-semibold text-green-600 dark:text-green-400">✓ Contractual Data Protection Commitments</p>
+            <p>GetRomy LLC provides the following <strong>written assurances</strong> regarding your donor data:</p>
+            <ul>
+              <li><strong>a) Purpose Limitation:</strong> Your donor data will be used <strong>SOLELY</strong> for the purpose of helping your organization achieve its charitable mission through prospect research and donor intelligence.</li>
+              <li><strong>b) No Sale of Data:</strong> We will <strong>NEVER</strong> sell, license, rent, or transfer your donor data to any third party for any purpose.</li>
+              <li><strong>c) No Cross-Client Use:</strong> Your donor data will <strong>NEVER</strong> be used to benefit any other client of GetRomy LLC. Each client's data is completely isolated through Row-Level Security (RLS) policies.</li>
+              <li><strong>d) No Marketing Use:</strong> Your donor data will <strong>NEVER</strong> be used for marketing, advertising, lead generation, or any purpose other than providing the contracted services.</li>
+              <li><strong>e) Confidentiality:</strong> All personnel with access to your data are bound by confidentiality agreements. Access is limited to those who need it to provide the Service.</li>
+            </ul>
+            <p className="mb-0"><strong>These assurances are contractually binding and survive termination of service.</strong></p>
+          </div>
+
+          <h3>6.2 Authorized Subprocessors</h3>
+          <p>The following subprocessors are authorized to process your data as part of delivering the Service:</p>
+          <div className="overflow-x-auto">
+            <table className="text-sm">
+              <thead>
+                <tr>
+                  <th>Subprocessor</th>
+                  <th>Purpose</th>
+                  <th>Location</th>
+                  <th>Compliance</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Supabase Inc.</td>
+                  <td>Database, Authentication, File Storage</td>
+                  <td>US (AWS)</td>
+                  <td>SOC 2 Type II, HIPAA</td>
+                </tr>
+                <tr>
+                  <td>OpenRouter Inc.</td>
+                  <td>AI Model Routing</td>
+                  <td>US</td>
+                  <td>SOC 2 Type II</td>
+                </tr>
+                <tr>
+                  <td>xAI Corp</td>
+                  <td>Grok AI Model</td>
+                  <td>US</td>
+                  <td>Enterprise Terms</td>
+                </tr>
+                <tr>
+                  <td>Stripe Inc.</td>
+                  <td>Payment Processing</td>
+                  <td>US</td>
+                  <td>SOC 2 Type II, PCI DSS Level 1</td>
+                </tr>
+                <tr>
+                  <td>PostHog Inc.</td>
+                  <td>Product Analytics (anonymized)</td>
+                  <td>US</td>
+                  <td>GDPR Compliant, SOC 2 Type II</td>
+                </tr>
+                <tr>
+                  <td>LinkUp Inc.</td>
+                  <td>Web Research</td>
+                  <td>US</td>
+                  <td>Enterprise Terms</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            <strong>Notification of Changes:</strong> We will provide <strong>30 days written notice</strong> before adding new subprocessors. You may object to new subprocessors within 14 days of notification by contacting <a href="mailto:privacy@getromy.app">privacy@getromy.app</a>.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            <em>Subprocessor list last updated: January 2025</em>
+          </p>
+
           <h2>7. Cookies and Tracking</h2>
 
           <h3>7.1 What We Use</h3>

@@ -167,8 +167,91 @@ export default function TermsOfService() {
             <strong>Your data:</strong> CRM data synced to Rōmy remains your property. We use it solely to provide the Service. We do not sell, share, or use your CRM data for any other purpose.
           </p>
 
-          <h2>7. Acceptable Use</h2>
-          <h3>7.1 Prohibited Activities</h3>
+          <h2>7. Data Processing Agreement (Enterprise Clients)</h2>
+          <p>
+            For enterprise clients processing donor personally identifiable information (PII) through Rōmy, the following data processing terms apply:
+          </p>
+
+          <h3>7.1 Processor Obligations</h3>
+          <p>
+            GetRomy LLC acts as a <strong>Data Processor</strong> when processing your donor data. We commit to:
+          </p>
+          <ul>
+            <li>Process data only on your documented instructions</li>
+            <li>Ensure all personnel with access are bound by confidentiality obligations</li>
+            <li>Implement appropriate technical and organizational security measures (AES-256-GCM encryption, Row-Level Security, CSRF protection)</li>
+            <li>Not engage additional subprocessors without your prior authorization</li>
+            <li>Assist you in responding to data subject access, correction, and deletion requests</li>
+            <li>Delete or return all data upon contract termination (see Section 16.4)</li>
+            <li>Make available all information necessary to demonstrate compliance with these obligations</li>
+          </ul>
+
+          <h3>7.2 Authorized Subprocessors</h3>
+          <p>The following subprocessors are currently authorized to process your data:</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Subprocessor</th>
+                <th>Purpose</th>
+                <th>Location</th>
+                <th>Compliance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Supabase Inc.</td>
+                <td>Database, Authentication, Storage</td>
+                <td>US (AWS)</td>
+                <td>SOC 2 Type II</td>
+              </tr>
+              <tr>
+                <td>OpenRouter Inc.</td>
+                <td>AI Model Routing</td>
+                <td>US</td>
+                <td>SOC 2 Type II</td>
+              </tr>
+              <tr>
+                <td>xAI Corp</td>
+                <td>Grok AI Model</td>
+                <td>US</td>
+                <td>Enterprise Terms</td>
+              </tr>
+              <tr>
+                <td>Stripe Inc.</td>
+                <td>Payment Processing</td>
+                <td>US</td>
+                <td>SOC 2 Type II, PCI DSS</td>
+              </tr>
+              <tr>
+                <td>PostHog Inc.</td>
+                <td>Product Analytics (anonymized)</td>
+                <td>US</td>
+                <td>GDPR Compliant</td>
+              </tr>
+              <tr>
+                <td>LinkUp Inc.</td>
+                <td>Web Research</td>
+                <td>US</td>
+                <td>Enterprise Terms</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            <strong>Notification of Changes:</strong> We will provide <strong>30 days written notice</strong> before adding new subprocessors. You may object to new subprocessors within 14 days of notification.
+          </p>
+
+          <h3>7.3 Data Breach Notification</h3>
+          <p>
+            We will notify you <strong>within 72 hours</strong> of becoming aware of any personal data breach affecting your data, including details of the breach, affected data categories, and remediation steps taken.
+          </p>
+
+          <h3>7.4 Custom Data Processing Agreement</h3>
+          <p>
+            Enterprise clients requiring a signed Data Processing Agreement (DPA) tailored to their specific requirements should contact <a href="mailto:legal@getromy.app">legal@getromy.app</a>.
+          </p>
+
+          <h2>8. Acceptable Use</h2>
+          <h3>8.1 Prohibited Activities</h3>
           <p>You agree <strong>not</strong> to use the Service to:</p>
           <ul>
             <li>Violate any applicable laws, regulations, or third-party rights</li>
@@ -183,18 +266,18 @@ export default function TermsOfService() {
             <li>Use the Service for any illegal purpose, including harassment or stalking</li>
           </ul>
 
-          <h3>7.2 AI Model Terms</h3>
+          <h3>8.2 AI Model Terms</h3>
           <p>
             When using AI models through our Service, you must comply with each model provider's acceptable use policies (xAI, OpenAI, Anthropic, Google, etc.). Violations may result in immediate termination.
           </p>
 
-          <h2>8. Data Ownership and Use Restrictions</h2>
-          <h3>8.1 Your Data Ownership</h3>
+          <h2>9. Data Ownership and Use Restrictions</h2>
+          <h3>9.1 Your Data Ownership</h3>
           <p>
             <strong>You retain all right, title, and interest</strong> in your Customer Data, including donor lists, CRM data, uploaded files, chat content, and any other information you provide. You grant us a limited, non-exclusive, non-transferable license to use Customer Data <strong>solely to provide the Service to you.</strong>
           </p>
 
-          <h3>8.2 What We Will NOT Do</h3>
+          <h3>9.2 What We Will NOT Do</h3>
           <p>We will <strong>never</strong>:</p>
           <ul>
             <li>Sell, rent, lease, or disclose your data to third parties for their own purposes</li>
@@ -204,17 +287,17 @@ export default function TermsOfService() {
             <li>Access your data except as necessary for support (with your consent) or legal compliance</li>
           </ul>
 
-          <h3>8.3 AI-Generated Content</h3>
+          <h3>9.3 AI-Generated Content</h3>
           <p>
             <strong>AI makes mistakes.</strong> Content generated by AI models is provided as-is. You are solely responsible for reviewing and verifying all AI-generated content before use. We make no warranties regarding accuracy, completeness, reliability, or suitability of AI outputs.
           </p>
 
-          <h3>8.4 AI Memory</h3>
+          <h3>9.4 AI Memory</h3>
           <p>
             If you enable AI Memory, the system extracts and stores facts from your conversations to personalize future responses. You can view, edit, or delete memories at any time in Settings. Disabling memory deletes all stored memories.
           </p>
 
-          <h2>9. FCRA Compliance — Critical Restriction</h2>
+          <h2>10. FCRA Compliance — Critical Restriction</h2>
           <div className="rounded-lg border-2 border-red-500/30 bg-red-500/5 p-4">
             <p className="font-semibold text-red-600 dark:text-red-400">⚠️ Important Legal Notice</p>
             <p>
@@ -236,7 +319,7 @@ export default function TermsOfService() {
             </p>
           </div>
 
-          <h2>10. Privacy and Data Protection</h2>
+          <h2>11. Privacy and Data Protection</h2>
           <p>
             Your use of the Service is subject to our <Link href="/privacy" className="text-foreground hover:underline">Privacy Policy</Link>, incorporated by reference. Key points:
           </p>
@@ -248,23 +331,23 @@ export default function TermsOfService() {
             <li>You can request data export or deletion at any time</li>
           </ul>
 
-          <h2>11. Intellectual Property</h2>
-          <h3>11.1 Our IP</h3>
+          <h2>12. Intellectual Property</h2>
+          <h3>12.1 Our IP</h3>
           <p>
             The Service, including its design, code, branding, documentation, and non-open-source components, is owned by GetRomy LLC and protected by copyright, trademark, and other intellectual property laws.
           </p>
 
-          <h3>11.2 Open Source</h3>
+          <h3>12.2 Open Source</h3>
           <p>
             Rōmy includes open-source components. The source code for the main application is available under the license specified in our GitHub repository. This does not grant rights to our trademarks (Rōmy, GetRomy) or proprietary features.
           </p>
 
-          <h3>11.3 Your Content</h3>
+          <h3>12.3 Your Content</h3>
           <p>
             You retain ownership of all content you upload or create. By using the Service, you grant us a license to process, store, and display your content solely to provide the Service.
           </p>
 
-          <h2>12. Third-Party Services</h2>
+          <h2>13. Third-Party Services</h2>
           <p>The Service integrates with third parties. You are subject to their terms:</p>
           <table>
             <thead>
@@ -310,13 +393,13 @@ export default function TermsOfService() {
           </table>
           <p>We are not responsible for third-party practices, content, or service availability.</p>
 
-          <h2>13. Disclaimers and Limitation of Liability</h2>
-          <h3>13.1 "As Is" Service</h3>
+          <h2>14. Disclaimers and Limitation of Liability</h2>
+          <h3>14.1 "As Is" Service</h3>
           <p>
             THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
           </p>
 
-          <h3>13.2 No Guarantees</h3>
+          <h3>14.2 No Guarantees</h3>
           <p>We do not warrant that:</p>
           <ul>
             <li>The Service will be uninterrupted, secure, or error-free</li>
@@ -326,7 +409,7 @@ export default function TermsOfService() {
             <li>Integrations with third parties will always function correctly</li>
           </ul>
 
-          <h3>13.3 Liability Cap</h3>
+          <h3>14.3 Liability Cap</h3>
           <p>
             <strong>TO THE MAXIMUM EXTENT PERMITTED BY LAW:</strong> Neither party's aggregate liability arising from this Agreement shall exceed the total amount paid by Customer in the twelve (12) months preceding the claim.
           </p>
@@ -335,19 +418,19 @@ export default function TermsOfService() {
             <li>Indemnification obligations</li>
             <li>Gross negligence or willful misconduct</li>
             <li>Breaches of data security obligations involving personal data</li>
-            <li>Your violation of Section 9 (FCRA restrictions)</li>
+            <li>Your violation of Section 10 (FCRA restrictions)</li>
           </ul>
 
-          <h3>13.4 Consequential Damages Waiver</h3>
+          <h3>14.4 Consequential Damages Waiver</h3>
           <p>
             NEITHER PARTY SHALL BE LIABLE FOR INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING LOSS OF PROFITS, DATA, GOODWILL, OR BUSINESS OPPORTUNITIES, REGARDLESS OF WHETHER ADVISED OF THE POSSIBILITY.
           </p>
 
-          <h2>14. Indemnification</h2>
-          <h3>14.1 By Us</h3>
+          <h2>15. Indemnification</h2>
+          <h3>15.1 By Us</h3>
           <p>We will indemnify and defend you against third-party claims alleging that the Service infringes intellectual property rights, provided you notify us promptly and cooperate in the defense.</p>
 
-          <h3>14.2 By You</h3>
+          <h3>15.2 By You</h3>
           <p>You will indemnify and defend us against claims arising from:</p>
           <ul>
             <li>Your content and data</li>
@@ -357,13 +440,13 @@ export default function TermsOfService() {
             <li>Your use of AI outputs without proper verification</li>
           </ul>
 
-          <h2>15. Termination</h2>
-          <h3>15.1 By You</h3>
+          <h2>16. Termination</h2>
+          <h3>16.1 By You</h3>
           <p>
             You may stop using the Service at any time. To delete your account and data, contact <a href="mailto:privacy@getromy.app">privacy@getromy.app</a> or use the account deletion feature in Settings.
           </p>
 
-          <h3>15.2 By Us</h3>
+          <h3>16.2 By Us</h3>
           <p>We may suspend or terminate your access immediately, with or without notice, for:</p>
           <ul>
             <li>Violation of these Terms</li>
@@ -374,7 +457,7 @@ export default function TermsOfService() {
             <li>Discontinuation of the Service</li>
           </ul>
 
-          <h3>15.3 Data Export and Deletion Rights</h3>
+          <h3>16.3 Data Export and Deletion Rights</h3>
           <p>
             <strong>You have full control over your data:</strong>
           </p>
@@ -391,10 +474,40 @@ export default function TermsOfService() {
             To export or delete data, use Settings or email <a href="mailto:privacy@getromy.app">privacy@getromy.app</a>.
           </p>
 
-          <h3>15.4 Survival</h3>
+          <h3>16.4 Data Return and Disposal Upon Termination</h3>
+          <p>
+            Upon contract termination or at your written request, we provide the following commitments:
+          </p>
+          <h4>Data Return (Export)</h4>
+          <ul>
+            <li><strong>Timeline:</strong> Available within 5 business days of request</li>
+            <li><strong>Formats:</strong> JSON, CSV, or other standard machine-readable formats</li>
+            <li><strong>Scope:</strong> All constituent records, donations, chat history, uploaded files, memories, and integration data</li>
+          </ul>
+          <h4>Data Disposal</h4>
+          <ul>
+            <li><strong>Timeline:</strong> Completed within 30 days of termination</li>
+            <li><strong>Method:</strong> Cryptographic erasure and physical deletion from all systems</li>
+            <li><strong>Verification:</strong> Written confirmation provided upon request</li>
+            <li><strong>Exceptions:</strong>
+              <ul>
+                <li>Anonymized analytics data (cannot be linked to you)</li>
+                <li>Billing records retained for 7 years (legal requirement)</li>
+                <li>Data subject to legal holds or ongoing investigations</li>
+              </ul>
+            </li>
+          </ul>
+          <h4>Subprocessor Disposal</h4>
+          <ul>
+            <li><strong>Supabase:</strong> Cascade deletion within 24 hours</li>
+            <li><strong>OAuth tokens:</strong> Revoked immediately upon disconnection</li>
+            <li><strong>Backups:</strong> Purged within 24 hours of primary deletion</li>
+          </ul>
+
+          <h3>16.5 Survival</h3>
           <p>Sections on data ownership, liability, indemnification, governing law, and dispute resolution survive termination.</p>
 
-          <h2>16. Changes to Terms</h2>
+          <h2>17. Changes to Terms</h2>
           <p>We may modify these Terms at any time. We will notify you of material changes by:</p>
           <ul>
             <li>Posting updated Terms with a new effective date</li>
@@ -405,52 +518,52 @@ export default function TermsOfService() {
             <strong>Material changes take effect 30 days after notice.</strong> Continued use after the effective date constitutes acceptance. If you disagree, you must stop using the Service before the changes take effect.
           </p>
 
-          <h2>17. Governing Law and Dispute Resolution</h2>
-          <h3>17.1 Governing Law</h3>
+          <h2>18. Governing Law and Dispute Resolution</h2>
+          <h3>18.1 Governing Law</h3>
           <p>
             These Terms are governed by the laws of the <strong>State of Texas</strong>, without regard to conflict of law principles. The United Nations Convention on Contracts for the International Sale of Goods does not apply.
           </p>
 
-          <h3>17.2 Informal Resolution</h3>
+          <h3>18.2 Informal Resolution</h3>
           <p>
             Before filing any claim, you agree to contact us at <a href="mailto:legal@getromy.app">legal@getromy.app</a> and attempt good-faith negotiation for at least 30 days.
           </p>
 
-          <h3>17.3 Binding Arbitration</h3>
+          <h3>18.3 Binding Arbitration</h3>
           <p>
             If informal resolution fails, disputes shall be resolved through <strong>binding arbitration</strong> administered by the American Arbitration Association (AAA) under their Commercial Arbitration Rules. The arbitration shall be held in <strong>Kerrville, Texas</strong> (or remotely by agreement). The arbitrator's decision is final and binding.
           </p>
 
-          <h3>17.4 Class Action Waiver</h3>
+          <h3>18.4 Class Action Waiver</h3>
           <p>
             <strong>YOU WAIVE ANY RIGHT TO PARTICIPATE IN CLASS ACTIONS.</strong> All disputes must be brought individually. You cannot bring claims as a plaintiff or class member in any class, consolidated, or representative proceeding.
           </p>
 
-          <h3>17.5 Small Claims Exception</h3>
+          <h3>18.5 Small Claims Exception</h3>
           <p>
             Either party may bring qualifying claims in small claims court in Kerr County, Texas.
           </p>
 
-          <h2>18. General Provisions</h2>
-          <h3>18.1 Entire Agreement</h3>
+          <h2>19. General Provisions</h2>
+          <h3>19.1 Entire Agreement</h3>
           <p>These Terms and our Privacy Policy constitute the entire agreement between you and GetRomy LLC.</p>
 
-          <h3>18.2 Severability</h3>
+          <h3>19.2 Severability</h3>
           <p>If any provision is unenforceable, the remaining provisions remain in effect.</p>
 
-          <h3>18.3 No Waiver</h3>
+          <h3>19.3 No Waiver</h3>
           <p>Our failure to enforce any provision does not waive our right to enforce it later.</p>
 
-          <h3>18.4 Assignment</h3>
+          <h3>19.4 Assignment</h3>
           <p>You cannot assign these Terms without our consent. We may assign our rights and obligations without restriction.</p>
 
-          <h3>18.5 Force Majeure</h3>
+          <h3>19.5 Force Majeure</h3>
           <p>Neither party is liable for failures caused by circumstances beyond reasonable control (natural disasters, war, government actions, internet outages, etc.).</p>
 
-          <h3>18.6 Export Compliance</h3>
+          <h3>19.6 Export Compliance</h3>
           <p>You agree to comply with all applicable export and import laws and regulations.</p>
 
-          <h2>19. Contact Us</h2>
+          <h2>20. Contact Us</h2>
           <p>For questions about these Terms:</p>
           <p>
             <strong>Email:</strong> <a href="mailto:legal@getromy.app" className="text-foreground hover:underline">legal@getromy.app</a><br />
