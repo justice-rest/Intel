@@ -239,8 +239,9 @@ export function PdfBrandingSettings() {
       branding.custom_footer_text)
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <CollapsibleTrigger asChild>
+    <div className="pb-16">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CollapsibleTrigger asChild>
         <button
           type="button"
           className={cn(
@@ -421,5 +422,6 @@ export function PdfBrandingSettings() {
         )}
       </CollapsibleContent>
     </Collapsible>
+    </div>
   )
 }
