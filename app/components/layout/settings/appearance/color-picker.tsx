@@ -3,12 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { ArrowCounterClockwise } from "@phosphor-icons/react"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
+import { ArrowCounterClockwise, CaretDown } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 
 // ============================================================================
@@ -61,10 +56,8 @@ function hslToHex({ h, s, l }: hsl) {
 }
 
 function hexToHsl({ hex }: hex): hsl {
-  // Ensure the hex string is formatted properly
   hex = hex.replace(/^#/, "")
 
-  // Handle 3-digit hex
   if (hex.length === 3) {
     hex = hex
       .split("")
@@ -72,17 +65,14 @@ function hexToHsl({ hex }: hex): hsl {
       .join("")
   }
 
-  // Pad with zeros if incomplete
   while (hex.length < 6) {
     hex += "0"
   }
 
-  // Convert hex to RGB
   let r = parseInt(hex.slice(0, 2), 16) || 0
   let g = parseInt(hex.slice(2, 4), 16) || 0
   let b = parseInt(hex.slice(4, 6), 16) || 0
 
-  // Then convert RGB to HSL
   r /= 255
   g /= 255
   b /= 255
@@ -93,7 +83,7 @@ function hexToHsl({ hex }: hex): hsl {
   const l = (max + min) / 2
 
   if (max === min) {
-    h = s = 0 // achromatic
+    h = s = 0
   } else {
     const d = max - min
     s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
@@ -173,7 +163,6 @@ const DraggableColorCanvas = ({
     [handleChange, disabled]
   )
 
-  // Mouse event handlers
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       e.preventDefault()
@@ -193,7 +182,6 @@ const DraggableColorCanvas = ({
     calculateSaturationAndLightness(e.clientX, e.clientY)
   }
 
-  // Touch event handlers
   const handleTouchMove = useCallback(
     (e: TouchEvent) => {
       e.preventDefault()
@@ -250,7 +238,7 @@ const DraggableColorCanvas = ({
     <div
       ref={colorAreaRef}
       className={cn(
-        "h-48 w-full touch-auto overscroll-none rounded-xl border border-zinc-200 dark:border-zinc-700",
+        "h-48 w-full touch-none rounded-xl border border-zinc-200 dark:border-zinc-700",
         disabled && "pointer-events-none opacity-50"
       )}
       style={{
@@ -262,7 +250,7 @@ const DraggableColorCanvas = ({
       onTouchStart={handleTouchStart}
     >
       <div
-        className="color-selector border-4 border-white ring-1 ring-zinc-200 dark:border-zinc-900 dark:ring-zinc-700"
+        className="border-4 border-white ring-1 ring-zinc-200 dark:border-zinc-900 dark:ring-zinc-700"
         style={{
           position: "absolute",
           width: "20px",
@@ -273,6 +261,7 @@ const DraggableColorCanvas = ({
           left: `${s}%`,
           top: `${100 - l}%`,
           cursor: disabled ? "not-allowed" : dragging ? "grabbing" : "grab",
+          pointerEvents: "none",
         }}
       />
     </div>
@@ -280,7 +269,48 @@ const DraggableColorCanvas = ({
 }
 
 // ============================================================================
-// Advanced Color Picker Panel
+// Slider Thumb Styles (injected once)
+// ============================================================================
+
+const SliderStyles = () => (
+  <style
+    dangerouslySetInnerHTML={{
+      __html: `
+        .color-picker-hue-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px;
+          height: 18px;
+          background: transparent;
+          border: 4px solid #FFFFFF;
+          box-shadow: 0 0 0 1px #e4e4e7;
+          cursor: pointer;
+          border-radius: 50%;
+        }
+        .color-picker-hue-slider::-moz-range-thumb {
+          width: 18px;
+          height: 18px;
+          cursor: pointer;
+          border-radius: 50%;
+          background: transparent;
+          border: 4px solid #FFFFFF;
+          box-shadow: 0 0 0 1px #e4e4e7;
+        }
+        .dark .color-picker-hue-slider::-webkit-slider-thumb {
+          border: 4px solid rgb(24 24 27);
+          box-shadow: 0 0 0 1px #3f3f46;
+        }
+        .dark .color-picker-hue-slider::-moz-range-thumb {
+          border: 4px solid rgb(24 24 27);
+          box-shadow: 0 0 0 1px #3f3f46;
+        }
+      `,
+    }}
+  />
+)
+
+// ============================================================================
+// Color Picker Panel (Inline)
 // ============================================================================
 
 interface ColorPickerPanelProps {
@@ -301,7 +331,9 @@ function ColorPickerPanel({ color, setColor, disabled }: ColorPickerPanelProps) 
   }
 
   return (
-    <div className="flex w-full select-none flex-col items-center gap-3 overscroll-none">
+    <div className="flex w-full select-none flex-col items-center gap-3">
+      <SliderStyles />
+
       <DraggableColorCanvas
         {...color}
         disabled={disabled}
@@ -326,11 +358,7 @@ function ColorPickerPanel({ color, setColor, disabled }: ColorPickerPanelProps) 
         value={color.h}
         disabled={disabled}
         className={cn(
-          "h-3 w-full cursor-pointer appearance-none rounded-full border border-zinc-200 dark:border-zinc-700",
-          "[&::-webkit-slider-thumb]:h-[18px] [&::-webkit-slider-thumb]:w-[18px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-4 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:bg-transparent [&::-webkit-slider-thumb]:shadow-[0_0_0_1px_#e4e4e7] [&::-webkit-slider-thumb]:cursor-pointer",
-          "[&::-moz-range-thumb]:h-[18px] [&::-moz-range-thumb]:w-[18px] [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-4 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-transparent [&::-moz-range-thumb]:shadow-[0_0_0_1px_#e4e4e7] [&::-moz-range-thumb]:cursor-pointer",
-          "dark:[&::-webkit-slider-thumb]:border-zinc-900 dark:[&::-webkit-slider-thumb]:shadow-[0_0_0_1px_#3f3f46]",
-          "dark:[&::-moz-range-thumb]:border-zinc-900 dark:[&::-moz-range-thumb]:shadow-[0_0_0_1px_#3f3f46]",
+          "color-picker-hue-slider h-3 w-full cursor-pointer appearance-none rounded-full border border-zinc-200 dark:border-zinc-700",
           disabled && "pointer-events-none opacity-50"
         )}
         style={{
@@ -356,19 +384,18 @@ function ColorPickerPanel({ color, setColor, disabled }: ColorPickerPanelProps) 
       {/* Hex Input */}
       <div className="relative h-fit w-full">
         <div className="absolute inset-y-0 flex items-center px-[5px]">
-          <HashtagIcon className="text-muted-foreground size-4" />
+          <HashtagIcon className="size-4 text-zinc-600 dark:text-zinc-400" />
         </div>
         <input
-          id="color-value"
           disabled={disabled}
           className={cn(
             "flex w-full items-center justify-between rounded-lg border p-2 text-sm focus:ring-1 focus:outline-none",
             "pl-[26px] pr-[38px]",
-            "bg-muted/50 text-foreground",
-            "border-border",
-            "hover:border-border/80",
-            "focus:border-ring focus:ring-ring",
-            "selection:bg-primary/20 selection:text-primary",
+            "bg-black/[2.5%] text-zinc-700 dark:bg-white/[2.5%] dark:text-zinc-200",
+            "border-zinc-200 dark:border-zinc-700",
+            "hover:border-zinc-300 dark:hover:border-zinc-600",
+            "focus:border-zinc-300 focus:ring-zinc-300 dark:focus:border-zinc-600 dark:focus:ring-zinc-600",
+            "selection:bg-black/20 selection:text-black dark:selection:bg-white/30 dark:selection:text-white",
             disabled && "pointer-events-none opacity-50"
           )}
           value={color.hex}
@@ -401,7 +428,6 @@ export function ColorPicker({
   onChange,
   disabled = false,
 }: ColorPickerProps) {
-  // Parse the incoming hex value to HSL + hex state
   const parseColor = useCallback((hexValue: string): Color => {
     const cleanHex = sanitizeHex(hexValue.replace("#", ""))
     const paddedHex = cleanHex.padEnd(6, "0")
@@ -410,7 +436,7 @@ export function ColorPicker({
   }, [])
 
   const [color, setColor] = useState<Color>(() => parseColor(value))
-  const [isOpen, setIsOpen] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   // Sync color state when value prop changes externally
   useEffect(() => {
@@ -428,7 +454,6 @@ export function ColorPicker({
     }
   }, [color.hex, onChange, value])
 
-  // Handle reset to default
   const handleReset = useCallback(() => {
     const defaultColor = parseColor(defaultValue)
     setColor(defaultColor)
@@ -460,41 +485,47 @@ export function ColorPicker({
         )}
       </div>
 
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
-          <button
-            type="button"
-            disabled={disabled}
-            className={cn(
-              "flex w-full items-center gap-3 rounded-lg border p-2 text-left transition-colors",
-              "border-border hover:border-border/80 hover:bg-muted/30",
-              "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-              disabled && "pointer-events-none opacity-50"
-            )}
-          >
-            {/* Color swatch */}
-            <div
-              className="size-8 shrink-0 rounded-md border shadow-sm"
-              style={{ backgroundColor: `#${color.hex}` }}
-            />
-            {/* Hex value */}
-            <span className="text-muted-foreground font-mono text-sm">
-              #{color.hex}
-            </span>
-          </button>
-        </PopoverTrigger>
-        <PopoverContent
-          className="w-[280px] p-4"
-          align="start"
-          sideOffset={8}
-        >
+      {/* Color Trigger Button */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={cn(
+          "flex w-full items-center justify-between gap-3 rounded-lg border p-2 text-left transition-colors",
+          "border-border hover:border-border/80 hover:bg-muted/30",
+          "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+          disabled && "pointer-events-none opacity-50"
+        )}
+      >
+        <div className="flex items-center gap-3">
+          {/* Color swatch */}
+          <div
+            className="size-8 shrink-0 rounded-md border shadow-sm"
+            style={{ backgroundColor: `#${color.hex}` }}
+          />
+          {/* Hex value */}
+          <span className="text-muted-foreground font-mono text-sm">
+            #{color.hex}
+          </span>
+        </div>
+        <CaretDown
+          className={cn(
+            "text-muted-foreground size-4 transition-transform",
+            isExpanded && "rotate-180"
+          )}
+        />
+      </button>
+
+      {/* Expanded Color Picker Panel */}
+      {isExpanded && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-md dark:border-zinc-700 dark:bg-zinc-900">
           <ColorPickerPanel
             color={color}
             setColor={setColor}
             disabled={disabled}
           />
-        </PopoverContent>
-      </Popover>
+        </div>
+      )}
     </div>
   )
 }
