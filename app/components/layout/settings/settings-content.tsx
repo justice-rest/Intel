@@ -18,6 +18,7 @@ import { SubscriptionSection } from "@/components/subscription/subscription-sect
 import { InteractionPreferences } from "./appearance/interaction-preferences"
 import { LayoutSettings } from "./appearance/layout-settings"
 import { ThemeSelection } from "./appearance/theme-selection"
+import { PdfBrandingSettings } from "./appearance/pdf-branding"
 import { AccountManagement } from "./general/account-management"
 import { PrivacySettings } from "./general/privacy-settings"
 import { UserProfile } from "./general/user-profile"
@@ -128,6 +129,7 @@ export function SettingsContent({
               <ThemeSelection />
               <LayoutSettings />
               <InteractionPreferences />
+              {isSupabaseEnabled && <PdfBrandingSettings />}
             </TabsContent>
 
             <TabsContent value="subscription" className="space-y-6 px-6">
@@ -219,6 +221,7 @@ export function SettingsContent({
                 <ThemeSelection />
                 <LayoutSettings />
                 <InteractionPreferences />
+                {isSupabaseEnabled && <PdfBrandingSettings />}
               </TabsContent>
 
               <TabsContent value="subscription" className="mt-0 space-y-6">

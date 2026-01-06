@@ -5,6 +5,8 @@
  *
  * Request body: ProspectReportData (see lib/prospect-pdf/template.ts)
  * Response: PDF file download
+ *
+ * Supports custom branding for Pro/Scale users (colors, logo, footer)
  */
 
 import { NextResponse } from "next/server"
@@ -14,6 +16,7 @@ import {
   isPdfGenerationAvailable,
   type ProspectReportData,
 } from "@/lib/prospect-pdf"
+import { toBrandingSettings, type BrandingSettings } from "@/lib/pdf-branding"
 
 export const runtime = "nodejs"
 export const maxDuration = 60 // Allow up to 60s for PDF generation
@@ -22,6 +25,9 @@ export async function POST(request: Request) {
   try {
     // Check authentication
     const supabase = await createClient()
+    let userId: string | null = null
+    let branding: BrandingSettings | undefined
+
     if (supabase) {
       const {
         data: { user },
@@ -29,6 +35,36 @@ export async function POST(request: Request) {
 
       if (!user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+
+      userId = user.id
+
+      // Fetch user's custom branding settings
+      try {
+        const { data: brandingData } = await supabase
+          .from("pdf_branding")
+          .select("*")
+          .eq("user_id", user.id)
+          .single()
+
+        if (brandingData) {
+          branding = toBrandingSettings({
+            id: brandingData.id,
+            userId: brandingData.user_id,
+            primaryColor: brandingData.primary_color,
+            accentColor: brandingData.accent_color,
+            logoUrl: brandingData.logo_url,
+            logoBase64: brandingData.logo_base64,
+            logoContentType: brandingData.logo_content_type,
+            hideDefaultFooter: brandingData.hide_default_footer,
+            customFooterText: brandingData.custom_footer_text,
+            createdAt: brandingData.created_at,
+            updatedAt: brandingData.updated_at,
+          })
+        }
+      } catch {
+        // No branding settings found, use defaults
+        console.log("[ProspectPDF] No custom branding found, using defaults")
       }
     }
 
@@ -87,13 +123,14 @@ export async function POST(request: Request) {
     }
 
     // Generate PDF
-    console.log(`[ProspectPDF] Generating PDF for: ${data.prospectName}`)
+    console.log(`[ProspectPDF] Generating PDF for: ${data.prospectName}${branding ? " (with custom branding)" : ""}`)
     const startTime = Date.now()
 
     const { buffer, filename } = await generateProspectPdf({
       data: reportData,
       format: "Letter",
       printBackground: true,
+      branding,
     })
 
     const duration = Date.now() - startTime

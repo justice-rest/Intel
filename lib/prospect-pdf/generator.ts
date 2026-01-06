@@ -6,7 +6,11 @@
  */
 
 import type { Browser, Page } from "puppeteer-core"
-import { generateProspectReportHtml, type ProspectReportData } from "./template"
+import {
+  generateProspectReportHtml,
+  type ProspectReportData,
+  type BrandingSettings,
+} from "./template"
 
 // Lazy-loaded modules (only load when needed)
 let chromium: typeof import("@sparticuz/chromium") | null = null
@@ -115,6 +119,8 @@ export interface GeneratePdfOptions {
   format?: "Letter" | "A4"
   /** Print background graphics (default: true) */
   printBackground?: boolean
+  /** Custom branding settings (colors, logo, footer) */
+  branding?: BrandingSettings
 }
 
 export interface GeneratePdfResult {
@@ -130,7 +136,7 @@ export interface GeneratePdfResult {
 export async function generateProspectPdf(
   options: GeneratePdfOptions
 ): Promise<GeneratePdfResult> {
-  const { data, format = "Letter", printBackground = true } = options
+  const { data, format = "Letter", printBackground = true, branding } = options
 
   let browser: Browser | null = null
   let page: Page | null = null
@@ -147,8 +153,8 @@ export async function generateProspectPdf(
       deviceScaleFactor: 2, // High DPI for crisp text
     })
 
-    // Generate HTML from template
-    const html = generateProspectReportHtml(data)
+    // Generate HTML from template with branding
+    const html = generateProspectReportHtml(data, branding)
 
     // Set the HTML content
     await page.setContent(html, {

@@ -1001,6 +1001,56 @@ export type Database = {
           },
         ]
       }
+      pdf_branding: {
+        Row: {
+          id: string
+          user_id: string
+          primary_color: string
+          accent_color: string
+          logo_url: string | null
+          logo_base64: string | null
+          logo_content_type: string | null
+          hide_default_footer: boolean
+          custom_footer_text: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          primary_color?: string
+          accent_color?: string
+          logo_url?: string | null
+          logo_base64?: string | null
+          logo_content_type?: string | null
+          hide_default_footer?: boolean
+          custom_footer_text?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          primary_color?: string
+          accent_color?: string
+          logo_url?: string | null
+          logo_base64?: string | null
+          logo_content_type?: string | null
+          hide_default_footer?: boolean
+          custom_footer_text?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pdf_branding_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
