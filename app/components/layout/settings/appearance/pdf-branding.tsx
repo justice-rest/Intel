@@ -203,25 +203,30 @@ export function PdfBrandingSettings() {
     },
   })
 
-  // Handlers
+  // Handlers - React Query's mutate/mutateAsync are stable references
+  // Using empty deps to avoid infinite re-renders from mutation object changes
   const handleLogoUpload = useCallback(
     async (file: File) => {
       await uploadLogoMutation.mutateAsync(file)
     },
-    [uploadLogoMutation]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   )
 
   const handleLogoDelete = useCallback(async () => {
     await deleteLogoMutation.mutateAsync()
-  }, [deleteLogoMutation])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleSave = useCallback(() => {
     saveMutation.mutate()
-  }, [saveMutation])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleReset = useCallback(() => {
     resetMutation.mutate()
-  }, [resetMutation])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const isSaving =
     saveMutation.isPending ||
