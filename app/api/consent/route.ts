@@ -3,6 +3,53 @@ import { hashIpAddress, CONSENT_VERSION } from "@/lib/consent"
 import { headers } from "next/headers"
 import { NextRequest, NextResponse } from "next/server"
 
+/**
+ * GET /api/consent
+ * Fetch the current user's consent status from database
+ * Returns null choices if user has no consent record
+ */
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    if (!supabase) {
+      return NextResponse.json({ choices: null, source: "no_supabase" })
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      // Not logged in - client should use localStorage
+      return NextResponse.json({ choices: null, source: "anonymous" })
+    }
+
+    // Fetch the most recent consent record for this user
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
+      .from("consent_logs")
+      .select("choices, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single()
+
+    if (error || !data) {
+      // No consent record found for this user
+      return NextResponse.json({ choices: null, source: "no_record" })
+    }
+
+    return NextResponse.json({
+      choices: data.choices,
+      source: "database",
+      consentedAt: data.created_at,
+    })
+  } catch (error) {
+    console.error("Consent fetch error:", error)
+    return NextResponse.json({ choices: null, source: "error" })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
