@@ -20,6 +20,7 @@ import { LayoutSettings } from "./appearance/layout-settings"
 import { ThemeSelection } from "./appearance/theme-selection"
 import { AccountManagement } from "./general/account-management"
 import { NotificationSettings } from "./general/notification-settings"
+import { PrivacySettings } from "./general/privacy-settings"
 import { UserProfile } from "./general/user-profile"
 import { IntegrationsSection } from "./integrations"
 import { KnowledgeDashboard } from "@/app/components/knowledge"
@@ -121,6 +122,7 @@ export function SettingsContent({
             <TabsContent value="general" className="space-y-6 px-6">
               <UserProfile />
               <NotificationSettings />
+              <PrivacySettings />
               {isSupabaseEnabled && <AccountManagement />}
             </TabsContent>
 
@@ -212,6 +214,7 @@ export function SettingsContent({
               <TabsContent value="general" className="mt-0 space-y-6">
                 <UserProfile />
                 <NotificationSettings />
+                <PrivacySettings />
                 {isSupabaseEnabled && <AccountManagement />}
               </TabsContent>
 
