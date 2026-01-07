@@ -129,17 +129,19 @@ export interface ProspectStructuredData {
 /**
  * Build targeted queries for multi-query Standard mode
  *
- * SUPERCHARGED PROMPTING STRATEGY:
- * ================================
- * Each query is EXTENSIVELY crafted with:
- * - Multiple search angle variations
- * - Specific authoritative source targeting
- * - Domain-specific terminology and keywords
- * - Fallback search patterns for disambiguation
- * - Value extraction triggers for dollar amounts
- * - Cross-reference hints for data triangulation
+ * OPTIMIZED PROMPTING STRATEGY (Based on LinkUp Best Practices):
+ * ==============================================================
+ * Each query follows the 4-component structure:
+ * 1. GOAL - Clear objective statement
+ * 2. SCOPE - Specific sources/domains to search
+ * 3. CRITERIA - What data to extract and how
+ * 4. FORMAT - Structured output requirements
  *
- * The goal: Extract MAXIMUM intelligence from each query
+ * Key optimizations:
+ * - Focused queries (one clear goal per query, not multiple topics)
+ * - Domain targeting via includeDomains for authoritative sources
+ * - Higher maxResults (20) for wider coverage
+ * - Cleaner prompt structure for better LLM comprehension
  */
 function buildTargetedQueries(
   name: string,
@@ -150,14 +152,12 @@ function buildTargetedQueries(
   const nameParts = name.trim().split(/\s+/)
   const firstName = nameParts[0] || ""
   const lastName = nameParts[nameParts.length - 1] || ""
-  const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : ""
   const initials = nameParts.map(p => p[0]).join("")
 
-  // Parse location from address with maximum detail extraction
+  // Parse location from address
   let streetAddress = ""
   let city = ""
   let state = ""
-  let zip = ""
   if (address) {
     const parts = address.split(",").map((p) => p.trim())
     if (parts.length >= 1) streetAddress = parts[0] || ""
@@ -166,12 +166,9 @@ function buildTargetedQueries(
       const lastPart = parts[parts.length - 1] || ""
       const stateMatch = lastPart.match(/([A-Z]{2})/)
       state = stateMatch?.[1] || ""
-      const zipMatch = lastPart.match(/(\d{5}(-\d{4})?)/)
-      zip = zipMatch?.[1] || ""
     }
   }
   const location = [city, state].filter(Boolean).join(", ")
-  const fullLocation = [city, state, zip].filter(Boolean).join(" ")
 
   // Default focus areas if not specified
   const areas = focusAreas?.length
@@ -181,50 +178,49 @@ function buildTargetedQueries(
   const queries: LinkUpSearchOptions[] = []
 
   // =========================================================================
-  // 1. REAL ESTATE INTELLIGENCE - EXTENSIVE PROPERTY RESEARCH
+  // 1. REAL ESTATE - Property Values & Holdings
   // =========================================================================
   if (areas.includes("real_estate")) {
-    const reQuery = `COMPREHENSIVE REAL ESTATE RESEARCH for "${name}"${address ? ` at "${address}"` : ""}${location ? ` in ${location}` : ""}
+    const reQuery = `## GOAL
+Find all real estate properties owned by "${name}"${address ? ` including the property at "${streetAddress}"` : ""}${location ? ` in ${location}` : ""} and determine their current market values.
 
-CRITICAL SEARCH OBJECTIVES - Find ALL of the following:
+## SCOPE
+Search these authoritative property sources:
+- Zillow.com - Zestimate values, property details
+- Redfin.com - Redfin Estimates, sale history
+- Realtor.com - listings, sold data
+- County property appraiser/assessor records for ${state || "any available state"}
+- Public property records databases
 
-**PRIMARY RESIDENCE:**
-${address ? `- Search Zillow, Redfin, Realtor.com, Trulia for "${streetAddress}" - get EXACT current estimated value, Zestimate, last sale price and date
-- Search county assessor/property appraiser records for "${city}" "${state}" - get assessed value, tax records, lot size, square footage
-- Search "${lastName}" property records in "${city}" county recorder's office` : `- Search "${name}" property ownership records in any available county databases`}
+Search variations: "${firstName} ${lastName}", "${lastName}, ${firstName}", "${initials} ${lastName}"
 
-**ADDITIONAL PROPERTIES (CRITICAL FOR WEALTH ASSESSMENT):**
-- Search "${firstName} ${lastName}" OR "${initials} ${lastName}" property records across:
-  * Florida (vacation homes): Palm Beach, Miami-Dade, Collier County
-  * California (investment): Los Angeles, San Francisco, San Diego County
-  * New York (urban): Manhattan, Hamptons, Westchester
-  * Colorado (ski): Aspen, Vail, Telluride
-  * Any state where "${lastName}" family properties might exist
+## CRITERIA
+For each property found, extract:
+1. Full street address with city, state, zip
+2. Current estimated market value (Zestimate or equivalent)
+3. Last sale price and date
+4. Property type (single family, condo, land)
+5. Square footage and lot size if available
 
-**VALUE INDICATORS TO EXTRACT:**
-- Current market value (Zillow Zestimate, Redfin Estimate)
-- Last sale price and date
-- Property tax amount (indicates assessed value)
-- Lot size and square footage
-- Property type (single family, condo, land, commercial)
-- Mortgage information if available
+Also search for additional properties in:
+- Vacation destinations (Florida, Hawaii, Colorado ski areas)
+- Major metros (NYC, LA, San Francisco)
+- Any properties in the "${lastName}" family name
 
-**SEARCH PATTERNS:**
-- "${name}" property owner
-- "${lastName}, ${firstName}" deed records
-- "${firstName} ${lastName}" real estate holdings
-- "${lastName} family" properties "${state}"
+## FORMAT
+Return data in this exact structure for EACH property:
 
-**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
-Return property data in this EXACT format for each property found:
 PROPERTY: [full address]
-VALUE: $[amount] (e.g., $1,500,000 or $2.3M)
+VALUE: $[amount, e.g., $1,500,000]
+LAST SALE: $[price] on [date]
+TYPE: [property type]
 SOURCE: [Zillow/Redfin/County Records]
 
-At the end, include:
-TOTAL REAL ESTATE: $[sum of all properties]
+End with:
+TOTAL PROPERTIES FOUND: [count]
+TOTAL REAL ESTATE VALUE: $[sum]
 
-If no properties found, state: "NO PROPERTY RECORDS FOUND"`
+If no properties found: "NO PROPERTY RECORDS FOUND FOR ${name}"`
 
     queries.push({
       query: reQuery,
@@ -232,64 +228,57 @@ If no properties found, state: "NO PROPERTY RECORDS FOUND"`
       outputType: "sourcedAnswer",
       includeInlineCitations: true,
       includeSources: true,
-      maxResults: 15,
+      maxResults: 20,
       excludeDomains: BLOCKED_DOMAINS,
+      includeDomains: ["zillow.com", "redfin.com", "realtor.com", "trulia.com"],
     })
   }
 
   // =========================================================================
-  // 2. BUSINESS INTELLIGENCE - CORPORATE OWNERSHIP & EXECUTIVE POSITIONS
+  // 2. BUSINESS - Ownership & Executive Positions
   // =========================================================================
   if (areas.includes("business")) {
-    const bizQuery = `COMPREHENSIVE BUSINESS INTELLIGENCE for "${name}"${context ? ` (Known: ${context})` : ""}${location ? ` based in ${location}` : ""}
+    const bizQuery = `## GOAL
+Find all businesses owned or led by "${name}"${context ? ` (Context: ${context})` : ""}${location ? ` in ${location}` : ""}, including corporate roles and company valuations.
 
-CRITICAL SEARCH OBJECTIVES - Find ALL of the following:
+## SCOPE
+Search these authoritative business sources:
+- LinkedIn profiles and company pages
+- OpenCorporates - corporate registrations
+- State Secretary of State business filings${state ? ` (especially ${state})` : ""}
+- Bloomberg executive profiles
+- Crunchbase and PitchBook for startups/investments
+- Forbes and Business Insider profiles
+- Press releases and news articles
 
-**BUSINESS OWNERSHIP (MOST IMPORTANT FOR WEALTH):**
-- Search OpenCorporates, state business registries for companies where "${name}" is:
-  * Owner, Member, Manager (LLC)
-  * President, CEO, Chairman
-  * Registered Agent
-  * Director, Officer
-- Search "${lastName}" + "LLC" OR "Inc" OR "Corp" OR "LP" OR "Partners"
-- Search "${firstName} ${lastName} Enterprises" OR "${lastName} Holdings" OR "${lastName} Investments"
-${location ? `- Search ${state} Secretary of State business database for "${lastName}"` : ""}
+Search for: "${name}" + (CEO OR founder OR owner OR president OR partner OR chairman OR director)
+Also: "${lastName} Holdings", "${lastName} Investments", "${lastName} Enterprises", "${firstName} ${lastName} LLC"
 
-**EXECUTIVE POSITIONS:**
-- Search LinkedIn for "${name}" current and past positions
-- Search Bloomberg, Forbes, Business Insider executive profiles
-- Search press releases mentioning "${name}" + "CEO" OR "President" OR "Founder"
-- Search Crunchbase, PitchBook for startup/investor profiles
+## CRITERIA
+For each business/role found, extract:
+1. Company name and legal entity type (LLC, Inc, Corp)
+2. Person's role (CEO, Founder, Owner, Director, etc.)
+3. Whether they are an owner or employee
+4. Revenue estimate if available
+5. Employee count or company size indicators
+6. Industry/sector
 
-**REVENUE & VALUATION INDICATORS:**
-- Company revenue estimates from ZoomInfo, Dun & Bradstreet, Hoovers
-- Funding rounds if startup (Crunchbase, TechCrunch)
-- Acquisition news or IPO filings
-- Employee count (LinkedIn company pages)
-- Industry benchmarks for valuation multiples
+## FORMAT
+Return data in this exact structure for EACH company:
 
-**BOARD POSITIONS (INDICATES NETWORK & COMPENSATION):**
-- Search corporate board memberships
-- Search advisory board positions
-- Search investment committee roles
-
-**KEY SEARCH PATTERNS:**
-- "${name}" CEO OR founder OR owner OR president
-- "${lastName}" business owner "${city}"
-- "${firstName} ${lastName}" company
-- "${name}" entrepreneur OR investor
-
-**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
-Return business data in this EXACT format for each company found:
 COMPANY: [company name]
-ROLE: [CEO/Founder/Owner/President/Partner/Director]
-REVENUE: $[amount] (if known, e.g., $5M or $50M)
-OWNERSHIP: [Owner/Employee/Board Member]
+ROLE: [CEO/Founder/Owner/President/Director]
+OWNERSHIP: [Yes - owns equity / No - employee only]
+REVENUE: $[amount if known, e.g., $5M annually]
+EMPLOYEES: [count if known]
+INDUSTRY: [sector]
+SOURCE: [LinkedIn/SEC/State Records/News]
 
-At the end, include:
-TOTAL BUSINESSES: [count of businesses where person has ownership/executive role]
+End with:
+TOTAL COMPANIES WITH OWNERSHIP: [count]
+TOTAL COMPANIES AS EXECUTIVE: [count]
 
-If no businesses found, state: "NO BUSINESS OWNERSHIP FOUND"`
+If none found: "NO BUSINESS OWNERSHIP OR EXECUTIVE ROLES FOUND FOR ${name}"`
 
     queries.push({
       query: bizQuery,
@@ -297,77 +286,67 @@ If no businesses found, state: "NO BUSINESS OWNERSHIP FOUND"`
       outputType: "sourcedAnswer",
       includeInlineCitations: true,
       includeSources: true,
-      maxResults: 15,
+      maxResults: 20,
       excludeDomains: BLOCKED_DOMAINS,
+      includeDomains: ["linkedin.com", "bloomberg.com", "crunchbase.com", "forbes.com"],
     })
   }
 
   // =========================================================================
-  // 3. PHILANTHROPIC INTELLIGENCE - FOUNDATIONS, BOARDS, MAJOR GIFTS
+  // 3. PHILANTHROPY - Foundations, Board Seats, Major Gifts
   // =========================================================================
   if (areas.includes("philanthropy")) {
-    const philQuery = `COMPREHENSIVE PHILANTHROPIC RESEARCH for "${name}"${location ? ` from ${location}` : ""}
+    const philQuery = `## GOAL
+Find all philanthropic activity for "${name}"${location ? ` from ${location}` : ""}: private foundations, nonprofit board memberships, major charitable gifts, and political contributions.
 
-CRITICAL SEARCH OBJECTIVES - Find ALL of the following:
+## SCOPE
+Search these authoritative philanthropy sources:
+- ProPublica Nonprofit Explorer - IRS Form 990 and 990-PF filings
+- Candid/GuideStar - foundation profiles
+- FEC.gov - federal political contributions
+- University websites - trustee/regent boards, major gift announcements
+- Hospital/medical center board listings
+- Museum, symphony, opera board listings
+- News articles about donations, gifts, pledges
 
-**PRIVATE FOUNDATIONS (STRONGEST WEALTH INDICATOR):**
-- Search IRS Form 990-PF filings on ProPublica Nonprofit Explorer for:
-  * "${lastName} Family Foundation"
-  * "${firstName} ${lastName} Foundation"
-  * "${firstName} and [Spouse] ${lastName} Foundation"
-  * "${lastName} Charitable Trust"
-  * "${lastName} Family Fund"
-- Extract: Total assets, annual grants, trustees, grant recipients
-- Search Foundation Directory Online, Candid/GuideStar for "${lastName}" foundations
+Search for: "${lastName} Family Foundation", "${firstName} ${lastName} Foundation", "${lastName} Charitable Trust"
+Also: "${name}" + (trustee OR board OR director OR donation OR gift OR pledge)
 
-**NONPROFIT BOARD MEMBERSHIPS (INDICATES CAPACITY & INTERESTS):**
-- Search Form 990 Part VII (officers/directors) for "${name}"
-- Search charity websites for board/trustee listings mentioning "${name}"
-- Search university boards: "${name}" trustee OR regent OR overseer
-- Search hospital/medical center boards
-- Search museum, symphony, opera, ballet boards
-- Search private school boards
+## CRITERIA
+Extract these categories of philanthropic data:
 
-**MAJOR GIFTS & DONATIONS:**
-- Search news: "${name}" donation OR gift OR pledge OR endowment
-- Search university press releases: "${lastName}" gift OR scholarship
-- Search named buildings, wings, centers: "${lastName}" building OR hall OR center
-- Search donor walls, annual reports mentioning "${name}"
-- Search capital campaign announcements
+1. FOUNDATIONS - Any private foundation where they are trustee/director/donor
+   - Foundation name, their role, total assets
 
-**DONOR-ADVISED FUNDS:**
-- Search for "${lastName}" DAF at Fidelity Charitable, Schwab Charitable, Vanguard Charitable
-- Look for grants FROM DAFs to nonprofits mentioning "${lastName}"
+2. NONPROFIT BOARDS - University, hospital, arts, religious organizations
+   - Organization name, their role, board type
 
-**POLITICAL GIVING (FEC DATA):**
-- Search FEC.gov individual contributions for "${name}" "${city}" "${state}"
-- Extract: Total contributions, party lean, candidate/PAC recipients
-- Note: 6-figure political giving indicates 7-figure capacity
+3. MAJOR GIFTS - Named donations $10,000+
+   - Recipient organization, amount, year
 
-**CAUSE AFFINITIES (FOR CULTIVATION):**
-- What causes do they support? (education, healthcare, arts, environment, religion)
-- What organizations have they supported historically?
+4. POLITICAL GIVING - FEC contribution records
+   - Total amount contributed, party lean (Republican/Democratic/Bipartisan)
 
-**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
-Return philanthropy data in these EXACT formats:
+## FORMAT
+Return data in these exact structures:
 
-FOUNDATIONS (if any):
 FOUNDATION: [name]
-ASSETS: $[amount]
 ROLE: [Trustee/Director/Donor]
+ASSETS: $[foundation assets if known]
 
-BOARD MEMBERSHIPS (if any):
 BOARD: [organization name]
+ROLE: [Trustee/Director/Member]
 TYPE: [University/Hospital/Arts/Religious/Other]
 
-POLITICAL GIVING (from FEC):
-TOTAL POLITICAL: $[total amount]
+GIFT: $[amount] to [recipient] in [year]
+
+POLITICAL GIVING:
+TOTAL FEC CONTRIBUTIONS: $[total]
 PARTY LEAN: [Republican/Democratic/Bipartisan]
+TOP RECIPIENTS: [list]
 
-MAJOR GIFTS (if any):
-GIFT: $[amount] to [recipient] ([year if known])
-
-If none found in a category, state: "NONE FOUND"`
+End with summary counts for each category.
+If none found in a category: "NONE FOUND"`
 
     queries.push({
       query: philQuery,
@@ -375,76 +354,58 @@ If none found in a category, state: "NONE FOUND"`
       outputType: "sourcedAnswer",
       includeInlineCitations: true,
       includeSources: true,
-      maxResults: 15,
+      maxResults: 20,
       excludeDomains: BLOCKED_DOMAINS,
+      includeDomains: ["propublica.org", "guidestar.org", "candid.org", "fec.gov"],
     })
   }
 
   // =========================================================================
-  // 4. SECURITIES INTELLIGENCE - SEC FILINGS & PUBLIC COMPANY AFFILIATIONS
+  // 4. SECURITIES - SEC Filings & Public Company Affiliations
   // =========================================================================
   if (areas.includes("securities")) {
-    const secQuery = `COMPREHENSIVE SEC & SECURITIES RESEARCH for "${name}"
+    const secQuery = `## GOAL
+Find all SEC filings and public company affiliations for "${name}": insider ownership (Form 3/4), beneficial ownership (13D/13G), executive compensation (proxy DEF 14A), and board positions.
 
-CRITICAL SEARCH OBJECTIVES - Find ALL of the following:
+## SCOPE
+Search SEC EDGAR database specifically:
+- Form 3 - Initial statement of beneficial ownership
+- Form 4 - Changes in beneficial ownership (insider transactions)
+- Form 5 - Annual statement of beneficial ownership
+- Schedule 13D/13G - Beneficial ownership over 5%
+- DEF 14A - Proxy statements with executive compensation
+- 10-K/10-Q - Annual/quarterly reports mentioning executives
 
-**SEC EDGAR FILINGS (VERIFIED WEALTH INDICATORS):**
+Search for: "${name}", "${lastName}, ${firstName}", variations in SEC filer names
 
-Form 4 (Insider Trading) - MOST IMPORTANT:
-- Search SEC EDGAR for "${name}" Form 4 filings
-- Search "${lastName}, ${firstName}" insider transactions
-- Extract: Company ticker, shares owned, transaction values, current holdings
-- Calculate total value of insider holdings
+## CRITERIA
+For each SEC filing/affiliation found, extract:
+1. Company name and ticker symbol
+2. Filing type (Form 4, DEF 14A, etc.)
+3. Their role (Officer, Director, 10%+ Owner)
+4. Number of shares owned/transacted
+5. Value of holdings at current prices
+6. Executive compensation if in proxy
 
-Form 3 (Initial Beneficial Ownership):
-- Search for new officer/director appointments
-- Identifies public company affiliations
+## FORMAT
+Return data in this exact structure:
 
-DEF 14A (Proxy Statements) - EXECUTIVE COMPENSATION:
-- Search proxy statements for "${name}" executive compensation
-- Extract: Base salary, bonus, stock awards, total compensation
-- Look for "Named Executive Officers" (NEO) tables
+SEC FILINGS FOUND: YES/NO
 
-Schedule 13D/13G (Beneficial Ownership >5%):
-- Search for "${name}" OR "${lastName}" as beneficial owner
-- Indicates significant stock positions
-
-**PUBLIC COMPANY BOARD POSITIONS:**
-- Search "${name}" director OR board member + NYSE OR NASDAQ
-- Look for board committee memberships (audit, compensation, nominating)
-- Board fees typically $200K-$500K+ per year
-
-**STOCK HOLDINGS CALCULATION:**
-- Sum all Form 4 holdings by ticker
-- Apply current stock prices for total portfolio value
-- Note any large sales (liquidity event = ask opportunity)
-
-**10-K/10-Q MENTIONS:**
-- Search annual/quarterly reports for "${name}" as officer
-- Extract business segment information
-
-**KEY SEARCH PATTERNS:**
-- SEC EDGAR "${name}"
-- "${lastName}" Form 4 insider
-- "${name}" executive compensation proxy
-- "${lastName}" beneficial owner 13D
-
-**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
-Return SEC data in this EXACT format:
-
-SEC FILINGS FOUND: [YES/NO]
-
-For each company affiliation:
-COMPANY: [company name]
-TICKER: [symbol, e.g., AAPL]
+For each company:
+COMPANY: [name]
+TICKER: [symbol]
 ROLE: [Officer/Director/10%+ Owner]
-SHARES: [number of shares]
-VALUE: $[estimated value at current price]
+FILING TYPE: [Form 4/DEF 14A/13D/etc.]
+SHARES OWNED: [number]
+ESTIMATED VALUE: $[current value]
+COMPENSATION: $[if from proxy, annual total comp]
 
-At the end, include:
+End with:
 TOTAL SECURITIES VALUE: $[sum of all holdings]
+TOTAL PUBLIC COMPANY AFFILIATIONS: [count]
 
-If no SEC filings found, state: "NO SEC FILINGS FOUND"`
+If none found: "NO SEC FILINGS FOUND FOR ${name}"`
 
     queries.push({
       query: secQuery,
@@ -452,79 +413,75 @@ If no SEC filings found, state: "NO SEC FILINGS FOUND"`
       outputType: "sourcedAnswer",
       includeInlineCitations: true,
       includeSources: true,
-      maxResults: 12,
+      maxResults: 20,
       excludeDomains: BLOCKED_DOMAINS,
+      includeDomains: ["sec.gov"],
     })
   }
 
   // =========================================================================
-  // 5. BIOGRAPHICAL INTELLIGENCE - PERSONAL & PROFESSIONAL BACKGROUND
+  // 5. BIOGRAPHY - Personal Background & Career History
   // =========================================================================
   if (areas.includes("biography")) {
-    const bioQuery = `COMPREHENSIVE BIOGRAPHICAL RESEARCH for "${name}"${location ? ` from ${location}` : ""}
+    const bioQuery = `## GOAL
+Find biographical information for "${name}"${location ? ` from ${location}` : ""}: age, spouse, education, career history, professional memberships, and media mentions.
 
-CRITICAL SEARCH OBJECTIVES - Find ALL of the following:
+## SCOPE
+Search these sources for biographical data:
+- LinkedIn profile - career history, education
+- Bloomberg executive profile
+- Wikipedia if notable
+- University alumni directories and press releases
+- Wedding announcements (for spouse information)
+- News articles and profiles
+- Professional association directories
+- Company "About Us" and leadership pages
 
-**PERSONAL DETAILS:**
-- Age or birth year (look for birthday announcements, class years)
-- Search: "${name}" age OR born OR birthday
-- Calculate from graduation year if available (typically 22 at college graduation)
+## CRITERIA
+Extract these biographical data points:
 
-**SPOUSE/PARTNER (CRITICAL FOR JOINT CAPACITY):**
-- Search: "${name}" wife OR husband OR spouse OR married OR partner
-- Search wedding announcements: "${lastName}" wedding "${city}"
-- Search: "${firstName} and [spouse first name] ${lastName}"
-- Note: Spouse's career may significantly impact household wealth
+1. PERSONAL
+   - Age or birth year (calculate from graduation year if needed: typically 22 at college graduation)
+   - Spouse/partner name and their profession if available
 
-**EDUCATION (INDICATES NETWORK & CAPACITY):**
-- Search: "${name}" alumni OR graduated OR degree OR class of
-- Universities to check: Ivy League, Stanford, MIT, top 50 schools
-- MBA programs: Harvard, Stanford, Wharton, Chicago, Kellogg
-- Professional degrees: JD, MD, PhD
-- Extract: Institution, degree, graduation year, honors
+2. EDUCATION
+   - Each degree: institution, degree type (BA, MBA, JD, MD, PhD), graduation year
+   - Notable honors or achievements
 
-**CAREER HISTORY:**
-- Search LinkedIn profile for "${name}"
-- Search Bloomberg executive profile
-- Search company bios/about pages
-- Extract: Full career trajectory, key positions, notable achievements
+3. CAREER
+   - Current position and company
+   - Previous notable positions with dates
+   - Career trajectory and seniority level
+   - Industry specialization
 
-**MEMBERSHIPS & AFFILIATIONS (INDICATES LIFESTYLE):**
-- Country clubs: Search "${name}" member + golf OR country club
-- Private clubs: University clubs, city clubs, yacht clubs
-- Professional associations
-- Social/charitable clubs
+4. AFFILIATIONS
+   - Professional associations
+   - Club memberships (country clubs, university clubs)
+   - Awards and recognition
 
-**AWARDS & RECOGNITION:**
-- Search: "${name}" award OR honored OR recognition
-- Industry awards, civic honors, university distinctions
+## FORMAT
+Return data in this exact structure:
 
-**MEDIA MENTIONS:**
-- Search news articles featuring "${name}"
-- Look for wealth indicators in profiles (homes, art, philanthropy)
-- Speaking engagements, conference appearances
+PERSONAL:
+AGE: [number or "UNKNOWN"]
+SPOUSE: [full name] - [their profession if known]
 
-**KEY SEARCH PATTERNS:**
-- "${name}" LinkedIn profile
-- "${firstName} ${lastName}" biography
-- "${name}" "${city}" background
-- "${lastName}" family "${state}"
-
-**CRITICAL OUTPUT FORMAT** (MUST FOLLOW FOR DATA EXTRACTION):
-Return biographical data in this EXACT format:
-
-AGE: [number] (or "UNKNOWN")
-SPOUSE: [full name] (or "NOT FOUND")
 EDUCATION:
 - [Degree] from [University] ([Year])
 - [Additional degrees...]
 
-CAREER: [Current title] at [Current company]. Previously: [key positions]
+CAREER:
+CURRENT: [Title] at [Company] (since [year])
+PREVIOUS: [List of notable positions]
+YEARS IN HIGH-EARNING ROLES: [estimate, e.g., "25+ years"]
 
-YEARS OF HIGH EARNING: [estimated number, e.g., 25 years]
-ESTIMATED WEALTH ACCUMULATION PERIOD: [e.g., "$200K+ salary for 25 years"]
+AFFILIATIONS:
+- [List memberships, awards]
 
-If key data not found, state specific field as "NOT FOUND" rather than omitting.`
+WEALTH INDICATORS:
+[Note any lifestyle indicators: expensive hobbies, club memberships, vacation homes mentioned]
+
+If data not found for a field, state "NOT FOUND" rather than omitting.`
 
     queries.push({
       query: bioQuery,
@@ -532,8 +489,9 @@ If key data not found, state specific field as "NOT FOUND" rather than omitting.
       outputType: "sourcedAnswer",
       includeInlineCitations: true,
       includeSources: true,
-      maxResults: 12,
+      maxResults: 20,
       excludeDomains: BLOCKED_DOMAINS,
+      includeDomains: ["linkedin.com", "bloomberg.com", "wikipedia.org"],
     })
   }
 
