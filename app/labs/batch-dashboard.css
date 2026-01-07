@@ -2586,3 +2586,32 @@ button:focus-visible {
   text-align: center;
 }
 
+/* Discovery prompt input */
+.discovery-prompt-input {
+  width: 100%;
+  min-height: 100px;
+  padding: 1rem;
+  background: var(--c-gray-800);
+  border: 1px solid var(--c-gray-700);
+  border-radius: 0.5rem;
+  color: var(--c-text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+.discovery-prompt-input:focus {
+  outline: none;
+  border-color: var(--c-green-500);
+}
+
+.discovery-prompt-input::placeholder {
+  color: var(--c-text-tertiary);
+}
+
+.discovery-prompt-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

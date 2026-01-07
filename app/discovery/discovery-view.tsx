@@ -29,8 +29,6 @@ import {
   UserCircle,
   Users,
   Cpu,
-  ArrowRight,
-  Info,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { useQuery, useMutation } from "@tanstack/react-query"
@@ -77,10 +75,10 @@ function getTemplateIcon(iconName?: string): React.ElementType {
 }
 
 // ============================================================================
-// TEMPLATE CARD COMPONENT
+// TEMPLATE TILE COMPONENT (matches ServiceTile from batch-view)
 // ============================================================================
 
-function TemplateCard({
+function TemplateTile({
   template,
   onSelect,
 }: {
@@ -88,26 +86,30 @@ function TemplateCard({
   onSelect: (template: DiscoveryTemplate) => void
 }) {
   const Icon = getTemplateIcon(template.icon)
+  const variantMap: Record<string, string> = {
+    business: "olive",
+    philanthropy: "green",
+    wealth: "gray",
+    demographics: "olive",
+  }
+  const variant = variantMap[template.category] || "olive"
 
   return (
-    <motion.article
-      className="template-card card"
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={() => onSelect(template)}
-    >
-      <div className="card-icon-wrapper">
-        <Icon size={24} weight="duotone" />
+    <article className={cn("tile", `tile-${variant}`)} onClick={() => onSelect(template)}>
+      <div className="tile-header">
+        <Icon className="tile-icon" weight="light" />
+        <h3>
+          <span>{template.title}</span>
+          <span>{template.description}</span>
+        </h3>
       </div>
-      <div className="card-content">
-        <h3 className="card-title">{template.title}</h3>
-        <p className="card-description">{template.description}</p>
-      </div>
-      <div className="template-footer">
-        <span className="category-badge">{template.category}</span>
-        <CaretRight size={16} />
-      </div>
-    </motion.article>
+      <button onClick={() => onSelect(template)}>
+        <span>Use Template</span>
+        <span className="icon-button">
+          <CaretRight weight="bold" />
+        </span>
+      </button>
+    </article>
   )
 }
 
@@ -595,106 +597,109 @@ export function DiscoveryView() {
           {!result && (
             <section className="service-section">
               <h2>Quick Templates</h2>
-              <p className="section-description">
-                Select a template to get started, or write your own prompt below
-              </p>
-              <div className="discovery-templates">
-                {DISCOVERY_TEMPLATES.map((template) => (
-                  <TemplateCard
+              <div className="tiles">
+                {DISCOVERY_TEMPLATES.slice(0, 3).map((template) => (
+                  <TemplateTile
                     key={template.id}
                     template={template}
                     onSelect={handleTemplateSelect}
                   />
                 ))}
               </div>
+              <div className="tiles" style={{ marginTop: "1rem" }}>
+                {DISCOVERY_TEMPLATES.slice(3, 6).map((template) => (
+                  <TemplateTile
+                    key={template.id}
+                    template={template}
+                    onSelect={handleTemplateSelect}
+                  />
+                ))}
+              </div>
+              <div className="service-section-footer">
+                <p>Or write your own custom prompt below to find matching prospects.</p>
+              </div>
             </section>
           )}
 
           {/* Search Section */}
-          <section className="service-section">
-            <h2>{result ? "Refine Search" : "Describe Your Ideal Prospects"}</h2>
-            <div className="search-form">
-              <textarea
-                className="mapping-textarea"
-                placeholder="Describe the type of donors you're looking for. For example: 'Technology executives in San Francisco who have donated to education causes and serve on nonprofit boards.'"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={5}
-                disabled={isSearching}
-              />
-
-              <div className="search-form-row">
-                <div className="match-limit-slider">
-                  <label>Max prospects:</label>
-                  <input
-                    type="range"
-                    className="slider"
-                    min={DEFAULT_DISCOVERY_CONFIG.minResultsLimit}
-                    max={DEFAULT_DISCOVERY_CONFIG.maxResultsLimit}
-                    value={maxResults}
-                    onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}
-                    disabled={isSearching}
-                  />
-                  <span className="match-limit-value">{maxResults}</span>
-                </div>
-
-                <div className="search-cost-estimate">
-                  <Info size={14} />
-                  <span>Est. search cost: ~${estimatedSearchCost}</span>
-                </div>
+          <section className="transfer-section">
+            <div className="transfer-section-header">
+              <h2>{result ? "Refine Search" : "Custom Search"}</h2>
+              <div className="filter-options">
+                <p>Up to {maxResults} prospects • ~${estimatedSearchCost} per search</p>
               </div>
-
+            </div>
+            <div className="transfer-section-controls">
+              <div className="match-limit-slider">
+                <label>Max results:</label>
+                <input
+                  type="range"
+                  className="slider"
+                  min={DEFAULT_DISCOVERY_CONFIG.minResultsLimit}
+                  max={DEFAULT_DISCOVERY_CONFIG.maxResultsLimit}
+                  value={maxResults}
+                  onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}
+                  disabled={isSearching}
+                />
+                <span className="match-limit-value">{maxResults}</span>
+              </div>
               <button
-                className="primary-button discover-button"
+                className="flat-button"
                 onClick={handleSearch}
                 disabled={isSearching || prompt.trim().length < 10}
               >
                 {isSearching ? (
                   <>
-                    <Spinner className="animate-spin" size={18} />
+                    <Spinner className="animate-spin" size={16} />
                     Searching...
                   </>
                 ) : (
                   <>
-                    <MagnifyingGlass size={18} />
-                    Discover Prospects
+                    <MagnifyingGlass size={16} />
+                    Discover
                   </>
                 )}
               </button>
+            </div>
+            <div className="transfers">
+              <textarea
+                className="discovery-prompt-input"
+                placeholder="Describe the type of donors you're looking for. For example: 'Technology executives in San Francisco who have donated to education causes and serve on nonprofit boards.'"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                rows={4}
+                disabled={isSearching}
+              />
             </div>
           </section>
 
           {/* Results Section */}
           {result && result.prospects.length > 0 && (
-            <section className="service-section results-section">
-              <div className="results-header">
-                <h2>Discovered Prospects ({result.prospects.length})</h2>
-                <div className="results-actions">
-                  <button className="flat-button" onClick={handleSelectAll}>
-                    {selectedProspectIds.size === result.prospects.length ? (
-                      <>
-                        <X size={16} /> Deselect All
-                      </>
-                    ) : (
-                      <>
-                        <Check size={16} /> Select All
-                      </>
-                    )}
+            <section className="transfer-section">
+              <div className="transfer-section-header">
+                <h2>Discovered Prospects</h2>
+                <div className="filter-options">
+                  <p>{result.prospects.length} found • {selectedProspectIds.size} selected</p>
+                  <button className="icon-button" onClick={handleSelectAll} title={selectedProspectIds.size === result.prospects.length ? "Deselect all" : "Select all"}>
+                    {selectedProspectIds.size === result.prospects.length ? <X /> : <Check />}
                   </button>
                 </div>
               </div>
-
-              {result.warnings && result.warnings.length > 0 && (
-                <div className="results-warnings">
-                  {result.warnings.map((warning, i) => (
-                    <p key={i} className="warning-message">
-                      <WarningCircle size={14} /> {warning}
-                    </p>
-                  ))}
-                </div>
-              )}
-
-              <div className="prospects-grid">
+              <div className="transfer-section-controls">
+                {result.warnings && result.warnings.length > 0 && (
+                  <p className="warning-message">
+                    <WarningCircle size={14} /> {result.warnings[0]}
+                  </p>
+                )}
+                <button
+                  className="flat-button"
+                  onClick={() => setShowConfirmModal(true)}
+                  disabled={selectedProspectIds.size === 0}
+                >
+                  Create Batch Job
+                </button>
+              </div>
+              <div className="transfers">
                 <AnimatePresence mode="popLayout">
                   {result.prospects.map((prospect) => (
                     <ProspectCard
@@ -706,22 +711,6 @@ export function DiscoveryView() {
                   ))}
                 </AnimatePresence>
               </div>
-
-              {selectedProspectIds.size > 0 && (
-                <div className="selection-summary">
-                  <p>
-                    <strong>{selectedProspectIds.size}</strong> prospect
-                    {selectedProspectIds.size !== 1 ? "s" : ""} selected
-                  </p>
-                  <button
-                    className="primary-button"
-                    onClick={() => setShowConfirmModal(true)}
-                  >
-                    Create Batch Job
-                    <ArrowRight size={16} />
-                  </button>
-                </div>
-              )}
             </section>
           )}
 
