@@ -2722,8 +2722,8 @@ button:focus-visible {
 
 .transfer-logo-avatar {
   position: relative;
-  background: var(--c-gray-700) !important;
-  overflow: hidden;
+  background: transparent !important;
+  overflow: visible;
 }
 
 .transfer-avatar-img {

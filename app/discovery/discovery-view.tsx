@@ -18,7 +18,6 @@ import {
   Binoculars,
   MagnifyingGlass,
   Spinner,
-  CheckCircle,
   WarningCircle,
   CaretRight,
   CaretDown,
@@ -273,7 +272,7 @@ function ProspectItem({
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ duration: 0.15 }}
             >
-              <CheckCircle size={20} weight="fill" color="var(--c-gray-900)" />
+              <Check size={20} weight="bold" color="var(--c-gray-900)" />
             </motion.div>
           )}
         </AnimatePresence>
