@@ -1,4 +1,5 @@
 /* Batch Dashboard - Theme-aware styling */
+@import url("https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@100;200;300;400;500;600;700;800;900&display=swap");
 
 /* CSS Variables - Dark mode (default) */
 .batch-app-container {
@@ -29,8 +30,10 @@
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  font-family: inherit;
-  background-color: var(--background);
+  font-family: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--c-gray-900);
+  color: var(--c-text-primary);
+  line-height: 1.5;
 }
 
 /* Batch Header */
@@ -315,6 +318,45 @@
   color: var(--c-text-tertiary);
 }
 
+/* Dropdown Field */
+.dropdown-field {
+  display: flex;
+  flex-grow: 1;
+  position: relative;
+  max-width: 140px;
+}
+
+.dropdown-field select {
+  width: 100%;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border: 0;
+  border-bottom: 1px solid var(--c-gray-600);
+  background-color: transparent;
+  padding-right: 1.5rem;
+  appearance: none;
+  color: var(--c-text-tertiary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.dropdown-field select:focus {
+  outline: none;
+  border-color: var(--c-text-tertiary);
+  color: var(--c-text-primary);
+}
+
+.dropdown-field svg {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1rem;
+  height: 1rem;
+  color: var(--c-text-tertiary);
+  pointer-events: none;
+}
+
 /* Flat Button */
 .flat-button {
   border-radius: 6px;
@@ -407,23 +449,35 @@
   box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px #60818E;
 }
 
-.tile a {
+.tile a,
+.tile button {
   text-decoration: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-weight: 600;
   color: inherit;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
 }
 
-.tile a .icon-button {
+.tile a .icon-button,
+.tile button .icon-button {
   color: inherit;
-  border-color: transparent;
-  border: none;
+  border-color: inherit;
+  border: 1px solid currentColor;
+  background: transparent;
 }
 
 .tile a .icon-button:hover,
-.tile a .icon-button:focus {
+.tile a .icon-button:focus,
+.tile button .icon-button:hover,
+.tile button .icon-button:focus {
   background-color: transparent;
   box-shadow: none;
 }
@@ -890,6 +944,48 @@
 .faq p {
   color: var(--c-text-tertiary);
   font-size: 0.875rem;
+}
+
+.faq > div {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-top: 1px solid var(--c-gray-600);
+  border-bottom: 1px solid var(--c-gray-600);
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+}
+
+.faq > div + div {
+  margin-top: 0;
+  border-top: none;
+}
+
+.faq > div label {
+  padding-right: 1rem;
+  margin-right: 1rem;
+  border-right: 1px solid var(--c-gray-600);
+  color: var(--c-text-primary);
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.faq > div input {
+  border: 0;
+  background-color: transparent;
+  padding: 0.25em 0;
+  width: 100%;
+  color: var(--c-text-primary);
+  font-size: 0.875rem;
+}
+
+.faq > div input::placeholder {
+  color: var(--c-text-tertiary);
+}
+
+.faq > div input:focus {
+  outline: none;
 }
 
 .upload-zone {
@@ -2625,12 +2721,340 @@ button:focus-visible {
   padding-right: 0.5rem;
 }
 
-/* Dropdown field icon positioning */
-.dropdown-field svg {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  pointer-events: none;
+/* Dropdown field icon positioning - duplicate removed, defined above */
+
+/* ============================================================================
+   DIALOG/MODAL STYLES (Dark Theme)
+   ============================================================================ */
+
+.dialog-content {
+  font-family: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--c-gray-800);
+  border: 1px solid var(--c-gray-600);
+  color: var(--c-text-primary);
+}
+
+.dialog-content h2,
+.dialog-content [data-slot="title"] {
+  color: var(--c-text-primary);
+  font-weight: 600;
+}
+
+.dialog-content p,
+.dialog-content [data-slot="description"] {
+  color: var(--c-text-tertiary);
+}
+
+/* Override Radix/shadcn dialog background */
+[data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.75);
+}
+
+[data-radix-dialog-content] {
+  background-color: var(--c-gray-800);
+  border: 1px solid var(--c-gray-600);
+}
+
+/* ============================================================================
+   TRANSFER NUMBER STYLING
+   ============================================================================ */
+
+.transfer-number {
+  margin-left: 2rem;
+  font-size: 1rem;
+  flex-shrink: 0;
+  width: auto;
+  min-width: 80px;
+  display: flex;
+  justify-content: flex-end;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+@media (max-width: 1000px) {
+  .transfer-number {
+    margin-left: 0;
+    margin-top: 1.25rem;
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* ============================================================================
+   APP BODY INNER WRAPPER (matches original dark-uibank design)
+   ============================================================================ */
+
+.app-body-main-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.app-body-sidebar {
+  min-width: 280px;
+  max-width: 360px;
+}
+
+@media (max-width: 1200px) {
+  .app-body-sidebar {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+/* ============================================================================
+   DISCOVERY SEARCH AREA (Redesigned UX)
+   ============================================================================ */
+
+.discovery-search-area {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.discovery-search-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 1rem;
+  background: var(--c-gray-700);
+  border: 1px solid var(--c-gray-600);
+  border-radius: 8px;
+  color: var(--c-text-primary);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.discovery-search-textarea:focus {
+  outline: none;
+  border-color: var(--c-green-500);
+  box-shadow: 0 0 0 4px rgba(69, 255, 188, 0.1);
+}
+
+.discovery-search-textarea::placeholder {
+  color: var(--c-text-tertiary);
+  line-height: 1.6;
+}
+
+.discovery-search-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.discovery-search-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .discovery-search-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.discovery-search-options {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  color: var(--c-text-tertiary);
+  font-size: 0.875rem;
+}
+
+.discovery-search-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.discovery-search-options select {
+  padding: 0.375rem 0.75rem;
+  background: var(--c-gray-700);
+  border: 1px solid var(--c-gray-600);
+  border-radius: 4px;
+  color: var(--c-text-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.discovery-search-options select:focus {
+  outline: none;
+  border-color: var(--c-green-500);
+}
+
+.discovery-search-hint {
+  color: var(--c-text-tertiary);
+  font-size: 0.75rem;
+}
+
+@media (max-width: 700px) {
+  .discovery-search-hint {
+    display: none;
+  }
+}
+
+.discovery-search-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--c-green-500);
+  color: var(--c-gray-900);
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  min-width: 140px;
+}
+
+.discovery-search-button:hover:not(:disabled) {
+  background: var(--c-olive-500);
+  transform: translateY(-2px);
+}
+
+.discovery-search-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px var(--c-green-500);
+}
+
+.discovery-search-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.discovery-search-button.is-loading {
+  background: var(--c-gray-700);
+  color: var(--c-text-secondary);
+}
+
+/* ============================================================================
+   TILE EXPANSION (Inline placeholder form)
+   ============================================================================ */
+
+.tile-expanded {
+  min-height: auto;
+}
+
+.tile-expansion {
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.tile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+}
+
+.tile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tile-field label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: inherit;
+  opacity: 0.8;
+}
+
+.tile-field input {
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: inherit;
+  font-size: 0.875rem;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.tile-field input::placeholder {
+  color: inherit;
+  opacity: 0.5;
+}
+
+.tile-field input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.tile-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+}
+
+.tile-errors span {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: #ff6b6b;
+}
+
+/* Light mode tile form adjustments */
+:root.light .tile-form,
+.light .tile-form {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+:root.light .tile-field input,
+.light .tile-field input {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+:root.light .tile-field input:focus,
+.light .tile-field input:focus {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.2);
+}
+
+/* Light mode discovery search */
+:root.light .discovery-search-textarea,
+.light .discovery-search-textarea {
+  background: var(--c-gray-700);
+  border-color: var(--c-gray-600);
+  color: var(--c-text-primary);
+}
+
+:root.light .discovery-search-textarea:focus,
+.light .discovery-search-textarea:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+}
+
+:root.light .discovery-search-button,
+.light .discovery-search-button {
+  background: #10b981;
+  color: #ffffff;
+}
+
+:root.light .discovery-search-button:hover:not(:disabled),
+.light .discovery-search-button:hover:not(:disabled) {
+  background: #059669;
+}
+
+:root.light .discovery-search-options select,
+.light .discovery-search-options select {
+  background: var(--c-gray-700);
+  border-color: var(--c-gray-600);
+  color: var(--c-text-primary);
 }
 

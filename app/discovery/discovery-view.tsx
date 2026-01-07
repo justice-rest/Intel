@@ -5,11 +5,12 @@
  *
  * Main client component for the Prospect Discovery feature.
  * Styled to match the dark-uibank-dashboard-concept design.
+ * Redesigned for smoother, more intuitive UX.
  *
  * @module app/discovery/discovery-view
  */
 
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useTransitionRouter } from "@/lib/transitions"
 import { cn } from "@/lib/utils"
@@ -20,6 +21,7 @@ import {
   CheckCircle,
   WarningCircle,
   CaretRight,
+  CaretDown,
   Check,
   X,
   Bank,
@@ -31,8 +33,7 @@ import {
   Funnel,
   Plus,
   User,
-  MapPin,
-  Briefcase,
+  Lightning,
   ArrowRight,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
@@ -44,7 +45,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog"
 
 import "@/app/labs/batch-dashboard.css"
@@ -80,33 +80,133 @@ function getTemplateIcon(iconName?: string): React.ElementType {
 }
 
 // ============================================================================
-// TEMPLATE TILE COMPONENT (matches original dark-uibank tile design)
+// TEMPLATE TILE COMPONENT (Expandable inline)
 // ============================================================================
 
 function TemplateTile({
   template,
-  onSelect,
+  isExpanded,
+  onToggle,
+  onApply,
   variant = "olive",
 }: {
   template: DiscoveryTemplate
-  onSelect: (template: DiscoveryTemplate) => void
+  isExpanded: boolean
+  onToggle: () => void
+  onApply: (filledPrompt: string) => void
   variant?: "olive" | "green" | "gray"
 }) {
   const Icon = getTemplateIcon(template.icon)
+  const [values, setValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {}
+    for (const p of template.placeholders || []) {
+      initial[p.key] = p.defaultValue || ""
+    }
+    return initial
+  })
+  const [errors, setErrors] = useState<string[]>([])
+  const firstInputRef = useRef<HTMLInputElement>(null)
+
+  // Focus first input when expanded
+  useEffect(() => {
+    if (isExpanded && firstInputRef.current) {
+      setTimeout(() => firstInputRef.current?.focus(), 100)
+    }
+  }, [isExpanded])
+
+  const hasPlaceholders = (template.placeholders?.length ?? 0) > 0
+
+  const handleApply = () => {
+    if (!hasPlaceholders) {
+      onApply(template.prompt)
+      return
+    }
+
+    const validation = validatePlaceholderValues(template, values)
+    if (!validation.valid) {
+      setErrors(validation.errors)
+      return
+    }
+
+    try {
+      const filled = fillTemplatePlaceholders(template, values)
+      onApply(filled)
+      setErrors([])
+    } catch (err) {
+      setErrors([err instanceof Error ? err.message : "Failed to fill template"])
+    }
+  }
+
+  const handleClick = () => {
+    if (!hasPlaceholders) {
+      // No placeholders, apply immediately
+      onApply(template.prompt)
+    } else {
+      // Has placeholders, toggle expansion
+      onToggle()
+    }
+  }
 
   return (
-    <article className={cn("tile", `tile-${variant}`)} onClick={() => onSelect(template)}>
-      <div className="tile-header">
+    <article className={cn("tile", `tile-${variant}`, isExpanded && "tile-expanded")}>
+      <div className="tile-header" onClick={handleClick} style={{ cursor: "pointer" }}>
         <Icon className="tile-icon" weight="light" />
         <h3>
           <span>{template.title}</span>
           <span>{template.description}</span>
         </h3>
       </div>
-      <button onClick={() => onSelect(template)}>
-        <span>Use Template</span>
+
+      <AnimatePresence>
+        {isExpanded && hasPlaceholders && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="tile-expansion"
+          >
+            <div className="tile-form">
+              {template.placeholders?.map((placeholder, idx) => (
+                <div key={placeholder.key} className="tile-field">
+                  <label>
+                    {placeholder.label}
+                    {placeholder.required && <span className="required-star">*</span>}
+                  </label>
+                  <input
+                    ref={idx === 0 ? firstInputRef : undefined}
+                    type="text"
+                    placeholder={`Enter ${placeholder.label.toLowerCase()}`}
+                    value={values[placeholder.key] || ""}
+                    onChange={(e) => {
+                      setValues((prev) => ({ ...prev, [placeholder.key]: e.target.value }))
+                      setErrors([])
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleApply()
+                      }
+                    }}
+                  />
+                </div>
+              ))}
+              {errors.length > 0 && (
+                <div className="tile-errors">
+                  {errors.map((error, i) => (
+                    <span key={i}><WarningCircle size={12} /> {error}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <button onClick={isExpanded ? handleApply : handleClick}>
+        <span>{isExpanded ? "Apply Template" : "Use Template"}</span>
         <span className="icon-button">
-          <CaretRight weight="bold" />
+          {isExpanded ? <ArrowRight weight="bold" /> : <CaretRight weight="bold" />}
         </span>
       </button>
     </article>
@@ -114,7 +214,7 @@ function TemplateTile({
 }
 
 // ============================================================================
-// PROSPECT TRANSFER ITEM (matches original transfer design)
+// PROSPECT ITEM (Transfer-style row)
 // ============================================================================
 
 function ProspectItem({
@@ -142,7 +242,12 @@ function ProspectItem({
       onClick={onToggle}
       style={{ cursor: "pointer" }}
     >
-      <div className="transfer-logo" style={{ backgroundColor: selected ? "var(--c-green-500)" : "var(--c-gray-200)" }}>
+      <div
+        className="transfer-logo"
+        style={{
+          backgroundColor: selected ? "var(--c-green-500)" : "var(--c-gray-200)",
+        }}
+      >
         {selected ? (
           <CheckCircle size={24} weight="fill" color="var(--c-gray-800)" />
         ) : (
@@ -171,94 +276,6 @@ function ProspectItem({
 }
 
 // ============================================================================
-// TEMPLATE FILL MODAL
-// ============================================================================
-
-function TemplateFillModal({
-  template,
-  onClose,
-  onSubmit,
-}: {
-  template: DiscoveryTemplate
-  onClose: () => void
-  onSubmit: (filledPrompt: string) => void
-}) {
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {}
-    for (const p of template.placeholders || []) {
-      initial[p.key] = p.defaultValue || ""
-    }
-    return initial
-  })
-  const [errors, setErrors] = useState<string[]>([])
-
-  const handleSubmit = () => {
-    const validation = validatePlaceholderValues(template, values)
-    if (!validation.valid) {
-      setErrors(validation.errors)
-      return
-    }
-
-    try {
-      const filled = fillTemplatePlaceholders(template, values)
-      onSubmit(filled)
-    } catch (err) {
-      setErrors([err instanceof Error ? err.message : "Failed to fill template"])
-    }
-  }
-
-  return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="dialog-content">
-        <DialogHeader>
-          <DialogTitle>{template.title}</DialogTitle>
-          <DialogDescription>{template.description}</DialogDescription>
-        </DialogHeader>
-
-        <div className="faq">
-          {(template.placeholders || []).map((placeholder) => (
-            <div key={placeholder.key}>
-              <label>
-                {placeholder.label}
-                {placeholder.required && <span style={{ color: "#ff6363" }}>*</span>}
-              </label>
-              <input
-                type="text"
-                placeholder={`Enter ${placeholder.label.toLowerCase()}`}
-                value={values[placeholder.key] || ""}
-                onChange={(e) =>
-                  setValues((prev) => ({ ...prev, [placeholder.key]: e.target.value }))
-                }
-              />
-            </div>
-          ))}
-        </div>
-
-        {errors.length > 0 && (
-          <div className="validation-errors">
-            {errors.map((error, i) => (
-              <p key={i} className="validation-error">
-                <WarningCircle size={14} /> {error}
-              </p>
-            ))}
-          </div>
-        )}
-
-        <div className="payment-section-footer">
-          <button className="save-button" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="settings-button" onClick={handleSubmit}>
-            <ArrowRight />
-            <span>Use Template</span>
-          </button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-// ============================================================================
 // CONFIRM BATCH MODAL
 // ============================================================================
 
@@ -273,7 +290,10 @@ function ConfirmBatchModal({
   onConfirm: () => void
   isCreating: boolean
 }) {
-  const estimatedCost = (selectedProspects.length * DEFAULT_DISCOVERY_CONFIG.costPerEnrichmentCents / 100).toFixed(2)
+  const estimatedCost = (
+    (selectedProspects.length * DEFAULT_DISCOVERY_CONFIG.costPerEnrichmentCents) /
+    100
+  ).toFixed(2)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -281,7 +301,8 @@ function ConfirmBatchModal({
         <DialogHeader>
           <DialogTitle>Create Batch Job</DialogTitle>
           <DialogDescription>
-            Start enrichment research on {selectedProspects.length} prospect{selectedProspects.length !== 1 ? "s" : ""}
+            Start enrichment research on {selectedProspects.length} prospect
+            {selectedProspects.length !== 1 ? "s" : ""}
           </DialogDescription>
         </DialogHeader>
 
@@ -316,7 +337,12 @@ function ConfirmBatchModal({
           <button className="save-button" onClick={onClose} disabled={isCreating}>
             Cancel
           </button>
-          <button className="flat-button" onClick={onConfirm} disabled={isCreating} style={{ marginLeft: "1rem" }}>
+          <button
+            className="flat-button"
+            onClick={onConfirm}
+            disabled={isCreating}
+            style={{ marginLeft: "1rem" }}
+          >
             {isCreating ? (
               <>
                 <Spinner className="animate-spin" size={16} style={{ marginRight: "0.5rem" }} />
@@ -338,11 +364,13 @@ function ConfirmBatchModal({
 
 export function DiscoveryView() {
   const router = useTransitionRouter()
+  const searchButtonRef = useRef<HTMLButtonElement>(null)
+  const promptInputRef = useRef<HTMLTextAreaElement>(null)
 
   // State
   const [prompt, setPrompt] = useState("")
   const [maxResults, setMaxResults] = useState(DEFAULT_DISCOVERY_CONFIG.defaultResults)
-  const [selectedTemplate, setSelectedTemplate] = useState<DiscoveryTemplate | null>(null)
+  const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null)
   const [result, setResult] = useState<DiscoveryResult | null>(null)
   const [selectedProspectIds, setSelectedProspectIds] = useState<Set<string>>(new Set())
   const [showConfirmModal, setShowConfirmModal] = useState(false)
@@ -375,9 +403,17 @@ export function DiscoveryView() {
       setResult(data)
       setSelectedProspectIds(new Set())
       if (data.prospects.length === 0) {
-        toast({ title: "No prospects found", description: "Try broadening your search criteria", status: "info" })
+        toast({
+          title: "No prospects found",
+          description: "Try broadening your search criteria",
+          status: "info",
+        })
       } else {
-        toast({ title: `Found ${data.prospects.length} prospects`, description: `Search completed in ${(data.durationMs / 1000).toFixed(1)}s`, status: "success" })
+        toast({
+          title: `Found ${data.prospects.length} prospects`,
+          description: `Search completed in ${(data.durationMs / 1000).toFixed(1)}s`,
+          status: "success",
+        })
       }
     },
     onError: (error) => {
@@ -386,28 +422,39 @@ export function DiscoveryView() {
   })
 
   // Handlers
-  const handleTemplateSelect = useCallback((template: DiscoveryTemplate) => {
-    if (template.placeholders && template.placeholders.length > 0) {
-      setSelectedTemplate(template)
-    } else {
-      setPrompt(template.prompt)
-      toast({ title: "Template loaded", description: "Customize the prompt or click Search" })
-    }
-  }, [])
-
-  const handleTemplateFill = useCallback((filledPrompt: string) => {
-    setPrompt(filledPrompt)
-    setSelectedTemplate(null)
-    toast({ title: "Template applied", description: "Click Search to find matching prospects" })
-  }, [])
+  const handleTemplateApply = useCallback(
+    (filledPrompt: string) => {
+      setPrompt(filledPrompt)
+      setExpandedTemplateId(null)
+      toast({ title: "Template applied", description: "Click Search or press Enter to find prospects" })
+      // Focus the search button for easy execution
+      setTimeout(() => searchButtonRef.current?.focus(), 100)
+    },
+    []
+  )
 
   const handleSearch = useCallback(() => {
     if (prompt.trim().length < 10) {
-      toast({ title: "Prompt too short", description: "Please enter at least 10 characters", status: "error" })
+      toast({
+        title: "Prompt too short",
+        description: "Please enter at least 10 characters",
+        status: "error",
+      })
+      promptInputRef.current?.focus()
       return
     }
     searchMutation.mutate(prompt)
   }, [prompt, searchMutation])
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        handleSearch()
+      }
+    },
+    [handleSearch]
+  )
 
   const handleProspectToggle = useCallback((prospectId: string) => {
     setSelectedProspectIds((prev) => {
@@ -459,15 +506,29 @@ export function DiscoveryView() {
       }
 
       const { job } = await res.json()
-      toast({ title: "Batch job created", description: `Created job with ${selectedProspects.length} prospects` })
+      toast({
+        title: "Batch job created",
+        description: `Created job with ${selectedProspects.length} prospects`,
+      })
       router.push(`/labs/${job.id}`)
     } catch (error) {
-      toast({ title: "Failed to create batch", description: error instanceof Error ? error.message : "Unknown error", status: "error" })
+      toast({
+        title: "Failed to create batch",
+        description: error instanceof Error ? error.message : "Unknown error",
+        status: "error",
+      })
     } finally {
       setIsCreatingBatch(false)
       setShowConfirmModal(false)
     }
   }, [result, selectedProspectIds, router])
+
+  const handleClearResults = useCallback(() => {
+    setResult(null)
+    setSelectedProspectIds(new Set())
+    setPrompt("")
+    promptInputRef.current?.focus()
+  }, [])
 
   // Computed
   const selectedProspects = useMemo(() => {
@@ -477,8 +538,8 @@ export function DiscoveryView() {
 
   const isSearching = searchMutation.isPending
 
-  // Template variants
-  const templateVariants: Array<"olive" | "green" | "gray"> = ["olive", "green", "gray", "olive", "green", "gray"]
+  // Template variants cycling
+  const templateVariants: Array<"olive" | "green" | "gray"> = ["olive", "green", "gray"]
 
   return (
     <div className="batch-app-container">
@@ -505,43 +566,80 @@ export function DiscoveryView() {
       <div className="batch-app-body">
         {/* Main Content */}
         <div className="app-body-main-content">
-          {/* Service Section - Templates */}
+          {/* Search Section */}
           <section className="service-section">
             <h2>Prospect Discovery</h2>
-            <div className="service-section-header">
-              <div className="search-field">
-                <MagnifyingGlass />
-                <input
-                  type="text"
-                  placeholder="Describe your ideal prospects..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  disabled={isSearching}
-                />
+
+            {/* Search Area */}
+            <div className="discovery-search-area">
+              <textarea
+                ref={promptInputRef}
+                className="discovery-search-textarea"
+                placeholder="Describe your ideal prospects...&#10;&#10;Examples:&#10;• Find tech executives in Austin, TX who support education causes&#10;• Look for foundation board members in California&#10;• Search for retired Fortune 500 executives in New York"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={isSearching}
+                rows={4}
+              />
+              <div className="discovery-search-controls">
+                <div className="discovery-search-options">
+                  <label>
+                    <span>Max results:</span>
+                    <select
+                      value={maxResults}
+                      onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}
+                      disabled={isSearching}
+                    >
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                      <option value="20">20</option>
+                      <option value="25">25</option>
+                    </select>
+                  </label>
+                  <span className="discovery-search-hint">⌘+Enter to search</span>
+                </div>
+                <button
+                  ref={searchButtonRef}
+                  className={cn("discovery-search-button", isSearching && "is-loading")}
+                  onClick={handleSearch}
+                  disabled={isSearching || prompt.trim().length < 10}
+                >
+                  {isSearching ? (
+                    <>
+                      <Spinner className="animate-spin" size={18} />
+                      <span>Searching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lightning weight="fill" size={18} />
+                      <span>Search</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <div className="dropdown-field">
-                <select value={maxResults} onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}>
-                  <option value="5">5 max</option>
-                  <option value="10">10 max</option>
-                  <option value="15">15 max</option>
-                  <option value="20">20 max</option>
-                  <option value="25">25 max</option>
-                </select>
-                <Funnel />
-              </div>
-              <button className="flat-button" onClick={handleSearch} disabled={isSearching || prompt.trim().length < 10}>
-                {isSearching ? "Searching..." : "Search"}
-              </button>
             </div>
+
+            {/* Templates - shown when no results */}
             {!result && (
               <>
+                <div className="service-section-footer" style={{ marginBottom: "1rem" }}>
+                  <p>Or choose a template below to get started:</p>
+                </div>
                 <div className="tiles">
                   {DISCOVERY_TEMPLATES.slice(0, 3).map((template, i) => (
                     <TemplateTile
                       key={template.id}
                       template={template}
-                      onSelect={handleTemplateSelect}
-                      variant={templateVariants[i]}
+                      isExpanded={expandedTemplateId === template.id}
+                      onToggle={() =>
+                        setExpandedTemplateId(
+                          expandedTemplateId === template.id ? null : template.id
+                        )
+                      }
+                      onApply={handleTemplateApply}
+                      variant={templateVariants[i % 3]}
                     />
                   ))}
                 </div>
@@ -550,26 +648,35 @@ export function DiscoveryView() {
                     <TemplateTile
                       key={template.id}
                       template={template}
-                      onSelect={handleTemplateSelect}
-                      variant={templateVariants[i + 3]}
+                      isExpanded={expandedTemplateId === template.id}
+                      onToggle={() =>
+                        setExpandedTemplateId(
+                          expandedTemplateId === template.id ? null : template.id
+                        )
+                      }
+                      onApply={handleTemplateApply}
+                      variant={templateVariants[i % 3]}
                     />
                   ))}
                 </div>
               </>
             )}
-            <div className="service-section-footer">
-              <p>Discovery uses AI to find real prospects from public records, news, and business databases.</p>
-            </div>
           </section>
 
-          {/* Transfer Section - Results */}
+          {/* Results Section */}
           {result && result.prospects.length > 0 && (
             <section className="transfer-section">
               <div className="transfer-section-header">
                 <h2>Discovered Prospects</h2>
                 <div className="filter-options">
-                  <p>{selectedProspectIds.size} of {result.prospects.length} selected</p>
-                  <button className="icon-button" onClick={handleSelectAll} title="Toggle all">
+                  <p>
+                    {selectedProspectIds.size} of {result.prospects.length} selected
+                  </p>
+                  <button
+                    className="icon-button"
+                    onClick={handleSelectAll}
+                    title={selectedProspectIds.size === result.prospects.length ? "Deselect all" : "Select all"}
+                  >
                     {selectedProspectIds.size === result.prospects.length ? <X /> : <Check />}
                   </button>
                   <button
@@ -607,6 +714,9 @@ export function DiscoveryView() {
                 <div className="empty-state">
                   <MagnifyingGlass size={48} />
                   <span>No prospects found. Try broadening your search criteria.</span>
+                  <button className="flat-button" onClick={handleClearResults}>
+                    Try Again
+                  </button>
                 </div>
               </div>
             </section>
@@ -663,26 +773,47 @@ export function DiscoveryView() {
               </div>
             </div>
 
+            {/* Tips */}
             <div className="faq">
               <p>Tips for better results</p>
               <div>
                 <label>Location</label>
-                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>Include city & state</span>
+                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>
+                  Include city & state
+                </span>
               </div>
               <div>
                 <label>Industry</label>
-                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>Specify sector keywords</span>
+                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>
+                  Specify sector keywords
+                </span>
               </div>
               <div>
                 <label>Wealth</label>
-                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>Mention indicators</span>
+                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>
+                  Mention indicators
+                </span>
               </div>
             </div>
 
+            {/* Action button when prospects selected */}
             {selectedProspectIds.size > 0 && (
               <div className="payment-section-footer">
-                <button className="save-button" onClick={() => setShowConfirmModal(true)}>
+                <button
+                  className="save-button save-button-active"
+                  onClick={() => setShowConfirmModal(true)}
+                >
                   Create Batch ({selectedProspectIds.size})
+                </button>
+              </div>
+            )}
+
+            {/* Clear results button */}
+            {result && (
+              <div className="payment-section-footer" style={{ marginTop: selectedProspectIds.size > 0 ? "0.75rem" : "1.5rem" }}>
+                <button className="settings-button" onClick={handleClearResults}>
+                  <X size={16} />
+                  <span>Clear & Start Over</span>
                 </button>
               </div>
             )}
@@ -690,15 +821,7 @@ export function DiscoveryView() {
         </div>
       </div>
 
-      {/* Modals */}
-      {selectedTemplate && (
-        <TemplateFillModal
-          template={selectedTemplate}
-          onClose={() => setSelectedTemplate(null)}
-          onSubmit={handleTemplateFill}
-        />
-      )}
-
+      {/* Confirm Modal */}
       {showConfirmModal && (
         <ConfirmBatchModal
           selectedProspects={selectedProspects}
