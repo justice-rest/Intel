@@ -217,6 +217,16 @@ function TemplateTile({
 // PROSPECT ITEM (Transfer-style row)
 // ============================================================================
 
+/**
+ * Generate a DiceBear avatar URL using the "dylan" style
+ * @param seed - Unique seed for consistent avatar generation (name or ID)
+ */
+function getDiceBearAvatar(seed: string): string {
+  // Encode the seed to handle special characters
+  const encodedSeed = encodeURIComponent(seed)
+  return `https://api.dicebear.com/9.x/dylan/svg?seed=${encodedSeed}`
+}
+
 function ProspectItem({
   prospect,
   selected,
@@ -232,27 +242,41 @@ function ProspectItem({
     low: "var(--c-gray-400)",
   }
 
+  // Use prospect ID or name as seed for unique avatar
+  const avatarSeed = prospect.id || prospect.name
+  const avatarUrl = getDiceBearAvatar(avatarSeed)
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -50 }}
-      className={cn("transfer", selected && "transfer-selected")}
+      className="transfer"
       onClick={onToggle}
       style={{ cursor: "pointer" }}
     >
-      <div
-        className="transfer-logo"
-        style={{
-          backgroundColor: selected ? "var(--c-green-500)" : "var(--c-gray-200)",
-        }}
-      >
-        {selected ? (
-          <CheckCircle size={24} weight="fill" color="var(--c-gray-800)" />
-        ) : (
-          <User size={20} weight="bold" color="var(--c-gray-600)" />
-        )}
+      <div className="transfer-logo transfer-logo-avatar">
+        {/* DiceBear Avatar */}
+        <img
+          src={avatarUrl}
+          alt={prospect.name}
+          className="transfer-avatar-img"
+        />
+        {/* Selection overlay - only shows checkmark on the avatar */}
+        <AnimatePresence>
+          {selected && (
+            <motion.div
+              className="transfer-avatar-selected"
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              transition={{ duration: 0.15 }}
+            >
+              <CheckCircle size={20} weight="fill" color="var(--c-gray-900)" />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
       <dl className="transfer-details">
         <div>
