@@ -2554,3 +2554,35 @@ button:focus-visible {
   margin-top: 1.5rem;
 }
 
+/* Discovery tips list */
+.discovery-tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.discovery-tips-list li {
+  font-size: 0.875rem;
+  color: var(--c-text-secondary);
+  padding-left: 1rem;
+  position: relative;
+}
+
+.discovery-tips-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--c-green-500);
+}
+
+/* Discovery stats summary */
+.discovery-stats-summary {
+  font-size: 0.875rem;
+  color: var(--c-text-secondary);
+  margin: 0;
+  text-align: center;
+}
+

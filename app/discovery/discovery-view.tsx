@@ -23,7 +23,6 @@ import {
   CaretRight,
   Check,
   X,
-  Lightbulb,
   Bank,
   Buildings,
   FirstAid,
@@ -740,67 +739,72 @@ export function DiscoveryView() {
 
         {/* Sidebar */}
         <div className="app-body-sidebar">
-          <div className="sidebar-card">
-            <h3>Discovery Tips</h3>
-            <ul className="discovery-faq">
-              <li>
-                <Lightbulb size={14} />
-                Be specific about location (city and state)
-              </li>
-              <li>
-                <Lightbulb size={14} />
-                Include industry or sector keywords
-              </li>
-              <li>
-                <Lightbulb size={14} />
-                Mention philanthropic interests or board types
-              </li>
-              <li>
-                <Lightbulb size={14} />
-                Reference wealth indicators like &quot;real estate investors&quot; or &quot;Fortune 500&quot;
-              </li>
-              <li>
-                <Lightbulb size={14} />
-                Try different templates for inspiration
-              </li>
-            </ul>
-          </div>
+          <section className="payment-section">
+            <div className="payment-section-header">
+              <h2>Discovery Tips</h2>
+              <div>
+                <span className="plan-badge">AI Search</span>
+              </div>
+            </div>
 
-          {discoveryStatus?.rateLimit && (
-            <div className="sidebar-card">
-              <h3>Usage</h3>
-              <div className="stats-grid">
-                <div className="card">
-                  <span className="card-value">{discoveryStatus.rateLimit.remaining}</span>
-                  <span className="card-label">Searches Left</span>
+            <div className="faq">
+              <p>Write a detailed prompt describing your ideal prospects</p>
+              <ul className="discovery-tips-list">
+                <li>Be specific about location (city and state)</li>
+                <li>Include industry or sector keywords</li>
+                <li>Mention philanthropic interests or board types</li>
+                <li>Reference wealth indicators</li>
+              </ul>
+            </div>
+
+            {/* Stats cards */}
+            <div className="payments">
+              <div className="payment">
+                <div className="card card-green">
+                  <span>Left</span>
+                  <span>{discoveryStatus?.rateLimit?.remaining ?? "..."}</span>
                 </div>
-                <div className="card">
-                  <span className="card-value">{discoveryStatus.rateLimit.limit}</span>
-                  <span className="card-label">Hourly Limit</span>
+                <div className="payment-details">
+                  <h3>Searches</h3>
+                  <div>
+                    <span>per hour</span>
+                  </div>
+                </div>
+              </div>
+              <div className="payment">
+                <div className="card card-olive">
+                  <span>Max</span>
+                  <span>{DEFAULT_DISCOVERY_CONFIG.maxResultsLimit}</span>
+                </div>
+                <div className="payment-details">
+                  <h3>Prospects</h3>
+                  <div>
+                    <span>per search</span>
+                  </div>
+                </div>
+              </div>
+              <div className="payment">
+                <div className="card card-gray">
+                  <span>Cost</span>
+                  <span>~2¢</span>
+                </div>
+                <div className="payment-details">
+                  <h3>Per Search</h3>
+                  <div>
+                    <span>estimate</span>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
 
-          {result && (
-            <div className="sidebar-card">
-              <h3>Search Stats</h3>
-              <div className="stats-grid">
-                <div className="card">
-                  <span className="card-value">{result.prospects.length}</span>
-                  <span className="card-label">Found</span>
-                </div>
-                <div className="card">
-                  <span className="card-value">{(result.durationMs / 1000).toFixed(1)}s</span>
-                  <span className="card-label">Duration</span>
-                </div>
-                <div className="card">
-                  <span className="card-value">{result.queryCount}</span>
-                  <span className="card-label">Queries</span>
-                </div>
+            {result && (
+              <div className="payment-section-footer">
+                <p className="discovery-stats-summary">
+                  Found {result.prospects.length} prospects in {(result.durationMs / 1000).toFixed(1)}s
+                </p>
               </div>
-            </div>
-          )}
+            )}
+          </section>
         </div>
       </div>
 
