@@ -31,7 +31,7 @@
   display: flex;
   flex-direction: column;
   font-family: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
-  background-color: var(--c-gray-900);
+  background-color: #191919;
   color: var(--c-text-primary);
   line-height: 1.5;
 }
