@@ -6,6 +6,7 @@ import {
   convertFromApiFormat,
   convertToApiFormat,
   defaultPreferences,
+  validatePreferences,
   type LayoutType,
   type UserPreferences,
 } from "./utils"
@@ -15,6 +16,7 @@ export {
   type UserPreferences,
   convertFromApiFormat,
   convertToApiFormat,
+  validatePreferences,
 }
 
 const PREFERENCES_STORAGE_KEY = "user-preferences"
@@ -41,7 +43,9 @@ async function fetchUserPreferences(): Promise<UserPreferences> {
     throw new Error("Failed to fetch user preferences")
   }
   const data = await response.json()
-  return convertFromApiFormat(data)
+  const converted = convertFromApiFormat(data)
+  // Validate to ensure all fields have valid values
+  return validatePreferences(converted)
 }
 
 async function updateUserPreferences(
@@ -60,7 +64,9 @@ async function updateUserPreferences(
   }
 
   const data = await response.json()
-  return convertFromApiFormat(data)
+  const converted = convertFromApiFormat(data)
+  // Validate to ensure all fields have valid values
+  return validatePreferences(converted)
 }
 
 function getLocalStoragePreferences(): UserPreferences {
@@ -69,17 +75,24 @@ function getLocalStoragePreferences(): UserPreferences {
   const stored = localStorage.getItem(PREFERENCES_STORAGE_KEY)
   if (stored) {
     try {
-      return JSON.parse(stored)
+      const parsed = JSON.parse(stored)
+      // Validate and normalize to ensure all fields have valid values
+      return validatePreferences(parsed)
     } catch {
       // fallback to legacy layout storage if JSON parsing fails
     }
   }
 
-  const layout = localStorage.getItem(LAYOUT_STORAGE_KEY) as LayoutType | null
-  return {
-    ...defaultPreferences,
-    ...(layout ? { layout } : {}),
+  // Check legacy layout storage
+  const layout = localStorage.getItem(LAYOUT_STORAGE_KEY)
+  if (layout === "sidebar" || layout === "fullscreen") {
+    return {
+      ...defaultPreferences,
+      layout,
+    }
   }
+
+  return defaultPreferences
 }
 
 function saveToLocalStorage(preferences: UserPreferences) {
@@ -101,10 +114,11 @@ export function UserPreferencesProvider({
   const isAuthenticated = !!userId
   const queryClient = useQueryClient()
 
-  // Merge initial preferences with defaults
+  // Merge initial preferences with defaults, always validating to ensure all fields exist
   const getInitialData = (): UserPreferences => {
     if (initialPreferences && isAuthenticated) {
-      return initialPreferences
+      // Validate to ensure all fields have valid values even if some are missing
+      return validatePreferences(initialPreferences)
     }
 
     if (!isAuthenticated) {

@@ -18,20 +18,52 @@ export const defaultPreferences: UserPreferences = {
   hiddenModels: [],
 }
 
-// Helper functions to convert between API format (snake_case) and frontend format (camelCase)
-export function convertFromApiFormat(apiData: any): UserPreferences {
+/**
+ * Validates that a layout value is valid
+ * Returns the valid layout or "sidebar" as default
+ */
+export function validateLayout(layout: unknown): LayoutType {
+  if (layout === "sidebar" || layout === "fullscreen") {
+    return layout
+  }
+  return "sidebar"
+}
+
+/**
+ * Validates and normalizes a UserPreferences object
+ * Ensures all fields have valid values, filling in defaults for missing/invalid fields
+ */
+export function validatePreferences(prefs: unknown): UserPreferences {
+  if (!prefs || typeof prefs !== "object") {
+    return defaultPreferences
+  }
+
+  const p = prefs as Record<string, unknown>
+
   return {
-    layout: apiData.layout || "sidebar",
-    promptSuggestions: apiData.prompt_suggestions ?? true,
-    showToolInvocations: apiData.show_tool_invocations ?? true,
-    showConversationPreviews: apiData.show_conversation_previews ?? true,
-    multiModelEnabled: apiData.multi_model_enabled ?? false,
-    hiddenModels: apiData.hidden_models || [],
+    layout: validateLayout(p.layout),
+    promptSuggestions: typeof p.promptSuggestions === "boolean" ? p.promptSuggestions : defaultPreferences.promptSuggestions,
+    showToolInvocations: typeof p.showToolInvocations === "boolean" ? p.showToolInvocations : defaultPreferences.showToolInvocations,
+    showConversationPreviews: typeof p.showConversationPreviews === "boolean" ? p.showConversationPreviews : defaultPreferences.showConversationPreviews,
+    multiModelEnabled: typeof p.multiModelEnabled === "boolean" ? p.multiModelEnabled : defaultPreferences.multiModelEnabled,
+    hiddenModels: Array.isArray(p.hiddenModels) ? p.hiddenModels.filter((id): id is string => typeof id === "string") : defaultPreferences.hiddenModels,
   }
 }
 
-export function convertToApiFormat(preferences: Partial<UserPreferences>) {
-  const apiData: any = {}
+// Helper functions to convert between API format (snake_case) and frontend format (camelCase)
+export function convertFromApiFormat(apiData: Record<string, unknown>): UserPreferences {
+  return {
+    layout: validateLayout(apiData.layout),
+    promptSuggestions: typeof apiData.prompt_suggestions === "boolean" ? apiData.prompt_suggestions : true,
+    showToolInvocations: typeof apiData.show_tool_invocations === "boolean" ? apiData.show_tool_invocations : true,
+    showConversationPreviews: typeof apiData.show_conversation_previews === "boolean" ? apiData.show_conversation_previews : true,
+    multiModelEnabled: typeof apiData.multi_model_enabled === "boolean" ? apiData.multi_model_enabled : false,
+    hiddenModels: Array.isArray(apiData.hidden_models) ? (apiData.hidden_models as string[]) : [],
+  }
+}
+
+export function convertToApiFormat(preferences: Partial<UserPreferences>): Record<string, unknown> {
+  const apiData: Record<string, unknown> = {}
   if (preferences.layout !== undefined) apiData.layout = preferences.layout
   if (preferences.promptSuggestions !== undefined)
     apiData.prompt_suggestions = preferences.promptSuggestions

@@ -36,6 +36,7 @@ import {
   ArrowRight,
   Flask,
   Info,
+  Infinity,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { useQuery, useMutation } from "@tanstack/react-query"
@@ -844,12 +845,22 @@ export function DiscoveryView() {
               <div className="payment">
                 <div className="card card-gray">
                   <span>Cost</span>
-                  <span>1 credit</span>
+                  <span>
+                    {userPlanData?.plan === "pro" || userPlanData?.plan === "scale" ? (
+                      <Infinity size={18} weight="bold" />
+                    ) : (
+                      "1 credit"
+                    )}
+                  </span>
                 </div>
                 <div className="payment-details">
                   <h3>Per Search</h3>
                   <div>
-                    <span>Growth plan</span>
+                    <span>
+                      {userPlanData?.plan === "pro" ? "Pro plan" :
+                       userPlanData?.plan === "scale" ? "Scale plan" :
+                       "Growth plan"}
+                    </span>
                   </div>
                 </div>
               </div>

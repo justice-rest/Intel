@@ -367,21 +367,64 @@ function buildStructuredOutputFromLinkUp(
     capacityRating = ratingMap[structuredData.givingCapacityRating] || capacityRating
   }
 
-  // Calculate estimated gift capacity (5% of net worth - industry standard)
-  // Major donors typically give 3-7% of net worth over time
-  const estimatedGiftCapacity = avgNetWorth > 0 ? Math.round(avgNetWorth * 0.05) : null
+  // ============================================================================
+  // GIFT CAPACITY CALCULATION (TFG Research / Industry Standard)
+  // ============================================================================
+  //
+  // Industry standard: Capacity = 3-5% of estimated net worth over 5 years
+  // This represents total philanthropic capacity across ALL causes, not just one org.
+  //
+  // We use 5% as the upper bound for high-net-worth individuals who show
+  // philanthropic indicators (foundation affiliations, political giving, board seats).
+  //
+  // Sources:
+  // - iWave Wealth Capacity Ratings: 2-5% of net worth
+  // - Helen Brown Group: Capacity ratings estimate 5-year giving potential
+  // - Amy Eisenstein: 0.5-1% of wealth for single ask
+  // ============================================================================
 
-  // Calculate recommended ask based on capacity rating
-  // Use 1-2% of net worth for initial major gift ask
+  // Calculate philanthropic indicators for capacity adjustment
+  const hasPhilanthropyIndicators =
+    (structuredData?.philanthropy?.foundations?.length || 0) > 0 ||
+    (structuredData?.philanthropy?.boardMemberships?.length || 0) > 0 ||
+    (structuredData?.politicalGiving?.totalAmount || 0) > 5000
+
+  // Base capacity: 3% of net worth (conservative estimate)
+  // Adjust up to 5% if philanthropic indicators are present
+  const capacityMultiplier = hasPhilanthropyIndicators ? 0.05 : 0.03
+  const estimatedGiftCapacity = avgNetWorth > 0 ? Math.round(avgNetWorth * capacityMultiplier) : null
+
+  // ============================================================================
+  // RECOMMENDED ASK AMOUNT CALCULATION
+  // ============================================================================
+  //
+  // Industry research suggests 0.5-1% of estimated wealth for initial major gift ask.
+  // The percentage increases for smaller net worth tiers (they give proportionally more).
+  //
+  // Tiers based on net worth:
+  // - $5M+: Major donor tier - 0.5% ask (conservative, relationship-building)
+  // - $1M-$5M: Principal donor tier - 0.75% ask
+  // - $500K-$1M: Leadership donor tier - 1% ask
+  // - $100K-$500K: Emerging donor tier - 1.5% ask
+  //
+  // Note: These are INITIAL ask recommendations. Upgrade asks can be 2-3x higher.
+  // ============================================================================
+
   let recommendedAsk: number | null = null
   if (avgNetWorth >= 5000000) {
-    recommendedAsk = Math.round(avgNetWorth * 0.01) // 1% for major donors ($50K+ ask)
+    recommendedAsk = Math.round(avgNetWorth * 0.005) // 0.5% for major donors ($25K+ ask)
   } else if (avgNetWorth >= 1000000) {
-    recommendedAsk = Math.round(avgNetWorth * 0.015) // 1.5% for principal donors ($15K-$50K)
+    recommendedAsk = Math.round(avgNetWorth * 0.0075) // 0.75% for principal donors ($7.5K-$37.5K)
   } else if (avgNetWorth >= 500000) {
-    recommendedAsk = Math.round(avgNetWorth * 0.02) // 2% for leadership donors ($10K-$15K)
+    recommendedAsk = Math.round(avgNetWorth * 0.01) // 1% for leadership donors ($5K-$10K)
   } else if (avgNetWorth >= 100000) {
-    recommendedAsk = Math.round(avgNetWorth * 0.025) // 2.5% for emerging donors ($2.5K-$10K)
+    recommendedAsk = Math.round(avgNetWorth * 0.015) // 1.5% for emerging donors ($1.5K-$7.5K)
+  }
+
+  // Adjust ask upward if prospect shows strong philanthropic history
+  if (recommendedAsk && hasPhilanthropyIndicators) {
+    // Increase ask by 25% for prospects with proven philanthropic activity
+    recommendedAsk = Math.round(recommendedAsk * 1.25)
   }
 
   // Determine confidence level

@@ -10,7 +10,11 @@ import { useUserPreferences } from "@/lib/user-preference-store/provider"
 export function LayoutApp({ children, forceSidebar = false }: { children: React.ReactNode; forceSidebar?: boolean }) {
   const { preferences } = useUserPreferences()
   const { isActive: isSplitActive } = useSplitView()
-  const hasSidebar = forceSidebar || preferences.layout === "sidebar"
+
+  // Defensive: ensure layout has valid value, defaulting to "sidebar" for robustness
+  // This guards against any edge cases where preferences might be in an unexpected state
+  const layout = preferences?.layout
+  const hasSidebar = forceSidebar || layout === "sidebar" || (layout !== "fullscreen")
 
   return (
     <DragDropProvider>
