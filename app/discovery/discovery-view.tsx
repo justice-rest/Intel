@@ -4,7 +4,7 @@
  * Discovery View Component
  *
  * Main client component for the Prospect Discovery feature.
- * Allows users to describe ideal donors and discover matching prospects.
+ * Styled to match the dark-uibank-dashboard-concept design.
  *
  * @module app/discovery/discovery-view
  */
@@ -19,7 +19,6 @@ import {
   Spinner,
   CheckCircle,
   WarningCircle,
-  CaretLeft,
   CaretRight,
   Check,
   X,
@@ -29,6 +28,12 @@ import {
   UserCircle,
   Users,
   Cpu,
+  Funnel,
+  Plus,
+  User,
+  MapPin,
+  Briefcase,
+  ArrowRight,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { useQuery, useMutation } from "@tanstack/react-query"
@@ -75,24 +80,19 @@ function getTemplateIcon(iconName?: string): React.ElementType {
 }
 
 // ============================================================================
-// TEMPLATE TILE COMPONENT (matches ServiceTile from batch-view)
+// TEMPLATE TILE COMPONENT (matches original dark-uibank tile design)
 // ============================================================================
 
 function TemplateTile({
   template,
   onSelect,
+  variant = "olive",
 }: {
   template: DiscoveryTemplate
   onSelect: (template: DiscoveryTemplate) => void
+  variant?: "olive" | "green" | "gray"
 }) {
   const Icon = getTemplateIcon(template.icon)
-  const variantMap: Record<string, string> = {
-    business: "olive",
-    philanthropy: "green",
-    wealth: "gray",
-    demographics: "olive",
-  }
-  const variant = variantMap[template.category] || "olive"
 
   return (
     <article className={cn("tile", `tile-${variant}`)} onClick={() => onSelect(template)}>
@@ -114,10 +114,10 @@ function TemplateTile({
 }
 
 // ============================================================================
-// PROSPECT CARD COMPONENT
+// PROSPECT TRANSFER ITEM (matches original transfer design)
 // ============================================================================
 
-function ProspectCard({
+function ProspectItem({
   prospect,
   selected,
   onToggle,
@@ -128,7 +128,7 @@ function ProspectCard({
 }) {
   const confidenceColors = {
     high: "var(--c-green-500)",
-    medium: "var(--c-yellow-500)",
+    medium: "var(--c-olive-500)",
     low: "var(--c-gray-400)",
   }
 
@@ -137,48 +137,35 @@ function ProspectCard({
       layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      className={cn("prospect-card", selected && "prospect-card-selected")}
+      exit={{ opacity: 0, x: -50 }}
+      className={cn("transfer", selected && "transfer-selected")}
       onClick={onToggle}
+      style={{ cursor: "pointer" }}
     >
-      <div className="prospect-card-checkbox">
+      <div className="transfer-logo" style={{ backgroundColor: selected ? "var(--c-green-500)" : "var(--c-gray-200)" }}>
         {selected ? (
-          <CheckCircle size={20} weight="fill" className="text-green-500" />
+          <CheckCircle size={24} weight="fill" color="var(--c-gray-800)" />
         ) : (
-          <div className="prospect-card-checkbox-empty" />
+          <User size={20} weight="bold" color="var(--c-gray-600)" />
         )}
       </div>
-      <div className="prospect-card-content">
-        <div className="prospect-card-header">
-          <h4 className="prospect-card-name">{prospect.name}</h4>
-          <span
-            className="prospect-card-confidence"
-            style={{ color: confidenceColors[prospect.confidence] }}
-          >
-            {prospect.confidence}
-          </span>
+      <dl className="transfer-details">
+        <div>
+          <dt>{prospect.name}</dt>
+          <dd>{prospect.title || "Prospect"}</dd>
         </div>
-        {(prospect.title || prospect.company) && (
-          <p className="prospect-card-details">
-            {prospect.title}
-            {prospect.title && prospect.company && " at "}
-            {prospect.company}
-          </p>
-        )}
-        {(prospect.city || prospect.state) && (
-          <p className="prospect-card-location">
-            {[prospect.city, prospect.state].filter(Boolean).join(", ")}
-          </p>
-        )}
-        {prospect.matchReasons.length > 0 && (
-          <p className="prospect-card-reason">{prospect.matchReasons[0]}</p>
-        )}
+        <div>
+          <dt>{prospect.company || "—"}</dt>
+          <dd>Organization</dd>
+        </div>
+        <div>
+          <dt>{[prospect.city, prospect.state].filter(Boolean).join(", ") || "—"}</dt>
+          <dd>Location</dd>
+        </div>
+      </dl>
+      <div className="transfer-number" style={{ color: confidenceColors[prospect.confidence] }}>
+        {prospect.confidence}
       </div>
-      {prospect.sources.length > 0 && (
-        <div className="prospect-card-sources">
-          <span className="source-count">{prospect.sources.length} source{prospect.sources.length !== 1 ? "s" : ""}</span>
-        </div>
-      )}
     </motion.div>
   )
 }
@@ -228,16 +215,15 @@ function TemplateFillModal({
           <DialogDescription>{template.description}</DialogDescription>
         </DialogHeader>
 
-        <div className="mapping-form">
+        <div className="faq">
           {(template.placeholders || []).map((placeholder) => (
-            <div key={placeholder.key} className="mapping-row">
-              <label className="mapping-label">
+            <div key={placeholder.key}>
+              <label>
                 {placeholder.label}
-                {placeholder.required && <span className="required-star">*</span>}
+                {placeholder.required && <span style={{ color: "#ff6363" }}>*</span>}
               </label>
               <input
                 type="text"
-                className="mapping-input"
                 placeholder={`Enter ${placeholder.label.toLowerCase()}`}
                 value={values[placeholder.key] || ""}
                 onChange={(e) =>
@@ -246,26 +232,27 @@ function TemplateFillModal({
               />
             </div>
           ))}
-
-          {errors.length > 0 && (
-            <div className="validation-errors">
-              {errors.map((error, i) => (
-                <p key={i} className="validation-error">
-                  <WarningCircle size={14} /> {error}
-                </p>
-              ))}
-            </div>
-          )}
         </div>
 
-        <DialogFooter>
-          <button className="flat-button" onClick={onClose}>
+        {errors.length > 0 && (
+          <div className="validation-errors">
+            {errors.map((error, i) => (
+              <p key={i} className="validation-error">
+                <WarningCircle size={14} /> {error}
+              </p>
+            ))}
+          </div>
+        )}
+
+        <div className="payment-section-footer">
+          <button className="save-button" onClick={onClose}>
             Cancel
           </button>
-          <button className="primary-button" onClick={handleSubmit}>
-            Use Template
+          <button className="settings-button" onClick={handleSubmit}>
+            <ArrowRight />
+            <span>Use Template</span>
           </button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -298,46 +285,48 @@ function ConfirmBatchModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="confirm-batch-content">
-          <div className="confirm-batch-summary">
-            <div className="summary-row">
-              <span>Prospects selected</span>
-              <span className="summary-value">{selectedProspects.length}</span>
+        <div className="payments" style={{ marginTop: "1.5rem" }}>
+          <div className="payment">
+            <div className="card card-green">
+              <span>Count</span>
+              <span>{selectedProspects.length}</span>
             </div>
-            <div className="summary-row">
-              <span>Estimated enrichment cost</span>
-              <span className="summary-value">~${estimatedCost}</span>
+            <div className="payment-details">
+              <h3>Selected Prospects</h3>
+              <div>
+                <span>Ready to enrich</span>
+              </div>
             </div>
           </div>
-
-          <div className="confirm-batch-prospects">
-            <h4>Selected Prospects:</h4>
-            <ul>
-              {selectedProspects.slice(0, 5).map((p) => (
-                <li key={p.id}>{p.name}</li>
-              ))}
-              {selectedProspects.length > 5 && (
-                <li className="more-prospects">+{selectedProspects.length - 5} more</li>
-              )}
-            </ul>
+          <div className="payment">
+            <div className="card card-olive">
+              <span>Cost</span>
+              <span>${estimatedCost}</span>
+            </div>
+            <div className="payment-details">
+              <h3>Estimated</h3>
+              <div>
+                <span>~4¢ per prospect</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <button className="flat-button" onClick={onClose} disabled={isCreating}>
+        <div className="payment-section-footer">
+          <button className="save-button" onClick={onClose} disabled={isCreating}>
             Cancel
           </button>
-          <button className="primary-button" onClick={onConfirm} disabled={isCreating}>
+          <button className="flat-button" onClick={onConfirm} disabled={isCreating} style={{ marginLeft: "1rem" }}>
             {isCreating ? (
               <>
-                <Spinner className="animate-spin" size={16} />
+                <Spinner className="animate-spin" size={16} style={{ marginRight: "0.5rem" }} />
                 Creating...
               </>
             ) : (
-              <>Create Batch Job</>
+              "Create Batch Job"
             )}
           </button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -350,10 +339,7 @@ function ConfirmBatchModal({
 export function DiscoveryView() {
   const router = useTransitionRouter()
 
-  // ========================================================================
-  // STATE
-  // ========================================================================
-
+  // State
   const [prompt, setPrompt] = useState("")
   const [maxResults, setMaxResults] = useState(DEFAULT_DISCOVERY_CONFIG.defaultResults)
   const [selectedTemplate, setSelectedTemplate] = useState<DiscoveryTemplate | null>(null)
@@ -362,11 +348,7 @@ export function DiscoveryView() {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [isCreatingBatch, setIsCreatingBatch] = useState(false)
 
-  // ========================================================================
-  // QUERIES
-  // ========================================================================
-
-  // Fetch discovery status and limits
+  // Queries
   const { data: discoveryStatus } = useQuery({
     queryKey: ["discovery-status"],
     queryFn: async () => {
@@ -377,103 +359,61 @@ export function DiscoveryView() {
     staleTime: 60000,
   })
 
-  // ========================================================================
-  // MUTATIONS
-  // ========================================================================
-
-  // Discovery search mutation
+  // Mutations
   const searchMutation = useMutation({
     mutationFn: async (searchPrompt: string) => {
       const res = await fetch("/api/discovery", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: searchPrompt,
-          maxResults,
-        }),
+        body: JSON.stringify({ prompt: searchPrompt, maxResults }),
       })
-
       const data: DiscoveryResult = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || "Search failed")
-      }
-
+      if (!res.ok) throw new Error(data.error || "Search failed")
       return data
     },
     onSuccess: (data) => {
       setResult(data)
       setSelectedProspectIds(new Set())
-
       if (data.prospects.length === 0) {
-        toast({
-          title: "No prospects found",
-          description: "Try broadening your search criteria",
-          status: "info",
-        })
+        toast({ title: "No prospects found", description: "Try broadening your search criteria", status: "info" })
       } else {
-        toast({
-          title: `Found ${data.prospects.length} prospects`,
-          description: `Search completed in ${(data.durationMs / 1000).toFixed(1)}s`,
-          status: "success",
-        })
+        toast({ title: `Found ${data.prospects.length} prospects`, description: `Search completed in ${(data.durationMs / 1000).toFixed(1)}s`, status: "success" })
       }
     },
     onError: (error) => {
-      toast({
-        title: "Search failed",
-        description: error.message,
-        status: "error",
-      })
+      toast({ title: "Search failed", description: error.message, status: "error" })
     },
   })
 
-  // ========================================================================
-  // HANDLERS
-  // ========================================================================
-
+  // Handlers
   const handleTemplateSelect = useCallback((template: DiscoveryTemplate) => {
     if (template.placeholders && template.placeholders.length > 0) {
       setSelectedTemplate(template)
     } else {
       setPrompt(template.prompt)
-      toast({
-        title: "Template loaded",
-        description: "Customize the prompt or click Discover to search",
-      })
+      toast({ title: "Template loaded", description: "Customize the prompt or click Search" })
     }
   }, [])
 
   const handleTemplateFill = useCallback((filledPrompt: string) => {
     setPrompt(filledPrompt)
     setSelectedTemplate(null)
-    toast({
-      title: "Template applied",
-      description: "Click Discover to find matching prospects",
-    })
+    toast({ title: "Template applied", description: "Click Search to find matching prospects" })
   }, [])
 
   const handleSearch = useCallback(() => {
     if (prompt.trim().length < 10) {
-      toast({
-        title: "Prompt too short",
-        description: "Please enter at least 10 characters",
-        status: "error",
-      })
+      toast({ title: "Prompt too short", description: "Please enter at least 10 characters", status: "error" })
       return
     }
-
     searchMutation.mutate(prompt)
   }, [prompt, searchMutation])
 
   const handleProspectToggle = useCallback((prospectId: string) => {
     setSelectedProspectIds((prev) => {
       const next = new Set(prev)
-      if (next.has(prospectId)) {
-        next.delete(prospectId)
-      } else {
-        next.add(prospectId)
-      }
+      if (next.has(prospectId)) next.delete(prospectId)
+      else next.add(prospectId)
       return next
     })
   }, [])
@@ -489,15 +429,10 @@ export function DiscoveryView() {
 
   const handleCreateBatch = useCallback(async () => {
     if (!result || selectedProspectIds.size === 0) return
-
     setIsCreatingBatch(true)
 
     try {
-      const selectedProspects = result.prospects.filter((p) =>
-        selectedProspectIds.has(p.id)
-      )
-
-      // Transform to batch format
+      const selectedProspects = result.prospects.filter((p) => selectedProspectIds.has(p.id))
       const prospects = selectedProspects.map((p) => ({
         name: p.name,
         city: p.city || undefined,
@@ -507,7 +442,6 @@ export function DiscoveryView() {
         notes: p.matchReasons.join("; "),
       }))
 
-      // Create batch job
       const res = await fetch("/api/batch-prospects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -515,10 +449,7 @@ export function DiscoveryView() {
           name: `Discovery - ${new Date().toLocaleDateString()}`,
           prospects,
           source_file_name: "prospect-discovery",
-          settings: {
-            enable_web_search: true,
-            generate_romy_score: true,
-          },
+          settings: { enable_web_search: true, generate_romy_score: true },
         }),
       })
 
@@ -528,44 +459,26 @@ export function DiscoveryView() {
       }
 
       const { job } = await res.json()
-
-      toast({
-        title: "Batch job created",
-        description: `Created job with ${selectedProspects.length} prospects`,
-      })
-
-      // Navigate to job detail
+      toast({ title: "Batch job created", description: `Created job with ${selectedProspects.length} prospects` })
       router.push(`/labs/${job.id}`)
     } catch (error) {
-      toast({
-        title: "Failed to create batch",
-        description: error instanceof Error ? error.message : "Unknown error",
-        status: "error",
-      })
+      toast({ title: "Failed to create batch", description: error instanceof Error ? error.message : "Unknown error", status: "error" })
     } finally {
       setIsCreatingBatch(false)
       setShowConfirmModal(false)
     }
   }, [result, selectedProspectIds, router])
 
-  // ========================================================================
-  // COMPUTED VALUES
-  // ========================================================================
-
+  // Computed
   const selectedProspects = useMemo(() => {
     if (!result) return []
     return result.prospects.filter((p) => selectedProspectIds.has(p.id))
   }, [result, selectedProspectIds])
 
-  const estimatedSearchCost = useMemo(() => {
-    return (DEFAULT_DISCOVERY_CONFIG.costPerSearchCents / 100).toFixed(2)
-  }, [])
-
   const isSearching = searchMutation.isPending
 
-  // ========================================================================
-  // RENDER
-  // ========================================================================
+  // Template variants
+  const templateVariants: Array<"olive" | "green" | "gray"> = ["olive", "green", "gray", "olive", "green", "gray"]
 
   return (
     <div className="batch-app-container">
@@ -580,11 +493,10 @@ export function DiscoveryView() {
             <span className="batch-logo-text">Rōmy</span>
           </Link>
           <span className="batch-header-divider">/</span>
-          <h1>Prospect Discovery</h1>
+          <h1>Discovery</h1>
         </div>
         <div className="batch-header-right">
           <Link href="/labs" className="flat-button">
-            <CaretLeft size={16} />
             Back to Labs
           </Link>
         </div>
@@ -593,116 +505,87 @@ export function DiscoveryView() {
       <div className="batch-app-body">
         {/* Main Content */}
         <div className="app-body-main-content">
-          {/* Templates Section */}
-          {!result && (
-            <section className="service-section">
-              <h2>Quick Templates</h2>
-              <div className="tiles">
-                {DISCOVERY_TEMPLATES.slice(0, 3).map((template) => (
-                  <TemplateTile
-                    key={template.id}
-                    template={template}
-                    onSelect={handleTemplateSelect}
-                  />
-                ))}
-              </div>
-              <div className="tiles" style={{ marginTop: "1rem" }}>
-                {DISCOVERY_TEMPLATES.slice(3, 6).map((template) => (
-                  <TemplateTile
-                    key={template.id}
-                    template={template}
-                    onSelect={handleTemplateSelect}
-                  />
-                ))}
-              </div>
-              <div className="service-section-footer">
-                <p>Or write your own custom prompt below to find matching prospects.</p>
-              </div>
-            </section>
-          )}
-
-          {/* Search Section */}
-          <section className="transfer-section">
-            <div className="transfer-section-header">
-              <h2>{result ? "Refine Search" : "Custom Search"}</h2>
-              <div className="filter-options">
-                <p>Up to {maxResults} prospects • ~${estimatedSearchCost} per search</p>
-              </div>
-            </div>
-            <div className="transfer-section-controls">
-              <div className="match-limit-slider">
-                <label>Max results:</label>
+          {/* Service Section - Templates */}
+          <section className="service-section">
+            <h2>Prospect Discovery</h2>
+            <div className="service-section-header">
+              <div className="search-field">
+                <MagnifyingGlass />
                 <input
-                  type="range"
-                  className="slider"
-                  min={DEFAULT_DISCOVERY_CONFIG.minResultsLimit}
-                  max={DEFAULT_DISCOVERY_CONFIG.maxResultsLimit}
-                  value={maxResults}
-                  onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}
+                  type="text"
+                  placeholder="Describe your ideal prospects..."
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
                   disabled={isSearching}
                 />
-                <span className="match-limit-value">{maxResults}</span>
               </div>
-              <button
-                className="flat-button"
-                onClick={handleSearch}
-                disabled={isSearching || prompt.trim().length < 10}
-              >
-                {isSearching ? (
-                  <>
-                    <Spinner className="animate-spin" size={16} />
-                    Searching...
-                  </>
-                ) : (
-                  <>
-                    <MagnifyingGlass size={16} />
-                    Discover
-                  </>
-                )}
+              <div className="dropdown-field">
+                <select value={maxResults} onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}>
+                  <option value="5">5 max</option>
+                  <option value="10">10 max</option>
+                  <option value="15">15 max</option>
+                  <option value="20">20 max</option>
+                  <option value="25">25 max</option>
+                </select>
+                <Funnel />
+              </div>
+              <button className="flat-button" onClick={handleSearch} disabled={isSearching || prompt.trim().length < 10}>
+                {isSearching ? "Searching..." : "Search"}
               </button>
             </div>
-            <div className="transfers">
-              <textarea
-                className="discovery-prompt-input"
-                placeholder="Describe the type of donors you're looking for. For example: 'Technology executives in San Francisco who have donated to education causes and serve on nonprofit boards.'"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={4}
-                disabled={isSearching}
-              />
+            {!result && (
+              <>
+                <div className="tiles">
+                  {DISCOVERY_TEMPLATES.slice(0, 3).map((template, i) => (
+                    <TemplateTile
+                      key={template.id}
+                      template={template}
+                      onSelect={handleTemplateSelect}
+                      variant={templateVariants[i]}
+                    />
+                  ))}
+                </div>
+                <div className="tiles">
+                  {DISCOVERY_TEMPLATES.slice(3, 6).map((template, i) => (
+                    <TemplateTile
+                      key={template.id}
+                      template={template}
+                      onSelect={handleTemplateSelect}
+                      variant={templateVariants[i + 3]}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
+            <div className="service-section-footer">
+              <p>Discovery uses AI to find real prospects from public records, news, and business databases.</p>
             </div>
           </section>
 
-          {/* Results Section */}
+          {/* Transfer Section - Results */}
           {result && result.prospects.length > 0 && (
             <section className="transfer-section">
               <div className="transfer-section-header">
                 <h2>Discovered Prospects</h2>
                 <div className="filter-options">
-                  <p>{result.prospects.length} found • {selectedProspectIds.size} selected</p>
-                  <button className="icon-button" onClick={handleSelectAll} title={selectedProspectIds.size === result.prospects.length ? "Deselect all" : "Select all"}>
+                  <p>{selectedProspectIds.size} of {result.prospects.length} selected</p>
+                  <button className="icon-button" onClick={handleSelectAll} title="Toggle all">
                     {selectedProspectIds.size === result.prospects.length ? <X /> : <Check />}
                   </button>
+                  <button
+                    className="icon-button"
+                    onClick={() => setShowConfirmModal(true)}
+                    disabled={selectedProspectIds.size === 0}
+                    title="Create batch job"
+                  >
+                    <Plus />
+                  </button>
                 </div>
-              </div>
-              <div className="transfer-section-controls">
-                {result.warnings && result.warnings.length > 0 && (
-                  <p className="warning-message">
-                    <WarningCircle size={14} /> {result.warnings[0]}
-                  </p>
-                )}
-                <button
-                  className="flat-button"
-                  onClick={() => setShowConfirmModal(true)}
-                  disabled={selectedProspectIds.size === 0}
-                >
-                  Create Batch Job
-                </button>
               </div>
               <div className="transfers">
                 <AnimatePresence mode="popLayout">
                   {result.prospects.map((prospect) => (
-                    <ProspectCard
+                    <ProspectItem
                       key={prospect.id}
                       prospect={prospect}
                       selected={selectedProspectIds.has(prospect.id)}
@@ -714,13 +597,17 @@ export function DiscoveryView() {
             </section>
           )}
 
-          {/* Empty Results */}
+          {/* Empty state */}
           {result && result.prospects.length === 0 && (
-            <section className="service-section">
-              <div className="empty-state">
-                <MagnifyingGlass size={48} />
-                <h3>No prospects found</h3>
-                <p>Try broadening your search criteria or using different keywords.</p>
+            <section className="transfer-section">
+              <div className="transfer-section-header">
+                <h2>No Results</h2>
+              </div>
+              <div className="transfers">
+                <div className="empty-state">
+                  <MagnifyingGlass size={48} />
+                  <span>No prospects found. Try broadening your search criteria.</span>
+                </div>
               </div>
             </section>
           )}
@@ -729,24 +616,14 @@ export function DiscoveryView() {
         {/* Sidebar */}
         <div className="app-body-sidebar">
           <section className="payment-section">
+            <h2>Search Settings</h2>
             <div className="payment-section-header">
-              <h2>Discovery Tips</h2>
+              <p>Configure your discovery search</p>
               <div>
                 <span className="plan-badge">AI Search</span>
               </div>
             </div>
 
-            <div className="faq">
-              <p>Write a detailed prompt describing your ideal prospects</p>
-              <ul className="discovery-tips-list">
-                <li>Be specific about location (city and state)</li>
-                <li>Include industry or sector keywords</li>
-                <li>Mention philanthropic interests or board types</li>
-                <li>Reference wealth indicators</li>
-              </ul>
-            </div>
-
-            {/* Stats cards */}
             <div className="payments">
               <div className="payment">
                 <div className="card card-green">
@@ -756,19 +633,19 @@ export function DiscoveryView() {
                 <div className="payment-details">
                   <h3>Searches</h3>
                   <div>
-                    <span>per hour</span>
+                    <span>{discoveryStatus?.rateLimit?.limit ?? 10}/hr</span>
                   </div>
                 </div>
               </div>
               <div className="payment">
                 <div className="card card-olive">
                   <span>Max</span>
-                  <span>{DEFAULT_DISCOVERY_CONFIG.maxResultsLimit}</span>
+                  <span>{maxResults}</span>
                 </div>
                 <div className="payment-details">
-                  <h3>Prospects</h3>
+                  <h3>Results</h3>
                   <div>
-                    <span>per search</span>
+                    <span>Per search</span>
                   </div>
                 </div>
               </div>
@@ -778,26 +655,42 @@ export function DiscoveryView() {
                   <span>~2¢</span>
                 </div>
                 <div className="payment-details">
-                  <h3>Per Search</h3>
+                  <h3>Estimated</h3>
                   <div>
-                    <span>estimate</span>
+                    <span>Per search</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {result && (
+            <div className="faq">
+              <p>Tips for better results</p>
+              <div>
+                <label>Location</label>
+                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>Include city & state</span>
+              </div>
+              <div>
+                <label>Industry</label>
+                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>Specify sector keywords</span>
+              </div>
+              <div>
+                <label>Wealth</label>
+                <span style={{ color: "var(--c-text-tertiary)", fontSize: "0.875rem" }}>Mention indicators</span>
+              </div>
+            </div>
+
+            {selectedProspectIds.size > 0 && (
               <div className="payment-section-footer">
-                <p className="discovery-stats-summary">
-                  Found {result.prospects.length} prospects in {(result.durationMs / 1000).toFixed(1)}s
-                </p>
+                <button className="save-button" onClick={() => setShowConfirmModal(true)}>
+                  Create Batch ({selectedProspectIds.size})
+                </button>
               </div>
             )}
           </section>
         </div>
       </div>
 
-      {/* Template Fill Modal */}
+      {/* Modals */}
       {selectedTemplate && (
         <TemplateFillModal
           template={selectedTemplate}
@@ -806,7 +699,6 @@ export function DiscoveryView() {
         />
       )}
 
-      {/* Confirm Batch Modal */}
       {showConfirmModal && (
         <ConfirmBatchModal
           selectedProspects={selectedProspects}

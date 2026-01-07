@@ -2615,3 +2615,22 @@ button:focus-visible {
   cursor: not-allowed;
 }
 
+/* Transfer selected state */
+.transfer-selected {
+  background: rgba(69, 255, 188, 0.05);
+  border-radius: 0.5rem;
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* Dropdown field icon positioning */
+.dropdown-field svg {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
