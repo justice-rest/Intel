@@ -148,12 +148,17 @@ export function validatePrompt(prompt: unknown): PromptValidationResult {
 
 /**
  * Validate max results parameter
+ * @param maxResults - The max results value to validate
+ * @param isDeepResearch - If true, allows lower minimum (1 instead of 5)
  */
 export function validateMaxResults(
-  maxResults: unknown
+  maxResults: unknown,
+  isDeepResearch = false
 ): { valid: boolean; errors: string[]; value: number } {
   const errors: string[] = []
-  let value = DEFAULT_DISCOVERY_CONFIG.defaultResults
+  // Deep Research defaults to 5, regular defaults to configured default
+  const defaultValue = isDeepResearch ? 5 : DEFAULT_DISCOVERY_CONFIG.defaultResults
+  let value = defaultValue
 
   if (maxResults === undefined || maxResults === null) {
     // Use default
@@ -168,17 +173,18 @@ export function validateMaxResults(
     return { valid: false, errors, value }
   }
 
+  // Deep Research allows minimum of 1, regular requires minResultsLimit (5)
+  const minLimit = isDeepResearch ? 1 : DEFAULT_DISCOVERY_CONFIG.minResultsLimit
+  // Deep Research max is 5, regular uses maxResultsLimit
+  const maxLimit = isDeepResearch ? 5 : DEFAULT_DISCOVERY_CONFIG.maxResultsLimit
+
   // Range validation
-  if (parsed < DEFAULT_DISCOVERY_CONFIG.minResultsLimit) {
-    errors.push(
-      `Max results must be at least ${DEFAULT_DISCOVERY_CONFIG.minResultsLimit}`
-    )
-    value = DEFAULT_DISCOVERY_CONFIG.minResultsLimit
-  } else if (parsed > DEFAULT_DISCOVERY_CONFIG.maxResultsLimit) {
-    errors.push(
-      `Max results cannot exceed ${DEFAULT_DISCOVERY_CONFIG.maxResultsLimit}`
-    )
-    value = DEFAULT_DISCOVERY_CONFIG.maxResultsLimit
+  if (parsed < minLimit) {
+    errors.push(`Max results must be at least ${minLimit}`)
+    value = minLimit
+  } else if (parsed > maxLimit) {
+    errors.push(`Max results cannot exceed ${maxLimit}`)
+    value = maxLimit
   } else {
     value = parsed
   }
@@ -377,14 +383,17 @@ export function validateDiscoveryRequest(body: unknown): ValidationResult {
 
   const data = body as Record<string, unknown>
 
+  // Check if deep research mode (affects validation limits)
+  const isDeepResearch = data.deepResearch === true
+
   // Validate prompt (required)
   const promptResult = validatePrompt(data.prompt)
   if (!promptResult.valid) {
     errors.push(...promptResult.errors)
   }
 
-  // Validate maxResults (optional)
-  const maxResultsResult = validateMaxResults(data.maxResults)
+  // Validate maxResults (optional) - pass deepResearch flag for adjusted limits
+  const maxResultsResult = validateMaxResults(data.maxResults, isDeepResearch)
   if (!maxResultsResult.valid) {
     errors.push(...maxResultsResult.errors)
   }
@@ -431,6 +440,11 @@ export function validateDiscoveryRequest(body: unknown): ValidationResult {
 
   if (focusAreasResult.value) {
     sanitized.focusAreas = focusAreasResult.value
+  }
+
+  // Pass through deepResearch flag
+  if (isDeepResearch) {
+    sanitized.deepResearch = true
   }
 
   return {
