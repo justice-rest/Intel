@@ -34,6 +34,8 @@ import {
   User,
   Lightning,
   ArrowRight,
+  Flask,
+  Info,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 import { useQuery, useMutation } from "@tanstack/react-query"
@@ -398,6 +400,7 @@ export function DiscoveryView() {
   const [selectedProspectIds, setSelectedProspectIds] = useState<Set<string>>(new Set())
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [isCreatingBatch, setIsCreatingBatch] = useState(false)
+  const [deepResearch, setDeepResearch] = useState(false)
 
   // Queries
   const { data: discoveryStatus } = useQuery({
@@ -410,13 +413,34 @@ export function DiscoveryView() {
     staleTime: 60000,
   })
 
+  // Get user plan for Deep Research feature gating
+  const { data: userPlanData } = useQuery({
+    queryKey: ["user-plan"],
+    queryFn: async () => {
+      const res = await fetch("/api/user-plan")
+      if (!res.ok) return { plan: null }
+      return res.json()
+    },
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  })
+
+  // Check if user can use Deep Research (Pro or Scale plan only)
+  const canUseDeepResearch = userPlanData?.plan === "pro" || userPlanData?.plan === "scale"
+
+  // Deep Research max is 5 prospects
+  const effectiveMaxResults = deepResearch ? Math.min(maxResults, 5) : maxResults
+
   // Mutations
   const searchMutation = useMutation({
     mutationFn: async (searchPrompt: string) => {
       const res = await fetch("/api/discovery", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: searchPrompt, maxResults }),
+        body: JSON.stringify({
+          prompt: searchPrompt,
+          maxResults: effectiveMaxResults,
+          deepResearch: deepResearch && canUseDeepResearch,
+        }),
       })
       const data: DiscoveryResult = await res.json()
       if (!res.ok) throw new Error(data.error || "Search failed")
@@ -610,17 +634,52 @@ export function DiscoveryView() {
                   <label>
                     <span>Max results:</span>
                     <select
-                      value={maxResults}
+                      value={deepResearch ? Math.min(maxResults, 5) : maxResults}
                       onChange={(e) => setMaxResults(parseInt(e.target.value, 10))}
                       disabled={isSearching}
                     >
-                      <option value="5">5</option>
-                      <option value="10">10</option>
-                      <option value="15">15</option>
-                      <option value="20">20</option>
-                      <option value="25">25</option>
+                      {deepResearch ? (
+                        // Deep Research limited to 5 max
+                        <>
+                          <option value="3">3</option>
+                          <option value="5">5</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="5">5</option>
+                          <option value="10">10</option>
+                          <option value="15">15</option>
+                          <option value="20">20</option>
+                          <option value="25">25</option>
+                        </>
+                      )}
                     </select>
                   </label>
+                  {/* Deep Research Toggle - only for Growth/Scale plans */}
+                  {canUseDeepResearch && (
+                    <label className="discovery-deep-research-toggle" title="Deep Research uses LinkUp's deep mode for more thorough results. Limited to once per day, max 5 prospects. (Beta)">
+                      <input
+                        type="checkbox"
+                        checked={deepResearch}
+                        onChange={(e) => {
+                          setDeepResearch(e.target.checked)
+                          // Cap max results when enabling deep research
+                          if (e.target.checked && maxResults > 5) {
+                            setMaxResults(5)
+                          }
+                        }}
+                        disabled={isSearching}
+                      />
+                      <span className="discovery-deep-research-label">
+                        <Flask size={14} weight="fill" />
+                        Deep Research
+                        <span className="discovery-beta-badge" title="This feature is in beta. Limited to once per day with max 5 prospects.">
+                          <Info size={12} weight="fill" />
+                          Beta
+                        </span>
+                      </span>
+                    </label>
+                  )}
                   <span className="discovery-search-hint">⌘+Enter to search</span>
                 </div>
                 <button
@@ -785,12 +844,12 @@ export function DiscoveryView() {
               <div className="payment">
                 <div className="card card-gray">
                   <span>Cost</span>
-                  <span>~2¢</span>
+                  <span>1 credit</span>
                 </div>
                 <div className="payment-details">
-                  <h3>Estimated</h3>
+                  <h3>Per Search</h3>
                   <div>
-                    <span>Per search</span>
+                    <span>Growth plan</span>
                   </div>
                 </div>
               </div>

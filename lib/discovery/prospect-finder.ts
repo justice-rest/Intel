@@ -24,6 +24,92 @@ import {
 import { isValidPersonName, normalizeName } from "./validation"
 
 // ============================================================================
+// STATE ABBREVIATION MAPPING
+// ============================================================================
+
+const STATE_NAME_TO_ABBREV: Record<string, string> = {
+  alabama: "AL",
+  alaska: "AK",
+  arizona: "AZ",
+  arkansas: "AR",
+  california: "CA",
+  colorado: "CO",
+  connecticut: "CT",
+  delaware: "DE",
+  florida: "FL",
+  georgia: "GA",
+  hawaii: "HI",
+  idaho: "ID",
+  illinois: "IL",
+  indiana: "IN",
+  iowa: "IA",
+  kansas: "KS",
+  kentucky: "KY",
+  louisiana: "LA",
+  maine: "ME",
+  maryland: "MD",
+  massachusetts: "MA",
+  michigan: "MI",
+  minnesota: "MN",
+  mississippi: "MS",
+  missouri: "MO",
+  montana: "MT",
+  nebraska: "NE",
+  nevada: "NV",
+  "new hampshire": "NH",
+  "new jersey": "NJ",
+  "new mexico": "NM",
+  "new york": "NY",
+  "north carolina": "NC",
+  "north dakota": "ND",
+  ohio: "OH",
+  oklahoma: "OK",
+  oregon: "OR",
+  pennsylvania: "PA",
+  "rhode island": "RI",
+  "south carolina": "SC",
+  "south dakota": "SD",
+  tennessee: "TN",
+  texas: "TX",
+  utah: "UT",
+  vermont: "VT",
+  virginia: "VA",
+  washington: "WA",
+  "west virginia": "WV",
+  wisconsin: "WI",
+  wyoming: "WY",
+}
+
+const VALID_STATE_ABBREVS = new Set(Object.values(STATE_NAME_TO_ABBREV))
+
+/**
+ * Normalize a state value to its 2-letter abbreviation
+ * @param state - Full state name or abbreviation
+ * @returns 2-letter state abbreviation or null if invalid
+ */
+function normalizeStateAbbrev(state: string | null | undefined): string | null {
+  if (!state) return null
+
+  const trimmed = state.trim()
+  const upper = trimmed.toUpperCase()
+
+  // Already a valid 2-letter abbreviation
+  if (trimmed.length === 2 && VALID_STATE_ABBREVS.has(upper)) {
+    return upper
+  }
+
+  // Convert full name to abbreviation
+  const lower = trimmed.toLowerCase()
+  if (STATE_NAME_TO_ABBREV[lower]) {
+    return STATE_NAME_TO_ABBREV[lower]
+  }
+
+  // Handle partial matches - some results might have truncated state names
+  // e.g., "Te" should NOT match "Texas" - require full match
+  return null
+}
+
+// ============================================================================
 // QUERY BUILDING
 // ============================================================================
 
@@ -34,11 +120,17 @@ import { isValidPersonName, normalizeName } from "./validation"
  * 1. Direct person search - Find individuals matching criteria
  * 2. Organization-based search - Find executives at relevant organizations
  * 3. Wealth/philanthropy signals - Find people with wealth indicators
+ *
+ * @param request - Discovery request with prompt and parameters
+ * @returns Array of LinkUp search options
  */
 export function buildDiscoveryQueries(
   request: DiscoveryRequest
 ): LinkUpSearchOptions[] {
-  const { prompt, maxResults, location } = request
+  const { prompt, maxResults, location, deepResearch } = request
+
+  // Use "deep" mode for Deep Research, "standard" for regular searches
+  const searchDepth = deepResearch ? "deep" : "standard"
 
   // Build location string
   const locationStr = [location?.city, location?.state, location?.region]
@@ -69,11 +161,11 @@ LOCATION: [City, State]
 MATCH REASON: [Why they match the search criteria]
 
 Find up to ${Math.ceil(maxResults * 0.5)} individuals.`,
-    depth: "standard",
+    depth: searchDepth,
     outputType: "sourcedAnswer",
     includeInlineCitations: true,
     includeSources: true,
-    maxResults: 20,
+    maxResults: deepResearch ? 30 : 20, // More results in deep mode
     excludeDomains: BLOCKED_DOMAINS,
   })
 
@@ -98,11 +190,11 @@ LOCATION: [City, State if available]
 Search corporate websites, LinkedIn, SEC filings, and news sources.
 Return specific individuals, not just organization names.
 Find up to ${Math.ceil(maxResults * 0.3)} individuals.`,
-    depth: "standard",
+    depth: searchDepth,
     outputType: "sourcedAnswer",
     includeInlineCitations: true,
     includeSources: true,
-    maxResults: 15,
+    maxResults: deepResearch ? 25 : 15, // More results in deep mode
     excludeDomains: BLOCKED_DOMAINS,
   })
 
@@ -127,11 +219,11 @@ EVIDENCE: [Source of wealth/philanthropy signal]
 
 Search ProPublica Nonprofit Explorer, SEC EDGAR, university donor lists, hospital boards.
 Find up to ${Math.ceil(maxResults * 0.4)} individuals.`,
-    depth: "standard",
+    depth: searchDepth,
     outputType: "sourcedAnswer",
     includeInlineCitations: true,
     includeSources: true,
-    maxResults: 15,
+    maxResults: deepResearch ? 25 : 15, // More results in deep mode
     excludeDomains: BLOCKED_DOMAINS,
   })
 
@@ -375,26 +467,39 @@ function extractCompany(context: string): string | null {
 
 /**
  * Extract location from context
+ * @returns city and state (state is always 2-letter abbreviation if found)
  */
 function extractLocation(context: string): { city: string | null; state: string | null } {
   // LOCATION: City, State format
-  const locationPattern = /LOCATION:\s*([^,\n]+)(?:,\s*([A-Z]{2}|\w+))?/i
+  const locationPattern = /LOCATION:\s*([^,\n]+)(?:,\s*([A-Z]{2}|[A-Za-z\s]+))?/i
   const match = context.match(locationPattern)
   if (match) {
+    const city = match[1]?.trim() || null
+    const rawState = match[2]?.trim() || null
+    // Normalize state to 2-letter abbreviation
+    const state = normalizeStateAbbrev(rawState)
+    return { city, state }
+  }
+
+  // Try "City, State" pattern in general text
+  // Match patterns like "Dallas, Texas" or "Dallas, TX"
+  const cityStatePattern = /\b([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s*,\s*(Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming|AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/i
+  const cityStateMatch = context.match(cityStatePattern)
+  if (cityStateMatch) {
     return {
-      city: match[1]?.trim() || null,
-      state: match[2]?.trim() || null,
+      city: cityStateMatch[1]?.trim() || null,
+      state: normalizeStateAbbrev(cityStateMatch[2]),
     }
   }
 
-  // State abbreviation pattern
+  // State-only pattern as fallback
   const statePattern =
     /\b(Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming|AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/i
   const stateMatch = context.match(statePattern)
 
   return {
     city: null,
-    state: stateMatch ? stateMatch[1] : null,
+    state: stateMatch ? normalizeStateAbbrev(stateMatch[1]) : null,
   }
 }
 

@@ -73,6 +73,8 @@ export interface DiscoveryRequest {
   }
   /** Optional focus areas for targeted search */
   focusAreas?: DiscoveryFocusArea[]
+  /** Use Deep Research mode (LinkUp deep mode) - Growth/Scale plans only */
+  deepResearch?: boolean
 }
 
 /**

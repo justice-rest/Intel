@@ -2919,6 +2919,72 @@ button:focus-visible {
   }
 }
 
+/* Deep Research Toggle */
+.discovery-deep-research-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.375rem 0.75rem;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--c-gray-600);
+  transition: all 0.2s ease;
+}
+
+.discovery-deep-research-toggle:hover {
+  border-color: var(--c-olive-500);
+  background: rgba(227, 255, 168, 0.05);
+}
+
+.discovery-deep-research-toggle input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--c-olive-500);
+  cursor: pointer;
+}
+
+.discovery-deep-research-label {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--c-text-secondary);
+  font-weight: 500;
+}
+
+.discovery-deep-research-toggle:has(input:checked) .discovery-deep-research-label {
+  color: var(--c-olive-500);
+}
+
+.discovery-beta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.375rem;
+  background: rgba(227, 255, 168, 0.15);
+  color: var(--c-olive-500);
+  border-radius: 4px;
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 0.25rem;
+  cursor: help;
+}
+
+.discovery-beta-badge:hover {
+  background: rgba(227, 255, 168, 0.25);
+}
+
+@media (max-width: 700px) {
+  .discovery-deep-research-toggle {
+    order: -1;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .discovery-search-button {
   display: inline-flex;
   align-items: center;

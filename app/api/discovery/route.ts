@@ -15,6 +15,13 @@ import {
   type DiscoveryResult,
   type DiscoveryErrorCode,
 } from "@/lib/discovery"
+import {
+  getCustomerData,
+  normalizePlanId,
+  trackBatchUsage,
+  checkBatchCredits,
+  isUnlimitedPlan,
+} from "@/lib/subscription/autumn-client"
 
 export const runtime = "nodejs"
 export const maxDuration = 60 // 60 seconds for discovery
@@ -24,6 +31,66 @@ export const maxDuration = 60 // 60 seconds for discovery
 // ============================================================================
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+// Deep Research daily usage tracking (once per day, max 5 prospects)
+const deepResearchUsageMap = new Map<string, { usedToday: boolean; prospectCount: number; resetAt: number }>()
+
+const DEEP_RESEARCH_MAX_PROSPECTS = 5
+const DEEP_RESEARCH_DAILY_LIMIT = 1
+
+function checkDeepResearchLimit(userId: string, requestedProspects: number): {
+  allowed: boolean
+  reason?: string
+  usesRemaining: number
+} {
+  const now = Date.now()
+  const dayMs = 24 * 60 * 60 * 1000
+
+  const entry = deepResearchUsageMap.get(userId)
+
+  // No entry or expired - fresh daily allowance
+  if (!entry || entry.resetAt < now) {
+    if (requestedProspects > DEEP_RESEARCH_MAX_PROSPECTS) {
+      return {
+        allowed: false,
+        reason: `Deep Research is limited to ${DEEP_RESEARCH_MAX_PROSPECTS} prospects per search. You requested ${requestedProspects}.`,
+        usesRemaining: DEEP_RESEARCH_DAILY_LIMIT,
+      }
+    }
+    return { allowed: true, usesRemaining: DEEP_RESEARCH_DAILY_LIMIT }
+  }
+
+  // Check if already used today
+  if (entry.usedToday) {
+    return {
+      allowed: false,
+      reason: `Deep Research can only be used once per day. Your limit resets in ${Math.ceil((entry.resetAt - now) / (60 * 60 * 1000))} hour(s).`,
+      usesRemaining: 0,
+    }
+  }
+
+  // Check prospect limit
+  if (requestedProspects > DEEP_RESEARCH_MAX_PROSPECTS) {
+    return {
+      allowed: false,
+      reason: `Deep Research is limited to ${DEEP_RESEARCH_MAX_PROSPECTS} prospects per search. You requested ${requestedProspects}.`,
+      usesRemaining: DEEP_RESEARCH_DAILY_LIMIT,
+    }
+  }
+
+  return { allowed: true, usesRemaining: DEEP_RESEARCH_DAILY_LIMIT }
+}
+
+function recordDeepResearchUsage(userId: string, prospectCount: number): void {
+  const now = Date.now()
+  const dayMs = 24 * 60 * 60 * 1000
+
+  deepResearchUsageMap.set(userId, {
+    usedToday: true,
+    prospectCount,
+    resetAt: now + dayMs,
+  })
+}
 
 function checkRateLimit(userId: string): {
   allowed: boolean
@@ -187,14 +254,96 @@ export async function POST(request: Request): Promise<NextResponse<DiscoveryResu
     const discoveryRequest = validation.sanitized!
 
     // ========================================================================
+    // PLAN CHECK & CREDIT VALIDATION (Growth Plan only)
+    // ========================================================================
+
+    let userPlan: string | null = null
+    let needsCreditDeduction = false
+    let creditCost = 1 // Default: 1 credit per search
+    const isDeepResearch = discoveryRequest.deepResearch === true
+
+    try {
+      const customerData = await getCustomerData(user.id, 2000)
+      const activeProduct = customerData?.products?.find(
+        (p: { status: string }) => p.status === "active" || p.status === "trialing"
+      )
+      userPlan = normalizePlanId(activeProduct?.id)
+
+      // Deep Research: Only available for Pro and Scale plans
+      if (isDeepResearch) {
+        if (userPlan !== "pro" && userPlan !== "scale") {
+          return errorResponse(
+            "Deep Research is only available for Pro and Scale plan subscribers. Please upgrade your plan to use this feature.",
+            "UNAUTHORIZED",
+            403,
+            { currentPlan: userPlan, requiredPlans: ["pro", "scale"] }
+          )
+        }
+
+        // Check daily limit for Deep Research
+        const deepLimit = checkDeepResearchLimit(user.id, discoveryRequest.maxResults)
+        if (!deepLimit.allowed) {
+          return errorResponse(
+            deepLimit.reason || "Deep Research limit exceeded",
+            "RATE_LIMITED",
+            429,
+            { usesRemaining: deepLimit.usesRemaining }
+          )
+        }
+        // Pro and Scale have unlimited credits, no extra cost deduction needed
+      }
+
+      // Growth plan users pay credits per search
+      if (userPlan === "growth") {
+        const creditCheck = await checkBatchCredits(user.id, creditCost)
+        if (!creditCheck.allowed) {
+          return errorResponse(
+            `Insufficient credits. You have ${creditCheck.balance ?? 0} credits. ${isDeepResearch ? "Deep Research" : "Discovery"} requires ${creditCost} credit${creditCost > 1 ? "s" : ""} per search. Please upgrade your plan or add more credits.`,
+            "INSUFFICIENT_CREDITS",
+            402,
+            { balance: creditCheck.balance, required: creditCost }
+          )
+        }
+        needsCreditDeduction = true
+      }
+      // Pro/Scale users have unlimited access (no credit deduction needed)
+    } catch (error) {
+      // Fail open - if we can't check the plan, allow access
+      console.error("[Discovery API] Plan check failed, allowing access:", error)
+    }
+
+    // ========================================================================
     // EXECUTE DISCOVERY
     // ========================================================================
 
     console.log(
-      `[Discovery API] User ${user.id} searching: "${discoveryRequest.prompt.substring(0, 50)}..." (max: ${discoveryRequest.maxResults})`
+      `[Discovery API] User ${user.id} (${userPlan || "unknown plan"}) searching: "${discoveryRequest.prompt.substring(0, 50)}..." (max: ${discoveryRequest.maxResults})`
     )
 
     const result = await discoverProspects(discoveryRequest)
+
+    // ========================================================================
+    // DEDUCT CREDIT & RECORD USAGE (After successful search)
+    // ========================================================================
+
+    if (result.success) {
+      // Deduct credits for Growth plan
+      if (needsCreditDeduction) {
+        try {
+          await trackBatchUsage(user.id, creditCost)
+          console.log(`[Discovery API] Deducted ${creditCost} credit(s) for Growth plan user ${user.id}${isDeepResearch ? " (Deep Research)" : ""}`)
+        } catch (error) {
+          // Log but don't fail - search already completed
+          console.error("[Discovery API] Credit deduction failed:", error)
+        }
+      }
+
+      // Record Deep Research usage for daily limit tracking
+      if (isDeepResearch) {
+        recordDeepResearchUsage(user.id, result.prospects.length)
+        console.log(`[Discovery API] Recorded Deep Research usage for user ${user.id} (${result.prospects.length} prospects)`)
+      }
+    }
 
     // ========================================================================
     // LOG USAGE (for analytics)
