@@ -17,6 +17,7 @@ import {
   type ProspectReportData,
 } from "@/lib/prospect-pdf"
 import { toBrandingSettings, type BrandingSettings } from "@/lib/pdf-branding"
+import { hasPaidPlan, isAutumnEnabled } from "@/lib/subscription/autumn-client"
 
 export const runtime = "nodejs"
 export const maxDuration = 60 // Allow up to 60s for PDF generation
@@ -39,42 +40,50 @@ export async function POST(request: Request) {
 
       userId = user.id
 
-      // Fetch user's custom branding settings
-      const { data: brandingData, error: brandingError } = await supabase
-        .from("pdf_branding")
-        .select("*")
-        .eq("user_id", user.id)
-        .single()
+      // Only fetch branding if user has Pro/Scale plan
+      // Downgraded users get default branding
+      const hasAccess = isAutumnEnabled() ? await hasPaidPlan(user.id) : true
 
-      if (brandingError) {
-        if (brandingError.code === "PGRST116") {
-          // No branding record exists - this is expected for new users
-          console.log("[ProspectPDF] No custom branding found for user, using defaults")
-        } else {
-          // Actual error - log it but continue with defaults
-          console.error("[ProspectPDF] Error fetching branding:", brandingError)
+      if (hasAccess) {
+        // Fetch user's custom branding settings
+        const { data: brandingData, error: brandingError } = await supabase
+          .from("pdf_branding")
+          .select("*")
+          .eq("user_id", user.id)
+          .single()
+
+        if (brandingError) {
+          if (brandingError.code === "PGRST116") {
+            // No branding record exists - this is expected for new users
+            console.log("[ProspectPDF] No custom branding found for user, using defaults")
+          } else {
+            // Actual error - log it but continue with defaults
+            console.error("[ProspectPDF] Error fetching branding:", brandingError)
+          }
+        } else if (brandingData) {
+          console.log("[ProspectPDF] Found custom branding:", {
+            primaryColor: brandingData.primary_color,
+            accentColor: brandingData.accent_color,
+            hasLogo: !!brandingData.logo_base64,
+            hideDefaultFooter: brandingData.hide_default_footer,
+            customFooterText: brandingData.custom_footer_text?.substring(0, 20),
+          })
+          branding = toBrandingSettings({
+            id: brandingData.id,
+            userId: brandingData.user_id,
+            primaryColor: brandingData.primary_color,
+            accentColor: brandingData.accent_color,
+            logoUrl: brandingData.logo_url,
+            logoBase64: brandingData.logo_base64,
+            logoContentType: brandingData.logo_content_type,
+            hideDefaultFooter: brandingData.hide_default_footer,
+            customFooterText: brandingData.custom_footer_text,
+            createdAt: brandingData.created_at,
+            updatedAt: brandingData.updated_at,
+          })
         }
-      } else if (brandingData) {
-        console.log("[ProspectPDF] Found custom branding:", {
-          primaryColor: brandingData.primary_color,
-          accentColor: brandingData.accent_color,
-          hasLogo: !!brandingData.logo_base64,
-          hideDefaultFooter: brandingData.hide_default_footer,
-          customFooterText: brandingData.custom_footer_text?.substring(0, 20),
-        })
-        branding = toBrandingSettings({
-          id: brandingData.id,
-          userId: brandingData.user_id,
-          primaryColor: brandingData.primary_color,
-          accentColor: brandingData.accent_color,
-          logoUrl: brandingData.logo_url,
-          logoBase64: brandingData.logo_base64,
-          logoContentType: brandingData.logo_content_type,
-          hideDefaultFooter: brandingData.hide_default_footer,
-          customFooterText: brandingData.custom_footer_text,
-          createdAt: brandingData.created_at,
-          updatedAt: brandingData.updated_at,
-        })
+      } else {
+        console.log("[ProspectPDF] User does not have Pro/Scale plan, using default branding")
       }
     }
 

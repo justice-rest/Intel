@@ -17,6 +17,7 @@ import {
   isPdfGenerationAvailable,
 } from "@/lib/prospect-pdf"
 import { toBrandingSettings, type BrandingSettings } from "@/lib/pdf-branding"
+import { hasPaidPlan, isAutumnEnabled } from "@/lib/subscription/autumn-client"
 
 export const runtime = "nodejs"
 export const maxDuration = 60 // Allow up to 60s for PDF generation
@@ -272,29 +273,37 @@ export async function GET(
         )
       }
 
-      // Fetch user's custom branding settings
+      // Fetch user's custom branding settings (only for Pro/Scale users)
       let branding: BrandingSettings | undefined
       try {
-        const { data: brandingData } = await supabase
-          .from("pdf_branding")
-          .select("*")
-          .eq("user_id", user.id)
-          .single()
+        // Only fetch branding if user has Pro/Scale plan
+        // Downgraded users get default branding
+        const hasAccess = isAutumnEnabled() ? await hasPaidPlan(user.id) : true
 
-        if (brandingData) {
-          branding = toBrandingSettings({
-            id: brandingData.id,
-            userId: brandingData.user_id,
-            primaryColor: brandingData.primary_color,
-            accentColor: brandingData.accent_color,
-            logoUrl: brandingData.logo_url,
-            logoBase64: brandingData.logo_base64,
-            logoContentType: brandingData.logo_content_type,
-            hideDefaultFooter: brandingData.hide_default_footer,
-            customFooterText: brandingData.custom_footer_text,
-            createdAt: brandingData.created_at,
-            updatedAt: brandingData.updated_at,
-          })
+        if (hasAccess) {
+          const { data: brandingData } = await supabase
+            .from("pdf_branding")
+            .select("*")
+            .eq("user_id", user.id)
+            .single()
+
+          if (brandingData) {
+            branding = toBrandingSettings({
+              id: brandingData.id,
+              userId: brandingData.user_id,
+              primaryColor: brandingData.primary_color,
+              accentColor: brandingData.accent_color,
+              logoUrl: brandingData.logo_url,
+              logoBase64: brandingData.logo_base64,
+              logoContentType: brandingData.logo_content_type,
+              hideDefaultFooter: brandingData.hide_default_footer,
+              customFooterText: brandingData.custom_footer_text,
+              createdAt: brandingData.created_at,
+              updatedAt: brandingData.updated_at,
+            })
+          }
+        } else {
+          console.log("[BatchExport] User does not have Pro/Scale plan, using default branding")
         }
       } catch {
         // No branding settings found, use defaults

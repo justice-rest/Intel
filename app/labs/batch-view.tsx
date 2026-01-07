@@ -1003,8 +1003,8 @@ export function BatchView() {
               <ServiceTile
                 icon={Binoculars}
                 title="Prospect Discovery"
-                subtitle="Coming Soon"
-                href="#"
+                subtitle="Find new prospects"
+                href="/discovery"
                 variant="green"
               />
               <ServiceTile

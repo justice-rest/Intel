@@ -15,6 +15,7 @@ import {
   DEFAULT_ACCENT_COLOR,
   HEX_COLOR_REGEX,
 } from "@/lib/pdf-branding"
+import { hasPaidPlan, isAutumnEnabled } from "@/lib/subscription/autumn-client"
 
 // Lazy-loaded modules
 let chromium: typeof import("@sparticuz/chromium") | null = null
@@ -488,7 +489,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Fetch user's custom branding settings
+    // Fetch user's custom branding settings (only for Pro/Scale users)
     let branding: BrandingSettings | undefined
     try {
       const supabase = await createClient()
@@ -498,27 +499,35 @@ export async function POST(request: NextRequest) {
         } = await supabase.auth.getUser()
 
         if (user) {
-          const { data: brandingData, error: brandingError } = await supabase
-            .from("pdf_branding")
-            .select("*")
-            .eq("user_id", user.id)
-            .single()
+          // Only fetch branding if user has Pro/Scale plan
+          // Downgraded users get default branding
+          const hasAccess = isAutumnEnabled() ? await hasPaidPlan(user.id) : true
 
-          if (!brandingError && brandingData) {
-            console.log("[ExportPDF] Found custom branding for user")
-            branding = toBrandingSettings({
-              id: brandingData.id,
-              userId: brandingData.user_id,
-              primaryColor: brandingData.primary_color,
-              accentColor: brandingData.accent_color,
-              logoUrl: brandingData.logo_url,
-              logoBase64: brandingData.logo_base64,
-              logoContentType: brandingData.logo_content_type,
-              hideDefaultFooter: brandingData.hide_default_footer,
-              customFooterText: brandingData.custom_footer_text,
-              createdAt: brandingData.created_at,
-              updatedAt: brandingData.updated_at,
-            })
+          if (hasAccess) {
+            const { data: brandingData, error: brandingError } = await supabase
+              .from("pdf_branding")
+              .select("*")
+              .eq("user_id", user.id)
+              .single()
+
+            if (!brandingError && brandingData) {
+              console.log("[ExportPDF] Found custom branding for user")
+              branding = toBrandingSettings({
+                id: brandingData.id,
+                userId: brandingData.user_id,
+                primaryColor: brandingData.primary_color,
+                accentColor: brandingData.accent_color,
+                logoUrl: brandingData.logo_url,
+                logoBase64: brandingData.logo_base64,
+                logoContentType: brandingData.logo_content_type,
+                hideDefaultFooter: brandingData.hide_default_footer,
+                customFooterText: brandingData.custom_footer_text,
+                createdAt: brandingData.created_at,
+                updatedAt: brandingData.updated_at,
+              })
+            }
+          } else {
+            console.log("[ExportPDF] User does not have Pro/Scale plan, using default branding")
           }
         }
       }

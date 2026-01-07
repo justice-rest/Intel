@@ -76,7 +76,7 @@ export interface PdfBrandingApiResponse {
  * Default branding values (Romy brand colors)
  */
 export const DEFAULT_BRANDING: BrandingSettings = {
-  primaryColor: "#0f172a",
+  primaryColor: "#0F172A",
   accentColor: "#00A5E4",
   logoBase64: null, // Will use default Romy logo
   hideDefaultFooter: false,
@@ -85,8 +85,9 @@ export const DEFAULT_BRANDING: BrandingSettings = {
 
 /**
  * Default primary color (dark slate)
+ * Note: Uppercase to match database normalization (colors are stored uppercase)
  */
-export const DEFAULT_PRIMARY_COLOR = "#0f172a"
+export const DEFAULT_PRIMARY_COLOR = "#0F172A"
 
 /**
  * Default accent color (Romy cyan/teal)
