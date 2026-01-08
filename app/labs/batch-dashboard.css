@@ -130,6 +130,18 @@
   color: var(--c-text-primary);
 }
 
+.batch-breadcrumb-link {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--c-text-primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.batch-breadcrumb-link:hover {
+  color: var(--c-text-secondary);
+}
+
 .batch-header-right {
   display: flex;
   align-items: center;
