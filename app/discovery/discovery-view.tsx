@@ -602,6 +602,8 @@ export function DiscoveryView() {
             <span className="batch-logo-text">Rōmy</span>
           </Link>
           <span className="batch-header-divider">/</span>
+          <Link href="/labs" className="batch-nav-link">Labs</Link>
+          <span className="batch-header-divider">/</span>
           <h1>Discovery</h1>
         </div>
         <div className="batch-header-right">
