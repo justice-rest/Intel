@@ -3585,6 +3585,22 @@ button:focus-visible {
   box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px #84cc16;
 }
 
+/* Tile Icon Buttons - Light Mode (hide borders on arrow buttons) */
+:root.light .tile a .icon-button,
+:root.light .tile button .icon-button,
+.light .tile a .icon-button,
+.light .tile button .icon-button {
+  border-color: transparent;
+  opacity: 0.7;
+}
+
+:root.light .tile a .icon-button:hover,
+:root.light .tile button .icon-button:hover,
+.light .tile a .icon-button:hover,
+.light .tile button .icon-button:hover {
+  opacity: 1;
+}
+
 /* Back Button - Light Mode */
 :root.light .back-button:hover,
 .light .back-button:hover {
