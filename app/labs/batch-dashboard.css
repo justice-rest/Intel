@@ -3141,3 +3141,469 @@ button:focus-visible {
   color: var(--c-text-primary);
 }
 
+/* ============================================================================
+   COMPREHENSIVE LIGHT MODE SUPPORT
+   ============================================================================ */
+
+/* Dialog/Modal Light Mode */
+:root.light .dialog-content,
+.light .dialog-content {
+  background-color: #ffffff;
+  border-color: var(--c-gray-600);
+  color: var(--c-text-primary);
+}
+
+:root.light .dialog-content h2,
+:root.light .dialog-content [data-slot="title"],
+.light .dialog-content h2,
+.light .dialog-content [data-slot="title"] {
+  color: var(--c-text-primary);
+}
+
+:root.light .dialog-content p,
+:root.light .dialog-content [data-slot="description"],
+.light .dialog-content p,
+.light .dialog-content [data-slot="description"] {
+  color: var(--c-text-tertiary);
+}
+
+/* Radix Dialog Overlay - Light Mode */
+:root.light [data-radix-dialog-overlay],
+.light [data-radix-dialog-overlay] {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+:root.light [data-radix-dialog-content],
+.light [data-radix-dialog-content] {
+  background-color: #ffffff;
+  border-color: var(--c-gray-600);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Discovery Status Cards - Light Mode */
+:root.light .status-card,
+.light .status-card {
+  background: var(--c-gray-700);
+}
+
+:root.light .status-card-success,
+.light .status-card-success {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+:root.light .status-card-success .status-card-value,
+.light .status-card-success .status-card-value {
+  color: #10b981;
+}
+
+:root.light .status-card-error,
+.light .status-card-error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+:root.light .status-card-info,
+.light .status-card-info {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Job Info Cards - Light Mode */
+:root.light .job-info-card,
+.light .job-info-card {
+  background: var(--c-gray-800);
+}
+
+/* Start/Running/Empty Cards - Light Mode */
+:root.light .start-card,
+:root.light .running-card,
+:root.light .empty-card,
+.light .start-card,
+.light .running-card,
+.light .empty-card {
+  background: var(--c-gray-800);
+}
+
+:root.light .running-spinner,
+.light .running-spinner {
+  color: #10b981;
+}
+
+/* Prospects Section - Light Mode */
+:root.light .prospects-section,
+.light .prospects-section {
+  background: var(--c-gray-800);
+}
+
+:root.light .prospects-header,
+.light .prospects-header {
+  border-bottom-color: var(--c-gray-600);
+}
+
+:root.light .prospects-table thead,
+.light .prospects-table thead {
+  background: var(--c-gray-700);
+}
+
+:root.light .prospects-table th,
+.light .prospects-table th {
+  border-bottom-color: var(--c-gray-600);
+  color: var(--c-text-tertiary);
+}
+
+:root.light .prospects-table td,
+.light .prospects-table td {
+  border-bottom-color: var(--c-gray-600);
+  color: var(--c-text-secondary);
+}
+
+:root.light .prospect-row:hover,
+.light .prospect-row:hover {
+  background: var(--c-gray-700);
+}
+
+:root.light .prospect-row-matched,
+.light .prospect-row-matched {
+  background: rgba(16, 185, 129, 0.05);
+}
+
+:root.light .prospect-row-matched:hover,
+.light .prospect-row-matched:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+:root.light .prospect-expanded-row td,
+.light .prospect-expanded-row td {
+  background: var(--c-gray-800);
+}
+
+/* Prospect Cards - Light Mode */
+:root.light .prospect-card,
+.light .prospect-card {
+  background: var(--c-gray-800);
+  border-color: var(--c-gray-600);
+}
+
+:root.light .prospect-card:hover,
+.light .prospect-card:hover {
+  background: var(--c-gray-700);
+  border-color: var(--c-gray-500);
+}
+
+:root.light .prospect-card-selected,
+.light .prospect-card-selected {
+  background: rgba(16, 185, 129, 0.05);
+  border-color: #10b981;
+}
+
+:root.light .prospect-card-checkbox-empty,
+.light .prospect-card-checkbox-empty {
+  border-color: var(--c-gray-500);
+}
+
+/* Sidebar Cards - Light Mode */
+:root.light .sidebar-card,
+.light .sidebar-card {
+  background: var(--c-gray-800);
+}
+
+/* Selection Summary - Light Mode */
+:root.light .selection-summary,
+.light .selection-summary {
+  background: var(--c-gray-800);
+}
+
+/* Confirm Batch Summary - Light Mode */
+:root.light .confirm-batch-summary,
+.light .confirm-batch-summary {
+  background: var(--c-gray-800);
+}
+
+:root.light .summary-row,
+.light .summary-row {
+  border-bottom-color: var(--c-gray-600);
+}
+
+/* Match Result Items - Light Mode */
+:root.light .match-result-item,
+.light .match-result-item {
+  background: var(--c-gray-700);
+}
+
+/* Discovery Prompt Input - Light Mode */
+:root.light .discovery-prompt-input,
+.light .discovery-prompt-input {
+  background: var(--c-gray-800);
+  border-color: var(--c-gray-600);
+  color: var(--c-text-primary);
+}
+
+:root.light .discovery-prompt-input:focus,
+.light .discovery-prompt-input:focus {
+  border-color: #10b981;
+}
+
+/* Card Icon Wrapper - Light Mode */
+:root.light .card-icon-wrapper,
+.light .card-icon-wrapper {
+  background: var(--c-gray-700);
+  color: #10b981;
+}
+
+/* Category Badge - Light Mode */
+:root.light .category-badge,
+.light .category-badge {
+  background: var(--c-gray-700);
+  color: var(--c-text-tertiary);
+}
+
+/* Primary Button - Light Mode */
+:root.light .primary-button,
+.light .primary-button {
+  background: #10b981;
+  color: #ffffff;
+}
+
+:root.light .primary-button:hover:not(:disabled),
+.light .primary-button:hover:not(:disabled) {
+  background: #059669;
+}
+
+/* Links - Light Mode */
+:root.light .expanded-link,
+:root.light .source-link,
+.light .expanded-link,
+.light .source-link {
+  color: #10b981;
+}
+
+/* Text Green - Light Mode */
+:root.light .text-green-500,
+.light .text-green-500 {
+  color: #10b981;
+}
+
+/* Transfer Avatar Selected - Light Mode */
+:root.light .transfer-avatar-selected,
+.light .transfer-avatar-selected {
+  background: #10b981;
+}
+
+/* Deep Research Toggle - Light Mode */
+:root.light .discovery-deep-research-toggle,
+.light .discovery-deep-research-toggle {
+  border-color: var(--c-gray-600);
+}
+
+:root.light .discovery-deep-research-toggle:hover,
+.light .discovery-deep-research-toggle:hover {
+  border-color: #84cc16;
+  background: rgba(132, 204, 22, 0.05);
+}
+
+:root.light .discovery-deep-research-toggle:has(input:checked) .discovery-deep-research-label,
+.light .discovery-deep-research-toggle:has(input:checked) .discovery-deep-research-label {
+  color: #84cc16;
+}
+
+:root.light .discovery-beta-badge,
+.light .discovery-beta-badge {
+  background: rgba(132, 204, 22, 0.15);
+  color: #65a30d;
+}
+
+/* Upload Mode Tabs - already defined but ensure consistency */
+:root.light .upload-mode-tab:hover,
+.light .upload-mode-tab:hover {
+  color: var(--c-text-primary);
+  background-color: var(--c-gray-700);
+}
+
+/* FAQ/Upload sections - Light Mode */
+:root.light .faq > div,
+.light .faq > div {
+  border-top-color: var(--c-gray-600);
+  border-bottom-color: var(--c-gray-600);
+}
+
+:root.light .faq > div label,
+.light .faq > div label {
+  border-right-color: var(--c-gray-600);
+}
+
+:root.light .faq > div input,
+.light .faq > div input {
+  color: var(--c-text-primary);
+}
+
+/* Payment Details - Light Mode */
+:root.light .payment-details div,
+.light .payment-details div {
+  border-top-color: var(--c-gray-600);
+  border-bottom-color: var(--c-gray-600);
+}
+
+/* Footer - Light Mode */
+:root.light .footer div,
+.light .footer div {
+  border-top-color: var(--c-gray-600);
+}
+
+/* Filter Options - Light Mode */
+:root.light .filter-options,
+.light .filter-options {
+  border-left-color: var(--c-gray-600);
+}
+
+/* Transfer Section Header - Light Mode */
+:root.light .transfer-section-header,
+.light .transfer-section-header {
+  border-bottom-color: var(--c-gray-600);
+}
+
+/* Dropdown Field - Light Mode */
+:root.light .dropdown-field select,
+.light .dropdown-field select {
+  border-bottom-color: var(--c-gray-600);
+  color: var(--c-text-tertiary);
+}
+
+:root.light .dropdown-field select:focus,
+.light .dropdown-field select:focus {
+  color: var(--c-text-primary);
+}
+
+/* Discovery FAQ List - Light Mode */
+:root.light .discovery-faq li,
+.light .discovery-faq li {
+  border-bottom-color: var(--c-gray-600);
+}
+
+/* Conditions List - Light Mode */
+:root.light .conditions-list li,
+.light .conditions-list li {
+  border-bottom-color: var(--c-gray-600);
+}
+
+/* Sources List - Light Mode */
+:root.light .sources-list li,
+.light .sources-list li {
+  border-bottom-color: var(--c-gray-600);
+}
+
+/* Transfer Actions - Light Mode (mobile) */
+@media (max-width: 1000px) {
+  :root.light .transfer-actions,
+  .light .transfer-actions {
+    border-top-color: var(--c-gray-600);
+  }
+}
+
+/* Status Badge Pending/Cancelled - Light Mode */
+:root.light .status-badge-cancelled,
+.light .status-badge-cancelled {
+  background-color: var(--c-gray-700);
+}
+
+/* Mapping Preview Table - Light Mode */
+:root.light .mapping-preview,
+.light .mapping-preview {
+  border-top-color: var(--c-gray-600);
+}
+
+:root.light .mapping-preview-table th,
+:root.light .mapping-preview-table td,
+.light .mapping-preview-table th,
+.light .mapping-preview-table td {
+  border-bottom-color: var(--c-gray-600);
+}
+
+/* Icon Button Focus States - Light Mode */
+:root.light .icon-button:hover,
+:root.light .icon-button:focus,
+.light .icon-button:hover,
+.light .icon-button:focus {
+  box-shadow: 0 0 0 4px var(--c-gray-800), 0 0 0 5px var(--c-gray-400);
+}
+
+:root.light .icon-button-danger:hover,
+:root.light .icon-button-danger:focus,
+.light .icon-button-danger:hover,
+.light .icon-button-danger:focus {
+  box-shadow: 0 0 0 4px var(--c-gray-800), 0 0 0 5px #ef4444;
+}
+
+/* Button Focus Visible - Light Mode */
+:root.light button:focus-visible,
+.light button:focus-visible {
+  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px var(--c-gray-400);
+}
+
+/* Match Limit Slider - Light Mode */
+:root.light .match-limit-slider .slider,
+.light .match-limit-slider .slider {
+  background: var(--c-gray-600);
+}
+
+:root.light .match-limit-slider .slider::-webkit-slider-thumb,
+.light .match-limit-slider .slider::-webkit-slider-thumb {
+  background: #10b981;
+}
+
+:root.light .match-limit-value,
+.light .match-limit-value {
+  color: #10b981;
+}
+
+/* Stats Grid Card Value - Light Mode */
+:root.light .card-value,
+.light .card-value {
+  color: #10b981;
+}
+
+/* Discovery Tips List Bullet - Light Mode */
+:root.light .discovery-tips-list li::before,
+.light .discovery-tips-list li::before {
+  color: #10b981;
+}
+
+/* Icon Button Success - Light Mode */
+:root.light .icon-button-success,
+.light .icon-button-success {
+  color: #10b981;
+}
+
+:root.light .icon-button-success:hover,
+.light .icon-button-success:hover {
+  background: rgba(16, 185, 129, 0.1);
+}
+
+/* Tile Focus Within - Light Mode */
+:root.light .tile:focus-within,
+.light .tile:focus-within {
+  box-shadow: 0 0 0 2px var(--c-gray-800), 0 0 0 4px #84cc16;
+}
+
+/* Back Button - Light Mode */
+:root.light .back-button:hover,
+.light .back-button:hover {
+  background: var(--c-gray-700);
+}
+
+/* Status Badges - Light Mode additional */
+:root.light .status-badge-processing,
+.light .status-badge-processing {
+  background-color: rgba(234, 179, 8, 0.15);
+}
+
+:root.light .status-badge-paused,
+.light .status-badge-paused {
+  background-color: rgba(59, 130, 246, 0.15);
+}
+
+:root.light .status-badge-failed,
+.light .status-badge-failed {
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
