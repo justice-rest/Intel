@@ -21,6 +21,8 @@
   --c-text-primary: var(--c-gray-100);
   --c-text-secondary: var(--c-gray-200);
   --c-text-tertiary: var(--c-gray-500);
+
+  --c-app-bg: #191919;
 }
 
 /* Main App Container - standalone full page */
@@ -31,7 +33,7 @@
   display: flex;
   flex-direction: column;
   font-family: "Be Vietnam Pro", ui-sans-serif, system-ui, sans-serif;
-  background-color: #191919;
+  background-color: var(--c-app-bg);
   color: var(--c-text-primary);
   line-height: 1.5;
 }
@@ -1259,6 +1261,8 @@ button:focus-visible {
   --c-text-primary: #212529;
   --c-text-secondary: #343a40;
   --c-text-tertiary: #6c757d;
+
+  --c-app-bg: #ffffff;
 }
 
 /* Tiles keep vibrant colors in light mode */
