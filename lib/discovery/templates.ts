@@ -76,11 +76,12 @@ Return specific individuals with verifiable identities. Each person should be fi
     id: "foundation-board-members",
     title: "Foundation Board Members",
     description: "Private foundation trustees and board members in a specific state",
-    prompt: `Find private foundation board members, trustees, and directors in [state].
+    prompt: `Find private foundation board members, trustees, and directors in [city], [state].
 
 SEARCH CRITERIA:
 - Trustees or directors of private family foundations
 - Focus on foundations with assets over $5 million
+- Located in or near [city], [state]
 - Include foundation name and role for each person
 - Look for IRS Form 990-PF filings, ProPublica Nonprofit Explorer, GuideStar
 
@@ -96,6 +97,7 @@ Search sources:
 - Foundation websites and annual reports
 - News articles about foundation grants`,
     placeholders: [
+      { key: "[city]", label: "City", type: "text", required: true },
       { key: "[state]", label: "State", type: "text", required: true },
     ],
     category: "philanthropy",
@@ -137,13 +139,14 @@ Look for:
     id: "healthcare-executives",
     title: "Healthcare Executives",
     description: "Hospital administrators and healthcare leaders with nonprofit board experience",
-    prompt: `Find healthcare executives in [state] who have nonprofit board experience or foundation affiliations.
+    prompt: `Find healthcare executives in [city], [state] who have nonprofit board experience or foundation affiliations.
 
 SEARCH CRITERIA:
 - Hospital CEOs, CFOs, CMOs, and administrators
 - Health system executives
 - Pharmaceutical and medical device company leaders
 - Healthcare private equity partners
+- Located in or near [city], [state]
 - Evidence of nonprofit board service outside their organization
 
 For each person found, provide:
@@ -158,6 +161,7 @@ Search:
 - University hospital boards of trustees
 - Medical school advisory boards`,
     placeholders: [
+      { key: "[city]", label: "City", type: "text", required: true },
       { key: "[state]", label: "State", type: "text", required: true },
     ],
     category: "business",
@@ -199,11 +203,12 @@ Search:
     id: "family-foundation-trustees",
     title: "Family Foundation Trustees",
     description: "Multi-generational family foundation leaders focused on a specific cause",
-    prompt: `Find trustees and directors of family foundations in [state] that focus on [cause].
+    prompt: `Find trustees and directors of family foundations in [city], [state] that focus on [cause].
 
 SEARCH CRITERIA:
 - Family foundation trustees (not just donors)
 - Foundations that have made grants to [cause] organizations
+- Located in or near [city], [state]
 - Multi-generational family involvement preferred
 - Foundations with ongoing grantmaking activity
 
@@ -220,6 +225,7 @@ Search:
 - News about major grants to [cause] organizations
 - [cause] organization donor recognition lists`,
     placeholders: [
+      { key: "[city]", label: "City", type: "text", required: true },
       { key: "[state]", label: "State", type: "text", required: true },
       {
         key: "[cause]",
