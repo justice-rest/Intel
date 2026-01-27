@@ -10,6 +10,7 @@ import { useUser } from "@/lib/user-store/provider"
 import { SignOut, DownloadSimple, Trash } from "@phosphor-icons/react"
 import { Loader2 } from "lucide-react"
 import { DeleteAccountDialog } from "./delete-account-dialog"
+import { PrivacySettings } from "./privacy-settings"
 
 export function AccountManagement() {
   const { signOut } = useUser()
@@ -121,6 +122,9 @@ export function AccountManagement() {
           <span>{isExporting ? "Exporting..." : "Export"}</span>
         </Button>
       </div>
+
+      {/* Privacy & Cookies */}
+      <PrivacySettings />
 
       {/* Delete Account */}
       <div className="flex items-center justify-between gap-4">

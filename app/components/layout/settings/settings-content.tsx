@@ -20,7 +20,6 @@ import { LayoutSettings } from "./appearance/layout-settings"
 import { ThemeSelection } from "./appearance/theme-selection"
 import { PdfBrandingSettings } from "./appearance/pdf-branding"
 import { AccountManagement } from "./general/account-management"
-import { PrivacySettings } from "./general/privacy-settings"
 import { UserProfile } from "./general/user-profile"
 import { IntegrationsSection } from "./integrations"
 import { KnowledgeDashboard } from "@/app/components/knowledge"
@@ -121,7 +120,6 @@ export function SettingsContent({
             {/* Mobile tabs content */}
             <TabsContent value="general" className="space-y-6 px-6">
               <UserProfile />
-              <PrivacySettings />
               {isSupabaseEnabled && <AccountManagement />}
             </TabsContent>
 
@@ -213,7 +211,6 @@ export function SettingsContent({
             <div className="flex-1 overflow-auto px-6 pt-4">
               <TabsContent value="general" className="mt-0 space-y-6">
                 <UserProfile />
-                <PrivacySettings />
                 {isSupabaseEnabled && <AccountManagement />}
               </TabsContent>
 
