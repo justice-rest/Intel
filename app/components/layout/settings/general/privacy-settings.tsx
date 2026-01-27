@@ -1,7 +1,8 @@
 "use client"
 
-import { Switch } from "@/components/ui/switch"
+import { Button } from "@/components/ui/button"
 import { useEffect, useState } from "react"
+import { ChartBar, X } from "@phosphor-icons/react"
 import {
   getConsentState,
   saveConsentState,
@@ -88,12 +89,20 @@ export function PrivacySettings() {
           Help us improve by tracking usage patterns
         </p>
       </div>
-      <Switch
-        checked={analyticsEnabled}
-        onCheckedChange={handleToggle}
+      <Button
+        variant="outline"
+        size="sm"
+        className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0"
+        onClick={() => handleToggle(!analyticsEnabled)}
         disabled={isLoading}
-        className="shrink-0"
-      />
+      >
+        {analyticsEnabled ? (
+          <X className="size-4" />
+        ) : (
+          <ChartBar className="size-4" />
+        )}
+        <span>{analyticsEnabled ? "Disable" : "Enable"}</span>
+      </Button>
     </div>
   )
 }
