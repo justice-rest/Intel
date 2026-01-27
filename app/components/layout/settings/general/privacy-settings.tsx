@@ -89,20 +89,28 @@ export function PrivacySettings() {
           Help us improve by tracking usage patterns
         </p>
       </div>
-      <Button
-        variant="outline"
-        size="sm"
-        className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0"
-        onClick={() => handleToggle(!analyticsEnabled)}
-        disabled={isLoading}
-      >
-        {analyticsEnabled ? (
+      {analyticsEnabled ? (
+        <Button
+          variant="destructive"
+          size="sm"
+          className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0"
+          onClick={() => handleToggle(false)}
+          disabled={isLoading}
+        >
           <X className="size-4" />
-        ) : (
+          <span>Disable</span>
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0 bg-blue-600 text-white hover:bg-blue-700"
+          onClick={() => handleToggle(true)}
+          disabled={isLoading}
+        >
           <ChartBar className="size-4" />
-        )}
-        <span>{analyticsEnabled ? "Disable" : "Enable"}</span>
-      </Button>
+          <span>Enable</span>
+        </Button>
+      )}
     </div>
   )
 }
