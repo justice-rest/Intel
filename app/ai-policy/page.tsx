@@ -49,7 +49,7 @@ export default function AIPolicy() {
           {/* TL;DR Section */}
           <div className="rounded-lg border-2 border-foreground/20 bg-foreground/5 p-6 mb-12">
             <h2 className="mt-0 flex items-center gap-2 text-xl">
-              🤖 TL;DR — AI Governance at a Glance
+              TL;DR — AI Governance at a Glance
             </h2>
             <p className="text-sm mb-4">
               <em>This summary is for convenience only. The full policy below is binding for all users of the platform.</em>
@@ -127,7 +127,7 @@ export default function AIPolicy() {
 
           <h2>5. Prohibited Uses</h2>
           <div className="rounded-lg border-2 border-red-500/30 bg-red-500/5 p-4">
-            <p className="font-semibold text-red-600 dark:text-red-400">⚠️ Strictly Prohibited</p>
+            <p className="font-semibold text-red-600 dark:text-red-400">Strictly Prohibited</p>
             <p>
               The following uses of Rōmy are <strong>strictly prohibited</strong> and may result in immediate account termination:
             </p>
@@ -156,7 +156,7 @@ export default function AIPolicy() {
           </ul>
 
           <div className="rounded-lg border-2 border-amber-500/30 bg-amber-500/5 p-4">
-            <p className="font-semibold text-amber-600 dark:text-amber-400">⚡ Key Principle</p>
+            <p className="font-semibold text-amber-600 dark:text-amber-400">Key Principle</p>
             <p className="mb-0">
               Rōmy is a research assistant, not a decision-maker. The responsibility for fundraising decisions, donor communications, and gift solicitations always rests with the human professional.
             </p>
