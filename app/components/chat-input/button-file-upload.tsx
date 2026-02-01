@@ -39,7 +39,7 @@ export function ButtonFileUpload({
     return null
   }
 
-  // Normalize model ID to handle deprecated/migrated model IDs (e.g., grok-4-fast → grok-4.1-fast)
+  // Normalize model ID to handle deprecated/migrated model IDs (e.g., old IDs → Gemini)
   const normalizedModel = normalizeModelId(model)
   const isFileUploadAvailable = getModelInfo(normalizedModel)?.vision
 

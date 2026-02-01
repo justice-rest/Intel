@@ -199,12 +199,13 @@ export const SOURCE_REGISTRY: SourceDefinition[] = [
     notes: "AI-generated synthesis from web search",
   },
   {
-    id: "grok",
-    name: "Grok AI",
+    id: "gemini",
+    name: "Google Gemini",
     category: "llm_synthesis",
-    authority: 0.45,
+    authority: 0.5,
     urlPatterns: [],
-    dataTypes: ["synthesis", "estimates"],
+    dataTypes: ["synthesis", "estimates", "search_grounding"],
+    notes: "Google Gemini with Search grounding",
   },
 ]
 

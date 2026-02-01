@@ -80,7 +80,7 @@ export default function TermsOfService() {
             Rōmy is an AI-powered research platform designed to help small nonprofits identify and research potential major donors. The Service provides:
           </p>
           <ul>
-            <li><strong>AI-Powered Research:</strong> Access to AI language models (xAI Grok, OpenAI, Anthropic Claude, Google Gemini, and others via OpenRouter) for intelligent prospect research and conversations</li>
+            <li><strong>AI-Powered Research:</strong> Access to AI language models (Google Gemini, OpenAI, Anthropic Claude, and others via OpenRouter) for intelligent prospect research and conversations</li>
             <li><strong>Document Analysis:</strong> File upload and processing for PDFs, spreadsheets, and documents (max 10MB per file)</li>
             <li><strong>Web Search Integration:</strong> Real-time web search via Perplexity, Linkup, and other providers for prospect research</li>
             <li><strong>Google Workspace Integration:</strong> Gmail access for reading emails and creating AI-generated drafts (drafts only — we never auto-send); Google Drive for document import and RAG indexing</li>
@@ -211,10 +211,10 @@ export default function TermsOfService() {
                 <td>SOC 2 Type II</td>
               </tr>
               <tr>
-                <td>xAI Corp</td>
-                <td>Grok AI Model</td>
+                <td>Google LLC</td>
+                <td>Gemini AI Model</td>
                 <td>US</td>
-                <td>Enterprise Terms</td>
+                <td>Google Cloud Terms</td>
               </tr>
               <tr>
                 <td>Stripe Inc.</td>
@@ -268,7 +268,7 @@ export default function TermsOfService() {
 
           <h3>8.2 AI Model Terms</h3>
           <p>
-            When using AI models through our Service, you must comply with each model provider's acceptable use policies (xAI, OpenAI, Anthropic, Google, etc.). Violations may result in immediate termination.
+            When using AI models through our Service, you must comply with each model provider's acceptable use policies (Google, OpenAI, Anthropic, etc.). Violations may result in immediate termination.
           </p>
 
           <h2>9. Data Ownership and Use Restrictions</h2>
@@ -358,15 +358,15 @@ export default function TermsOfService() {
             </thead>
             <tbody>
               <tr>
-                <td>xAI (Grok)</td>
-                <td>AI model inference</td>
+                <td>Google (Gemini)</td>
+                <td>AI model inference, Search grounding</td>
               </tr>
               <tr>
                 <td>OpenRouter</td>
                 <td>Multi-model AI access</td>
               </tr>
               <tr>
-                <td>Google</td>
+                <td>Google Workspace</td>
                 <td>Authentication, Gmail, Drive</td>
               </tr>
               <tr>

@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Normalize model IDs for backwards compatibility (e.g., grok-4-fast → grok-4.1-fast)
+    // Normalize model IDs for backwards compatibility (e.g., old model IDs → Gemini)
     const normalizedFavoriteModels = favorite_models.map((modelId: string) =>
       normalizeModelId(modelId)
     )

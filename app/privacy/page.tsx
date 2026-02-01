@@ -57,7 +57,7 @@ export default function PrivacyPolicy() {
             <ul className="text-sm space-y-2 mb-0">
               <li><strong>We don't sell your data.</strong> Ever. Not to advertisers, not to data brokers, not to anyone.</li>
               <li><strong>Your donor data stays yours.</strong> We only use it to power the AI features you're paying for.</li>
-              <li><strong>AI providers see your prompts.</strong> When you chat, your messages go to AI providers (xAI, OpenAI, etc.) to generate responses. They have their own privacy policies.</li>
+              <li><strong>AI providers see your prompts.</strong> When you chat, your messages go to AI providers (Google, OpenAI, etc.) to generate responses. They have their own privacy policies.</li>
               <li><strong>Google Workspace access is limited.</strong> We only read what you authorize. Gmail = read emails + create drafts (never send). Drive = only files you pick.</li>
               <li><strong>CRM data is encrypted.</strong> API keys use AES-256-GCM encryption. Synced data stays in your account only.</li>
               <li><strong>Analytics are privacy-focused.</strong> We use PostHog. No cross-site tracking. You can opt out.</li>
@@ -165,7 +165,7 @@ export default function PrivacyPolicy() {
           <p>We use your information to:</p>
           <ul>
             <li><strong>Provide the Service:</strong> Power AI conversations, store chats, enable integrations</li>
-            <li><strong>Process AI requests:</strong> Send your prompts to AI providers (xAI, OpenAI, Anthropic, etc.) to generate responses</li>
+            <li><strong>Process AI requests:</strong> Send your prompts to AI providers (Google, OpenAI, Anthropic, etc.) to generate responses</li>
             <li><strong>Personalize experience:</strong> Remember your preferences, enable AI Memory (if enabled)</li>
             <li><strong>Improve the product:</strong> Analyze usage patterns, fix bugs, develop features</li>
             <li><strong>Communicate:</strong> Send service updates, security notices, respond to support requests</li>
@@ -226,9 +226,9 @@ export default function PrivacyPolicy() {
             </thead>
             <tbody>
               <tr>
-                <td>xAI (Grok)</td>
-                <td>Prompts, chat context</td>
-                <td><a href="https://x.ai/legal/privacy-policy" target="_blank" rel="noopener noreferrer">x.ai/privacy</a></td>
+                <td>Google (Gemini)</td>
+                <td>Prompts, chat context, search queries</td>
+                <td><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">policies.google.com/privacy</a></td>
               </tr>
               <tr>
                 <td>OpenAI</td>
@@ -316,10 +316,10 @@ export default function PrivacyPolicy() {
                   <td>SOC 2 Type II</td>
                 </tr>
                 <tr>
-                  <td>xAI Corp</td>
-                  <td>Grok AI Model</td>
+                  <td>Google LLC</td>
+                  <td>Gemini AI Model</td>
                   <td>US</td>
-                  <td>Enterprise Terms</td>
+                  <td>Google Cloud Terms</td>
                 </tr>
                 <tr>
                   <td>Stripe Inc.</td>

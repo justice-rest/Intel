@@ -27,12 +27,12 @@
 
 ## API Pricing Reference
 
-### AI Models (via OpenRouter)
+### AI Models (via Google)
 
 | Model | Model ID | Input Cost | Output Cost | Use Case |
 |-------|----------|------------|-------------|----------|
-| **Grok 4.1 Fast** | `x-ai/grok-4.1-fast` | $0.20/1M tokens | $0.50/1M tokens | Research mode orchestration |
-| **Grok 4.1 Fast (Thinking)** | `x-ai/grok-4.1-fast-thinking` | $0.20/1M tokens | $0.50/1M tokens + reasoning | Deep Research orchestration |
+| **Gemini 3 Flash** | `gemini-3-flash-preview` | $0.50/1M tokens | $3.00/1M tokens | Research mode orchestration |
+| **Gemini 3 Pro** | `gemini-3-pro-preview` | $2.00/1M tokens | $12.00/1M tokens | Deep Research orchestration |
 
 ### Search APIs
 
@@ -57,18 +57,19 @@
 **When Used:** Toggle "Research" button in chat, or research queries
 
 **Models & Tools:**
-1. **Grok 4.1 Fast** - Primary reasoning
+1. **Gemini 3 Flash** - Primary reasoning
 2. **LinkUp Search** - Comprehensive web research ($0.005/call)
-3. **Free APIs** - SEC, FEC, ProPublica verification
+3. **Google Search Grounding** - Real-time web search ($0.014/call)
+4. **Free APIs** - SEC, FEC, ProPublica verification
 
 ### Token Breakdown Per Report
 
 | Component | Input Tokens | Output Tokens | Cost |
 |-----------|--------------|---------------|------|
-| Grok 4.1 Fast (orchestration) | 2,000 | 1,500 | $0.0012 |
+| Gemini 3 Flash (orchestration) | 2,000 | 1,500 | $0.0055 |
 | LinkUp Search | - | - | $0.005 |
 | Free verification APIs | 500 | 500 | $0.00035 |
-| **Total** | **2,500** | **2,000** | **$0.0065** |
+| **Total** | **2,500** | **2,000** | **$0.011** |
 
 ### Actual Cost Range
 
@@ -92,20 +93,20 @@ Due to research depth variability:
 **When Used:** Toggle "Deep Research" in chat, complex wealth screening
 
 **Models & Tools:**
-1. **Grok 4.1 Fast (Thinking)** (`x-ai/grok-4.1-fast-thinking`) - Extended reasoning with high-effort thinking
+1. **Gemini 3 Pro** (`gemini-3-pro-preview`) - Extended reasoning with high-effort thinking
 2. **LinkUp Search (one-shot mode)** - Comprehensive multi-step search ($0.005-$0.009)
-3. **Grok Native Search** - X/Twitter + web search (parallel, 45s timeout)
+3. **Google Search Grounding** - Real-time web search ($0.014/call)
 4. **Free APIs** - SEC, FEC, ProPublica verification
 
 ### Token Breakdown Per Report
 
-| Component | Input Tokens | Output Tokens | Reasoning Tokens | Cost |
-|-----------|--------------|---------------|------------------|------|
-| Grok 4.1 Fast (Thinking) | 3,000 | 2,000 | 4,000 | $0.0036 |
-| LinkUp Search (one-shot) | - | - | - | $0.009 |
-| Grok Native Search | 500 | 1,500 | - | $0.00085 |
-| Free verification APIs | 800 | 1,000 | - | $0.00066 |
-| **Total** | **4,300** | **4,500** | **4,000** | **$0.014** |
+| Component | Input Tokens | Output Tokens | Cost |
+|-----------|--------------|---------------|------|
+| Gemini 3 Pro (orchestration) | 3,000 | 2,000 | $0.030 |
+| LinkUp Search (one-shot) | - | - | $0.009 |
+| Google Search Grounding | - | - | $0.014 |
+| Free verification APIs | 800 | 1,000 | $0.00066 |
+| **Total** | **3,800** | **3,000** | **$0.054** |
 
 **Note:** LinkUp in "one-shot" mode provides comprehensive, multi-step research similar to the previous Perplexity Deep Research but at ~95% lower cost.
 
@@ -134,7 +135,7 @@ Due to research complexity:
 
 **Pipeline Steps:**
 1. **LinkUp Search** - Primary research (required)
-2. **Grok Search** - X/Twitter data (optional)
+2. **Google Search** - Additional web data (optional)
 3. **Direct Verification** - SEC, FEC, ProPublica (optional)
 4. **Triangulation** - Merge and score data
 5. **RōmyScore Calculation** - Wealth scoring
@@ -153,18 +154,18 @@ Due to research complexity:
 | Component | Cost |
 |-----------|------|
 | LinkUp Search | $0.005 |
-| Grok Search (X/Twitter) | $0.00085 |
+| Google Search Grounding | $0.014 |
 | Verification APIs | FREE |
 | RōmyScore calculation | $0.0005 |
-| **Total (Full)** | **$0.0064** |
+| **Total (Full)** | **$0.020** |
 
 ### Actual Cost Range
 
 | Batch Type | Cost Per Row |
 |------------|--------------|
 | Minimal (LinkUp only) | $0.005 - $0.006 |
-| Standard (+ Grok) | $0.006 - $0.010 |
-| Full (all optional steps) | $0.010 - $0.015 |
+| Standard (+ Google) | $0.019 - $0.025 |
+| Full (all optional steps) | $0.025 - $0.035 |
 
 ### Scaling Calculations (Standard Batch)
 
@@ -214,7 +215,7 @@ For Google Drive document processing:
 
 | API | Rate Limit | Safeguard |
 |-----|------------|-----------|
-| OpenRouter (Grok) | 60 req/min | 1s min delay |
+| Google Gemini | 60 req/min | 1s min delay |
 | LinkUp | High throughput | Built-in rate limiting |
 | SEC EDGAR | 10 req/sec | 100ms delay |
 | FEC | 1,000/hour | 4s delay |
@@ -273,17 +274,18 @@ SEC, FEC, and ProPublica data is FREE. These are automatically used for verifica
 
 ## Appendix: Full API Cost Reference
 
-### AI Models via OpenRouter
+### AI Models via Google
 
 | Model ID | Input Cost | Output Cost | Use Case |
 |----------|------------|-------------|----------|
-| `x-ai/grok-4.1-fast` | $0.20/1M | $0.50/1M | Research mode orchestration |
-| `x-ai/grok-4.1-fast-thinking` | $0.20/1M | $0.50/1M + reasoning | Deep Research orchestration |
+| `gemini-3-flash-preview` | $0.50/1M | $3.00/1M | Research mode orchestration |
+| `gemini-3-pro-preview` | $2.00/1M | $12.00/1M | Deep Research orchestration |
 
 ### Search & Data APIs
 
 | API | Cost | Use Case |
 |-----|------|----------|
+| Google Search Grounding | $0.014/request | Real-time web search |
 | LinkUp Search | $0.005/request | All web research |
 | Exa Websets | Varies | Prospect discovery |
 | OpenAI Embeddings (text-embedding-3-large) | $0.13/1M tokens | Document embeddings for RAG |
@@ -296,14 +298,14 @@ SEC, FEC, and ProPublica data is FREE. These are automatically used for verifica
 
 | Mode | Orchestration Model | Research Tool | Additional |
 |------|---------------------|---------------|------------|
-| **Research** | Grok 4.1 Fast | LinkUp (agentic) | Grok Native Search |
-| **Deep Research** | Grok 4.1 Fast (Thinking) | LinkUp (one-shot) | Grok Native Search |
-| **Batch Research** | N/A | LinkUp | Grok (optional) |
+| **Research** | Gemini 3 Flash | LinkUp (agentic) | Google Search Grounding |
+| **Deep Research** | Gemini 3 Pro | LinkUp (one-shot) | Google Search Grounding |
+| **Batch Research** | N/A | LinkUp | Google Search (optional) |
 
 ---
 
 ## Sources
 
-- [OpenRouter Pricing](https://openrouter.ai/pricing)
+- [Google AI Pricing](https://ai.google.dev/pricing)
 - [LinkUp Pricing](https://linkup.so/pricing)
 - [LinkUp Docs](https://docs.linkup.so)

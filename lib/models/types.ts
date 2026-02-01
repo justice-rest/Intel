@@ -28,7 +28,7 @@ type ModelConfig = {
 
   website?: string // official website (e.g. https://openai.com)
   apiDocs?: string // official API docs (e.g. https://platform.openai.com/docs/api-reference)
-  modelPage?: string // official product page (e.g. https://x.ai/news/grok-2)
+  modelPage?: string // official product page (e.g. https://deepmind.google/technologies/gemini/)
   releasedAt?: string // "2024-12-01" (optional, for tracking changes)
 
   icon?: string // e.g. "gpt-4", "claude", "mistral", or custom string

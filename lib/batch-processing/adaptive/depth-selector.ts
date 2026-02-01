@@ -31,9 +31,9 @@ export interface DepthConfig {
   runLinkup: boolean
 
   /**
-   * Whether to run Grok search
+   * Whether to run Google search grounding
    */
-  runGrok: boolean
+  runGoogleSearch: boolean
 
   /**
    * Whether to run verification (SEC, FEC, ProPublica)
@@ -79,7 +79,7 @@ export const DEPTH_CONFIGS: Record<ResearchDepth, DepthConfig> = {
   DEEP: {
     passes: 3,
     runLinkup: true,
-    runGrok: true,
+    runGoogleSearch: true,
     runVerification: true,
     timeout: 90000,
     estimatedTime: "60-90 seconds",
@@ -87,7 +87,7 @@ export const DEPTH_CONFIGS: Record<ResearchDepth, DepthConfig> = {
   STANDARD: {
     passes: 2,
     runLinkup: true,
-    runGrok: false,
+    runGoogleSearch: false,
     runVerification: false,
     timeout: 45000,
     estimatedTime: "30-45 seconds",
@@ -95,7 +95,7 @@ export const DEPTH_CONFIGS: Record<ResearchDepth, DepthConfig> = {
   QUICK: {
     passes: 1,
     runLinkup: false,
-    runGrok: false,
+    runGoogleSearch: false,
     runVerification: false,
     timeout: 25000,
     estimatedTime: "15-20 seconds",

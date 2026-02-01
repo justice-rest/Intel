@@ -373,7 +373,7 @@ export interface ExtractedMetrics {
 }
 
 /**
- * Complete structured data from Sonar+Grok research
+ * Complete structured data from LinkUp research
  */
 export interface StructuredProspectData extends ExtractedMetrics {
   wealth_indicators?: WealthIndicators
@@ -383,7 +383,7 @@ export interface StructuredProspectData extends ExtractedMetrics {
 }
 
 /**
- * Result from Sonar research call
+ * Result from LinkUp research call
  */
 export interface SonarResearchResult {
   content: string
@@ -392,7 +392,8 @@ export interface SonarResearchResult {
 }
 
 /**
- * Result from the combined Sonar+Grok report generation
+ * Result from batch report generation
+ * @deprecated Use BatchReportResult instead
  */
 export interface SonarGrokReportResult {
   report_content: string
@@ -402,6 +403,11 @@ export interface SonarGrokReportResult {
   model_used: string
   processing_duration_ms: number
 }
+
+/**
+ * Result from batch report generation (LinkUp + Google Gemini)
+ */
+export type BatchReportResult = SonarGrokReportResult
 
 // ============================================================================
 // EXPORT TYPES

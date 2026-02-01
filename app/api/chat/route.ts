@@ -168,7 +168,7 @@ export async function POST(req: Request) {
       )
     }
 
-    // Normalize model ID for backwards compatibility (e.g., grok-4-fast → grok-4.1-fast)
+    // Normalize model ID for backwards compatibility (e.g., old model IDs → current model IDs)
     const normalizedModel = normalizeModelId(model)
 
     // Determine if we should inject memories (check early for parallel execution)
@@ -1073,7 +1073,7 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       }
     })
 
-    // SAFETY NET: Final check for empty content (xAI/Grok requires non-empty content in every message)
+    // SAFETY NET: Final check for empty content (AI models require non-empty content in every message)
     // This should never trigger if cleanMessagesForTools is working correctly, but prevents API errors
     const finalMessages = cleanedMessages.map((msg) => {
       // Check if content is effectively empty

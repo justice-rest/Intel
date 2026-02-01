@@ -1437,7 +1437,7 @@ export const MAX_MESSAGE_CONTENT_SIZE = 100000
  * - Lower = Faster responses, lower costs, but may truncate
  *
  * Model limits:
- * - Grok 4.1 Fast: Up to 131K tokens
+ * - Gemini 3 Flash: Up to 1M tokens
  * - Claude Sonnet: Up to 8K tokens
  * - GPT-4o: Up to 16K tokens
  */

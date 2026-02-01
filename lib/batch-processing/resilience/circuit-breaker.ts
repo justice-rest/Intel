@@ -413,7 +413,7 @@ export const CIRCUIT_BREAKER_CONFIGS = {
   },
 
   /**
-   * For secondary/optional LLM services (Grok, etc.)
+   * For secondary/optional LLM services
    * Less lenient - we can skip these if they're failing
    */
   secondaryLLM: {
@@ -451,7 +451,6 @@ export function getBatchProcessingCircuitBreakers() {
     perplexity: circuitBreakerRegistry.getOrCreate("perplexity", CIRCUIT_BREAKER_CONFIGS.primaryLLM),
     linkup: circuitBreakerRegistry.getOrCreate("linkup", CIRCUIT_BREAKER_CONFIGS.searchAPI),
     parallel: circuitBreakerRegistry.getOrCreate("parallel-batch", CIRCUIT_BREAKER_CONFIGS.searchAPI),
-    grok: circuitBreakerRegistry.getOrCreate("grok", CIRCUIT_BREAKER_CONFIGS.secondaryLLM),
     sec: circuitBreakerRegistry.getOrCreate("sec_edgar", CIRCUIT_BREAKER_CONFIGS.verificationAPI),
     fec: circuitBreakerRegistry.getOrCreate("fec", CIRCUIT_BREAKER_CONFIGS.verificationAPI),
     propublica: circuitBreakerRegistry.getOrCreate("propublica", CIRCUIT_BREAKER_CONFIGS.verificationAPI),

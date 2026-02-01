@@ -24,7 +24,7 @@ export type PipelineStepName =
   | "perplexity_pass2"
   | "perplexity_pass3"
   | "linkup_search"
-  | "grok_search"
+  | "google_search"
   | "direct_verification"
   | "sec_verification"
   | "fec_verification"

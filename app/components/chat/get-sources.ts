@@ -50,18 +50,6 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
-        // Handle Grok search tool results
-        if (
-          part.toolInvocation.toolName === "grokSearch" &&
-          result?.results
-        ) {
-          return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
-            title: r.title || "Untitled",
-            url: r.url,
-            text: r.snippet || "",
-          }))
-        }
-
         // Handle Tavily search tool results
         if (
           part.toolInvocation.toolName === "tavilySearch" &&

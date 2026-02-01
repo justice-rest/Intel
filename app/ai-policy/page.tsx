@@ -57,7 +57,7 @@ export default function AIPolicy() {
             <ul className="text-sm space-y-2 mb-0">
               <li><strong>AI assists, humans decide.</strong> Rōmy provides AI-generated research to inform your fundraising strategy. A human must always review and validate AI output before acting on it.</li>
               <li><strong>Your data trains nothing.</strong> Your conversations, donor data, and research are never used to train AI models. Period.</li>
-              <li><strong>We use multiple AI providers.</strong> Messages are processed by third-party AI providers (xAI, OpenAI, Anthropic, etc.) under strict data processing agreements.</li>
+              <li><strong>We use multiple AI providers.</strong> Messages are processed by third-party AI providers (Google, OpenAI, Anthropic, etc.) under strict data processing agreements.</li>
               <li><strong>Not a credit bureau.</strong> Never use Rōmy output for credit, employment, insurance, or housing decisions. That violates the FCRA and our Terms.</li>
               <li><strong>Memory is yours to control.</strong> Rōmy can remember preferences and facts you share. You can view, edit, or delete any memory at any time.</li>
               <li><strong>Web research cites sources.</strong> When Rōmy searches the web, it provides source citations so you can verify the information.</li>
@@ -83,7 +83,7 @@ export default function AIPolicy() {
             Rōmy uses generative AI to assist nonprofit fundraising professionals with prospect research, donor capacity analysis, and strategic recommendations. The system includes:
           </p>
           <ul>
-            <li><strong>Conversational AI:</strong> Natural language interface powered by large language models (LLMs) from multiple providers, including xAI (Grok), OpenAI (GPT), Anthropic (Claude), Google (Gemini), and others via OpenRouter.</li>
+            <li><strong>Conversational AI:</strong> Natural language interface powered by large language models (LLMs) from multiple providers, including Google (Gemini), OpenAI (GPT), Anthropic (Claude), and others via OpenRouter.</li>
             <li><strong>Web Research:</strong> LinkUp-powered prospect research that searches real-time public data sources and returns grounded, cited results covering real estate, business ownership, philanthropy, securities holdings, and biographical information.</li>
             <li><strong>Public Records Tools:</strong> Integrations with FEC (political contributions), SEC EDGAR (insider filings and proxy statements), ProPublica (nonprofit 990 data), USAspending (federal contracts/grants), and Wikidata.</li>
             <li><strong>CRM Integration:</strong> Connections to Bloomerang, Virtuous, and Neon CRM for syncing constituent and donation records.</li>
@@ -225,11 +225,9 @@ export default function AIPolicy() {
             When you send a message in Rōmy, your prompt is transmitted to the selected AI provider to generate a response. We use the following providers:
           </p>
           <ul>
-            <li><strong>xAI</strong> (Grok models) &mdash; via OpenRouter</li>
+            <li><strong>Google</strong> (Gemini models) &mdash; primary provider via direct API</li>
             <li><strong>OpenAI</strong> (GPT models) &mdash; via OpenRouter</li>
             <li><strong>Anthropic</strong> (Claude models) &mdash; via OpenRouter</li>
-            <li><strong>Google</strong> (Gemini models) &mdash; via OpenRouter</li>
-            <li><strong>Perplexity</strong> (Sonar models) &mdash; via OpenRouter</li>
             <li><strong>Other providers</strong> available through OpenRouter</li>
           </ul>
           <p>

@@ -28,7 +28,7 @@ export function useModel({
   chatId,
 }: UseModelProps) {
   // Calculate the effective model based on priority: chat model > first favorite model > default
-  // Normalize model IDs for backwards compatibility (e.g., grok-4.1-fast → perplexity/sonar-reasoning)
+  // Normalize model IDs for backwards compatibility (e.g., old model IDs → Gemini)
   const getEffectiveModel = useCallback(() => {
     const firstFavoriteModel = user?.favorite_models?.[0]
     const rawModel = currentChat?.model || firstFavoriteModel || MODEL_DEFAULT

@@ -115,15 +115,18 @@ export const MAX_REPORT_OUTPUT_TOKENS = 16000
 // ============================================================================
 
 /**
- * Estimated seconds per prospect for Sonar+Grok flow
- * - Sonar Reasoning Pro: ~15-20s for deep research
- * - Grok 4.1 Fast: ~5-10s for synthesis
+ * Estimated seconds per prospect for LinkUp + Gemini flow
+ * - LinkUp multi-query search: ~15-20s for research
+ * - Gemini synthesis: ~5-10s
  * Total: ~25-35s per prospect
  */
-export const ESTIMATED_SECONDS_PER_PROSPECT_SONAR_GROK = 30
+export const ESTIMATED_SECONDS_PER_PROSPECT_LINKUP_GEMINI = 30
+
+/** @deprecated Use ESTIMATED_SECONDS_PER_PROSPECT_LINKUP_GEMINI */
+export const ESTIMATED_SECONDS_PER_PROSPECT_SONAR_GROK = ESTIMATED_SECONDS_PER_PROSPECT_LINKUP_GEMINI
 
 /**
- * Estimated seconds per prospect for Standard mode (legacy Grok-only)
+ * Estimated seconds per prospect for Standard mode
  * - 2 focused web searches (business + property)
  * - Brief 5-line AI generation
  * Total: ~15-20s per prospect
@@ -140,7 +143,7 @@ export const ESTIMATED_SECONDS_PER_PROSPECT_COMPREHENSIVE = 105
 
 /**
  * Legacy constant for backwards compatibility
- * @deprecated Use ESTIMATED_SECONDS_PER_PROSPECT_SONAR_GROK
+ * @deprecated Use ESTIMATED_SECONDS_PER_PROSPECT_LINKUP_GEMINI
  */
 export const ESTIMATED_SECONDS_PER_PROSPECT = 30
 
@@ -149,16 +152,16 @@ export const ESTIMATED_SECONDS_PER_PROSPECT = 30
 // ============================================================================
 
 /**
- * Cost per prospect using Sonar+Grok flow
+ * Cost per prospect using LinkUp + Gemini flow
  * Matches chat quality at ~10-20x lower cost than iWave/DonorSearch
  */
 export const COST_PER_PROSPECT = {
-  /** Sonar Reasoning Pro via OpenRouter (~$0.04) */
-  sonarReasoningPro: 0.04,
-  /** Grok 4.1 Fast for synthesis (~$0.003) */
-  grokSynthesis: 0.003,
+  /** LinkUp multi-query search (~$0.025) */
+  linkupSearch: 0.025,
+  /** Gemini synthesis (~$0.003) */
+  geminiSynthesis: 0.003,
   /** Total cost per prospect */
-  total: 0.043,
+  total: 0.028,
 }
 
 /**
@@ -171,13 +174,13 @@ export const COMPETITOR_COST_PER_PROSPECT = {
 
 /**
  * Calculate estimated time remaining
- * Uses Sonar+Grok timing by default
+ * Uses LinkUp + Gemini timing by default
  */
 export function calculateEstimatedTimeRemaining(
   remainingProspects: number,
   delayMs: number = DEFAULT_DELAY_BETWEEN_PROSPECTS_MS
 ): number {
-  const processingTimeMs = remainingProspects * ESTIMATED_SECONDS_PER_PROSPECT_SONAR_GROK * 1000
+  const processingTimeMs = remainingProspects * ESTIMATED_SECONDS_PER_PROSPECT_LINKUP_GEMINI * 1000
   const delayTimeMs = remainingProspects * delayMs
   return processingTimeMs + delayTimeMs
 }

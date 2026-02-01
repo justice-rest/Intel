@@ -1,14 +1,14 @@
 /**
- * Batch Prospect Report Generator v4.0
+ * Batch Prospect Report Generator v5.0
  *
- * LINKUP SEARCH - Complete rewrite using LinkUp for all web research.
+ * LINKUP + GOOGLE SEARCH - Uses dual search architecture for comprehensive coverage.
  * Uses LinkUp Standard mode with multi-query architecture for best price/performance.
  *
  * Key improvements:
- * - Single search provider (LinkUp) - no more complex merging
- * - Cost: ~$0.025 per prospect (5 queries × $0.005)
+ * - Dual search providers (LinkUp + Google Search grounding)
+ * - Cost: ~$0.025 per prospect for LinkUp (5 queries × $0.005)
  * - Multi-query architecture for comprehensive coverage
- * - Grok search for X/Twitter data (optional)
+ * - Google Search grounding for additional web data (optional)
  * - RōmyScore calculation unchanged
  */
 
@@ -210,9 +210,9 @@ export function mergeResearchOutputs(
  * └─────────────────────────────────────────────────────────┘
  *                          ↓
  *         ┌────────────────┴────────────────┐
- *         │  GROK (OPTIONAL - X/Twitter)    │
- *         │  - Native X/Twitter search      │
- *         │  - Adds social media sources    │
+ *         │  GOOGLE (OPTIONAL - Web Search) │
+ *         │  - Google Search grounding      │
+ *         │  - Adds real-time web sources   │
  *         └─────────────────────────────────┘
  *                          ↓
  *               Build Structured Output
@@ -920,7 +920,7 @@ export async function generateProspectReport(
   try {
     console.log(`[BatchProcessor] Starting research for: ${prospect.name}`)
 
-    // Step 1: Research with LinkUp (primary) + optional Grok (for X/Twitter)
+    // Step 1: Research with LinkUp (primary) + optional Google Search
     const researchResult = await researchWithLinkUpSources(prospect, apiKey)
 
     if (!researchResult.success || !researchResult.output) {
@@ -1006,7 +1006,7 @@ export async function generateComprehensiveReportWithTools(
 
 /**
  * @deprecated - Use generateProspectReport instead
- * Kept for backward compatibility
+ * Legacy function name. Kept for backward compatibility.
  */
 export async function generateReportWithSonarAndGrok(
   options: GenerateReportOptions & { searchMode?: string }

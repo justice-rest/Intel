@@ -31,7 +31,7 @@ function extractContentFromParts(parts: unknown[] | null): string {
 
 /**
  * Get effective content, preferring content field but falling back to parts
- * This ensures messages always have non-empty content for xAI/Grok
+ * This ensures messages always have non-empty content for AI models
  */
 function getEffectiveContent(content: string | null, parts: unknown[] | null, role: string): string {
   // If content has text, use it
@@ -79,7 +79,7 @@ export async function getMessagesFromDb(
   return data.map((message) => ({
     id: String(message.id),
     role: message.role as MessageAISDK["role"],
-    // Use getEffectiveContent to ensure non-empty content for xAI/Grok
+    // Use getEffectiveContent to ensure non-empty content for AI models
     content: getEffectiveContent(
       message.content as string | null,
       message.parts as unknown[] | null,
@@ -124,7 +124,7 @@ export async function getLastMessagesFromDb(
   return ascendingData.map((message) => ({
     ...message,
     id: String(message.id),
-    // Use getEffectiveContent to ensure non-empty content for xAI/Grok
+    // Use getEffectiveContent to ensure non-empty content for AI models
     content: getEffectiveContent(
       message.content as string | null,
       message.parts as unknown[] | null,

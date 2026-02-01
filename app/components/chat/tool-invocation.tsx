@@ -500,67 +500,6 @@ function SingleToolCard({
       )
     }
 
-    // Handle Grok grokSearch results
-    if (
-      toolName === "grokSearch" &&
-      typeof parsedResult === "object" &&
-      parsedResult !== null &&
-      "results" in parsedResult
-    ) {
-      const grokResult = parsedResult as {
-        results: Array<{ title: string; url: string; snippet: string; publishedDate?: string }>
-        query?: string
-      }
-
-      return (
-        <div className="space-y-4">
-          {/* Results section */}
-          {grokResult.results && grokResult.results.length > 0 ? (
-            <div>
-              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-                Results ({grokResult.results.length})
-              </div>
-              <div className="space-y-3">
-                {grokResult.results.map((result, index) => (
-                  <div
-                    key={index}
-                    className="border-border border-b pb-3 last:border-0 last:pb-0"
-                  >
-                    <a
-                      href={result.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
-                    >
-                      {result.title || "Untitled"}
-                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
-                    </a>
-                    <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
-                      <span className="truncate font-mono">{result.url}</span>
-                      {result.publishedDate && (
-                        <span className="shrink-0">
-                          • {new Date(result.publishedDate).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                    {result.snippet && (
-                      <div className="text-muted-foreground mt-1 line-clamp-3 text-sm">
-                        {result.snippet}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="text-muted-foreground">
-              No results found for this search.
-            </div>
-          )}
-        </div>
-      )
-    }
-
     // Handle Firecrawl firecrawlSearch results
     if (
       toolName === "firecrawlSearch" &&

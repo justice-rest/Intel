@@ -257,7 +257,7 @@ export function MessagesProvider({
                 return prev
               }
 
-              // Get effective content - fallback to placeholder if empty (xAI/Grok requires non-empty)
+              // Get effective content - fallback to placeholder if empty (AI models require non-empty)
               let effectiveContent = newMessage.content || ""
               if (!effectiveContent.trim()) {
                 // Try to extract from parts if available

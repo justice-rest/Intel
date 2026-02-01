@@ -12,7 +12,7 @@
  * - Rate limiting via sleep() without resource consumption
  *
  * The existing ResearchPipeline handles:
- * - Circuit breakers per service (LinkUp, Grok, SEC/FEC)
+ * - Circuit breakers per service (LinkUp, Google, SEC/FEC)
  * - Exponential backoff with jitter
  * - Checkpoint-based resume within a single request
  *

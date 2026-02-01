@@ -1,20 +1,18 @@
 /**
- * Research Pipeline v4.0 - LinkUp Only
+ * Research Pipeline v5.0 - LinkUp + Google Gemini
  *
  * Defines the complete research workflow as a series of steps.
  * Each step is checkpointed, protected by circuit breakers, and retryable.
  *
- * Pipeline Flow (LinkUp-first):
+ * Pipeline Flow:
  * 1. linkup_search       - Primary search using LinkUp (~$0.025/search with multi-query)
- * 2. grok_search         - X/Twitter search via Grok (optional)
- * 3. direct_verification - SEC, FEC, ProPublica verification (optional)
- * 4. triangulation       - Merge and score data from all sources
- * 5. validation          - Zod schema validation with retry
- * 6. save_results        - Persist to database
+ * 2. direct_verification - SEC, FEC, ProPublica verification (optional)
+ * 3. triangulation       - Merge and score data from all sources
+ * 4. validation          - Zod schema validation with retry
+ * 5. save_results        - Persist to database
  *
- * REMOVED in v4.0:
- * - Parallel AI (replaced by LinkUp)
- * - Exa AI (removed entirely)
+ * REMOVED in v5.0:
+ * - Legacy search providers (migrated to Google Gemini in chat, LinkUp for batch)
  */
 
 import type { PipelineStepDefinition, StepContext, StepResult, PipelineResult, ICheckpointManager } from "../checkpoints/types"
@@ -140,47 +138,7 @@ async function executePerplexityPass3(_context: StepContext): Promise<StepResult
 }
 
 /**
- * Step 2: Grok AI search
- */
-async function executeGrokSearch(context: StepContext): Promise<StepResult> {
-  const { grokBatchSearch, isGrokSearchAvailable } = await import("../grok-search")
-
-  if (!isGrokSearchAvailable()) {
-    return { status: "skipped", reason: "grok_not_configured" }
-  }
-
-  try {
-    const result = await grokBatchSearch(
-      {
-        name: context.prospect.name,
-        address: context.prospect.address || context.prospect.full_address,
-        city: context.prospect.city,
-        state: context.prospect.state,
-      },
-      context.apiKey
-    )
-
-    // GrokSearchResult has: answer, sources, query, tokensUsed, durationMs, error
-    if (!result.error && result.answer) {
-      return {
-        status: "completed",
-        data: result,
-        tokensUsed: result.tokensUsed,
-        sourcesFound: result.sources?.length || 0,
-      }
-    }
-
-    return { status: "skipped", reason: result.error || "no_grok_results" }
-  } catch (error) {
-    return {
-      status: "failed",
-      error: error instanceof Error ? error.message : String(error),
-    }
-  }
-}
-
-/**
- * Step 3: LinkUp search (used when explicit LinkUp step is needed)
+ * Step 2: LinkUp search (used when explicit LinkUp step is needed)
  *
  * This is the explicit LinkUp step that can be called separately.
  * The primary search (perplexity_pass1) already uses LinkUp via report-generator.
@@ -274,16 +232,13 @@ async function executeDirectVerification(context: StepContext): Promise<StepResu
 }
 
 /**
- * Step 5: Triangulation - merge data from all sources
+ * Step 4: Triangulation - merge data from all sources
  *
- * v4.0: Simplified to only merge LinkUp and Grok data
+ * v5.0: Uses LinkUp as primary source
  */
 async function executeTriangulation(context: StepContext): Promise<StepResult<ProspectResearchOutput>> {
-  type GrokSearchResult = Awaited<ReturnType<typeof import("../grok-search").grokBatchSearch>>
-
-  // Start with LinkUp data (from perplexity_pass1 which now uses LinkUp)
+  // Start with LinkUp data (from perplexity_pass1 which uses LinkUp)
   const pass1 = context.previousResults.get("perplexity_pass1")
-  const grok = context.previousResults.get("grok_search")
 
   let merged: ProspectResearchOutput | undefined = undefined
 
@@ -296,28 +251,6 @@ async function executeTriangulation(context: StepContext): Promise<StepResult<Pr
     return {
       status: "failed",
       error: "No data from any source to triangulate",
-    }
-  }
-
-  // Merge Grok data (sources only, Grok doesn't provide structured extraction)
-  if (grok?.status === "completed" && grok.data) {
-    try {
-      const grokResult = grok.data as GrokSearchResult
-      // Add Grok sources that aren't already present
-      const existingUrls = new Set(merged.sources.map(s => s.url.toLowerCase()))
-      for (const source of grokResult.sources) {
-        if (!existingUrls.has(source.url.toLowerCase())) {
-          merged.sources.push({
-            title: source.name,
-            url: source.url,
-            data_provided: source.snippet || "Additional source from Grok",
-          })
-        }
-      }
-
-      console.log(`[Pipeline] Merged ${grokResult.sources.length} Grok sources`)
-    } catch (e) {
-      console.warn("[Pipeline] Failed to merge Grok data:", e)
     }
   }
 
@@ -437,13 +370,6 @@ export function createResearchPipelineSteps(): PipelineStepDefinition[] {
       timeout: 35000,
     },
     {
-      name: "grok_search",
-      description: "Grok AI search (X/Twitter)",
-      execute: executeGrokSearch,
-      required: false,
-      timeout: 30000,
-    },
-    {
       name: "direct_verification",
       description: "Direct API verification (SEC, FEC, ProPublica)",
       execute: executeDirectVerification,
@@ -544,11 +470,10 @@ export class ResearchPipeline {
 
     // Execute steps with circuit breaker mapping
     const circuitBreakerMap: Record<string, typeof this.circuitBreakers.linkup> = {
-      perplexity_pass1: this.circuitBreakers.linkup, // Now uses LinkUp
+      perplexity_pass1: this.circuitBreakers.linkup, // Uses LinkUp
       perplexity_pass2: this.circuitBreakers.linkup,
       perplexity_pass3: this.circuitBreakers.linkup,
       linkup_search: this.circuitBreakers.linkup,
-      grok_search: this.circuitBreakers.grok,
       direct_verification: this.circuitBreakers.sec, // Uses multiple, but SEC is primary
     }
 

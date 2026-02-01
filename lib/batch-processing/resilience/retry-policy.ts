@@ -190,7 +190,7 @@ export const BATCH_PROCESSING_RETRY_POLICIES = {
   },
 
   /**
-   * Secondary LLM calls (Grok, etc.)
+   * Secondary LLM calls
    * Fewer retries - we can skip if failing
    */
   secondaryLLM: {

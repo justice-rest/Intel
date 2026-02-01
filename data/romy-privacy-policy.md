@@ -75,7 +75,7 @@ When you sign in with Google:
 
 ### 1.9 Third-Party Service Data
 
-When you use the Service with integrated search or data services (e.g., xAI Grok, Linkup):
+When you use the Service with integrated search or data services (e.g., Google Gemini, Linkup):
 - Search queries and prompts sent through these integrations
 - Results returned by third-party search providers
 - Donor wealth data or other third-party data returned to the Service
@@ -88,7 +88,7 @@ We use the information we collect to:
 
 - **Provide and maintain the Service:** Deliver chat functionality, store conversations, and enable account management
 - **Personalize your experience:** Tailor the Service to your preferences, settings, and usage patterns
-- **Process AI requests:** Send prompts and context to AI model providers (xAI/Grok) to generate responses
+- **Process AI requests:** Send prompts and context to AI model providers (Google Gemini) to generate responses
 - **Improve the Service:** Analyze usage patterns, identify bugs, and develop new features (analytics)
 - **Communicate with you:** Send service updates, security notices, and responses to your inquiries
 - **Ensure security and compliance:** Detect fraud, prevent abuse, enforce our Terms of Service, and comply with legal obligations
@@ -173,7 +173,7 @@ We do not sell, rent, or trade your personal information. However, we may share 
 |----------|---------|-------------|----------------|
 | **Supabase** | Cloud database, authentication, data storage | Account info, chat history, uploaded files | https://supabase.com/privacy |
 | **Google** | OAuth authentication, sign-in | Email, name, profile picture | https://policies.google.com/privacy |
-| **xAI (Grok)** | AI model inference and responses | Prompts, chat content, context | https://grok.com/privacy |
+| **Google (Gemini)** | AI model inference and responses | Prompts, chat content, context | https://policies.google.com/privacy |
 | **PostHog** | Usage analytics and product insights | Anonymized usage patterns, event data | https://posthog.com/privacy |
 | **Linkup** | Third-party search and data enrichment | Search queries, donor data requests | See third-party terms |
 
@@ -347,16 +347,16 @@ If we deny or partially deny your request, you may appeal our decision by sendin
 ### 9.1 AI Model Processing
 
 When you submit a prompt or content to the Service:
-- Your prompts and context are sent to xAI's Grok model for processing
+- Your prompts and context are sent to Google's Gemini model for processing
 - Your content is sent via our service infrastructure using TLS 1.3 encryption
-- xAI processes your request and returns a generated response
+- Google processes your request and returns a generated response
 - We store your prompt, response, and metadata in your chat history
 
 ### 9.2 Model Training
 
 **Rōmy's Policy:** We do not use your conversations, prompts, or uploaded files to train our own AI models or create derivative models.
 
-**xAI's Policy:** xAI may use data processed through their API to improve their models, subject to their own privacy policy. Please review xAI's privacy practices at https://grok.com/privacy for details.
+**Google's Policy:** Google may process data through their API subject to their privacy policy and API terms of service. Please review Google's privacy practices at https://policies.google.com/privacy for details.
 
 You can see which model generated each response in your chat history.
 
@@ -367,7 +367,7 @@ You are not subject to fully automated decision-making that produces legal or si
 ### 9.4 Web Search Integration
 
 When you enable web search features (if available):
-- Your search queries may be sent to third-party search providers (e.g., xAI Grok, Linkup)
+- Your search queries may be sent to third-party search providers (e.g., Google Search, Linkup)
 - Results are returned and stored in your chat history
 - Third-party providers may log your search queries subject to their privacy policies
 

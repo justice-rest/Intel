@@ -769,7 +769,8 @@ CSRF_SECRET=                    # 32-byte hex (use crypto.randomBytes)
 ENCRYPTION_KEY=                 # 32-byte base64 (for BYOK)
 
 # AI Model API Key (required)
-OPENROUTER_API_KEY=             # Required for Grok 4.1 Fast model
+GOOGLE_GENERATIVE_AI_API_KEY=   # Required - powers Gemini 3 Flash/Pro models
+OPENROUTER_API_KEY=             # Optional - for GPT-5 Nano internal operations
 
 # LinkUp Search API (required for prospect research)
 # Get your API key at https://linkup.so

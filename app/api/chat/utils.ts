@@ -52,7 +52,7 @@ export function cleanMessagesForTools(
     return texts.join("\n")
   }
 
-  // Always sanitize messages to ensure no empty content (xAI/Grok requires non-empty)
+  // Always sanitize messages to ensure no empty content (AI models require non-empty)
   const sanitizedMessages = messages.map((message) => {
     if (isEmptyContent(message.content)) {
       // For arrays with empty text, try to extract any meaningful content first

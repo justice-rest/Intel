@@ -358,13 +358,23 @@ export const RATE_LIMITER_CONFIGS = {
   },
 
   /**
-   * OpenRouter API (for Grok, Claude corrections, etc.)
+   * OpenRouter API (for GPT-5 Nano, Claude corrections, etc.)
    * More generous: ~30 requests per minute
    */
   openrouter: {
     maxTokens: 30,
     refillRate: 5,
     refillInterval: 10000, // 5 tokens every 10 seconds
+  },
+
+  /**
+   * Google Gemini API
+   * Generous: ~60 requests per minute
+   */
+  google: {
+    maxTokens: 60,
+    refillRate: 10,
+    refillInterval: 10000, // 10 tokens every 10 seconds
   },
 
   /**

@@ -2,7 +2,7 @@
 
 **Rōmy** helps small nonprofits find new major donors at a fraction of the cost of existing solutions.
 
-Built with Next.js 15, powered by Grok via OpenRouter, with BYOK (Bring Your Own Key) support, file uploads, AI memory, web search, and subscriptions via Autumn.
+Built with Next.js 15, powered by Google Gemini, with BYOK (Bring Your Own Key) support, file uploads, AI memory, web search, and subscriptions via Autumn.
 
 **Live:** [intel.getromy.app](https://intel.getromy.app)
 
@@ -53,7 +53,8 @@ CSRF_SECRET=                    # 32-byte hex: node -e "console.log(require('cry
 ENCRYPTION_KEY=                 # 32-byte base64: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 # AI Provider
-OPENROUTER_API_KEY=             # Required - powers Grok model
+GOOGLE_GENERATIVE_AI_API_KEY=   # Required - powers Gemini models (get at aistudio.google.com)
+OPENROUTER_API_KEY=             # Optional - for GPT-5 Nano internal operations
 
 # ===========================================
 # OPTIONAL - Full Features
@@ -168,10 +169,11 @@ Uses **React Context + React Query**:
 
 ### Default Model
 
-Rōmy uses **Grok** via OpenRouter as the default AI model. This provides:
+Rōmy uses **Google Gemini 3 Flash** as the default AI model. This provides:
 - Fast, intelligent responses
-- Web search capabilities
+- Native Google Search grounding
 - Tool invocations
+- 1M token context window
 
 ### BYOK (Bring Your Own Key)
 

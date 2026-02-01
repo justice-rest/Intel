@@ -32,14 +32,12 @@ const CONFIDENCE_TOOLTIPS = {
 
 /**
  * Strip model-specific artifacts that shouldn't be rendered
- * (e.g., Grok's </grok:render> tags)
+ * (e.g., model-specific XML-like tags)
  */
 function stripModelArtifacts(content: string): string {
   return content
-    // Remove Grok render tags
-    .replace(/<\/?grok:[^>]*>/gi, '')
-    // Remove any other model-specific XML-like tags (claude:, gemini:, etc.)
-    .replace(/<\/?(?:claude|gemini|anthropic|openai):[^>]*>/gi, '')
+    // Remove model-specific XML-like tags (gemini:, claude:, etc.)
+    .replace(/<\/?(?:gemini|claude|anthropic|openai|grok):[^>]*>/gi, '')
 }
 
 /**

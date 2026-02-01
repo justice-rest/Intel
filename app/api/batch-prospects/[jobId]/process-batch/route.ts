@@ -485,7 +485,7 @@ export async function POST(
               affiliations: structured_data.affiliations || null,
 
               // Search metadata
-              search_queries_used: ["Grok 4.1 Fast + Exa"],
+              search_queries_used: ["LinkUp + Gemini"],
               sources_found: reportResult.sources,
               tokens_used: reportResult.tokens_used,
               model_used: reportResult.model_used,
