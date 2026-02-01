@@ -60,7 +60,7 @@ export async function GET(req: NextRequest, context: RouteContext) {
     }
 
     // Fetch persona
-    const persona = await getPersona(supabase, personaId, user.id)
+    const persona = await getPersona(supabase as any, personaId, user.id)
 
     if (!persona) {
       return NextResponse.json(
@@ -129,7 +129,7 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     }
 
     // Update persona
-    const persona = await updatePersona(supabase, personaId, user.id, body)
+    const persona = await updatePersona(supabase as any, personaId, user.id, body)
 
     return NextResponse.json({
       message: PERSONA_SUCCESS_MESSAGES.PERSONA_UPDATED,
@@ -196,7 +196,7 @@ export async function DELETE(req: NextRequest, context: RouteContext) {
     }
 
     // Delete persona
-    await deletePersona(supabase, personaId, user.id)
+    await deletePersona(supabase as any, personaId, user.id)
 
     return NextResponse.json({
       message: PERSONA_SUCCESS_MESSAGES.PERSONA_DELETED,

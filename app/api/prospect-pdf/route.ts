@@ -50,7 +50,7 @@ export async function POST(request: Request) {
           .from("pdf_branding")
           .select("*")
           .eq("user_id", user.id)
-          .single()
+          .single() as { data: any; error: any }
 
         if (brandingError) {
           if (brandingError.code === "PGRST116") {

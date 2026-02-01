@@ -196,6 +196,8 @@ const courtSearchSchema = z.object({
     .describe("Maximum results to return (default: 15, max: 50)"),
 })
 
+type CourtSearchParams = z.infer<typeof courtSearchSchema>
+
 const judgeSearchSchema = z.object({
   name: z
     .string()
@@ -210,6 +212,8 @@ const judgeSearchSchema = z.object({
     .default(10)
     .describe("Maximum results to return (default: 10, max: 25)"),
 })
+
+type JudgeSearchParams = z.infer<typeof judgeSearchSchema>
 
 // ============================================================================
 // TIMEOUT HELPER
@@ -381,7 +385,7 @@ function formatJudgeSearchForAI(
 /**
  * Search federal court records
  */
-export const courtSearchTool = tool({
+export const courtSearchTool = (tool as any)({
   description:
     "Search federal court records including opinions, dockets, and PACER documents. " +
     "Useful for due diligence, finding litigation history, bankruptcy cases, and legal disputes. " +
@@ -394,7 +398,7 @@ export const courtSearchTool = tool({
     court,
     dateFiled_after,
     limit = 15,
-  }): Promise<CourtSearchResult> => {
+  }: CourtSearchParams): Promise<CourtSearchResult> => {
     console.log("[CourtListener] Searching", searchType, "for:", query)
     const startTime = Date.now()
 
@@ -526,7 +530,7 @@ export const courtSearchTool = tool({
 /**
  * Search for judges
  */
-export const judgeSearchTool = tool({
+export const judgeSearchTool = (tool as any)({
   description:
     "Search the judicial database for information about federal judges. Returns biographical data, " +
     "judicial positions, education, political affiliations, and ABA ratings. Useful for understanding " +
@@ -536,7 +540,7 @@ export const judgeSearchTool = tool({
     name,
     court,
     limit = 10,
-  }): Promise<JudgeSearchResult> => {
+  }: JudgeSearchParams): Promise<JudgeSearchResult> => {
     console.log("[CourtListener] Searching judges:", name)
     const startTime = Date.now()
 

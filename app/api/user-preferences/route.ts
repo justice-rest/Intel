@@ -23,7 +23,7 @@ export async function GET() {
     }
 
     // Get the user's preferences
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_preferences")
       .select("*")
       .eq("user_id", user.id)
@@ -127,7 +127,7 @@ export async function PUT(request: NextRequest) {
     if (hidden_models !== undefined) updateData.hidden_models = hidden_models
 
     // Try to update first, then insert if doesn't exist
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_preferences")
       .upsert(
         {

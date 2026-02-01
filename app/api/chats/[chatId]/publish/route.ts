@@ -49,7 +49,8 @@ export async function POST(
     }
 
     // Update the chat - RLS will enforce that user owns the chat
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from("chats")
       .update({ public: makePublic })
       .eq("id", chatId)
@@ -73,10 +74,12 @@ export async function POST(
       )
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chatData = data as any
     return NextResponse.json({
       success: true,
-      public: data.public,
-      chatId: data.id,
+      public: chatData.public,
+      chatId: chatData.id,
     })
   } catch (err: unknown) {
     console.error("[publish] Unhandled error:", err)

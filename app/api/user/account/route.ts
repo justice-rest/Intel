@@ -70,13 +70,13 @@ export async function GET() {
     }
 
     // Get deletion summary
-    const summary = await getDeletionSummary(supabase, user.id)
+    const summary = await getDeletionSummary(supabase as any, user.id)
 
     // Get subscription status
-    const subscription = await getSubscriptionStatus(supabase, user.id)
+    const subscription = await getSubscriptionStatus(supabase as any, user.id)
 
     // Check prerequisites
-    const prerequisites = await checkDeletionPrerequisites(supabase, user.id)
+    const prerequisites = await checkDeletionPrerequisites(supabase as any, user.id)
 
     return NextResponse.json({
       success: true,
@@ -169,7 +169,7 @@ export async function DELETE(request: Request) {
     }
 
     // Check prerequisites
-    const prerequisites = await checkDeletionPrerequisites(supabase, user.id)
+    const prerequisites = await checkDeletionPrerequisites(supabase as any, user.id)
     if (!prerequisites.canProceed) {
       const blocker = prerequisites.blockers[0]
       return NextResponse.json(
@@ -204,7 +204,7 @@ export async function DELETE(request: Request) {
         .from('users')
         .select('first_name, email')
         .eq('id', user.id)
-        .single()
+        .single() as { data: any; error: any }
 
       if (userData) {
         userName = userData.first_name || 'there'
@@ -213,7 +213,7 @@ export async function DELETE(request: Request) {
     }
 
     // Execute deletion
-    const result = await executeAccountDeletion(supabaseAdmin, user.id, body.reason)
+    const result = await executeAccountDeletion(supabaseAdmin as any, user.id, body.reason)
 
     if (!result.success) {
       return NextResponse.json(

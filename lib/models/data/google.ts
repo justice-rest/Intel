@@ -48,9 +48,8 @@ export const googleModels: ModelConfig[] = [
       const provider = createGoogleGenerativeAI({
         apiKey: apiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       })
-      // Note: useSearchGrounding disabled due to SDK incompatibility with Gemini 3
-      // (sends deprecated google_search_retrieval instead of google_search)
-      // Web search is handled by LinkUp and Google Prospect Research tools instead
+      // AI SDK v6: Native Google Search grounding via google.tools.googleSearch()
+      // is now handled in the chat route with providerOptions for thinkingConfig
       return provider("gemini-3-flash-preview")
     },
   },
@@ -88,9 +87,8 @@ export const googleModels: ModelConfig[] = [
       const provider = createGoogleGenerativeAI({
         apiKey: apiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       })
-      // Note: useSearchGrounding disabled due to SDK incompatibility with Gemini 3
-      // (sends deprecated google_search_retrieval instead of google_search)
-      // Web search is handled by LinkUp and Google Prospect Research tools instead
+      // AI SDK v6: Native Google Search grounding via google.tools.googleSearch()
+      // is now handled in the chat route with providerOptions for thinkingConfig
       return provider("gemini-3-pro-preview")
     },
   },

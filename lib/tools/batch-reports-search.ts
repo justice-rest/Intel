@@ -11,27 +11,32 @@ import { z } from "zod"
 import { searchBatchReports } from "@/lib/batch-reports/retrieval"
 import { DEFAULT_SIMILARITY_THRESHOLD } from "@/lib/batch-reports/config"
 
+// Parameter schema for batch reports search
+const batchReportsSearchSchema = z.object({
+  query: z
+    .string()
+    .describe(
+      "Prospect name or characteristics to search for. Examples: 'John Smith', 'prospects with high net worth', 'major donors'"
+    ),
+  limit: z
+    .number()
+    .optional()
+    .default(5)
+    .describe("Maximum number of prospects to return (default: 5, max: 20)"),
+})
+
+type BatchReportsSearchParams = z.infer<typeof batchReportsSearchSchema>
+
 /**
  * Create a batch reports search tool bound to a specific user
  * @param userId - User ID to search reports for
  */
 export const createBatchReportsSearchTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       "Search your previously researched prospects from batch processing. Use this to find details about prospects you've already researched, including their RomyScore, capacity rating, net worth estimates, gift capacity, and philanthropic profiles. This is useful when discussing prospects by name or looking for prospects with specific characteristics.",
-    parameters: z.object({
-      query: z
-        .string()
-        .describe(
-          "Prospect name or characteristics to search for. Examples: 'John Smith', 'prospects with high net worth', 'major donors'"
-        ),
-      limit: z
-        .number()
-        .optional()
-        .default(5)
-        .describe("Maximum number of prospects to return (default: 5, max: 20)"),
-    }),
-    execute: async ({ query, limit }) => {
+    parameters: batchReportsSearchSchema,
+    execute: async ({ query, limit }: BatchReportsSearchParams) => {
       try {
         // Get OpenRouter API key from environment
         const openrouterKey = process.env.OPENROUTER_API_KEY

@@ -44,7 +44,8 @@ export async function GET() {
     }
 
     // Get the user's branding settings
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase as any)
       .from("pdf_branding")
       .select("*")
       .eq("user_id", user.id)
@@ -75,18 +76,20 @@ export async function GET() {
       )
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const brandingData = data as any
     return NextResponse.json({
-      id: data.id,
-      user_id: data.user_id,
-      primary_color: data.primary_color || DEFAULT_PRIMARY_COLOR,
-      accent_color: data.accent_color || DEFAULT_ACCENT_COLOR,
-      logo_url: data.logo_url,
-      logo_base64: data.logo_base64,
-      logo_content_type: data.logo_content_type,
-      hide_default_footer: data.hide_default_footer ?? false,
-      custom_footer_text: data.custom_footer_text,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
+      id: brandingData.id,
+      user_id: brandingData.user_id,
+      primary_color: brandingData.primary_color || DEFAULT_PRIMARY_COLOR,
+      accent_color: brandingData.accent_color || DEFAULT_ACCENT_COLOR,
+      logo_url: brandingData.logo_url,
+      logo_base64: brandingData.logo_base64,
+      logo_content_type: brandingData.logo_content_type,
+      hide_default_footer: brandingData.hide_default_footer ?? false,
+      custom_footer_text: brandingData.custom_footer_text,
+      created_at: brandingData.created_at,
+      updated_at: brandingData.updated_at,
     })
   } catch (error) {
     console.error("[PDF Branding] GET error:", error)
@@ -185,7 +188,8 @@ export async function PUT(request: NextRequest) {
     }
 
     // Upsert the branding settings
-    const { data, error } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: upsertData, error } = await (supabase as any)
       .from("pdf_branding")
       .upsert(
         {
@@ -207,19 +211,21 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const resultData = upsertData as any
     return NextResponse.json({
       success: true,
-      id: data.id,
-      user_id: data.user_id,
-      primary_color: data.primary_color || DEFAULT_PRIMARY_COLOR,
-      accent_color: data.accent_color || DEFAULT_ACCENT_COLOR,
-      logo_url: data.logo_url,
-      logo_base64: data.logo_base64,
-      logo_content_type: data.logo_content_type,
-      hide_default_footer: data.hide_default_footer ?? false,
-      custom_footer_text: data.custom_footer_text,
-      created_at: data.created_at,
-      updated_at: data.updated_at,
+      id: resultData.id,
+      user_id: resultData.user_id,
+      primary_color: resultData.primary_color || DEFAULT_PRIMARY_COLOR,
+      accent_color: resultData.accent_color || DEFAULT_ACCENT_COLOR,
+      logo_url: resultData.logo_url,
+      logo_base64: resultData.logo_base64,
+      logo_content_type: resultData.logo_content_type,
+      hide_default_footer: resultData.hide_default_footer ?? false,
+      custom_footer_text: resultData.custom_footer_text,
+      created_at: resultData.created_at,
+      updated_at: resultData.updated_at,
     })
   } catch (error) {
     console.error("[PDF Branding] PUT error:", error)

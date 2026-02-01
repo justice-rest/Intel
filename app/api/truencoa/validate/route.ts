@@ -112,7 +112,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ValidateA
         .select("encrypted_key")
         .eq("user_id", user.id)
         .eq("provider", "truencoa")
-        .single()
+        .single() as { data: any; error: any }
 
       if (!userKey?.encrypted_key) {
         return NextResponse.json(

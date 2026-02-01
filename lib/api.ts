@@ -1,6 +1,5 @@
 import { APP_DOMAIN } from "@/lib/config"
 import type { UserProfile } from "@/lib/user/types"
-import { SupabaseClient } from "@supabase/supabase-js"
 import { fetchClient } from "./fetch"
 import { API_ROUTE_CREATE_GUEST, API_ROUTE_UPDATE_CHAT_MODEL } from "./routes"
 import { createClient } from "./supabase/client"
@@ -134,7 +133,7 @@ function getAuthRedirectUrl(): string {
 /**
  * Signs in user with Google OAuth via Supabase
  */
-export async function signInWithGoogle(supabase: SupabaseClient) {
+export async function signInWithGoogle(supabase: any) {
   try {
     const baseUrl = getAuthRedirectUrl()
 

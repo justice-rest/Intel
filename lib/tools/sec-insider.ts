@@ -611,7 +611,7 @@ ${methodInfo}**Status:** Found ${filings.length} proxy statement${filings.length
 // TOOLS
 // ============================================================================
 
-export const secInsiderSearchTool = tool({
+export const secInsiderSearchTool = (tool as any)({
   description:
     // CONSTRAINT-FIRST PROMPTING: Board validation
     "HARD CONSTRAINTS: " +
@@ -623,7 +623,7 @@ export const secInsiderSearchTool = tool({
     "SUPPORTS: Multiple aliases/name variations, direct CIK lookup. " +
     "SOURCE: SEC EDGAR (official government data). No API key required.",
   parameters: insiderSearchSchema,
-  execute: async ({ personName, aliases, cik, limit = 10 }): Promise<InsiderSearchResult> => {
+  execute: async ({ personName, aliases, cik, limit = 10 }: { personName?: string; aliases?: string[]; cik?: string; limit?: number }): Promise<InsiderSearchResult> => {
     const startTime = Date.now()
 
     // Validate input - need either personName, aliases, or CIK
@@ -795,7 +795,7 @@ sec_insider_search({ cik: "0001214128" })
   },
 })
 
-export const secProxySearchTool = tool({
+export const secProxySearchTool = (tool as any)({
   description:
     // CONSTRAINT-FIRST PROMPTING: Board composition lookup
     "HARD CONSTRAINTS: " +
@@ -807,7 +807,7 @@ export const secProxySearchTool = tool({
     "SUPPORTS: Company name search, direct CIK lookup (faster). " +
     "SOURCE: SEC EDGAR (official government data). No API key required.",
   parameters: proxySearchSchema,
-  execute: async ({ companyName, cik, limit = 5 }): Promise<ProxyStatementResult> => {
+  execute: async ({ companyName, cik, limit = 5 }: { companyName?: string; cik?: string; limit?: number }): Promise<ProxyStatementResult> => {
     // Validate input
     if (!companyName && !cik) {
       return {

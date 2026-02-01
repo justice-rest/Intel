@@ -1,4 +1,30 @@
-import { Message as MessageAISDK } from "ai"
+// Message type that maintains backwards compatibility
+// The frontend sends messages with `content` while v6 UIMessage uses `parts`
+// This type supports both formats for backwards compatibility
+export interface ChatMessage {
+  id: string
+  role: "user" | "assistant" | "system" | "tool"
+  content: string | Array<{ type?: string; text?: string; [key: string]: unknown }>
+  parts?: Array<{
+    type: string
+    text?: string
+    toolCallId?: string
+    toolName?: string
+    args?: unknown
+    result?: unknown
+    [key: string]: unknown
+  }>
+  toolInvocations?: Array<{
+    toolCallId: string
+    toolName: string
+    state: string
+    args?: unknown
+    result?: unknown
+  }>
+  experimental_attachments?: Array<{ name?: string; contentType?: string; url: string }>
+  metadata?: unknown
+  createdAt?: Date
+}
 
 /**
  * Clean messages for models based on their capabilities.
@@ -7,10 +33,10 @@ import { Message as MessageAISDK } from "ai"
  * This prevents "Bad Request" errors when using models like Perplexity.
  */
 export function cleanMessagesForTools(
-  messages: MessageAISDK[],
+  messages: ChatMessage[],
   hasTools: boolean,
   hasVision: boolean = true // Default to true for backwards compatibility
-): MessageAISDK[] {
+): ChatMessage[] {
   // Helper to check if content is empty/invalid
   // This handles both string content and array content with empty text parts
   const isEmptyContent = (content: unknown): boolean => {
@@ -84,7 +110,7 @@ export function cleanMessagesForTools(
       }
 
       // Start with a copy of the message
-      let cleanedMessage: MessageAISDK = { ...message }
+      let cleanedMessage: ChatMessage = { ...message }
 
       // Remove attachments for non-vision models (like Perplexity which only supports text)
       if (!hasVision && (cleanedMessage as any).experimental_attachments) {
@@ -195,7 +221,7 @@ export function cleanMessagesForTools(
 
       return cleanedMessage
     })
-    .filter((message): message is MessageAISDK => message !== null)
+    .filter((message): message is ChatMessage => message !== null)
 
   return cleanedMessages
 }
@@ -203,7 +229,7 @@ export function cleanMessagesForTools(
 /**
  * Check if a message contains tool-related content
  */
-export function messageHasToolContent(message: MessageAISDK): boolean {
+export function messageHasToolContent(message: ChatMessage): boolean {
   return !!(
     message.toolInvocations?.length ||
     (message as { role: string }).role === "tool" ||

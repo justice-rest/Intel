@@ -289,7 +289,7 @@ async function synthesize<T>(
     const result = await generateText({
       model: google(SYNTHESIS_MODEL),
       messages: [{ role: "user", content: fullPrompt }],
-      maxTokens: MAX_TOKENS,
+      maxOutputTokens: MAX_TOKENS,
       temperature: TEMPERATURE,
     })
 

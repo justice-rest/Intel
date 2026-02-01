@@ -45,7 +45,7 @@ export async function GET(): Promise<NextResponse> {
     }
 
     // Get entity counts by type
-    const { data: entities, error: entitiesError } = await supabase
+    const { data: entities, error: entitiesError } = await (supabase as any)
       .from("kg_entities")
       .select("entity_type")
       .eq("user_id", user.id)
@@ -55,7 +55,7 @@ export async function GET(): Promise<NextResponse> {
     }
 
     // Get relation counts by type
-    const { data: relations, error: relationsError } = await supabase
+    const { data: relations, error: relationsError } = await (supabase as any)
       .from("kg_relations")
       .select("relation_type")
       .eq("user_id", user.id)
@@ -158,7 +158,7 @@ export async function DELETE(req: Request): Promise<NextResponse> {
     }
 
     // Delete relations first (foreign key constraint)
-    const { error: relationsError } = await supabase
+    const { error: relationsError } = await (supabase as any)
       .from("kg_relations")
       .delete()
       .eq("user_id", user.id)
@@ -172,7 +172,7 @@ export async function DELETE(req: Request): Promise<NextResponse> {
     }
 
     // Delete entities
-    const { error: entitiesError } = await supabase
+    const { error: entitiesError } = await (supabase as any)
       .from("kg_entities")
       .delete()
       .eq("user_id", user.id)

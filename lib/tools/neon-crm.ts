@@ -858,14 +858,14 @@ async function searchDonations(params: {
 /**
  * Search Neon CRM accounts (donors/constituents)
  */
-export const neonCRMSearchAccountsTool = tool({
+export const neonCRMSearchAccountsTool = (tool as any)({
   description:
     "Search for donors/constituents in Neon CRM by name, email, or organization. " +
     "Returns account IDs, contact info, and giving summaries. " +
     "Use this to find donors in the nonprofit's CRM before external research. " +
     "Requires NEON_CRM_ORG_ID and NEON_CRM_API_KEY environment variables.",
   parameters: searchAccountsSchema,
-  execute: async (params): Promise<NeonCRMSearchAccountsResponse> => {
+  execute: async (params: { firstName?: string; lastName?: string; email?: string; organizationName?: string; accountType?: "Individual" | "Organization" | "Household"; limit: number }): Promise<NeonCRMSearchAccountsResponse> => {
     console.log("[Neon CRM] Searching accounts:", params)
     const startTime = Date.now()
 
@@ -951,14 +951,14 @@ Settings > User Management > [User] > API Access (for API Key)`,
 /**
  * Get detailed Neon CRM account by ID
  */
-export const neonCRMGetAccountTool = tool({
+export const neonCRMGetAccountTool = (tool as any)({
   description:
     "Get detailed information about a Neon CRM account by ID. " +
     "Returns full contact info, custom fields, and donation history. " +
     "Use after searching to get complete donor profile. " +
     "Requires NEON_CRM_ORG_ID and NEON_CRM_API_KEY environment variables.",
   parameters: getAccountSchema,
-  execute: async ({ accountId, includeDonations, donationLimit }): Promise<NeonCRMGetAccountResponse> => {
+  execute: async ({ accountId, includeDonations, donationLimit }: { accountId: string; includeDonations: boolean; donationLimit: number }): Promise<NeonCRMGetAccountResponse> => {
     console.log("[Neon CRM] Getting account:", accountId)
     const startTime = Date.now()
 
@@ -1042,14 +1042,14 @@ Check the account ID and try again.`,
 /**
  * Search Neon CRM donations
  */
-export const neonCRMSearchDonationsTool = tool({
+export const neonCRMSearchDonationsTool = (tool as any)({
   description:
     "Search donations in Neon CRM by date range, amount, campaign, or account. " +
     "Returns donation details with amounts and campaign attribution. " +
     "Use to analyze giving patterns and major gifts. " +
     "Requires NEON_CRM_ORG_ID and NEON_CRM_API_KEY environment variables.",
   parameters: searchDonationsSchema,
-  execute: async (params): Promise<NeonCRMSearchDonationsResponse> => {
+  execute: async (params: { accountId?: string; startDate?: string; endDate?: string; minAmount?: number; maxAmount?: number; campaign?: string; limit: number }): Promise<NeonCRMSearchDonationsResponse> => {
     console.log("[Neon CRM] Searching donations:", params)
     const startTime = Date.now()
 

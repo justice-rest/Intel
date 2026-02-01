@@ -8,7 +8,10 @@ import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { useUnreadOptional } from "@/lib/unread"
 import { useNotificationsOptional } from "@/lib/notifications"
 import { useChats } from "@/lib/chat-store/chats/provider"
-import type { Message as MessageAISDK } from "ai"
+import type { UIMessage } from "@ai-sdk/react"
+
+// Type alias for backwards compatibility
+type MessageAISDK = UIMessage
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { writeToIndexedDB } from "../persist"
 import {
@@ -278,18 +281,18 @@ export function MessagesProvider({
 
               // Convert DB message to AI SDK format
               // Include user_id for sender attribution in collaborative chats
-              const aiMessage: MessageAISDK & { user_id?: string } = {
+              const aiMessage = {
                 id: messageId,
                 content: effectiveContent,
-                role: newMessage.role as "user" | "assistant" | "system" | "data",
+                role: newMessage.role as "user" | "assistant" | "system",
                 createdAt: new Date(newMessage.created_at),
                 user_id: newMessage.user_id || undefined,
-              }
+              } as unknown as MessageAISDK & { user_id?: string }
 
               // Sort by created_at to maintain order
               const updated = [...prev, aiMessage].sort((a, b) => {
-                const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0
-                const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0
+                const aTime = (a as any).createdAt instanceof Date ? (a as any).createdAt.getTime() : 0
+                const bTime = (b as any).createdAt instanceof Date ? (b as any).createdAt.getTime() : 0
                 return aTime - bTime
               })
 

@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update the system_prompt field - RLS enforces ownership
-    const { data: updatedChat, error: updateError } = await supabase
+    const { data: updatedChat, error: updateError } = await (supabase as any)
       .from("chats")
       .update({ system_prompt: instructions || null })
       .eq("id", chatId)

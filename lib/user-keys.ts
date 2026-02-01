@@ -37,7 +37,7 @@ export async function getUserKey(
     const supabase = await createClient()
     if (!supabase) return null
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_keys")
       .select("encrypted_key, iv")
       .eq("user_id", userId)

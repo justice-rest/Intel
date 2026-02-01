@@ -6,9 +6,26 @@ import { TextShimmer } from "@/components/prompt-kit/loader"
 import { NewMessagesIndicator } from "@/components/prompt-kit/new-messages-indicator"
 import { ScrollButton } from "@/components/prompt-kit/scroll-button"
 import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
-import { Message as MessageType } from "@ai-sdk/react"
+import type { UIMessage as MessageType } from "@ai-sdk/react"
 import { useRef } from "react"
 import { Message } from "./message"
+
+// Helper to extract text content from v6 parts array
+function extractContent(message: MessageType | ExtendedMessageAISDK): string {
+  // Try legacy content field first
+  const extMsg = message as ExtendedMessageAISDK
+  if (typeof extMsg.content === "string" && extMsg.content) {
+    return extMsg.content
+  }
+  // Extract from parts array (v6 format)
+  if (message.parts && Array.isArray(message.parts)) {
+    const textParts = message.parts
+      .filter((p: any) => p?.type === "text" && p?.text)
+      .map((p: any) => p.text)
+    return textParts.join("\n")
+  }
+  return ""
+}
 
 type ConversationProps = {
   messages: MessageType[]
@@ -64,13 +81,21 @@ export function Conversation({
               index === messages.length - 1 && status !== "submitted"
             const hasScrollAnchor =
               isLast && messages.length > initialMessageCount.current
+            // Cast to ExtendedMessageAISDK for v6 compatibility fields
+            const extMsg = message as ExtendedMessageAISDK
+            const createdAtValue = extMsg.createdAt
+            const createdAtDate = createdAtValue instanceof Date
+              ? createdAtValue
+              : typeof createdAtValue === "string"
+                ? new Date(createdAtValue)
+                : undefined
 
             return (
               <Message
                 key={message.id}
                 id={message.id}
                 variant={message.role}
-                attachments={message.experimental_attachments}
+                attachments={extMsg.experimental_attachments as any}
                 isLast={isLast}
                 onDelete={onDelete}
                 onEdit={onEdit}
@@ -79,13 +104,11 @@ export function Conversation({
                 parts={message.parts}
                 status={status}
                 onQuote={onQuote}
-                messageGroupId={
-                  (message as ExtendedMessageAISDK).message_group_id ?? null
-                }
+                messageGroupId={extMsg.message_group_id ?? null}
                 isUserAuthenticated={isUserAuthenticated}
-                createdAt={message.createdAt instanceof Date ? message.createdAt : undefined}
+                createdAt={createdAtDate}
               >
-                {message.content}
+                {extractContent(message)}
               </Message>
             )
           })}

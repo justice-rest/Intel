@@ -2,7 +2,6 @@
 
 import { cn } from "@/lib/utils"
 import { Markdown } from "@/components/prompt-kit/markdown"
-import type { ToolInvocationUIPart } from "@ai-sdk/ui-utils"
 import {
   CaretDown,
   CheckCircle,
@@ -15,8 +14,73 @@ import {
 import { AnimatePresence, motion } from "framer-motion"
 import { useMemo, useState } from "react"
 
+// Internal tool invocation type for rendering
+// Normalized from either v5 or v6 format
+type ToolInvocationUIPart = {
+  type: "tool-invocation"
+  toolInvocation: {
+    toolCallId: string
+    toolName: string
+    state: "call" | "partial-call" | "result"
+    args?: unknown
+    result?: unknown
+  }
+}
+
+// V6 tool part type (tools have type `tool-${toolName}`)
+type V6ToolPart = {
+  type: string  // `tool-${toolName}`
+  toolCallId: string
+  state: "input-streaming" | "output-streaming" | "input-available" | "output-available" | "output-error"
+  input?: unknown
+  output?: unknown
+  toolName?: string
+}
+
+/**
+ * Normalize tool parts from v5 or v6 format to internal format
+ */
+function normalizeToolParts(parts: unknown[]): ToolInvocationUIPart[] {
+  if (!parts || !Array.isArray(parts)) return []
+
+  return parts.map((part: any) => {
+    // Check if it's already v5 format
+    if (part.type === "tool-invocation" && part.toolInvocation) {
+      return part as ToolInvocationUIPart
+    }
+
+    // Check if it's v6 format (type starts with "tool-")
+    if (part.type?.startsWith?.("tool-")) {
+      const toolName = part.toolName || part.type.replace("tool-", "")
+      // Map v6 states to v5 states
+      let state: "call" | "partial-call" | "result" = "call"
+      if (part.state === "output-available" || part.state === "output-error") {
+        state = "result"
+      } else if (part.state === "input-streaming" || part.state === "output-streaming") {
+        state = "call"
+      } else if (part.state === "input-available") {
+        state = "call"
+      }
+
+      return {
+        type: "tool-invocation" as const,
+        toolInvocation: {
+          toolCallId: part.toolCallId || `tc-${Date.now()}`,
+          toolName,
+          state,
+          args: part.input,
+          result: part.output,
+        }
+      }
+    }
+
+    // Unknown format, return as-is
+    return part as ToolInvocationUIPart
+  }).filter((p): p is ToolInvocationUIPart => p?.type === "tool-invocation")
+}
+
 interface ToolInvocationProps {
-  toolInvocations: ToolInvocationUIPart[]
+  toolInvocations: unknown[]  // Accept any format
   className?: string
   defaultOpen?: boolean
 }
@@ -83,9 +147,10 @@ export function ToolInvocation({
 }: ToolInvocationProps) {
   const [isExpanded, setIsExpanded] = useState(defaultOpen)
 
-  const toolInvocationsData = Array.isArray(toolInvocations)
-    ? toolInvocations
-    : [toolInvocations]
+  // Normalize tool parts from v5 or v6 format
+  const toolInvocationsData = normalizeToolParts(
+    Array.isArray(toolInvocations) ? toolInvocations : [toolInvocations]
+  )
 
   // Group tool invocations by toolCallId
   const groupedTools = toolInvocationsData.reduce(
@@ -319,7 +384,8 @@ function SingleToolCard({
         result !== null &&
         "content" in result
       ) {
-        const textContent = result.content?.find(
+        const contentArray = Array.isArray((result as any).content) ? (result as any).content : []
+        const textContent = contentArray.find(
           (item: { type: string }) => item.type === "text"
         )
         if (!textContent?.text) return { parsedResult: null, parseError: null }
@@ -342,7 +408,7 @@ function SingleToolCard({
 
   // Format the arguments for display
   const formattedArgs = args
-    ? Object.entries(args).map(([key, value]) => (
+    ? Object.entries(args as Record<string, unknown>).map(([key, value]) => (
         <div key={key} className="mb-1">
           <span className="text-muted-foreground font-medium">{key}:</span>{" "}
           <span className="font-mono">
@@ -5832,13 +5898,13 @@ function SingleToolCard({
           >
             <div className="space-y-3 px-3 pt-3 pb-3">
               {/* Arguments section */}
-              {args && Object.keys(args).length > 0 && (
+              {!!args && Object.keys(args as Record<string, unknown>).length > 0 && (
                 <div>
                   <div className="text-muted-foreground mb-1 text-xs font-medium">
                     Arguments
                   </div>
                   <div className="bg-background rounded border p-2 text-sm">
-                    {formattedArgs}
+                    {formattedArgs as React.ReactNode}
                   </div>
                 </div>
               )}

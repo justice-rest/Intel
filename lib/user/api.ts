@@ -34,7 +34,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
   const { supabase, user } = await getSupabaseUser()
   if (!supabase || !user) return null
 
-  const { data: userProfileData } = await supabase
+  const { data: userProfileData } = await (supabase as any)
     .from("users")
     .select("*, user_preferences(*)")
     .eq("id", user.id)

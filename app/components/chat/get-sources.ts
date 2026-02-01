@@ -1,48 +1,86 @@
-import type { Message as MessageAISDK } from "@ai-sdk/react"
+import type { UIMessage as MessageAISDK } from "@ai-sdk/react"
+
+// Type for tool UI part in v6 - tools have type `tool-${toolName}` and direct properties
+interface ToolUIPart {
+  type: string  // `tool-${toolName}`
+  toolCallId: string
+  state: "input-streaming" | "output-streaming" | "input-available" | "output-available" | "output-error"
+  title?: string
+  input?: unknown
+  output?: unknown
+  errorText?: string
+  toolName?: string  // Added by us for convenience
+}
+
+// Helper to check if a part is a tool part
+function isToolPart(part: any): part is ToolUIPart {
+  return part && typeof part.type === "string" && part.type.startsWith("tool-")
+}
+
+// Helper to extract tool name from type
+function getToolName(part: ToolUIPart): string {
+  // type is `tool-${toolName}`, so extract the tool name
+  return part.toolName || part.type.replace("tool-", "")
+}
+
+// Helper to check if tool has result
+function hasResult(part: ToolUIPart): boolean {
+  return part.state === "output-available" && part.output !== undefined
+}
 
 export function getSources(parts: MessageAISDK["parts"]) {
   const sources = parts
     ?.filter(
-      (part) => part.type === "source" || part.type === "tool-invocation"
+      (part) => part.type === "source-url" || part.type === "source-document" || isToolPart(part)
     )
     .map((part) => {
-      if (part.type === "source") {
-        return part.source
+      // Handle source-url parts (v6 format)
+      if (part.type === "source-url") {
+        const sourcePart = part as any
+        return {
+          title: sourcePart.title || "Source",
+          url: sourcePart.url,
+          text: sourcePart.description || "",
+        }
       }
 
-      if (
-        part.type === "tool-invocation" &&
-        part.toolInvocation.state === "result"
-      ) {
-        const result = part.toolInvocation.result
+      // Handle source-document parts (v6 format)
+      if (part.type === "source-document") {
+        const sourcePart = part as any
+        return {
+          title: sourcePart.title || "Document",
+          url: sourcePart.source || "",
+          text: sourcePart.text || "",
+        }
+      }
+
+      // Handle tool parts
+      if (isToolPart(part)) {
+        const toolPart = part as ToolUIPart
+        if (!hasResult(toolPart)) return null
+
+        const toolName = getToolName(toolPart)
+        const result = toolPart.output as any
 
         // Handle LinkUp prospect research tool results
-        // Enhanced: Includes field attribution when available
-        if (
-          part.toolInvocation.toolName === "linkup_prospect_research" &&
-          result?.sources
-        ) {
+        if (toolName === "linkup_prospect_research" && result?.sources) {
           return result.sources.map((source: {
             name?: string
             url: string
             snippet?: string
-            fieldName?: string    // Which field this source supports
-            reasoning?: string    // AI reasoning for relevance
+            fieldName?: string
+            reasoning?: string
           }) => ({
             title: source.name || "Source",
             url: source.url,
-            // Include field attribution in text if available (e.g., "[realEstate] Property records...")
             text: source.fieldName
               ? `[${source.fieldName}] ${source.snippet || source.reasoning || ""}`
               : (source.snippet || ""),
           }))
         }
 
-        // Handle You.com search tool results (matches Linkup format)
-        if (
-          part.toolInvocation.toolName === "youSearch" &&
-          result?.sources
-        ) {
+        // Handle You.com search tool results
+        if (toolName === "youSearch" && result?.sources) {
           return result.sources.map((source: { name?: string; url: string; snippet?: string }) => ({
             title: source.name || "Untitled",
             url: source.url,
@@ -51,10 +89,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Tavily search tool results
-        if (
-          part.toolInvocation.toolName === "tavilySearch" &&
-          result?.results
-        ) {
+        if (toolName === "tavilySearch" && result?.results) {
           return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
             title: r.title || "Untitled",
             url: r.url,
@@ -63,10 +98,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Firecrawl search tool results
-        if (
-          part.toolInvocation.toolName === "firecrawlSearch" &&
-          result?.results
-        ) {
+        if (toolName === "firecrawlSearch" && result?.results) {
           return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
             title: r.title || "Untitled",
             url: r.url,
@@ -75,10 +107,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Jina DeepSearch tool results
-        if (
-          part.toolInvocation.toolName === "jinaDeepSearch" &&
-          result?.sources
-        ) {
+        if (toolName === "jinaDeepSearch" && result?.sources) {
           return result.sources.map((s: { title?: string; url: string; snippet?: string }) => ({
             title: s.title || "Untitled",
             url: s.url,
@@ -87,10 +116,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Brave Search (searchWebGeneral) tool results
-        if (
-          part.toolInvocation.toolName === "searchWebGeneral" &&
-          result?.results
-        ) {
+        if (toolName === "searchWebGeneral" && result?.results) {
           return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
             title: r.title || "Untitled",
             url: r.url,
@@ -99,10 +125,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle SEC EDGAR filings tool results
-        if (
-          part.toolInvocation.toolName === "sec_edgar_filings" &&
-          result?.filings
-        ) {
+        if (toolName === "sec_edgar_filings" && result?.filings) {
           const sources = result.filings
             .filter((f: { url?: string | null }) => f.url)
             .map((f: { formType?: string; fiscalYear?: number; fiscalPeriod?: string; url: string }) => ({
@@ -110,7 +133,6 @@ export function getSources(parts: MessageAISDK["parts"]) {
               url: f.url,
               text: `${f.formType || "SEC Filing"} for fiscal ${f.fiscalPeriod || ""} ${f.fiscalYear || ""}`,
             }))
-          // Add link to SEC EDGAR search
           if (result.symbol) {
             sources.push({
               title: `SEC EDGAR - ${result.symbol}`,
@@ -122,10 +144,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle FEC contributions tool results
-        if (
-          part.toolInvocation.toolName === "fec_contributions" &&
-          result?.sources
-        ) {
+        if (toolName === "fec_contributions" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "FEC Record",
             url: s.url,
@@ -134,10 +153,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle US Government Data tool results
-        if (
-          part.toolInvocation.toolName === "us_gov_data" &&
-          result?.sources
-        ) {
+        if (toolName === "us_gov_data" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Government Data",
             url: s.url,
@@ -145,11 +161,8 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
-        // Handle Property Valuation (AVM) tool results
-        if (
-          part.toolInvocation.toolName === "property_valuation" &&
-          result?.sources
-        ) {
+        // Handle Property Valuation tool results
+        if (toolName === "property_valuation" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Property Data",
             url: s.url,
@@ -158,10 +171,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Business Registry Scraper tool results
-        if (
-          part.toolInvocation.toolName === "business_registry_scraper" &&
-          result?.sources
-        ) {
+        if (toolName === "business_registry_scraper" && result?.sources) {
           return result.sources.map((s: { name: string; url: string; snippet?: string }) => ({
             title: s.name || "Business Registry",
             url: s.url,
@@ -170,19 +180,12 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle summarizeSources tool results
-        if (
-          part.toolInvocation.toolName === "summarizeSources" &&
-          result?.result?.[0]?.citations
-        ) {
+        if (toolName === "summarizeSources" && result?.result?.[0]?.citations) {
           return result.result.flatMap((item: { citations?: unknown[] }) => item.citations || [])
         }
 
         // Handle ProPublica Nonprofit tools
-        if (
-          (part.toolInvocation.toolName === "propublica_nonprofit_search" ||
-           part.toolInvocation.toolName === "propublica_nonprofit_details") &&
-          result?.sources
-        ) {
+        if ((toolName === "propublica_nonprofit_search" || toolName === "propublica_nonprofit_details") && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "ProPublica Nonprofit",
             url: s.url,
@@ -191,11 +194,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle SEC Insider tools
-        if (
-          (part.toolInvocation.toolName === "sec_insider_search" ||
-           part.toolInvocation.toolName === "sec_proxy_search") &&
-          result?.sources
-        ) {
+        if ((toolName === "sec_insider_search" || toolName === "sec_proxy_search") && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "SEC EDGAR",
             url: s.url,
@@ -204,11 +203,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Wikidata tools
-        if (
-          (part.toolInvocation.toolName === "wikidata_search" ||
-           part.toolInvocation.toolName === "wikidata_entity") &&
-          result?.sources
-        ) {
+        if ((toolName === "wikidata_search" || toolName === "wikidata_entity") && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Wikidata",
             url: s.url,
@@ -217,11 +212,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle CourtListener tools
-        if (
-          (part.toolInvocation.toolName === "court_search" ||
-           part.toolInvocation.toolName === "judge_search") &&
-          result?.sources
-        ) {
+        if ((toolName === "court_search" || toolName === "judge_search") && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "CourtListener",
             url: s.url,
@@ -230,10 +221,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Household search
-        if (
-          part.toolInvocation.toolName === "household_search" &&
-          result?.sources
-        ) {
+        if (toolName === "household_search" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Household Data",
             url: s.url,
@@ -242,10 +230,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Business affiliation search
-        if (
-          part.toolInvocation.toolName === "business_affiliation_search" &&
-          result?.sources
-        ) {
+        if (toolName === "business_affiliation_search" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Business Affiliation",
             url: s.url,
@@ -254,10 +239,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Nonprofit affiliation search
-        if (
-          part.toolInvocation.toolName === "nonprofit_affiliation_search" &&
-          result?.sources
-        ) {
+        if (toolName === "nonprofit_affiliation_search" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Nonprofit Affiliation",
             url: s.url,
@@ -266,10 +248,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Nonprofit board search
-        if (
-          part.toolInvocation.toolName === "nonprofit_board_search" &&
-          result?.sources
-        ) {
+        if (toolName === "nonprofit_board_search" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Board Position",
             url: s.url,
@@ -278,10 +257,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Giving history
-        if (
-          part.toolInvocation.toolName === "giving_history" &&
-          result?.sources
-        ) {
+        if (toolName === "giving_history" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Giving History",
             url: s.url,
@@ -290,10 +266,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Prospect scoring
-        if (
-          part.toolInvocation.toolName === "prospect_score" &&
-          result?.sources
-        ) {
+        if (toolName === "prospect_score" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Prospect Data",
             url: s.url,
@@ -302,10 +275,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Prospect report
-        if (
-          part.toolInvocation.toolName === "prospect_report" &&
-          result?.sources
-        ) {
+        if (toolName === "prospect_report" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Research Report",
             url: s.url,
@@ -314,10 +284,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Rental investment
-        if (
-          part.toolInvocation.toolName === "rental_investment" &&
-          result?.sources
-        ) {
+        if (toolName === "rental_investment" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Rental Data",
             url: s.url,
@@ -326,10 +293,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle Find business ownership
-        if (
-          part.toolInvocation.toolName === "find_business_ownership" &&
-          result?.sources
-        ) {
+        if (toolName === "find_business_ownership" && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "Ownership Data",
             url: s.url,
@@ -338,11 +302,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle CRM tools
-        if (
-          (part.toolInvocation.toolName === "crm_search" ||
-           part.toolInvocation.toolName.startsWith("neon_crm_")) &&
-          result?.sources
-        ) {
+        if ((toolName === "crm_search" || toolName.startsWith("neon_crm_")) && result?.sources) {
           return result.sources.map((s: { name?: string; url: string; title?: string }) => ({
             title: s.name || s.title || "CRM Record",
             url: s.url,
@@ -351,11 +311,7 @@ export function getSources(parts: MessageAISDK["parts"]) {
         }
 
         // Handle GLEIF LEI tools
-        if (
-          (part.toolInvocation.toolName === "gleif_search" ||
-           part.toolInvocation.toolName === "gleif_lookup") &&
-          result?.sources
-        ) {
+        if ((toolName === "gleif_search" || toolName === "gleif_lookup") && result?.sources) {
           return result.sources.map((s: { name: string; url: string }) => ({
             title: s.name || "GLEIF Record",
             url: s.url,

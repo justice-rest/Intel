@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get effective configuration
-    const config = await getEffectiveChatConfig(supabase, chatId, user.id)
+    const config = await getEffectiveChatConfig(supabase as any, chatId, user.id)
 
     return NextResponse.json({
       chat_id: chatId,
@@ -164,7 +164,7 @@ export async function PUT(req: NextRequest) {
       .from('chats')
       .select('id, user_id')
       .eq('id', body.chat_id)
-      .single()
+      .single() as { data: { id: string; user_id: string } | null; error: Error | null }
 
     if (chatError || !chat) {
       return NextResponse.json(
@@ -266,7 +266,8 @@ export async function PUT(req: NextRequest) {
     }
 
     // Update chat
-    const { error: updateError } = await supabase
+    // Type assertion needed due to Supabase v2.93+ type inference issues
+    const { error: updateError } = await (supabase as any)
       .from('chats')
       .update(updateData)
       .eq('id', body.chat_id)
@@ -280,7 +281,7 @@ export async function PUT(req: NextRequest) {
     }
 
     // Get updated configuration
-    const config = await getEffectiveChatConfig(supabase, body.chat_id, user.id)
+    const config = await getEffectiveChatConfig(supabase as any, body.chat_id, user.id)
 
     return NextResponse.json({
       message: 'Chat configuration updated',

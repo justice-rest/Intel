@@ -171,7 +171,7 @@ export async function POST(req: Request) {
     const sanitizedContent = sanitizeUserInput(trimmedContent)
 
     // Upsert: insert or update if exists
-    const { data: note, error } = await supabase
+    const { data: note, error } = await (supabase as any)
       .from("message_notes")
       .upsert(
         {

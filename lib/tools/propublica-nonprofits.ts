@@ -356,7 +356,7 @@ function formatDetailsForAI(
 /**
  * Search for nonprofit organizations BY ORGANIZATION NAME (not person name)
  */
-export const propublicaNonprofitSearchTool = tool({
+export const propublicaNonprofitSearchTool = (tool as any)({
   description:
     // CONSTRAINT-FIRST PROMPTING: Org search only
     "HARD CONSTRAINTS: " +
@@ -368,7 +368,7 @@ export const propublicaNonprofitSearchTool = tool({
     "COVERS: 1.8M+ tax-exempt organizations. " +
     "SOURCE: ProPublica Nonprofit Explorer (IRS 990 data).",
   parameters: nonprofitSearchSchema,
-  execute: async ({ query, state, nteeCategory, page }): Promise<NonprofitSearchResult> => {
+  execute: async ({ query, state, nteeCategory, page }: { query: string; state?: string; nteeCategory?: number; page?: number }): Promise<NonprofitSearchResult> => {
     console.log("[ProPublica] Searching nonprofits:", { query, state, nteeCategory, page })
     const startTime = Date.now()
 
@@ -454,7 +454,7 @@ export const propublicaNonprofitSearchTool = tool({
 /**
  * Get detailed nonprofit information and 990 filings
  */
-export const propublicaNonprofitDetailsTool = tool({
+export const propublicaNonprofitDetailsTool = (tool as any)({
   description:
     // CONSTRAINT-FIRST PROMPTING: EIN lookup
     "HARD CONSTRAINTS: " +
@@ -465,7 +465,7 @@ export const propublicaNonprofitDetailsTool = tool({
     "CRITICAL: For prospect research—foundations with $10M+ assets indicate major gift potential. " +
     "SOURCE: IRS Form 990 via ProPublica.",
   parameters: nonprofitDetailsSchema,
-  execute: async ({ ein }): Promise<NonprofitDetailsResult> => {
+  execute: async ({ ein }: { ein: string }): Promise<NonprofitDetailsResult> => {
     // Clean EIN - remove hyphens and spaces
     const cleanEin = ein.replace(/[-\s]/g, "")
     console.log("[ProPublica] Getting nonprofit details for EIN:", cleanEin)

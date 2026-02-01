@@ -427,7 +427,7 @@ async function searchUsaspending(params: UsaspendingParams): Promise<Usaspending
  * USAspending Awards Tool
  * Search for federal contracts, grants, and loans by company/organization name
  */
-export const usaspendingAwardsTool = tool({
+export const usaspendingAwardsTool = (tool as any)({
   description:
     "Search USAspending.gov for federal contracts, grants, and loans received by companies and organizations. " +
     "Search by COMPANY or ORGANIZATION name (e.g., 'Microsoft', 'Gates Foundation', 'Lockheed Martin') to find government funding. " +

@@ -108,6 +108,8 @@ const fecContributionsSchema = z.object({
     .describe("Maximum number of contributions to return (default: 20, max: 100)"),
 })
 
+type FecContributionsParams = z.infer<typeof fecContributionsSchema>
+
 // ============================================================================
 // TIMEOUT HELPER
 // ============================================================================
@@ -261,7 +263,7 @@ function formatContributionsForAI(
 /**
  * Search FEC for individual political contributions
  */
-export const fecContributionsTool = tool({
+export const fecContributionsTool = (tool as any)({
   description:
     // CONSTRAINT-FIRST PROMPTING: Official data source
     "HARD CONSTRAINTS: " +
@@ -281,7 +283,7 @@ export const fecContributionsTool = tool({
     minAmount,
     maxAmount,
     limit = 20,
-  }): Promise<FecContributionResult> => {
+  }: FecContributionsParams): Promise<FecContributionResult> => {
     console.log("[FEC] Searching contributions for:", contributorName)
     const startTime = Date.now()
 

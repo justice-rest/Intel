@@ -329,7 +329,7 @@ const npiRegistrySchema = z.object({
     .describe("Specialty to filter by (e.g., 'Cardiology', 'Surgery')"),
 })
 
-export const npiRegistryTool = tool({
+export const npiRegistryTool = (tool as any)({
   description:
     "Search the CMS NPI Registry for healthcare provider credentials. " +
     "The AUTHORITATIVE source for US healthcare providers. " +
@@ -341,7 +341,7 @@ export const npiRegistryTool = tool({
 
   parameters: npiRegistrySchema,
 
-  execute: async ({ searchTerm, state, specialty }): Promise<NPIRegistryResult> => {
+  execute: async ({ searchTerm, state, specialty }: { searchTerm: string; state?: string; specialty?: string }): Promise<NPIRegistryResult> => {
     return searchNPIRegistry(searchTerm, state, specialty)
   },
 })

@@ -104,7 +104,7 @@ export async function POST(request: Request) {
     }
 
     // Estimate size for large export handling
-    const estimatedSize = await estimateExportSize(supabase, user.id, options)
+    const estimatedSize = await estimateExportSize(supabase as any, user.id, options)
 
     // For now, we handle all exports inline (up to reasonable limits)
     // In production, exports > 5MB could be queued for background processing
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
     }
 
     // Gather export data
-    const exportData = await gatherExportData(supabase, user.id, options)
+    const exportData = await gatherExportData(supabase as any, user.id, options)
 
     // Send confirmation email (non-blocking)
     if (isEmailEnabled() && user.email) {
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
         .from('users')
         .select('first_name')
         .eq('id', user.id)
-        .single()
+        .single() as { data: any; error: any }
 
       const sectionsExported = sections.includes('all')
         ? ['profile', 'preferences', 'chats', 'memories', 'crm']

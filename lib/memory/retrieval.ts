@@ -57,7 +57,7 @@ export async function searchMemories(
     const embeddingString = JSON.stringify(embedding)
 
     // Call Supabase function for vector similarity search
-    const { data, error } = await supabase.rpc("search_user_memories", {
+    const { data, error } = await (supabase as any).rpc("search_user_memories", {
       query_embedding: embeddingString,
       match_user_id: params.userId,
       match_count: Math.min(params.limit || 5, MAX_SEARCH_RESULTS),
@@ -73,7 +73,7 @@ export async function searchMemories(
 
     // Track access for retrieved memories (fire-and-forget)
     if (data && data.length > 0) {
-      Promise.all(data.map((m) => incrementMemoryAccess(m.id))).catch((err) =>
+      Promise.all(data.map((m: any) => incrementMemoryAccess(m.id))).catch((err) =>
         console.error("Failed to track memory access:", err)
       )
     }

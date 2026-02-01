@@ -1,7 +1,10 @@
 // todo: fix this
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "@/components/ui/toast"
-import { useChat } from "@ai-sdk/react"
+import { useChat, type UIMessage } from "@ai-sdk/react"
+
+// Type alias for backwards compatibility
+type Message = UIMessage
 import { useMemo } from "react"
 
 type ModelConfig = {
@@ -28,7 +31,7 @@ export function useMultiChat(models: ModelConfig[]): ModelChat[] {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useChat({
       api: "/api/chat",
-      onError: (error) => {
+      onError: (error: Error) => {
         const model = models[index]
         if (model) {
           console.error(`Error with ${model.name}:`, error)
@@ -39,8 +42,8 @@ export function useMultiChat(models: ModelConfig[]): ModelChat[] {
           })
         }
       },
-    })
-  )
+    } as any)
+  ) as any[]
 
   // Map only the provided models to their corresponding chat hooks
   const activeChatInstances = useMemo(() => {

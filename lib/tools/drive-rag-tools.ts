@@ -40,6 +40,42 @@ function formatDocument(doc: {
 }
 
 // ============================================================================
+// SCHEMAS
+// ============================================================================
+
+const driveSearchSchema = z.object({
+  query: z
+    .string()
+    .describe("Search query to find relevant content in indexed documents"),
+  documentNames: z
+    .array(z.string())
+    .optional()
+    .describe(
+      "Optional: Filter to specific document names (partial matches work)"
+    ),
+  limit: z
+    .number()
+    .optional()
+    .default(5)
+    .describe("Maximum number of results to return (default: 5)"),
+})
+
+type DriveSearchParams = z.infer<typeof driveSearchSchema>
+
+const driveListDocumentsSchema = z.object({
+  status: z
+    .enum(["all", "ready", "pending", "failed"])
+    .optional()
+    .default("all")
+    .describe(
+      "Filter by processing status (default: all). " +
+        "'ready' = indexed and searchable, 'pending' = being processed, 'failed' = processing error"
+    ),
+})
+
+type DriveListDocumentsParams = z.infer<typeof driveListDocumentsSchema>
+
+// ============================================================================
 // TOOL FACTORIES
 // ============================================================================
 
@@ -47,29 +83,14 @@ function formatDocument(doc: {
  * Create Drive document search tool bound to a specific user
  */
 export const createDriveSearchTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       "Search the user's indexed Google Drive documents. " +
       "Returns relevant content from documents imported via the Google Drive integration. " +
       "Use this when the user asks about their documents, files, or information stored in Drive. " +
       "This searches documents that have been specifically imported by the user.",
-    parameters: z.object({
-      query: z
-        .string()
-        .describe("Search query to find relevant content in indexed documents"),
-      documentNames: z
-        .array(z.string())
-        .optional()
-        .describe(
-          "Optional: Filter to specific document names (partial matches work)"
-        ),
-      limit: z
-        .number()
-        .optional()
-        .default(5)
-        .describe("Maximum number of results to return (default: 5)"),
-    }),
-    execute: async ({ query, documentNames, limit }) => {
+    parameters: driveSearchSchema,
+    execute: async ({ query, documentNames, limit }: DriveSearchParams) => {
       try {
         // Check access
         const hasAccess = await hasDriveAccess(userId)
@@ -178,21 +199,12 @@ export const createDriveSearchTool = (userId: string) =>
  * Create Drive document list tool
  */
 export const createDriveListDocumentsTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       "List all Google Drive documents that have been imported and indexed. " +
       "Use this when the user wants to see what Drive files are available for search.",
-    parameters: z.object({
-      status: z
-        .enum(["all", "ready", "pending", "failed"])
-        .optional()
-        .default("all")
-        .describe(
-          "Filter by processing status (default: all). " +
-            "'ready' = indexed and searchable, 'pending' = being processed, 'failed' = processing error"
-        ),
-    }),
-    execute: async ({ status }) => {
+    parameters: driveListDocumentsSchema,
+    execute: async ({ status }: DriveListDocumentsParams) => {
       try {
         const hasAccess = await hasDriveAccess(userId)
         if (!hasAccess) {

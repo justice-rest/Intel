@@ -185,14 +185,14 @@ export async function POST(request: Request) {
     const newBonus = Math.max(0, Math.min(MAX_BONUS_CREDITS, currentBonus + bonusChange))
 
     // Record the answer
-    const { error: insertError } = await (supabase
-      .from("user_quiz_progress" as any)
+    const { error: insertError } = await (supabase as any)
+      .from("user_quiz_progress")
       .insert({
         user_id: user.id,
         question_id: questionId,
         answered_correctly: isCorrect,
         bonus_messages_earned: bonusChange, // Can be negative for penalties
-      }) as any)
+      })
 
     if (insertError) {
       console.error("[Quiz API] Error recording answer:", insertError)
@@ -203,9 +203,9 @@ export async function POST(request: Request) {
     }
 
     // Update user's bonus_messages balance
-    await supabase
+    await (supabase as any)
       .from("users")
-      .update({ bonus_messages: newBonus } as any)
+      .update({ bonus_messages: newBonus })
       .eq("id", user.id)
 
     return NextResponse.json({

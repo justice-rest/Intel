@@ -234,7 +234,7 @@ Respond with a JSON object containing:
 }
 
 Only respond with valid JSON, no other text.`,
-      maxTokens: 500,
+      maxOutputTokens: 500,
     })
 
     // Parse AI response

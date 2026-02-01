@@ -10,8 +10,23 @@
  * - MODEL-AWARE: Respects model-specific context window limits
  */
 
-import type { Message } from "@ai-sdk/react"
 import { MAX_MESSAGES_IN_PAYLOAD, MAX_TOOL_RESULT_SIZE, MAX_MESSAGE_CONTENT_SIZE } from "./config"
+
+// Flexible message type that works with both legacy format (content) and v6 format (parts)
+// This maintains backwards compatibility with frontend while supporting AI SDK v6
+interface Message {
+  id: string
+  role: "user" | "assistant" | "system" | "tool"
+  // Legacy format - content as string or array
+  content?: string | null | Array<{ type?: string; text?: string; [key: string]: unknown }>
+  // v6 format - parts array
+  parts?: Array<{ type: string; text?: string; [key: string]: unknown }>
+  // Optional fields
+  toolInvocations?: Array<{ toolCallId: string; toolName: string; state: string; args?: unknown; result?: unknown }>
+  experimental_attachments?: Array<{ name?: string; contentType?: string; url: string }>
+  metadata?: unknown
+  createdAt?: Date
+}
 
 // ============================================================================
 // TOKEN ESTIMATION
@@ -30,19 +45,40 @@ export function estimateTokens(text: string): number {
 
 /**
  * Estimate total tokens in a message (content + attachments + tool results)
+ * Handles both legacy format (content) and v6 format (parts)
  */
 export function estimateMessageTokens(message: Message): number {
   let tokens = 0
 
-  // Estimate content tokens
-  if (typeof message.content === "string") {
-    tokens += estimateTokens(message.content)
-  } else if (Array.isArray(message.content)) {
-    for (const part of message.content as any[]) {
+  // Handle legacy format with content
+  if (message.content !== undefined) {
+    if (typeof message.content === "string") {
+      tokens += estimateTokens(message.content)
+    } else if (Array.isArray(message.content)) {
+      for (const part of message.content) {
+        if (part.type === "text" && part.text) {
+          tokens += estimateTokens(part.text)
+        } else if (part.type === "tool-invocation" || part.type === "tool-result") {
+          const result = (part as any).toolInvocation?.result || (part as any).result
+          if (result) {
+            try {
+              tokens += estimateTokens(JSON.stringify(result))
+            } catch {
+              tokens += 500 // Default estimate for unserializable results
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Handle v6 format with parts
+  if (message.parts && Array.isArray(message.parts)) {
+    for (const part of message.parts) {
       if (part.type === "text" && part.text) {
         tokens += estimateTokens(part.text)
-      } else if (part.type === "tool-invocation" || part.type === "tool-result") {
-        const result = part.toolInvocation?.result || part.result
+      } else if (part.type === "tool-invocation" || part.type === "tool-result" || part.type === "tool-call") {
+        const result = (part as any).result
         if (result) {
           try {
             tokens += estimateTokens(JSON.stringify(result))
@@ -254,6 +290,33 @@ function cleanMessage(message: Message): Message {
       }
       return part
     }) as any // Type assertion needed due to AI SDK's complex content types
+  }
+
+  // Clean parts array (v6 format)
+  if (Array.isArray(message.parts)) {
+    cleaned.parts = message.parts.map((part: any) => {
+      // Sanitize and truncate text parts
+      if (part.type === "text" && typeof part.text === "string") {
+        return {
+          ...part,
+          text: truncateMessageContent(sanitizeTextContent(part.text), hasAttachments),
+        }
+      }
+      // Handle tool parts
+      if ((part.type === "tool-invocation" || part.type === "tool-call") && part.result) {
+        return {
+          ...part,
+          result: truncateToolResult(part.result),
+        }
+      }
+      if (part.type === "tool-result" && part.result) {
+        return {
+          ...part,
+          result: truncateToolResult(part.result),
+        }
+      }
+      return part
+    }) as any
   }
 
   return cleaned

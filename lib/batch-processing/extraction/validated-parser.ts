@@ -307,11 +307,14 @@ ${originalResponse.slice(0, 8000)}
 ${correctionPrompt}
 
 Return ONLY the corrected JSON, no other text.`,
-      maxTokens: 4000,
+      maxOutputTokens: 4000,
       temperature: 0.1,
     })
 
-    const tokensUsed = (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0)
+    // In AI SDK v6, token properties are under inputTokenDetails/outputTokenDetails
+    const inputTokens = result.usage?.inputTokens || 0
+    const outputTokens = result.usage?.outputTokens || 0
+    const tokensUsed = inputTokens + outputTokens
     console.log(`[ValidatedParser] Correction request used ${tokensUsed} tokens`)
 
     return {

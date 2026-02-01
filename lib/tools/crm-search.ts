@@ -32,7 +32,8 @@ const crmSearchSchema = z.object({
 // TOOL DEFINITION
 // ============================================================================
 
-export const crmSearchTool = tool({
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const crmSearchTool = (tool as any)({
   description:
     // CONSTRAINT-FIRST PROMPTING: Priority execution with clear hierarchy
     "HARD CONSTRAINTS: " +
@@ -49,7 +50,7 @@ export const crmSearchTool = tool({
     "PURPOSE: Prevent duplicate research, leverage verified CRM data as baseline.",
   parameters: crmSearchSchema,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  execute: async (_params, _context) => {
+  execute: async (_params: any, _context: any) => {
     // Note: userId needs to be passed in context - this will be handled by the chat route
     return {
       error: "CRM search requires authentication context. Use crmSearchWithUserId instead.",
@@ -290,7 +291,7 @@ export async function getCRMConnectionSummary(userId: string): Promise<{
     .from("user_keys")
     .select("provider")
     .eq("user_id", userId)
-    .in("provider", ["bloomerang", "virtuous", "neoncrm", "donorperfect"])
+    .in("provider", ["bloomerang", "virtuous", "neoncrm", "donorperfect"]) as { data: { provider: string }[] | null; error: any }
 
   const providers = (keys?.map((k) => k.provider) || []) as CRMProvider[]
 

@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Fetch templates
-    const templates = await listPersonaTemplates(supabase, { category })
+    const templates = await listPersonaTemplates(supabase as any, { category })
 
     return NextResponse.json({
       templates,
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
 
     // Clone template
     const persona = await cloneFromTemplate(
-      supabase,
+      supabase as any,
       user.id,
       body.template_id,
       body.custom_name

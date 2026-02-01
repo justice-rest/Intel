@@ -36,7 +36,7 @@ export async function generateMetadata({
     .select("title, created_at")
     .eq("id", chatId)
     .eq("public", true)
-    .single()
+    .single() as { data: { title: string; created_at: string } | null; error: any }
 
   const title = chat?.title || "Chat"
   const description = "A chat in Rōmy"
@@ -83,7 +83,7 @@ export default async function ShareChat({
     .select("id, title, created_at, public")
     .eq("id", chatId)
     .eq("public", true)
-    .single()
+    .single() as { data: { id: string; title: string; created_at: string; public: boolean } | null; error: any }
 
   if (chatError) {
     console.error("[Share] Chat query failed:", chatError.message, "for chatId:", chatId)

@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       .from("chats")
       .select("id, user_id, public")
       .eq("id", chatId)
-      .single()
+      .single() as { data: any; error: any }
 
     if (chatError || !chat) {
       return NextResponse.json(
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
       .from("users")
       .select("display_name, email")
       .eq("id", user.id)
-      .single()
+      .single() as { data: any; error: any }
 
     const senderName =
       userProfile?.display_name ||

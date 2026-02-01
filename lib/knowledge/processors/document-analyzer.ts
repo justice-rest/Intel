@@ -253,9 +253,10 @@ Focus on elements that would help an AI assistant communicate and advise in the 
       analysis,
       tokenUsage: usage
         ? {
-            promptTokens: usage.promptTokens,
-            completionTokens: usage.completionTokens,
-            totalTokens: usage.totalTokens,
+            // AI SDK v6 uses inputTokens/outputTokens instead of promptTokens/completionTokens
+            promptTokens: usage.inputTokens || 0,
+            completionTokens: usage.outputTokens || 0,
+            totalTokens: (usage.inputTokens || 0) + (usage.outputTokens || 0),
           }
         : undefined,
     }

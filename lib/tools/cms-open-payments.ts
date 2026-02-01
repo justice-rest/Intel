@@ -481,7 +481,9 @@ const cmsOpenPaymentsSchema = z.object({
     .describe("Maximum number of payments to return per dataset"),
 })
 
-export const cmsOpenPaymentsTool = tool({
+type CMSOpenPaymentsParams = z.infer<typeof cmsOpenPaymentsSchema>
+
+export const cmsOpenPaymentsTool = (tool as any)({
   description:
     "Search CMS Open Payments (Sunshine Act) for pharmaceutical/device company payments to physicians. " +
     "Includes consulting fees, speaking fees, research grants, meals, travel. " +
@@ -495,7 +497,7 @@ export const cmsOpenPaymentsTool = tool({
     physicianName,
     paymentType,
     limit,
-  }): Promise<CMSOpenPaymentsResult> => {
+  }: CMSOpenPaymentsParams): Promise<CMSOpenPaymentsResult> => {
     console.log(
       `[CMSOpenPayments] Searching for "${physicianName}" (type: ${paymentType})`
     )

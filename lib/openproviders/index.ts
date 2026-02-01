@@ -1,4 +1,7 @@
-import type { LanguageModelV1 } from "@ai-sdk/provider"
+import type { LanguageModel } from "ai"
+
+// Type alias for backwards compatibility
+type LanguageModelV1 = LanguageModel
 import { getProviderForModel } from "./provider-map"
 import type { SupportedModel } from "./types"
 

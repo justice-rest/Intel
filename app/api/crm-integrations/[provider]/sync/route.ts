@@ -207,7 +207,8 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     // Get API key
-    const { data: keyData, error: keyError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: keyData, error: keyError } = await (supabase as any)
       .from("user_keys")
       .select("encrypted_key, iv")
       .eq("user_id", user.id)

@@ -15,7 +15,7 @@ import { getCachedEmbedding, setCachedEmbedding } from "@/lib/memory/embedding-c
  * Create a RAG search tool bound to a specific user
  * @param userId - User ID to search documents for
  */
-export const createRagSearchTool = (userId: string) => tool({
+export const createRagSearchTool = (userId: string) => (tool as any)({
   description:
     "Search the user's uploaded documents for relevant information. Use this when the user's question relates to their uploaded PDFs (annual reports, research papers, donor data, fundraising documents, etc.). This tool performs semantic search across all documents the user has uploaded.",
   parameters: z.object({
@@ -31,7 +31,7 @@ export const createRagSearchTool = (userId: string) => tool({
         "Optional: Specific document IDs to search within. If not provided, searches across all user documents."
       ),
   }),
-  execute: async ({ query, documentIds }) => {
+  execute: async ({ query, documentIds }: { query: string; documentIds?: string[] }) => {
     try {
       // Get OpenRouter API key from environment
       const openrouterKey = process.env.OPENROUTER_API_KEY

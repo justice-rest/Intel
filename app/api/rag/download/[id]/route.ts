@@ -52,7 +52,7 @@ export async function GET(
     }
 
     // Get document to verify ownership
-    const document = await getDocument(documentId, user.id)
+    const document = await getDocument(documentId, user.id) as any
 
     if (!document) {
       return NextResponse.json(

@@ -235,7 +235,7 @@ export type GLEIFLookupParams = z.infer<typeof gleifLookupParametersSchema>
  * GLEIF Entity Search Tool
  * Search for legal entities by name
  */
-export const gleifSearchTool = tool({
+export const gleifSearchTool = (tool as any)({
   description:
     "Search the Global LEI Foundation database for legal entities by name. " +
     "Returns LEI (Legal Entity Identifier), entity status, jurisdiction, and registration details. " +
@@ -345,7 +345,7 @@ export const gleifSearchTool = tool({
  * GLEIF LEI Lookup Tool
  * Get detailed entity info and ownership relationships by LEI
  */
-export const gleifLookupTool = tool({
+export const gleifLookupTool = (tool as any)({
   description:
     "Look up a specific Legal Entity Identifier (LEI) and get ownership relationships. " +
     "Returns entity details PLUS direct parent and ultimate parent (who owns this company). " +

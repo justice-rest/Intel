@@ -1,4 +1,10 @@
-import { Attachment } from "@ai-sdk/ui-utils"
+// Attachment type - compatible with AI SDK v4 structure
+// In v6, this is replaced by FileUIPart, but we keep our own type for DB compatibility
+export interface Attachment {
+  name?: string
+  contentType?: string
+  url: string
+}
 
 export type Json =
   | string

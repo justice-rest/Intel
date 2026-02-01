@@ -58,7 +58,7 @@ export function FeedbackForm({ authUserId, onClose }: FeedbackFormProps) {
         return
       }
 
-      const { error } = await supabase.from("feedback").insert({
+      const { error } = await (supabase as any).from("feedback").insert({
         message: feedback,
         user_id: authUserId,
       })

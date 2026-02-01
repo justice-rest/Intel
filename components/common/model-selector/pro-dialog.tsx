@@ -40,10 +40,10 @@ export function ProModelDialog({
 
       const supabase = await createClient()
       if (!supabase) throw new Error("Missing supabase")
-      const { error } = await supabase.from("feedback").insert({
+      const { error } = await (supabase as any).from("feedback").insert({
         message: `I want access to ${currentModel}`,
         user_id: user.id,
-      })
+      }) as { data: any; error: any }
 
       if (error) throw new Error(error.message)
     },

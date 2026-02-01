@@ -168,14 +168,14 @@ export async function processFiles(
 
     try {
       // Upload file to Supabase storage
-      const url = await uploadFile(supabase, file, userId)
+      const url = await uploadFile(supabase as any, file, userId)
 
       if (!url) {
         throw new Error("Upload failed - no URL returned")
       }
 
       // Save metadata to chat_attachments table
-      const { error: dbError } = await supabase.from("chat_attachments").insert({
+      const { error: dbError } = await (supabase as any).from("chat_attachments").insert({
         chat_id: chatId,
         user_id: userId,
         file_url: url,

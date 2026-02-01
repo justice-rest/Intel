@@ -96,7 +96,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     const includeRelationsCount = searchParams.get("includeRelationsCount") === "true"
 
     // Build query
-    let query = supabase
+    let query = (supabase as any)
       .from("kg_entities")
       .select("*", { count: "exact" })
       .eq("user_id", user.id)
@@ -122,7 +122,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     }
 
     // Format response
-    const formattedEntities: EntityResponse[] = (entities || []).map((e) => ({
+    const formattedEntities: EntityResponse[] = (entities || []).map((e: any) => ({
       id: e.id,
       canonical_name: e.canonical_name,
       entity_type: e.entity_type,
@@ -135,7 +135,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     // Optionally include relations count
     if (includeRelationsCount && formattedEntities.length > 0) {
       const entityIds = formattedEntities.map((e) => e.id)
-      const { data: relationCounts } = await supabase
+      const { data: relationCounts } = await (supabase as any)
         .from("kg_relations")
         .select("source_entity_id")
         .in("source_entity_id", entityIds)
@@ -220,7 +220,7 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
 
     // Use KnowledgeGraphManager to create entity (handles deduplication)
-    const kgManager = getKGManager(supabase)
+    const kgManager = getKGManager(supabase as any)
     const entity = await kgManager.upsertEntity(user.id, {
       name: body.name,
       type: body.type,

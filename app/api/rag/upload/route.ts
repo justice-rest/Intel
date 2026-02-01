@@ -137,7 +137,7 @@ export async function POST(request: Request) {
 
     // Create document record with 'processing' status
     console.log("[RAG Upload] Creating document record...")
-    const { data: document, error: docError } = await supabase
+    const { data: document, error: docError } = await (supabase as any)
       .from("rag_documents")
       .insert({
         user_id: user.id,
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
       console.log("[RAG Upload] PDF processing completed successfully")
     } catch (error) {
       // Update document status to failed
-      await supabase
+      await (supabase as any)
         .from("rag_documents")
         .update({
           status: "failed",
@@ -181,7 +181,7 @@ export async function POST(request: Request) {
     const chunks = chunkText(pdfData.text, pdfData.pageCount)
 
     if (chunks.length === 0) {
-      await supabase
+      await (supabase as any)
         .from("rag_documents")
         .update({
           status: "failed",
@@ -212,7 +212,7 @@ export async function POST(request: Request) {
       )
     } catch (error) {
       // Update document status to failed
-      await supabase
+      await (supabase as any)
         .from("rag_documents")
         .update({
           status: "failed",
@@ -248,13 +248,13 @@ export async function POST(request: Request) {
       }
     })
 
-    const { error: chunksError } = await supabase
+    const { error: chunksError } = await (supabase as any)
       .from("rag_document_chunks")
       .insert(chunkRecords)
 
     if (chunksError) {
       // Update document status to failed
-      await supabase
+      await (supabase as any)
         .from("rag_documents")
         .update({
           status: "failed",
@@ -266,7 +266,7 @@ export async function POST(request: Request) {
     }
 
     // Update document with metadata and status
-    const { data: finalDocument, error: updateError } = await supabase
+    const { data: finalDocument, error: updateError } = await (supabase as any)
       .from("rag_documents")
       .update({
         page_count: pdfData.pageCount,

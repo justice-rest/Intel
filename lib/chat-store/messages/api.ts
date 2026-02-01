@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/client"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
-import type { Message as MessageAISDK } from "ai"
+import type { UIMessage } from "ai"
+
+// Type alias for backwards compatibility
+type MessageAISDK = UIMessage
 import { readFromIndexedDB, writeToIndexedDB } from "../persist"
 
 export interface ExtendedMessageAISDK extends MessageAISDK {
@@ -8,6 +11,16 @@ export interface ExtendedMessageAISDK extends MessageAISDK {
   model?: string
   /** The user ID who sent this message (for collaborative chats) */
   user_id?: string
+  /** Attachments for the message (files, images, etc.) - v6 compatibility */
+  experimental_attachments?: Array<{
+    name?: string
+    contentType?: string
+    url: string
+  }>
+  /** When the message was created */
+  createdAt?: Date | string
+  /** Legacy content field (v6 uses parts array instead) */
+  content?: string
 }
 
 /**
@@ -61,7 +74,7 @@ export async function getMessagesFromDb(
   const supabase = createClient()
   if (!supabase) return []
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("messages")
     .select(
       "id, content, role, experimental_attachments, created_at, parts, message_group_id, model, user_id"
@@ -76,7 +89,7 @@ export async function getMessagesFromDb(
     return cached
   }
 
-  return data.map((message) => ({
+  return data.map((message: any) => ({
     id: String(message.id),
     role: message.role as MessageAISDK["role"],
     // Use getEffectiveContent to ensure non-empty content for AI models
@@ -86,7 +99,7 @@ export async function getMessagesFromDb(
       message.role as string
     ),
     createdAt: new Date((message.created_at as string) || ""),
-    experimental_attachments: message.experimental_attachments as MessageAISDK["experimental_attachments"],
+    experimental_attachments: message.experimental_attachments as any,
     parts: (message.parts as MessageAISDK["parts"]) || undefined,
     message_group_id: message.message_group_id as string | undefined,
     model: message.model as string | undefined,
@@ -106,7 +119,7 @@ export async function getLastMessagesFromDb(
   const supabase = createClient()
   if (!supabase) return []
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("messages")
     .select(
       "id, content, role, experimental_attachments, created_at, parts, message_group_id, model, user_id"
@@ -121,7 +134,7 @@ export async function getLastMessagesFromDb(
   }
 
   const ascendingData = [...data].reverse()
-  return ascendingData.map((message) => ({
+  return ascendingData.map((message: any) => ({
     ...message,
     id: String(message.id),
     // Use getEffectiveContent to ensure non-empty content for AI models
@@ -145,12 +158,12 @@ async function insertMessageToDb(
   const supabase = createClient()
   if (!supabase) return
 
-  await supabase.from("messages").insert({
+  await (supabase as any).from("messages").insert({
     chat_id: chatId,
     role: message.role,
-    content: message.content,
-    experimental_attachments: message.experimental_attachments,
-    created_at: message.createdAt?.toISOString() || new Date().toISOString(),
+    content: (message as any).content,
+    experimental_attachments: (message as any).experimental_attachments,
+    created_at: (message as any).createdAt?.toISOString() || new Date().toISOString(),
     message_group_id: message.message_group_id || null,
     model: message.model || null,
   })
@@ -166,21 +179,21 @@ async function insertMessagesToDb(
   const payload = messages.map((message) => ({
     chat_id: chatId,
     role: message.role,
-    content: message.content,
-    experimental_attachments: message.experimental_attachments,
-    created_at: message.createdAt?.toISOString() || new Date().toISOString(),
+    content: (message as any).content,
+    experimental_attachments: (message as any).experimental_attachments,
+    created_at: (message as any).createdAt?.toISOString() || new Date().toISOString(),
     message_group_id: message.message_group_id || null,
     model: message.model || null,
   }))
 
-  await supabase.from("messages").insert(payload)
+  await (supabase as any).from("messages").insert(payload)
 }
 
 async function deleteMessagesFromDb(chatId: string) {
   const supabase = createClient()
   if (!supabase) return
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from("messages")
     .delete()
     .eq("chat_id", chatId)
@@ -203,7 +216,7 @@ export async function getCachedMessages(
   if (!entry || Array.isArray(entry)) return []
 
   return (entry.messages || []).sort(
-    (a, b) => +new Date(a.createdAt || 0) - +new Date(b.createdAt || 0)
+    (a, b) => +new Date((a as any).createdAt || 0) - +new Date((b as any).createdAt || 0)
   )
 }
 

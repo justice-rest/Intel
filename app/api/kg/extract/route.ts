@@ -134,7 +134,7 @@ export async function POST(req: Request): Promise<NextResponse<ExtractResponse |
     }
 
     // Use KnowledgeGraphManager for extraction
-    const kgManager = getKGManager(supabase)
+    const kgManager = getKGManager(supabase as any)
 
     const extractionStart = Date.now()
     const extractedEntities: ExtractedEntity[] = []
@@ -309,7 +309,7 @@ export async function PUT(req: Request): Promise<NextResponse> {
     }
 
     // Use KnowledgeGraphManager
-    const kgManager = getKGManager(supabase)
+    const kgManager = getKGManager(supabase as any)
 
     // Process and merge with existing graph
     const result = await kgManager.processText(user.id, body.text, body.sourceMemoryId)

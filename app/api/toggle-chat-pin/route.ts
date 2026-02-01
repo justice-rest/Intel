@@ -34,7 +34,7 @@ export async function POST(request: Request) {
       .from("chats")
       .select("user_id")
       .eq("id", chatId)
-      .single()
+      .single() as { data: any; error: any }
 
     if (!chat || chat.user_id !== user.id) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 })
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       ? { pinned: true, pinned_at: new Date().toISOString() }
       : { pinned: false, pinned_at: null }
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("chats")
       .update(toggle)
       .eq("id", chatId)

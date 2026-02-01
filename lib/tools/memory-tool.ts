@@ -14,7 +14,7 @@ import { searchMemories } from "@/lib/memory/retrieval"
  * @param userId - User ID to search memories for
  */
 export const createMemorySearchTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       // CONSTRAINT-FIRST PROMPTING: Hard constraints before task
       "HARD CONSTRAINTS: " +
@@ -47,7 +47,7 @@ export const createMemorySearchTool = (userId: string) =>
           "Minimum importance score for memories (0-1). Higher values return only more important memories."
         ),
     }),
-    execute: async ({ query, limit, minImportance }) => {
+    execute: async ({ query, limit, minImportance }: { query: string; limit: number; minImportance: number }) => {
       try {
         // Get OpenRouter API key from environment
         const openrouterKey = process.env.OPENROUTER_API_KEY

@@ -121,7 +121,7 @@ export async function POST(req: Request): Promise<NextResponse<TraverseResponse 
     const limit = Math.min(body.limit || 50, 200) // Cap at 200
 
     // Verify start entity exists and belongs to user
-    const { data: startEntity, error: startError } = await supabase
+    const { data: startEntity, error: startError } = await (supabase as any)
       .from("kg_entities")
       .select("*")
       .eq("id", body.startEntityId)
@@ -136,7 +136,7 @@ export async function POST(req: Request): Promise<NextResponse<TraverseResponse 
     }
 
     // Use KnowledgeGraphManager for traversal
-    const kgManager = getKGManager(supabase)
+    const kgManager = getKGManager(supabase as any)
     const traversalResult = await kgManager.traverse(body.startEntityId, {
       maxDepth,
       relationTypes: body.relationTypes,
@@ -182,7 +182,7 @@ export async function POST(req: Request): Promise<NextResponse<TraverseResponse 
     if (body.includeRelations && formattedNodes.length > 0) {
       const nodeIds = formattedNodes.map((n) => n.id)
       // kg_relations doesn't have user_id - security is via entity ownership
-      const { data: relationsData } = await supabase
+      const { data: relationsData } = await (supabase as any)
         .from("kg_relations")
         .select("*")
         .or(`source_entity_id.in.(${nodeIds.join(",")}),target_entity_id.in.(${nodeIds.join(",")})`)
@@ -276,7 +276,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     }
 
     // Verify both entities exist and belong to user
-    const { data: entities, error: entitiesError } = await supabase
+    const { data: entities, error: entitiesError } = await (supabase as any)
       .from("kg_entities")
       .select("*")
       .in("id", [fromId, toId])
@@ -290,7 +290,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     }
 
     // Use KnowledgeGraphManager to find path
-    const kgManager = getKGManager(supabase)
+    const kgManager = getKGManager(supabase as any)
     const path = await kgManager.findPath(fromId, toId, Math.min(maxDepth, 6))
 
     if (!path || path.length === 0) {
@@ -307,15 +307,15 @@ export async function GET(req: Request): Promise<NextResponse> {
 
     // Fetch entity details for path
     const pathEntityIds = path.map((p) => p.entity_id)
-    const { data: pathEntities } = await supabase
+    const { data: pathEntities } = await (supabase as any)
       .from("kg_entities")
       .select("*")
       .in("id", pathEntityIds)
 
-    const entityMap = new Map(pathEntities?.map((e: { id: string; canonical_name: string; entity_type: string }) => [e.id, e]) || [])
+    const entityMap = new Map((pathEntities || []).map((e: any) => [e.id, e]))
 
     const formattedPath = path.map((p) => {
-      const entity = entityMap.get(p.entity_id)
+      const entity = entityMap.get(p.entity_id) as any
       return {
         entityId: p.entity_id,
         entityName: entity?.canonical_name || p.entity_name || "Unknown",
@@ -330,8 +330,8 @@ export async function GET(req: Request): Promise<NextResponse> {
       pathFound: true,
       path: formattedPath,
       pathLength: path.length,
-      from: entities.find((e) => e.id === fromId),
-      to: entities.find((e) => e.id === toId),
+      from: (entities as any[]).find((e: any) => e.id === fromId),
+      to: (entities as any[]).find((e: any) => e.id === toId),
       timing: {
         totalMs: Date.now() - startTime,
       },

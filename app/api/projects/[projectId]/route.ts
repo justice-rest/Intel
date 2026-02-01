@@ -79,7 +79,7 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("projects")
       .update({ name: name.trim() })
       .eq("id", projectId)

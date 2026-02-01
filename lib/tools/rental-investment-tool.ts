@@ -81,7 +81,7 @@ interface RentalInvestmentResult {
 // Tool Definition
 // ============================================================================
 
-export const rentalInvestmentTool = tool({
+export const rentalInvestmentTool = (tool as any)({
   description:
     "Analyze a property as a rental investment. " +
     "Estimates monthly rent and calculates investment metrics (GRM, cap rate, cash-on-cash return, monthly cash flow). " +

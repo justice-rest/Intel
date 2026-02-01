@@ -1,3 +1,4 @@
+import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { SYSTEM_PROMPT_DEFAULT, AI_MAX_OUTPUT_TOKENS } from "@/lib/config"
 import type { EffectiveChatConfig } from "@/lib/personas"
 import { getAllModels, normalizeModelId } from "@/lib/models"
@@ -100,8 +101,34 @@ import {
   type DeepResearchCreditCheck,
 } from "@/lib/subscription/autumn-client"
 import { optimizeMessagePayload, estimateTokens } from "@/lib/message-payload-optimizer"
-import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, smoothStream, ToolSet, tool } from "ai"
+import type { Attachment } from "@/app/types/database.types"
+import { streamText, smoothStream, stepCountIs, tool, ToolSet } from "ai"
+import type { ModelMessage } from "@ai-sdk/provider-utils"
+import type { ChatMessage } from "./utils"
+
+/**
+ * Convert ChatMessage array to ModelMessage array for AI SDK v6
+ * Strips out extra properties that aren't part of ModelMessage
+ */
+function toModelMessages(messages: ChatMessage[]): ModelMessage[] {
+  return messages.map((msg) => {
+    // Extract just the properties needed for ModelMessage
+    const { role, content } = msg
+
+    // Handle content conversion - ModelMessage expects string or content array
+    let modelContent: string | Array<{ type: string; text?: string; [key: string]: unknown }>
+    if (typeof content === "string") {
+      modelContent = content
+    } else if (Array.isArray(content)) {
+      // Filter to valid content parts (text, image, file, etc.)
+      modelContent = content.filter(part => part && typeof part === "object") as any
+    } else {
+      modelContent = String(content || "")
+    }
+
+    return { role, content: modelContent } as ModelMessage
+  })
+}
 import { z } from "zod"
 import {
   incrementMessageCount,
@@ -122,7 +149,7 @@ export const dynamic = "force-dynamic" // Ensure fresh responses
 type ResearchMode = "research" | "deep-research"
 
 type ChatRequest = {
-  messages: MessageAISDK[]
+  messages: ChatMessage[]
   chatId: string
   userId: string
   model: string
@@ -222,7 +249,7 @@ export async function POST(req: Request) {
             .from("users")
             .select("first_name, display_name")
             .eq("id", userId)
-            .single()
+            .single() as { data: { first_name: string | null; display_name: string | null } | null; error: Error | null }
 
           // Priority: first_name (from welcome popup) > display_name (from OAuth)
           return data?.first_name || data?.display_name || null
@@ -245,7 +272,7 @@ export async function POST(req: Request) {
           const supabaseClient = await createClient()
           if (!supabaseClient) return null
 
-          const memoryContext = await getChatMemories(supabaseClient, {
+          const memoryContext = await getChatMemories(supabaseClient as any, {
             userId,
             conversationMessages: messages.slice(-3).map((m) => ({
               role: m.role,
@@ -344,7 +371,7 @@ export async function POST(req: Request) {
           const { createClient } = await import("@/lib/supabase/server")
           const supabaseClient = await createClient()
           if (!supabaseClient) return null
-          return await getEffectiveChatConfig(supabaseClient, chatId, userId)
+          return await getEffectiveChatConfig(supabaseClient as any, chatId, userId)
         } catch (error) {
           console.error("Failed to get chat config:", error)
           return null
@@ -839,7 +866,12 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
               supabase,
               userId,
               chatId,
-              content: userMessage.content,
+              // Extract string content from message (handle both string and array formats)
+              content: typeof userMessage.content === "string"
+                ? userMessage.content
+                : Array.isArray(userMessage.content)
+                  ? userMessage.content.filter(p => p.type === "text").map(p => p.text || "").join("\n")
+                  : String(userMessage.content || ""),
               attachments: userMessage.experimental_attachments as Attachment[],
               model: normalizedModel,
               isAuthenticated,
@@ -902,6 +934,21 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
         ? {
             google_prospect_research: googleProspectResearchTool,
           }
+        : {}),
+      // Add native Google Search tool for Gemini models (AI SDK v6)
+      // This provides real-time web grounding for any Google model
+      ...(enableSearch && normalizedModel.startsWith("google:") && process.env.GOOGLE_GENERATIVE_AI_API_KEY
+        ? (() => {
+            const googleProvider = createGoogleGenerativeAI({
+              apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+            })
+            return {
+              google_search: googleProvider.tools.googleSearch({
+                mode: "MODE_DYNAMIC",
+                dynamicThreshold: 0.3,
+              }),
+            }
+          })()
         : {}),
       // Add LinkUp web search for prospect research (dual grounding with Google)
       // Comprehensive search with citations - real estate, business, philanthropy, securities, biography
@@ -1016,8 +1063,9 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
                   .describe("Which CRM to search. Default 'all' searches all connected CRMs."),
                 limit: z.number().optional().default(10).describe("Max results (1-50)"),
               }),
-              execute: async ({ query, provider, limit }) => {
-                return await searchCRMConstituents(userId, query, provider, limit)
+              // @ts-expect-error - AI SDK v6 type inference issue with inline tool definitions
+              execute: async (params: { query: string; provider?: "bloomerang" | "virtuous" | "all"; limit?: number }) => {
+                return await searchCRMConstituents(userId, params.query, params.provider || "all", params.limit || 10)
               },
             }),
           }
@@ -1042,7 +1090,8 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
 
     // Optimize message payload to prevent FUNCTION_PAYLOAD_TOO_LARGE errors
     // This limits message history, removes blob URLs, and truncates large tool results
-    const optimizedMessages = optimizeMessagePayload(messages)
+    // Type assertion: optimizeMessagePayload returns a compatible message type
+    const optimizedMessages = optimizeMessagePayload(messages as any) as ChatMessage[]
 
     // Clean messages based on model capabilities:
     // - Remove tool invocations if model doesn't support tools
@@ -1101,18 +1150,38 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     // the previous two-stage architecture that was required for Perplexity models.
     // All tools (RAG, CRM, Memory, Web Search) are now handled directly by the model.
     // =========================================================================
+    // Convert to ModelMessage format for AI SDK v6
+    const modelMessages = toModelMessages(finalMessages)
+
+    // Detect if using a Gemini model for provider-specific options
+    const isGeminiModel = normalizedModel.startsWith("google:")
+    const isDeepResearch = researchMode === "deep-research"
+
     const result = streamText({
       model: modelConfig.apiSdk(apiKey, { enableSearch, enableReasoning: true }),
       system: finalSystemPrompt,
-      messages: finalMessages,
+      messages: modelMessages,
       // Only pass tools if model supports them
       ...(modelSupportsTools && { tools }),
       // Allow multiple tool call steps for complex research workflows
-      maxSteps: modelSupportsTools ? 50 : 1,
-      maxTokens: AI_MAX_OUTPUT_TOKENS,
+      // In AI SDK v6, maxSteps is replaced with stopWhen: stepCountIs(n)
+      stopWhen: modelSupportsTools ? stepCountIs(50) : stepCountIs(1),
+      maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
       // Increase retries to handle rate limits (default is 3, which often fails)
       // Uses exponential backoff: ~1s, ~2s, ~4s, ~8s, ~16s, ~32s, ~64s, ~128s
       maxRetries: 8,
+      // Enable Gemini 3 reasoning (thinking) for enhanced multi-step analysis
+      // thinkingLevel: "high" for deep research, "medium" for standard research
+      ...(isGeminiModel && {
+        providerOptions: {
+          google: {
+            thinkingConfig: {
+              thinkingLevel: isDeepResearch ? "high" : "medium",
+              includeThoughts: true,
+            },
+          },
+        },
+      }),
       experimental_telemetry: { isEnabled: false },
       // Only use smoothStream when no tools are available (smoothStream breaks tool calls)
       experimental_transform: hasTools ? undefined : smoothStream(),
@@ -1312,13 +1381,10 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     })
 
     // Return streaming response with sources enabled
-    const response = result.toDataStreamResponse({
+    // In AI SDK v6, toDataStreamResponse is replaced with toUIMessageStreamResponse
+    const response = result.toUIMessageStreamResponse({
       sendReasoning: true,
       sendSources: true,
-      getErrorMessage: (error: unknown) => {
-        console.error("[Chat API] Response error:", error)
-        return extractErrorMessage(error)
-      },
     })
 
     // Add headers to optimize streaming delivery

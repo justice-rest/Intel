@@ -38,12 +38,15 @@ export const { GET, POST } = autumnHandler({
       .eq("id", user.id)
       .single()
 
+    // Type assertion for Supabase query result
+    const profile = userProfile as { display_name: string | null; email: string | null } | null
+
     // Return customer information for Autumn
     return {
       customerId: user.id,
       customerData: {
-        name: userProfile?.display_name || user.email?.split("@")[0] || "User",
-        email: userProfile?.email || user.email || "",
+        name: profile?.display_name || user.email?.split("@")[0] || "User",
+        email: profile?.email || user.email || "",
       },
     }
   },

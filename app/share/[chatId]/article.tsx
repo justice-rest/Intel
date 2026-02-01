@@ -17,7 +17,7 @@ import { APP_NAME } from "@/lib/config"
 import { exportToPdf } from "@/lib/pdf-export"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import type { Message as MessageAISDK } from "@ai-sdk/react"
+import type { UIMessage as MessageAISDK } from "@ai-sdk/react"
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
 import { Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
 import Link from "next/link"
@@ -144,16 +144,16 @@ export default function Article({
                 ?.filter(
                   (part) =>
                     part.type === "tool-invocation" &&
-                    part.toolInvocation?.state === "result" &&
-                    part.toolInvocation?.toolName === "imageSearch" &&
-                    part.toolInvocation?.result?.content?.[0]?.type === "images"
+                    (part as any).toolInvocation?.state === "result" &&
+                    (part as any).toolInvocation?.toolName === "imageSearch" &&
+                    (part as any).toolInvocation?.result?.content?.[0]?.type === "images"
                 )
                 .flatMap((part) =>
                   part.type === "tool-invocation" &&
-                  part.toolInvocation?.state === "result" &&
-                  part.toolInvocation?.toolName === "imageSearch" &&
-                  part.toolInvocation?.result?.content?.[0]?.type === "images"
-                    ? (part.toolInvocation?.result?.content?.[0]?.results ?? [])
+                  (part as any).toolInvocation?.state === "result" &&
+                  (part as any).toolInvocation?.toolName === "imageSearch" &&
+                  (part as any).toolInvocation?.result?.content?.[0]?.type === "images"
+                    ? ((part as any).toolInvocation?.result?.content?.[0]?.results ?? [])
                     : []
                 ) ?? []
 
@@ -174,9 +174,9 @@ export default function Article({
                     message.role === "user" && "max-w-[85%]"
                   )}>
                     {/* Render reasoning for assistant messages */}
-                    {message.role === "assistant" && reasoningParts && reasoningParts.reasoning && (
+                    {message.role === "assistant" && reasoningParts && (reasoningParts as any).reasoning && (
                       <Reasoning
-                        reasoning={reasoningParts.reasoning}
+                        reasoning={(reasoningParts as any).reasoning}
                         isStreaming={false}
                       />
                     )}

@@ -685,7 +685,7 @@ function formatForAI(result: GivingCapacityResult): string {
 // TOOL DEFINITION
 // ============================================================================
 
-export const givingCapacityCalculatorTool = tool({
+export const givingCapacityCalculatorTool = (tool as any)({
   description:
     "Calculate giving capacity using TFG Research Formulas (GS, EGS, Snapshot). " +
     "Requires real estate value and property count at minimum. " +
@@ -696,7 +696,22 @@ export const givingCapacityCalculatorTool = tool({
 
   parameters: givingCapacitySchema,
 
-  execute: async (params): Promise<GivingCapacityResult> => {
+  execute: async (params: {
+    totalRealEstateValue: number;
+    propertyCount: number;
+    lifetimeGiving: number;
+    last5YearsGiving?: number;
+    estimatedSalary?: number;
+    age?: number;
+    hasBusinessOwnership: boolean;
+    businessRevenue?: number;
+    isMultipleBusinessOwner: boolean;
+    isEntrepreneur?: boolean;
+    hasSecFilings: boolean;
+    hasDemonstratedGenerosity?: boolean;
+    largestKnownGift?: number;
+    calculationType: "gs" | "egs" | "snapshot" | "all";
+  }): Promise<GivingCapacityResult> => {
     console.log("[Giving Capacity] Calculating capacity...")
 
     const missingDataPoints: string[] = []

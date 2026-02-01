@@ -30,7 +30,7 @@ import { isSupabaseEnabled } from "@/lib/supabase/config"
  * Create Gmail inbox reading tool bound to a specific user
  */
 export const createGmailInboxTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       "Read the user's recent Gmail inbox messages. " +
       "Returns a list of recent emails with sender, subject, date, and snippet. " +
@@ -49,7 +49,7 @@ export const createGmailInboxTool = (userId: string) =>
         .default(10)
         .describe("Maximum number of emails to return (default: 10, max: 50)"),
     }),
-    execute: async ({ query, maxResults }) => {
+    execute: async ({ query, maxResults }: { query?: string; maxResults: number }) => {
       try {
         // Check access
         const hasAccess = await hasGmailAccess(userId)
@@ -99,7 +99,7 @@ export const createGmailInboxTool = (userId: string) =>
  * Create Gmail thread reading tool bound to a specific user
  */
 export const createGmailThreadTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       "Read a full email thread/conversation. " +
       "Returns all messages in the thread with full content. " +
@@ -112,7 +112,7 @@ export const createGmailThreadTool = (userId: string) =>
           "The thread ID to read (from inbox results or user-provided)"
         ),
     }),
-    execute: async ({ threadId }) => {
+    execute: async ({ threadId }: { threadId: string }) => {
       try {
         const hasAccess = await hasGmailAccess(userId)
         if (!hasAccess) {
@@ -152,7 +152,7 @@ export const createGmailThreadTool = (userId: string) =>
  * IMPORTANT: This ONLY creates drafts - it CANNOT send emails
  */
 export const createGmailDraftTool = (userId: string, chatId?: string) =>
-  tool({
+  (tool as any)({
     description:
       "Create an email draft in the user's Gmail. " +
       "IMPORTANT: This creates a DRAFT only - the user must manually review and send it from Gmail. " +
@@ -176,7 +176,7 @@ export const createGmailDraftTool = (userId: string, chatId?: string) =>
           "Thread ID for replies (optional - include to keep email in the same thread)"
         ),
     }),
-    execute: async ({ to, subject, body, cc, threadId }) => {
+    execute: async ({ to, subject, body, cc, threadId }: { to: string[]; subject: string; body: string; cc?: string[]; threadId?: string }) => {
       try {
         const hasAccess = await hasGmailAccess(userId)
         if (!hasAccess) {
@@ -241,7 +241,7 @@ export const createGmailDraftTool = (userId: string, chatId?: string) =>
  * Create Gmail draft listing tool
  */
 export const createGmailListDraftsTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       "List the user's pending Gmail drafts. " +
       "Use this when the user asks about their drafts or wants to see what emails are waiting to be sent.",
@@ -252,7 +252,7 @@ export const createGmailListDraftsTool = (userId: string) =>
         .default(10)
         .describe("Maximum number of drafts to return (default: 10)"),
     }),
-    execute: async ({ limit }) => {
+    execute: async ({ limit }: { limit: number }) => {
       try {
         const hasAccess = await hasGmailAccess(userId)
         if (!hasAccess) {
@@ -297,7 +297,7 @@ export const createGmailListDraftsTool = (userId: string) =>
  * Create Gmail search tool
  */
 export const createGmailSearchTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       "Search the user's Gmail for specific emails. " +
       "Supports Gmail's powerful search syntax. " +
@@ -316,7 +316,7 @@ export const createGmailSearchTool = (userId: string) =>
         .default(10)
         .describe("Maximum number of results (default: 10, max: 50)"),
     }),
-    execute: async ({ query, maxResults }) => {
+    execute: async ({ query, maxResults }: { query: string; maxResults: number }) => {
       try {
         const hasAccess = await hasGmailAccess(userId)
         if (!hasAccess) {

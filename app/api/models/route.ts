@@ -40,7 +40,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("user_keys")
       .select("provider")
-      .eq("user_id", authData.user.id)
+      .eq("user_id", authData.user.id) as { data: any[] | null; error: any }
 
     if (error) {
       console.error("Error fetching user keys:", error)
@@ -53,7 +53,7 @@ export async function GET() {
       })
     }
 
-    const userProviders = data?.map((k) => k.provider) || []
+    const userProviders = data?.map((k: any) => k.provider) || []
 
     if (userProviders.length === 0) {
       const models = await getModelsWithAccessFlags()

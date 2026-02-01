@@ -394,7 +394,7 @@ const nycPropertySalesSchema = z.object({
     .describe("Maximum sale price (only for price_range search)"),
 })
 
-export const nycPropertySalesTool = tool({
+export const nycPropertySalesTool = (tool as any)({
   description:
     "Search NYC property sales for ACTUAL transaction prices (not estimates). " +
     "Data from NYC Department of Finance - all sales since 2003. " +
@@ -404,7 +404,7 @@ export const nycPropertySalesTool = tool({
 
   parameters: nycPropertySalesSchema,
 
-  execute: async ({ searchTerm, searchType, minPrice, maxPrice }): Promise<NYCPropertySalesResult> => {
+  execute: async ({ searchTerm, searchType, minPrice, maxPrice }: { searchTerm: string; searchType?: "address" | "neighborhood" | "price_range"; minPrice?: number; maxPrice?: number }): Promise<NYCPropertySalesResult> => {
     if (searchType === "price_range") {
       return searchByPriceRange(minPrice || 1000000, maxPrice || 100000000)
     }

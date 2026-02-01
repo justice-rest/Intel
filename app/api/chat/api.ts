@@ -108,7 +108,7 @@ export async function validateAndTrackUsage({
       "message_count, daily_message_count, daily_reset, anonymous, premium, daily_pro_message_count, daily_pro_reset"
     )
     .eq("id", userId)
-    .maybeSingle()
+    .maybeSingle() as { data: { message_count: number | null; daily_message_count: number | null; daily_reset: string | null; anonymous: boolean | null; premium: boolean | null; daily_pro_message_count: number | null; daily_pro_reset: string | null } | null; error: Error | null }
 
   if (userDataError) {
     throw new Error("Error fetching user data: " + userDataError.message)
@@ -146,7 +146,8 @@ export async function validateAndTrackUsage({
       updates.daily_pro_reset = now.toISOString()
     }
 
-    const { error: resetError } = await supabase
+    // Type assertion needed due to Supabase v2.93+ type inference issues
+    const { error: resetError } = await (supabase as any)
       .from("users")
       .update(updates)
       .eq("id", userId)
@@ -253,11 +254,11 @@ export async function validateAndTrackUsage({
 
       // For Growth plan users, check if they have bonus credits to use
       if (planType === "growth") {
-        const bonusResult = await checkAndUseBonusCredits(supabase, userId, planType)
+        const bonusResult = await checkAndUseBonusCredits(supabase as any, userId, planType)
         if (bonusResult.usedBonus) {
           console.log("[Subscription Check] Using bonus credit instead of blocking")
           // Allow the request - bonus credit was used
-          return supabase
+          return supabase as unknown as SupabaseClientType
         }
         // No bonus credits available - show limit error
         throw new Error(
@@ -278,7 +279,7 @@ export async function validateAndTrackUsage({
     }
   }
 
-  return supabase
+  return supabase as unknown as SupabaseClientType
 }
 
 /**

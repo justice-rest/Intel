@@ -508,7 +508,7 @@ const federalLobbyingSchema = z.object({
     .describe("Filter by specific year (e.g., 2024)"),
 })
 
-export const federalLobbyingTool = tool({
+export const federalLobbyingTool = (tool as any)({
   description:
     "Search federal lobbying disclosures (Lobbying Disclosure Act). " +
     "Find who is lobbying Congress, for whom, on what issues, and how much they're paid. " +
@@ -517,7 +517,7 @@ export const federalLobbyingTool = tool({
 
   parameters: federalLobbyingSchema,
 
-  execute: async ({ query, searchType, year }): Promise<LobbyingResult> => {
+  execute: async ({ query, searchType, year }: { query: string; searchType: "registrant" | "client" | "lobbyist"; year?: number }): Promise<LobbyingResult> => {
     if (!isLDAEnabled()) {
       return buildErrorResult(
         searchType,

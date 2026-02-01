@@ -49,7 +49,7 @@ export async function searchDocumentChunks(
     const embeddingString = `[${queryEmbedding.join(',')}]`
 
     // Call the search_rag_chunks function from Supabase
-    const { data, error } = await supabase.rpc("search_rag_chunks", {
+    const { data, error } = await (supabase as any).rpc("search_rag_chunks", {
       query_embedding: embeddingString,
       match_user_id: userId,
       match_count: maxResults,
@@ -92,7 +92,7 @@ export async function getStorageUsage(
   }
 
   try {
-    const { data, error } = await supabase.rpc("get_rag_storage_usage", {
+    const { data, error } = await (supabase as any).rpc("get_rag_storage_usage", {
       user_id_param: userId,
     })
 
@@ -167,7 +167,7 @@ export async function checkUploadLimit(
   const startOfToday = new Date()
   startOfToday.setUTCHours(0, 0, 0, 0)
 
-  const { count, error } = await supabase
+  const { count, error } = await (supabase as any)
     .from("rag_documents")
     .select("*", { count: "exact", head: true })
     .eq("user_id", userId)
@@ -197,7 +197,7 @@ export async function getUserDocuments(userId: string) {
     throw new Error("Database not configured")
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("rag_documents")
     .select("*")
     .eq("user_id", userId)
@@ -224,7 +224,7 @@ export async function getDocument(documentId: string, userId: string) {
     throw new Error("Database not configured")
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("rag_documents")
     .select("*")
     .eq("id", documentId)
@@ -255,7 +255,7 @@ export async function deleteDocument(documentId: string, userId: string) {
   const document = await getDocument(documentId, userId)
 
   // Delete from database (chunks will cascade delete)
-  const { error: deleteError } = await supabase
+  const { error: deleteError } = await (supabase as any)
     .from("rag_documents")
     .delete()
     .eq("id", documentId)
@@ -309,7 +309,7 @@ export async function updateDocumentTags(
     throw new Error("Database not configured")
   }
 
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from("rag_documents")
     .update({ tags })
     .eq("id", documentId)
@@ -334,7 +334,7 @@ export async function searchDocuments(userId: string, query: string) {
     throw new Error("Database not configured")
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("rag_documents")
     .select("*")
     .eq("user_id", userId)

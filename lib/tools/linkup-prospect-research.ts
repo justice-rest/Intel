@@ -1036,7 +1036,7 @@ const linkupProspectResearchSchema = z.object({
 export function createLinkUpProspectResearchTool(useDeepMode: boolean = false) {
   const modeLabel = useDeepMode ? "Deep Research" : "Research"
 
-  return tool({
+  return (tool as any)({
     description: useDeepMode
       ? // Deep Research mode
         "HARD CONSTRAINTS: " +
@@ -1055,7 +1055,7 @@ export function createLinkUpProspectResearchTool(useDeepMode: boolean = false) {
         "OUTPUT: Comprehensive findings with sources. " +
         "Uses multi-query architecture for best price/performance.",
     parameters: linkupProspectResearchSchema,
-    execute: async (params): Promise<LinkUpProspectResult> => {
+    execute: async (params: { name: string; address?: string; context?: string; focus_areas?: Array<"real_estate" | "business" | "philanthropy" | "securities" | "biography"> }): Promise<LinkUpProspectResult> => {
       const { name, address, context, focus_areas } = params
       console.log(`[LinkUp ${modeLabel}] Starting research for:`, name)
       const startTime = Date.now()

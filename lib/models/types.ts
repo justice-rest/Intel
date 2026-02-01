@@ -1,4 +1,7 @@
-import { LanguageModelV1 } from "ai"
+import type { LanguageModel } from "ai"
+
+// Type alias for backwards compatibility - LanguageModel is the v6 equivalent of LanguageModelV1
+type LanguageModelV1 = LanguageModel
 
 type ModelConfig = {
   id: string // "gpt-4.1-nano" // same from AI SDKs

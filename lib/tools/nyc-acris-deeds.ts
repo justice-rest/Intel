@@ -570,7 +570,7 @@ const acrisDeedsSchema = z.object({
     .describe("Search by party name (buyer/seller) or property address"),
 })
 
-export const acrisDeedsTool = tool({
+export const acrisDeedsTool = (tool as any)({
   description:
     "Search NYC ACRIS for property deeds, mortgages, and ownership records. " +
     "Shows: buyer/seller names, transaction amounts, dates, property addresses. " +
@@ -580,7 +580,7 @@ export const acrisDeedsTool = tool({
 
   parameters: acrisDeedsSchema,
 
-  execute: async ({ searchTerm, searchType }): Promise<ACRISDeedsResult> => {
+  execute: async ({ searchTerm, searchType }: { searchTerm: string; searchType?: "party_name" | "address" }): Promise<ACRISDeedsResult> => {
     if (searchType === "address") {
       return searchByAddress(searchTerm)
     }

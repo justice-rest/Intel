@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     )
 
     // Update the user's favorite models
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("users")
       .update({
         favorite_models: normalizedFavoriteModels,
@@ -101,7 +101,7 @@ export async function GET() {
     }
 
     // Get the user's favorite models
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("users")
       .select("favorite_models")
       .eq("id", user.id)

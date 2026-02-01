@@ -425,7 +425,7 @@ const usptoSearchSchema = z.object({
     .describe("Search type: inventor (person), assignee (company), trademark_owner, or any"),
 })
 
-export const usptoSearchTool = tool({
+export const usptoSearchTool = (tool as any)({
   description:
     "Search USPTO for patents and trademarks. " +
     "Patents indicate innovation and intellectual property wealth. " +
@@ -437,7 +437,7 @@ export const usptoSearchTool = tool({
 
   parameters: usptoSearchSchema,
 
-  execute: async ({ searchTerm, searchType }): Promise<USPTOSearchResult> => {
+  execute: async ({ searchTerm, searchType }: { searchTerm: string; searchType?: "inventor" | "assignee" | "trademark_owner" | "any" }): Promise<USPTOSearchResult> => {
     return searchUSPTO(searchTerm, searchType)
   },
 })

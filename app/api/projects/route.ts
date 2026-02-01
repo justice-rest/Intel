@@ -24,7 +24,7 @@ export async function POST(request: Request) {
 
     const { name } = await request.json()
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("projects")
       .insert({ name, user_id: userId })
       .select()

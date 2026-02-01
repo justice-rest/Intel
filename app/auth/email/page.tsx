@@ -132,7 +132,7 @@ export default function EmailAuthPage() {
         if (userError && userError.code === "PGRST116") {
           // User not found, create them
           const userEmail = user.email // TypeScript type narrowing
-          const { error: insertError } = await supabase.from("users").insert({
+          const { error: insertError } = await (supabase as any).from("users").insert({
             id: user.id,
             email: userEmail,
             created_at: new Date().toISOString(),

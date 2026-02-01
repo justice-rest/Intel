@@ -73,17 +73,15 @@ const QUERY_CATEGORIES = [
 /**
  * Check if Google Prospect Research should be enabled
  *
- * TEMPORARILY DISABLED: The @ai-sdk/google package sends deprecated
- * `google_search_retrieval` format instead of the newer `google_search`
- * format required by Gemini 3 models. This causes API errors.
- * See: https://github.com/vercel/ai/issues/10348
+ * With AI SDK v6 (@ai-sdk/google@3.x), the Google Search grounding is now
+ * properly supported via google.tools.googleSearch() native tool approach.
  *
- * Web search is handled by LinkUp tools instead.
+ * This tool uses multi-query architecture (5 parallel searches) for
+ * comprehensive prospect research covering real estate, business,
+ * philanthropy, securities, and biography.
  */
 export function shouldEnableGoogleProspectResearch(): boolean {
-  // Disabled until AI SDK is updated to support Gemini 3 search grounding
-  return false
-  // Original: return !!process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  return !!process.env.GOOGLE_GENERATIVE_AI_API_KEY
 }
 
 // ============================================================================
@@ -149,6 +147,9 @@ function buildTargetedQueries(
 
 /**
  * Execute a single Google Search query with grounding
+ *
+ * Uses AI SDK v6 native google.tools.googleSearch() for real-time web grounding.
+ * The model automatically searches and returns grounded results with citations.
  */
 async function executeGoogleSearch(
   query: string,
@@ -176,14 +177,18 @@ async function executeGoogleSearch(
 
     const result = await Promise.race([
       generateText({
-        model: google("gemini-3-flash-preview", {
-          useSearchGrounding: true,
-        }),
+        model: google("gemini-3-flash-preview"),
+        // AI SDK v6: Use native google.tools.googleSearch() instead of useSearchGrounding
+        tools: {
+          google_search: google.tools.googleSearch({
+            mode: "MODE_DYNAMIC",
+            dynamicThreshold: 0.3,
+          }),
+        },
         prompt: `Search for and provide factual information about: ${query}
 
 Provide specific findings with sources. Include dollar amounts, dates, and verified data where available.
 If no information is found, state "No results found" rather than guessing.`,
-        maxTokens: 2000,
       }),
       new Promise<never>((_, reject) =>
         setTimeout(
@@ -193,8 +198,9 @@ If no information is found, state "No results found" rather than guessing.`,
       ),
     ])
 
-    // Extract sources from grounding metadata
-    const providerMetadata = result.experimental_providerMetadata as
+    // Extract sources from grounding metadata (AI SDK v6 format)
+    // providerMetadata contains google.groundingMetadata with search results
+    const providerMetadata = (result as any).providerMetadata as
       | { google?: { groundingMetadata?: GoogleGroundingMetadata } }
       | undefined
     const groundingChunks =
@@ -308,7 +314,7 @@ const googleProspectResearchSchema = z.object({
  * Executes 5 parallel searches covering real estate, business,
  * philanthropy, securities, and biography.
  */
-export const googleProspectResearchTool = tool({
+export const googleProspectResearchTool = (tool as any)({
   description: `Research a prospect using Google Search with multi-query architecture.
 Executes 5 parallel targeted searches covering:
 - Real estate holdings and property values
@@ -322,7 +328,7 @@ Returns structured results with citations from Google Search.
 
 IMPORTANT: Use alongside linkup_prospect_research for dual-source validation.`,
   parameters: googleProspectResearchSchema,
-  execute: async ({ prospectName, address, additionalContext }): Promise<GoogleProspectResult> => {
+  execute: async ({ prospectName, address, additionalContext }: { prospectName: string; address?: string; additionalContext?: string }): Promise<GoogleProspectResult> => {
     console.log(`[Google Prospect Research] Starting research for: ${prospectName}`)
     const startTime = Date.now()
 

@@ -46,7 +46,8 @@ export async function POST() {
     }
 
     // Get existing branding to find logo URL for cleanup
-    const { data: existingBranding, error: fetchError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existingBranding, error: fetchError } = await (supabase as any)
       .from("pdf_branding")
       .select("logo_url")
       .eq("user_id", user.id)
@@ -61,8 +62,10 @@ export async function POST() {
     }
 
     // Delete logo from storage if exists
-    if (existingBranding?.logo_url) {
-      const filePath = extractPathFromUrl(existingBranding.logo_url)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingBrandingData = existingBranding as any
+    if (existingBrandingData?.logo_url) {
+      const filePath = extractPathFromUrl(existingBrandingData.logo_url)
       if (filePath) {
         await supabase.storage
           .from(STORAGE_BUCKET)
@@ -72,7 +75,8 @@ export async function POST() {
     }
 
     // Delete the branding record entirely (will use defaults)
-    const { error: deleteError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: deleteError } = await (supabase as any)
       .from("pdf_branding")
       .delete()
       .eq("user_id", user.id)

@@ -34,7 +34,7 @@ export async function createMemory(
     }
 
     // Check if user has reached memory limit
-    const { count } = await supabase
+    const { count } = await (supabase as any)
       .from("user_memories")
       .select("id", { count: "exact", head: true })
       .eq("user_id", memory.user_id)
@@ -48,7 +48,7 @@ export async function createMemory(
     // Convert embedding array to JSON string for storage
     const embeddingString = JSON.stringify(memory.embedding)
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_memories")
       .insert({
         user_id: memory.user_id,
@@ -99,7 +99,7 @@ export async function createMemories(
       embedding: JSON.stringify(m.embedding),
     }))
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_memories")
       .insert(memoriesToInsert)
       .select()
@@ -138,7 +138,7 @@ export async function getMemoryById(
       return null
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_memories")
       .select("*")
       .eq("id", memoryId)
@@ -177,7 +177,7 @@ export async function getUserMemories(
       return []
     }
 
-    let query = supabase
+    let query = (supabase as any)
       .from("user_memories")
       .select("*")
       .eq("user_id", userId)
@@ -225,7 +225,7 @@ export async function getMemoriesByType(
       return []
     }
 
-    let query = supabase
+    let query = (supabase as any)
       .from("user_memories")
       .select("*")
       .eq("user_id", userId)
@@ -270,7 +270,7 @@ export async function getMemoryStats(userId: string): Promise<MemoryStats> {
       }
     }
 
-    const { data, error } = await supabase.rpc("get_user_memory_stats", {
+    const { data, error } = await (supabase as any).rpc("get_user_memory_stats", {
       user_id_param: userId,
     })
 
@@ -330,7 +330,7 @@ export async function memoryExists(
     const { embedding } = await generateEmbedding(content, apiKey)
 
     // Search for similar memories (embedding must be passed as array for the DB function)
-    const { data, error } = await supabase.rpc("search_user_memories", {
+    const { data, error } = await (supabase as any).rpc("search_user_memories", {
       query_embedding: embedding as unknown as string, // RPC accepts vector type
       match_user_id: userId,
       match_count: 1,
@@ -391,7 +391,7 @@ export async function updateMemory(
       updateData.embedding = JSON.stringify(updates.embedding)
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_memories")
       .update(updateData)
       .eq("id", memoryId)
@@ -424,7 +424,7 @@ export async function incrementMemoryAccess(memoryId: string): Promise<void> {
       return
     }
 
-    await supabase.rpc("increment_memory_access", {
+    await (supabase as any).rpc("increment_memory_access", {
       memory_id: memoryId,
     })
   } catch (error) {
@@ -455,7 +455,7 @@ export async function deleteMemory(
       return false
     }
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("user_memories")
       .delete()
       .eq("id", memoryId)
@@ -487,7 +487,7 @@ export async function deleteAllMemories(userId: string): Promise<number> {
       return 0
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_memories")
       .delete()
       .eq("user_id", userId)
@@ -523,7 +523,7 @@ export async function deleteMemoriesByType(
       return 0
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_memories")
       .delete()
       .eq("user_id", userId)
@@ -562,7 +562,7 @@ export async function pruneMemories(
     }
 
     // Get IDs of memories to keep (sorted by weighted score)
-    const { data: memoriesToKeep } = await supabase
+    const { data: memoriesToKeep } = await (supabase as any)
       .from("user_memories")
       .select("id")
       .eq("user_id", userId)
@@ -574,10 +574,10 @@ export async function pruneMemories(
       return 0
     }
 
-    const idsToKeep = memoriesToKeep.map((m) => m.id)
+    const idsToKeep = memoriesToKeep.map((m: any) => m.id)
 
     // Delete all memories except the ones to keep
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("user_memories")
       .delete()
       .eq("user_id", userId)

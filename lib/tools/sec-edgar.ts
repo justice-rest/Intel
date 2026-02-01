@@ -190,14 +190,14 @@ function getFormType(fiscalPeriod: string): string {
 /**
  * Get SEC EDGAR filings and financial data for a company
  */
-export const secEdgarFilingsTool = tool({
+export const secEdgarFilingsTool = (tool as any)({
   description:
     "Get SEC EDGAR filings and financial reports for a public company by ticker symbol. " +
     "Returns 10-K (annual) and 10-Q (quarterly) financial data including balance sheet, " +
     "income statement, cash flow, and share information. Essential for wealth assessment " +
     "of executives and major shareholders. No API key required.",
   parameters: secEdgarFilingsSchema,
-  execute: async ({ symbol, limit = 5 }): Promise<SecEdgarFilingsResult> => {
+  execute: async ({ symbol, limit = 5 }: { symbol: string; limit?: number }): Promise<SecEdgarFilingsResult> => {
     console.log("[SEC EDGAR] Getting filings for:", symbol, "limit:", limit)
     const startTime = Date.now()
 

@@ -16,7 +16,7 @@ export async function getMessageUsage(
     .from("users")
     .select("daily_message_count, daily_pro_message_count")
     .eq("id", userId)
-    .maybeSingle()
+    .maybeSingle() as { data: any; error: any }
 
   if (error || !data) {
     throw new Error(error?.message || "Failed to fetch message usage")

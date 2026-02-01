@@ -23,14 +23,14 @@ export async function GET() {
     const { data, error } = await supabase
       .from("user_keys")
       .select("provider")
-      .eq("user_id", authData.user.id)
+      .eq("user_id", authData.user.id) as { data: any[] | null; error: any }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     // Create status object for all supported providers
-    const userProviders = data?.map((k) => k.provider) || []
+    const userProviders = data?.map((k: any) => k.provider) || []
     const providerStatus = SUPPORTED_PROVIDERS.reduce(
       (acc, provider) => {
         acc[provider] = userProviders.includes(provider)

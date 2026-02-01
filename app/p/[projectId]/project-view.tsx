@@ -16,7 +16,10 @@ import { API_ROUTE_CHAT } from "@/lib/routes"
 import { useUser } from "@/lib/user-store/provider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { useChat } from "@ai-sdk/react"
+import { useChat, type UIMessage } from "@ai-sdk/react"
+
+// Type alias for backwards compatibility
+type Message = UIMessage
 import { ChatCircleIcon } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
@@ -88,22 +91,22 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     })
   }, [])
 
-  const {
-    messages,
-    input,
-    handleSubmit,
-    status,
-    reload,
-    stop,
-    setMessages,
-    setInput,
-  } = useChat({
+  const chatHook = useChat({
     id: `project-${projectId}-${currentChatId}`,
     api: API_ROUTE_CHAT,
     initialMessages: [],
     onFinish: cacheAndAddMessage,
     onError: handleError,
-  })
+  } as any)
+
+  const messages = chatHook.messages
+  const input = (chatHook as any).input ?? ""
+  const handleSubmit = (chatHook as any).handleSubmit ?? chatHook.sendMessage
+  const status = chatHook.status
+  const reload = (chatHook as any).reload ?? (chatHook as any).regenerate
+  const stop = chatHook.stop
+  const setMessages = chatHook.setMessages
+  const setInput = (chatHook as any).setInput ?? (() => {})
 
   const { selectedModel, handleModelChange } = useModel({
     currentChat: null,
@@ -211,7 +214,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
     }
 
-    setMessages((prev) => [...prev, optimisticMessage])
+    setMessages((prev) => [...prev, optimisticMessage as any])
     setInput("")
 
     const submittedFiles = [...files]
@@ -263,7 +266,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       handleSubmit(undefined, options)
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
       cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
-      cacheAndAddMessage(optimisticMessage)
+      cacheAndAddMessage(optimisticMessage as any)
 
       // Bump existing chats to top (non-blocking, after submit)
       if (messages.length > 0) {

@@ -35,12 +35,12 @@ export async function POST(request: Request) {
       .select("provider")
       .eq("user_id", authData.user.id)
       .eq("provider", provider)
-      .single()
+      .single() as { data: any; error: any }
 
     const isNewKey = !existingKey
 
     // Save the API key
-    const { error } = await supabase.from("user_keys").upsert({
+    const { error } = await (supabase as any).from("user_keys").upsert({
       user_id: authData.user.id,
       provider,
       encrypted_key: encrypted,
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
           .from("users")
           .select("favorite_models")
           .eq("id", authData.user.id)
-          .single()
+          .single() as { data: any; error: any }
 
         const currentFavorites = userData?.favorite_models || []
 
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
           const updatedFavorites = [...currentFavorites, ...newModelsToAdd]
 
           // Update user's favorite models
-          const { error: favoritesError } = await supabase
+          const { error: favoritesError } = await (supabase as any)
             .from("users")
             .update({ favorite_models: updatedFavorites })
             .eq("id", authData.user.id)

@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0', 10)
 
     // Fetch personas
-    const result = await listPersonas(supabase, user.id, {
+    const result = await listPersonas(supabase as any, user.id, {
       includeArchived,
       limit: Math.min(limit, 100), // Cap at 100
       offset,
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create persona
-    const persona = await createPersona(supabase, user.id, body)
+    const persona = await createPersona(supabase as any, user.id, body)
 
     return NextResponse.json(
       {

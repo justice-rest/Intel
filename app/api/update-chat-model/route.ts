@@ -36,7 +36,7 @@ export async function POST(request: Request) {
       .from("chats")
       .select("user_id")
       .eq("id", chatId)
-      .single()
+      .single() as { data: any; error: any }
 
     if (!chat || chat.user_id !== user.id) {
       return new Response(JSON.stringify({ error: "Chat not found" }), {
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     // Normalize model ID for backwards compatibility (e.g., old model IDs → Gemini)
     const normalizedModel = normalizeModelId(model)
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from("chats")
       .update({ model: normalizedModel })
       .eq("id", chatId)

@@ -7,8 +7,11 @@ import { MESSAGE_MAX_LENGTH, SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
 import { Attachment } from "@/lib/file-handling"
 import { API_ROUTE_CHAT } from "@/lib/routes"
 import type { UserProfile } from "@/lib/user/types"
-import type { Message } from "@ai-sdk/react"
+import type { UIMessage } from "@ai-sdk/react"
 import { useChat } from "@ai-sdk/react"
+
+// Type alias for backwards compatibility - UIMessage is the v6 equivalent of Message
+type Message = UIMessage
 import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ResearchMode } from "@/app/components/chat-input/research-mode-selector"
@@ -117,25 +120,37 @@ export function useChatCore({
     [setHasDialogSubscriptionRequired, setHasDialogLimitReached]
   )
 
-  // Initialize useChat
+  // Local input state - v6 doesn't manage input internally
+  const [input, setInputState] = useState(draftValue)
+  const setInput = useCallback((value: string) => {
+    setInputState(value)
+  }, [])
+
+  // Initialize useChat - v6 API with HttpChatTransport for custom API endpoint
   const {
     messages,
-    input,
-    handleSubmit,
     status,
     error,
-    reload,
     stop,
     setMessages,
-    setInput,
-    append,
+    sendMessage,
+    regenerate,
   } = useChat({
     id: chatId || "new-chat",
-    api: API_ROUTE_CHAT,
-    initialMessages,
-    initialInput: draftValue,
-    onFinish: async (m) => {
-      cacheAndAddMessage(m)
+    // v6 uses transport for API configuration
+    transport: {
+      send: async ({ messages: msgs, body }: { messages: any; body: any }) => {
+        const response = await fetch(API_ROUTE_CHAT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: msgs, ...body }),
+        })
+        return response
+      },
+    } as any,
+    messages: initialMessages,
+    onFinish: async ({ message: m }: { message: any }) => {
+      cacheAndAddMessage(m as UIMessage)
       setResponseStartTime(null) // Clear time estimate when response finishes
       try {
         const effectiveChatId =
@@ -156,8 +171,8 @@ export function useChatCore({
         console.error("Message ID reconciliation failed: ", error)
       }
     },
-    onError: handleError,
-  })
+    onError: (err: any) => handleError(err.error || err),
+  } as any)
 
   // Handle search params on mount
   useEffect(() => {
@@ -205,12 +220,14 @@ export function useChatCore({
 
     const optimisticMessage = {
       id: optimisticId,
-      content: input,
       role: "user" as const,
+      parts: [{ type: "text" as const, text: input }],
+      // v6 compatibility fields (added via ExtendedMessageAISDK)
+      content: input,
       createdAt: new Date(),
       experimental_attachments:
         optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
-    }
+    } as UIMessage
 
     setMessages((prev) => [...prev, optimisticMessage])
     setInput("")
@@ -223,14 +240,14 @@ export function useChatCore({
       const allowed = await checkLimitsAndNotify(uid)
       if (!allowed) {
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
-        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        cleanupOptimisticAttachments((optimisticMessage as any).experimental_attachments)
         return
       }
 
       const currentChatId = await ensureChatExists(uid, input)
       if (!currentChatId) {
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        cleanupOptimisticAttachments((optimisticMessage as any).experimental_attachments)
         return
       }
 
@@ -242,7 +259,7 @@ export function useChatCore({
           status: "error",
         })
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        cleanupOptimisticAttachments((optimisticMessage as any).experimental_attachments)
         return
       }
 
@@ -252,13 +269,16 @@ export function useChatCore({
         if (attachments === null) {
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
           cleanupOptimisticAttachments(
-            optimisticMessage.experimental_attachments
+            (optimisticMessage as any).experimental_attachments
           )
           return
         }
       }
 
-      const options = {
+      // Send message using v6 sendMessage API
+      await (sendMessage as any)({
+        content: input,
+        experimental_attachments: attachments || undefined,
         body: {
           chatId: currentChatId,
           userId: uid,
@@ -268,12 +288,9 @@ export function useChatCore({
           enableSearch,
           researchMode,
         },
-        experimental_attachments: attachments || undefined,
-      }
-
-      handleSubmit(undefined, options)
+      })
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-      cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+      cleanupOptimisticAttachments((optimisticMessage as any).experimental_attachments)
       cacheAndAddMessage(optimisticMessage)
       clearDraft()
       setResponseStartTime(Date.now()) // Track when response generation starts
@@ -283,7 +300,7 @@ export function useChatCore({
       }
     } catch {
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-      cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+      cleanupOptimisticAttachments((optimisticMessage as any).experimental_attachments)
       toast({ title: "Failed to send message", status: "error" })
     } finally {
       setIsSubmitting(false)
@@ -305,7 +322,7 @@ export function useChatCore({
     systemPrompt,
     enableSearch,
     researchMode,
-    handleSubmit,
+    sendMessage,
     cacheAndAddMessage,
     clearDraft,
     messages.length,
@@ -341,7 +358,7 @@ export function useChatCore({
       }
 
       const target = messages[editIndex]
-      const cutoffIso = target?.createdAt?.toISOString()
+      const cutoffIso = (target as any)?.createdAt?.toISOString?.()
       if (!cutoffIso) {
         console.error("Unable to locate message timestamp.")
         return
@@ -361,11 +378,12 @@ export function useChatCore({
       const optimisticId = `optimistic-edit-${Date.now().toString()}`
       const optimisticEditedMessage = {
         id: optimisticId,
-        content: newContent,
         role: "user" as const,
+        parts: [{ type: "text" as const, text: newContent }],
+        content: newContent,
         createdAt: new Date(),
-        experimental_attachments: target.experimental_attachments || undefined,
-      }
+        experimental_attachments: (target as any).experimental_attachments || undefined,
+      } as UIMessage
 
       try {
         const trimmedMessages = messages.slice(0, editIndex)
@@ -413,7 +431,7 @@ export function useChatCore({
             editCutoffTimestamp: cutoffIso, // Backend will delete messages from this timestamp
           },
           experimental_attachments:
-            target.experimental_attachments || undefined,
+            (target as any).experimental_attachments || undefined,
         }
 
         // If this is an edit of the very first user message, update chat title
@@ -423,13 +441,22 @@ export function useChatCore({
           } catch {}
         }
 
-        append(
-          {
-            role: "user",
-            content: newContent,
+        // Send edited message using v6 sendMessage API
+        await (sendMessage as any)({
+          content: newContent,
+          experimental_attachments:
+            (target as any).experimental_attachments || undefined,
+          body: {
+            chatId: currentChatId,
+            userId: uid,
+            model: selectedModel,
+            isAuthenticated,
+            systemPrompt: systemPrompt || SYSTEM_PROMPT_DEFAULT,
+            enableSearch,
+            researchMode,
+            editCutoffTimestamp: cutoffIso, // Backend will delete messages from this timestamp
           },
-          options
-        )
+        })
 
         // Remove optimistic message
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
@@ -452,7 +479,7 @@ export function useChatCore({
       systemPrompt,
       enableSearch,
       researchMode,
-      append,
+      sendMessage,
       setMessages,
       bumpChat,
       updateTitle,
@@ -468,10 +495,11 @@ export function useChatCore({
       const optimisticId = `optimistic-${Date.now().toString()}`
       const optimisticMessage = {
         id: optimisticId,
-        content: suggestion,
         role: "user" as const,
+        parts: [{ type: "text" as const, text: suggestion }],
+        content: suggestion,
         createdAt: new Date(),
-      }
+      } as UIMessage
 
       setMessages((prev) => [...prev, optimisticMessage])
 
@@ -498,7 +526,9 @@ export function useChatCore({
 
         prevChatIdRef.current = currentChatId
 
-        const options = {
+        // Send suggestion using v6 sendMessage API
+        await (sendMessage as any)({
+          content: suggestion,
           body: {
             chatId: currentChatId,
             userId: uid,
@@ -508,15 +538,7 @@ export function useChatCore({
             enableSearch,
             researchMode,
           },
-        }
-
-        append(
-          {
-            role: "user",
-            content: suggestion,
-          },
-          options
-        )
+        })
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
       } catch {
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
@@ -529,7 +551,7 @@ export function useChatCore({
       ensureChatExists,
       selectedModel,
       user,
-      append,
+      sendMessage,
       checkLimitsAndNotify,
       isAuthenticated,
       enableSearch,
@@ -539,14 +561,15 @@ export function useChatCore({
     ]
   )
 
-  // Handle reload
+  // Handle reload (regenerate in v6)
   const handleReload = useCallback(async () => {
     const uid = await getOrCreateGuestUserId(user)
     if (!uid) {
       return
     }
 
-    const options = {
+    // Use v6 regenerate API
+    regenerate({
       body: {
         chatId,
         userId: uid,
@@ -556,10 +579,8 @@ export function useChatCore({
         enableSearch,
         researchMode,
       },
-    }
-
-    reload(options)
-  }, [user, chatId, selectedModel, isAuthenticated, systemPrompt, enableSearch, researchMode, reload])
+    })
+  }, [user, chatId, selectedModel, isAuthenticated, systemPrompt, enableSearch, researchMode, regenerate])
 
   // Handle input change - now with access to the real setInput function!
   const { setDraftValue } = useChatDraft(chatId)
@@ -571,18 +592,39 @@ export function useChatCore({
     [setInput, setDraftValue]
   )
 
+  // Create backward-compatible wrappers for v5 API
+  // handleSubmit: v6 doesn't have this, but we expose sendMessage via submit action
+  const handleSubmit = useCallback((e?: React.FormEvent, options?: any) => {
+    e?.preventDefault()
+    // For backward compatibility, trigger submit which uses sendMessage internally
+    submit()
+  }, [submit])
+
+  // append: v6 uses sendMessage, create wrapper
+  const append = useCallback(async (message: { role: string; content: string }, options?: any) => {
+    await sendMessage({
+      content: message.content,
+      ...options,
+    })
+  }, [sendMessage])
+
+  // reload: v6 uses regenerate, create wrapper
+  const reload = useCallback((options?: any) => {
+    regenerate(options)
+  }, [regenerate])
+
   return {
     // Chat state
     messages,
     input,
-    handleSubmit,
+    handleSubmit, // Backward compatible wrapper
     status,
     error,
-    reload,
+    reload, // Backward compatible wrapper (uses regenerate)
     stop,
     setMessages,
     setInput,
-    append,
+    append, // Backward compatible wrapper (uses sendMessage)
     isAuthenticated,
     systemPrompt,
     hasSentFirstMessageRef,

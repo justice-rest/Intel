@@ -53,7 +53,8 @@ export async function GET() {
     }
 
     // Get user's CRM keys from user_keys table
-    const { data: keys, error: keysError } = await supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: keys, error: keysError } = await (supabase as any)
       .from("user_keys")
       .select("provider")
       .eq("user_id", user.id)
@@ -67,7 +68,8 @@ export async function GET() {
       )
     }
 
-    const connectedProviders = new Set(keys?.map((k) => k.provider) || [])
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const connectedProviders = new Set(keys?.map((k: any) => k.provider) || [])
 
     // Get latest sync info for each provider (using any to handle tables not yet in generated types)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,7 +256,8 @@ export async function POST(request: Request) {
     const { encrypted, iv } = encryptKey(keyToStore)
 
     // Upsert the key
-    const { error: upsertError } = await supabase.from("user_keys").upsert(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: upsertError } = await (supabase as any).from("user_keys").upsert(
       {
         user_id: user.id,
         provider,

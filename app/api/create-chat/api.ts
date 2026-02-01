@@ -32,7 +32,7 @@ export async function createChatInDb({
     }
   }
 
-  await checkUsageByModel(supabase, userId, normalizedModel, isAuthenticated)
+  await checkUsageByModel(supabase as any, userId, normalizedModel, isAuthenticated)
 
   const insertData: {
     user_id: string
@@ -51,7 +51,7 @@ export async function createChatInDb({
 
   const { data, error } = await supabase
     .from("chats")
-    .insert(insertData)
+    .insert(insertData as any)
     .select("*")
     .single()
 

@@ -10,7 +10,7 @@ export async function fetchUserProfile(
   const supabase = createClient()
   if (!supabase) return null
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from("users")
     .select("*")
     .eq("id", id)
@@ -41,7 +41,7 @@ export async function updateUserProfile(
   const supabase = createClient()
   if (!supabase) return false
 
-  const { error } = await supabase.from("users").update(updates).eq("id", id)
+  const { error } = await (supabase as any).from("users").update(updates).eq("id", id)
 
   if (error) {
     console.error("Failed to update user:", error)

@@ -11,7 +11,7 @@ import { z } from "zod"
  * @param userId - User ID to fetch documents for
  */
 export const createListDocumentsTool = (userId: string) =>
-  tool({
+  (tool as any)({
     description:
       "List all documents the user has uploaded. Use this when the user asks what documents they have, what files they've uploaded, or wants to see their document library. Returns document names, upload dates, page counts, and status.",
     parameters: z.object({
@@ -36,7 +36,7 @@ export const createListDocumentsTool = (userId: string) =>
         }
 
         // Build query
-        let query = supabase
+        let query = (supabase as any)
           .from("rag_documents")
           .select(
             "id, file_name, file_size, page_count, word_count, language, status, tags, created_at, processed_at"
@@ -73,7 +73,7 @@ export const createListDocumentsTool = (userId: string) =>
         }
 
         // Format documents for AI
-        const formattedDocuments = documents.map((doc) => ({
+        const formattedDocuments = documents.map((doc: any) => ({
           id: doc.id,
           name: doc.file_name,
           sizeBytes: doc.file_size,

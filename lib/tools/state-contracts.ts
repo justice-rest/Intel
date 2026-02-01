@@ -471,7 +471,7 @@ const stateContractsSchema = z.object({
     .describe("Two-letter state codes to search (default: CA, NY, TX, FL, IL). Available: CA, NY, TX, FL, IL, OH, CO, MA"),
 })
 
-export const stateContractsTool = tool({
+export const stateContractsTool = (tool as any)({
   description:
     "Search STATE-level government contracts and purchasing records. " +
     "Reveals business relationships with state/local government. " +
@@ -482,7 +482,7 @@ export const stateContractsTool = tool({
 
   parameters: stateContractsSchema,
 
-  execute: async ({ searchTerm, states }): Promise<StateContractsResult> => {
+  execute: async ({ searchTerm, states }: { searchTerm: string; states?: string[] }): Promise<StateContractsResult> => {
     return searchStateContracts(searchTerm, states)
   },
 })

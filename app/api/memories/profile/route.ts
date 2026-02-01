@@ -135,7 +135,7 @@ export async function POST(req: Request): Promise<NextResponse<ProfileResponse |
     // Optionally warm the cache
     if (body.warmCache) {
       const cacheStart = Date.now()
-      await warmUserMemoryCache(supabase, user.id)
+      await warmUserMemoryCache(supabase as any, user.id)
       timing.cacheWarmMs = Date.now() - cacheStart
     }
 
@@ -152,7 +152,7 @@ export async function POST(req: Request): Promise<NextResponse<ProfileResponse |
       }
     }
 
-    const profileResponse = await getMemoryProfile(supabase, {
+    const profileResponse = await getMemoryProfile(supabase as any, {
       userId: user.id,
       query: body.q,
       queryEmbedding,
@@ -383,7 +383,7 @@ export async function PUT(req: Request): Promise<NextResponse> {
     }
 
     // Warm the cache
-    await warmUserMemoryCache(supabase, user.id)
+    await warmUserMemoryCache(supabase as any, user.id)
 
     return NextResponse.json({
       success: true,

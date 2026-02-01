@@ -285,21 +285,33 @@ export async function GET(
             .from("pdf_branding")
             .select("*")
             .eq("user_id", user.id)
-            .single()
+            .single() as { data: {
+              id: string
+              user_id: string
+              primary_color: string | null
+              accent_color: string | null
+              logo_url: string | null
+              logo_base64: string | null
+              logo_content_type: string | null
+              hide_default_footer: boolean | null
+              custom_footer_text: string | null
+              created_at: string | null
+              updated_at: string | null
+            } | null }
 
           if (brandingData) {
             branding = toBrandingSettings({
               id: brandingData.id,
               userId: brandingData.user_id,
-              primaryColor: brandingData.primary_color,
-              accentColor: brandingData.accent_color,
+              primaryColor: brandingData.primary_color ?? "",
+              accentColor: brandingData.accent_color ?? "",
               logoUrl: brandingData.logo_url,
               logoBase64: brandingData.logo_base64,
               logoContentType: brandingData.logo_content_type,
-              hideDefaultFooter: brandingData.hide_default_footer,
+              hideDefaultFooter: brandingData.hide_default_footer ?? false,
               customFooterText: brandingData.custom_footer_text,
-              createdAt: brandingData.created_at,
-              updatedAt: brandingData.updated_at,
+              createdAt: brandingData.created_at ?? "",
+              updatedAt: brandingData.updated_at ?? "",
             })
           }
         } else {
