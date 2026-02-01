@@ -1,25 +1,32 @@
 import { FREE_MODELS_IDS } from "../config"
+import { googleModels } from "./data/google"
 import { openrouterModels } from "./data/openrouter"
 import { ModelConfig } from "./types"
 
 // Static models (always available)
-const STATIC_MODELS: ModelConfig[] = [...openrouterModels]
+// Google Gemini models are primary, OpenRouter is for internal use only
+const STATIC_MODELS: ModelConfig[] = [...googleModels, ...openrouterModels]
 
 /**
  * Model ID migrations for backwards compatibility
  * Maps old/deprecated model IDs to their current versions
+ *
+ * Migration: OpenRouter Grok → Direct Google Gemini (2026-02)
+ * - Grok models migrated to direct Google Gemini 3 integration
+ * - Uses @ai-sdk/google provider for native Google Search grounding
  */
 const MODEL_ID_MIGRATIONS: Record<string, string> = {
-  // Legacy Grok migrations
-  "openrouter:x-ai/grok-4-fast": "openrouter:x-ai/grok-4.1-fast",
-  // Perplexity → Grok 4.1 Fast migration
-  "openrouter:perplexity/sonar-reasoning": "openrouter:x-ai/grok-4.1-fast",
-  "openrouter:perplexity/sonar-reasoning-pro": "openrouter:x-ai/grok-4.1-fast",
-  "openrouter:perplexity/sonar-deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
-  // Gemini → Grok 4.1 Fast migration (2025-12)
-  // Grok 4.1 Fast with native web search (includes X/Twitter)
-  "openrouter:google/gemini-3-flash-preview": "openrouter:x-ai/grok-4.1-fast",
-  "openrouter:google/gemini-3-pro-preview": "openrouter:x-ai/grok-4.1-fast-thinking",
+  // Grok → Gemini migrations (2026-02)
+  "openrouter:x-ai/grok-4.1-fast": "google:gemini-3-flash-preview",
+  "openrouter:x-ai/grok-4.1-fast-thinking": "google:gemini-3-pro-preview",
+  "openrouter:x-ai/grok-4-fast": "google:gemini-3-flash-preview",
+  // Legacy Perplexity → Gemini
+  "openrouter:perplexity/sonar-reasoning": "google:gemini-3-flash-preview",
+  "openrouter:perplexity/sonar-reasoning-pro": "google:gemini-3-flash-preview",
+  "openrouter:perplexity/sonar-deep-research": "google:gemini-3-pro-preview",
+  // OpenRouter Gemini → Direct Gemini
+  "openrouter:google/gemini-3-flash-preview": "google:gemini-3-flash-preview",
+  "openrouter:google/gemini-3-pro-preview": "google:gemini-3-pro-preview",
 }
 
 /**

@@ -9,7 +9,7 @@
  * - Competitive positioning
  */
 
-import { createOpenRouter } from "@openrouter/ai-sdk-provider"
+import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { generateText } from "ai"
 import type {
   ProspectIntelligence,
@@ -29,7 +29,7 @@ import type {
 // CONFIGURATION
 // ============================================================================
 
-const SYNTHESIS_MODEL = "x-ai/grok-3-fast"
+const SYNTHESIS_MODEL = "gemini-3-flash-preview"
 const MAX_TOKENS = 4096
 const TEMPERATURE = 0.3  // Lower for more consistent outputs
 
@@ -279,15 +279,15 @@ async function synthesize<T>(
   apiKey?: string
 ): Promise<T | null> {
   try {
-    const openrouter = createOpenRouter({
-      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+    const google = createGoogleGenerativeAI({
+      apiKey: apiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     })
 
     const dataContext = buildDataContext(context)
     const fullPrompt = prompt + dataContext
 
     const result = await generateText({
-      model: openrouter(SYNTHESIS_MODEL),
+      model: google(SYNTHESIS_MODEL),
       messages: [{ role: "user", content: fullPrompt }],
       maxTokens: MAX_TOKENS,
       temperature: TEMPERATURE,

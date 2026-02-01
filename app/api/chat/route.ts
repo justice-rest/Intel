@@ -26,6 +26,10 @@ import {
   shouldEnableLinkUpTools,
 } from "@/lib/tools/linkup-prospect-research"
 import {
+  googleProspectResearchTool,
+  shouldEnableGoogleProspectResearch,
+} from "@/lib/tools/google-prospect-research"
+import {
   rentalInvestmentTool,
   shouldEnableRentalInvestmentTool,
 } from "@/lib/tools/rental-investment-tool"
@@ -130,11 +134,11 @@ type ChatRequest = {
   editCutoffTimestamp?: string
 }
 
-// Map research modes to Grok model IDs (via OpenRouter)
-// Grok 4.1 Fast supports native tool calling with LinkUp web search
+// Map research modes to Gemini model IDs (direct Google integration)
+// Gemini 3 supports native tool calling with Google Search grounding + LinkUp
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
-  "research": "openrouter:x-ai/grok-4.1-fast",
-  "deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
+  "research": "google:gemini-3-flash-preview",
+  "deep-research": "google:gemini-3-pro-preview",
 }
 
 export async function POST(req: Request) {
@@ -700,7 +704,10 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
-      // Web search tools - LinkUp (sole provider)
+      // Web search tools - Dual grounding: Google + LinkUp
+      if (shouldEnableGoogleProspectResearch()) {
+        dataTools.push("google_prospect_research (comprehensive prospect research via Google Search grounding - real estate, business, philanthropy, securities, biography)")
+      }
       if (shouldEnableLinkUpTools()) {
         dataTools.push("linkup_prospect_research (comprehensive prospect research via LinkUp - real estate, business, philanthropy, securities, biography)")
       }
@@ -713,10 +720,12 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
       if (dataTools.length > 0) {
-        // LinkUp system prompt guidance
+        // Dual search system prompt guidance (Google + LinkUp)
         const webSearchGuidance = `
 [CAPABILITY]
-Built-in web search via LinkUp for prospect research.
+Dual-source web search for maximum research accuracy:
+- **Google Search** via google_prospect_research (Google Search grounding)
+- **LinkUp Search** via linkup_prospect_research (specialized wealth data sources)
 
 ### Available Data API Tools
 ${dataTools.join("\n")}
@@ -724,10 +733,10 @@ ${dataTools.join("\n")}
 ---
 
 [HARD CONSTRAINTS]
-1. **SINGLE TOOL**: Call linkup_prospect_research for comprehensive web research
+1. **DUAL GROUNDING**: For comprehensive research, call BOTH google_prospect_research AND linkup_prospect_research to cross-validate findings
 2. **RESPONSE REQUIRED**: After ANY tool call, you MUST generate a text response—never return raw tool output
 3. **OFFICIAL SOURCES PRIORITY**: When conflicts exist, prefer SEC/FEC/ProPublica over web sources
-4. **SYNTHESIZE, DON'T DUMP**: Combine findings into unified reports with source citations
+4. **SYNTHESIZE, DON'T DUMP**: Combine findings from both search engines into unified reports with source citations
 5. **CLICKABLE LINKS**: ALL source citations MUST use proper markdown link syntax:
    - CORRECT: [Wall Street Journal](https://wsj.com/article/123)
    - CORRECT: Sources: [FEC.gov](https://fec.gov), [SEC Edgar](https://sec.gov/edgar)
@@ -737,30 +746,52 @@ ${dataTools.join("\n")}
 
 ---
 
+### Dual Search Strategy for Maximum Coverage
+
+**google_prospect_research** - Google Search with multi-query architecture
+- Executes 5 parallel searches (real estate, business, philanthropy, securities, biography)
+- Real-time web grounding with citations
+- Best for: Recent news, company info, general web presence
+
+**linkup_prospect_research** - LinkUp Search with multi-query architecture
+- Executes 5 parallel searches (same categories)
+- Specialized wealth indicator sources
+- Best for: Property records, business ownership, philanthropic history
+
+**FOR COMPREHENSIVE RESEARCH:**
+1. Call BOTH google_prospect_research AND linkup_prospect_research
+2. Cross-reference findings from both sources
+3. Use structured tools (FEC, SEC, ProPublica) for verified data
+4. Merge citations from both sources in your report
+5. Note any discrepancies between sources
+
+---
+
 ### Structured Thinking: Research Workflow
 
 **[UNDERSTAND]** - What research is needed?
-- Named prospect → CRM first, then linkup_prospect_research
+- Named prospect → CRM first, then BOTH search tools
 - Board verification → SEC insider + proxy search
 - Foundation research → ProPublica 990 data
 
 **[ANALYZE]** - Select tools based on research type:
-| Need | Primary Tool | Follow-up Tool |
+| Need | Primary Tools | Follow-up Tool |
 |------|--------------|----------------|
-| Comprehensive profile | linkup_prospect_research | - |
+| Comprehensive profile | google_prospect_research + linkup_prospect_research | - |
 | Political giving | fec_contributions | - |
 | Foundation/990 data | propublica_nonprofit_search | propublica_nonprofit_details |
 | Public company exec | sec_insider_search | sec_proxy_search |
 | Giving capacity | giving_capacity_calculator | - |
 
 **[STRATEGIZE]** - Research execution plan:
-1. Call linkup_prospect_research for comprehensive web research
+1. Call BOTH google_prospect_research AND linkup_prospect_research in parallel
 2. Follow up with structured tools (FEC, SEC, ProPublica) for verified data
-3. Synthesize all findings into unified report
+3. Synthesize all findings into unified report with citations from both sources
 
 **[EXECUTE]** - After tool results:
-- Combine findings, deduplicate sources
-- Flag discrepancies, note confidence levels
+- Combine findings from both search engines, deduplicate sources
+- Cross-validate key facts, flag discrepancies
+- Note confidence levels based on source agreement
 - Present formatted report with all sources
 - ALWAYS end with text response to user`
 
@@ -865,7 +896,14 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
             usaspending_awards: usGovDataTool,
           }
         : {}),
-      // Add LinkUp web search for prospect research
+      // Add Google Prospect Research for web search with Google Search grounding
+      // Multi-query architecture (5 parallel searches) for comprehensive coverage
+      ...(enableSearch && shouldEnableGoogleProspectResearch()
+        ? {
+            google_prospect_research: googleProspectResearchTool,
+          }
+        : {}),
+      // Add LinkUp web search for prospect research (dual grounding with Google)
       // Comprehensive search with citations - real estate, business, philanthropy, securities, biography
       ...(enableSearch && shouldEnableLinkUpTools()
         ? {

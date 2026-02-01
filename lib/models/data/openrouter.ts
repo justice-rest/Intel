@@ -1,95 +1,15 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { ModelConfig } from "../types"
 
+/**
+ * OpenRouter Model Definitions
+ *
+ * After the Gemini migration, OpenRouter is used only for:
+ * - GPT-5 Nano: Internal use only for tool execution
+ *
+ * Primary research models (Gemini 3 Flash/Pro) are now in /lib/models/data/google.ts
+ */
 export const openrouterModels: ModelConfig[] = [
-  // Grok 4.1 Fast - Fast reasoning model for Research mode
-  // xAI's best agentic tool calling model with native web search (includes X/Twitter)
-  {
-    id: "openrouter:x-ai/grok-4.1-fast",
-    name: "Grok 4.1 Fast",
-    provider: "OpenRouter",
-    providerId: "openrouter",
-    modelFamily: "Grok",
-    baseProviderId: "x-ai",
-    description:
-      "xAI's best agentic tool calling model for real-world use cases like customer support and deep research.",
-    tags: ["reasoning", "fast", "agentic", "research", "tools"],
-    contextWindow: 2000000, // 2M tokens
-    inputCost: 0.2,
-    outputCost: 0.5,
-    priceUnit: "per 1M tokens",
-    vision: true,
-    tools: true, // Native tool calling support
-    audio: false,
-    reasoning: true, // Configurable reasoning levels
-    webSearch: true,
-    openSource: false,
-    speed: "Fast",
-    intelligence: "High",
-    website: "https://openrouter.ai",
-    apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/x-ai/grok-4.1-fast",
-    releasedAt: "2025-11-19",
-    icon: "xai",
-    isPro: false,
-    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
-      createOpenRouter({
-        apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-        extraBody: {
-          // Enable native web search when requested (includes X/Twitter)
-          ...(opts?.enableSearch && {
-            plugins: [{ id: "web", engine: "native" }],
-          }),
-          // High reasoning effort for research mode
-          reasoning: { effort: "high" },
-        },
-      }).chat("x-ai/grok-4.1-fast:nitro"),
-  },
-  // Grok 4.1 Fast (Thinking) - High-effort reasoning for Deep Research mode
-  // Extended thinking for comprehensive multi-step analysis
-  {
-    id: "openrouter:x-ai/grok-4.1-fast-thinking",
-    name: "Grok 4.1 Fast (Thinking)",
-    provider: "OpenRouter",
-    providerId: "openrouter",
-    modelFamily: "Grok",
-    baseProviderId: "x-ai",
-    description:
-      "Grok 4.1 Fast with extended thinking for comprehensive multi-step analysis and full wealth screening.",
-    tags: ["reasoning", "deep", "advanced", "research", "tools"],
-    contextWindow: 2000000, // 2M tokens
-    inputCost: 0.2,
-    outputCost: 0.5, // + reasoning tokens
-    priceUnit: "per 1M tokens",
-    vision: true,
-    tools: true, // Native tool calling support
-    audio: false,
-    reasoning: true, // Configurable reasoning levels
-    webSearch: true,
-    openSource: false,
-    speed: "Medium",
-    intelligence: "High",
-    website: "https://openrouter.ai",
-    apiDocs: "https://openrouter.ai/docs",
-    modelPage: "https://openrouter.ai/x-ai/grok-4.1-fast",
-    releasedAt: "2025-11-19",
-    icon: "xai",
-    isPro: false,
-    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
-      createOpenRouter({
-        apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-        extraBody: {
-          // Enable native web search when requested (includes X/Twitter)
-          ...(opts?.enableSearch && {
-            plugins: [{ id: "web", engine: "native" }],
-          }),
-          // Enable high-effort reasoning for deep research
-          ...(opts?.enableReasoning !== false && {
-            reasoning: { effort: "high" },
-          }),
-        },
-      }).chat("x-ai/grok-4.1-fast:nitro"),
-  },
   // GPT-5-Nano - Used internally for two-stage architecture (tool execution)
   // Ultra-fast, ultra-cheap model optimized for low latency tool calling
   {

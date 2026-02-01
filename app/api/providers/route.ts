@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
     )
 
     const envKeyMap: Record<Provider, string | undefined> = {
+      google: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       openrouter: process.env.OPENROUTER_API_KEY,
     }
 

@@ -72,6 +72,7 @@ export async function getEffectiveApiKey(
   }
 
   const envKeyMap: Record<Provider, string | undefined> = {
+    google: env.GOOGLE_GENERATIVE_AI_API_KEY,
     openrouter: env.OPENROUTER_API_KEY,
   }
 

@@ -31,10 +31,9 @@ import {
   type ProspectStructuredData,
 } from "@/lib/tools/linkup-prospect-research"
 import {
-  grokBatchSearch,
-  isGrokSearchAvailable,
-  GrokSearchResult,
-} from "./grok-search"
+  googleBatchSearch,
+  isGoogleSearchAvailable,
+} from "@/lib/tools/google-prospect-research"
 
 // Re-export for backward compatibility
 export interface ExtractedLinkupData {
@@ -222,13 +221,13 @@ export function mergeResearchOutputs(
  */
 async function researchWithLinkUpSources(
   prospect: ProspectInputData,
-  openrouterKey?: string
+  apiKey?: string
 ): Promise<PerplexityResearchResult> {
   const startTime = Date.now()
-  const hasGrok = isGrokSearchAvailable(openrouterKey)
+  const hasGoogle = isGoogleSearchAvailable(apiKey)
 
   console.log(`[BatchProcessor] Starting LinkUp research for ${prospect.name}`)
-  console.log(`[BatchProcessor] LinkUp: enabled | Grok: ${hasGrok ? "enabled" : "disabled"}`)
+  console.log(`[BatchProcessor] LinkUp: enabled | Google Search: ${hasGoogle ? "enabled" : "disabled"}`)
 
   // Execute LinkUp multi-query search (primary) - Standard mode
   const searchPromises: Promise<any>[] = [
@@ -240,19 +239,17 @@ async function researchWithLinkUpSources(
     }),
   ]
 
-  // Add Grok search if available (for X/Twitter data)
-  if (hasGrok) {
+  // Add Google Search if available (for additional web coverage)
+  if (hasGoogle) {
     searchPromises.push(
-      grokBatchSearch(
+      googleBatchSearch(
         {
           name: prospect.name,
           address: prospect.address || prospect.full_address,
           employer: prospect.employer,
           title: prospect.title,
-          city: prospect.city,
-          state: prospect.state,
         },
-        openrouterKey
+        apiKey
       )
     )
   }
@@ -261,7 +258,7 @@ async function researchWithLinkUpSources(
 
   // Extract results
   const linkupResult = results[0].status === "fulfilled" ? results[0].value : null
-  const grokResult = hasGrok && results[1]?.status === "fulfilled" ? results[1].value as GrokSearchResult : null
+  const googleResult = hasGoogle && results[1]?.status === "fulfilled" ? results[1].value : null
 
   // If LinkUp failed, return error
   if (!linkupResult || linkupResult.error) {
@@ -280,9 +277,9 @@ async function researchWithLinkUpSources(
   // Build structured output from LinkUp results
   const output = buildStructuredOutputFromLinkUp(prospect, linkupResult)
 
-  // Merge Grok results if available (for X/Twitter sources)
-  if (grokResult && !grokResult.error && grokResult.sources.length > 0) {
-    console.log(`[BatchProcessor] Grok returned ${grokResult.sources.length} sources in ${grokResult.durationMs}ms`)
+  // Merge Google Search results if available (for additional web coverage)
+  if (googleResult && !googleResult.error && googleResult.sources.length > 0) {
+    console.log(`[BatchProcessor] Google returned ${googleResult.sources.length} sources in ${googleResult.durationMs}ms`)
 
     // Get existing URLs for deduplication
     const existingUrls = new Set(
@@ -291,24 +288,24 @@ async function researchWithLinkUpSources(
       )
     )
 
-    // Find unique sources from Grok (prioritize X/Twitter sources)
-    const grokOnlySources = grokResult.sources.filter((source) => {
+    // Find unique sources from Google
+    const googleOnlySources = googleResult.sources.filter((source: { name: string; url: string; snippet?: string }) => {
       const normalizedUrl = source.url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "")
       return !existingUrls.has(normalizedUrl)
     })
 
-    if (grokOnlySources.length > 0) {
+    if (googleOnlySources.length > 0) {
       output.sources.push(
-        ...grokOnlySources.map((s) => ({
+        ...googleOnlySources.map((s: { name: string; url: string; snippet?: string }) => ({
           title: s.name,
           url: s.url,
-          data_provided: s.snippet || "Data from Grok native search (X/Twitter)",
+          data_provided: s.snippet || "Data from Google Search grounding",
         }))
       )
-      console.log(`[BatchProcessor] Added ${grokOnlySources.length} unique sources from Grok`)
+      console.log(`[BatchProcessor] Added ${googleOnlySources.length} unique sources from Google`)
     }
-  } else if (grokResult?.error) {
-    console.warn(`[BatchProcessor] Grok search failed: ${grokResult.error}`)
+  } else if (googleResult?.error) {
+    console.warn(`[BatchProcessor] Google search failed: ${googleResult.error}`)
   }
 
   const totalDuration = Date.now() - startTime

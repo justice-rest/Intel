@@ -7,9 +7,10 @@
  * - Knowledge facts (mission, programs, impact)
  * - Examples (good/bad communication examples)
  *
- * Uses OpenRouter API for AI-powered extraction with structured output.
+ * Uses Google Gemini for main analysis and OpenRouter (GPT-5 Nano) for classification.
  */
 
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { generateObject } from 'ai'
 import { z } from 'zod'
@@ -171,11 +172,11 @@ export async function analyzeDocument(
   const { text, fileName, fileType, docPurposes } = options
 
   // Validate we have API key
-  const apiKey = process.env.OPENROUTER_API_KEY
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
   if (!apiKey) {
     return {
       success: false,
-      error: 'OpenRouter API key not configured',
+      error: 'Google Generative AI API key not configured',
     }
   }
 
@@ -204,10 +205,10 @@ Extract voice elements, strategy rules, organizational facts, and examples from 
 Focus on elements that would help an AI assistant communicate and advise in the voice of this organization.`
 
   try {
-    const openrouter = createOpenRouter({ apiKey })
+    const google = createGoogleGenerativeAI({ apiKey })
 
     const { object, usage } = await generateObject({
-      model: openrouter('x-ai/grok-4.1-fast'),
+      model: google('gemini-3-flash-preview'),
       schema: DocumentAnalysisSchema,
       system: ANALYSIS_PROMPT,
       prompt: userPrompt,
