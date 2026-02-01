@@ -48,10 +48,10 @@ export const googleModels: ModelConfig[] = [
       const provider = createGoogleGenerativeAI({
         apiKey: apiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       })
-      return provider("gemini-3-flash-preview", {
-        // Enable Google Search grounding when requested
-        useSearchGrounding: opts?.enableSearch ?? false,
-      })
+      // Note: useSearchGrounding disabled due to SDK incompatibility with Gemini 3
+      // (sends deprecated google_search_retrieval instead of google_search)
+      // Web search is handled by LinkUp and Google Prospect Research tools instead
+      return provider("gemini-3-flash-preview")
     },
   },
   // Gemini 3 Pro - High-capacity model for Deep Research mode
@@ -88,10 +88,10 @@ export const googleModels: ModelConfig[] = [
       const provider = createGoogleGenerativeAI({
         apiKey: apiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       })
-      return provider("gemini-3-pro-preview", {
-        // Enable Google Search grounding when requested
-        useSearchGrounding: opts?.enableSearch ?? false,
-      })
+      // Note: useSearchGrounding disabled due to SDK incompatibility with Gemini 3
+      // (sends deprecated google_search_retrieval instead of google_search)
+      // Web search is handled by LinkUp and Google Prospect Research tools instead
+      return provider("gemini-3-pro-preview")
     },
   },
 ]

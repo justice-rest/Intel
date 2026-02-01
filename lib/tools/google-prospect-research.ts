@@ -72,9 +72,18 @@ const QUERY_CATEGORIES = [
 
 /**
  * Check if Google Prospect Research should be enabled
+ *
+ * TEMPORARILY DISABLED: The @ai-sdk/google package sends deprecated
+ * `google_search_retrieval` format instead of the newer `google_search`
+ * format required by Gemini 3 models. This causes API errors.
+ * See: https://github.com/vercel/ai/issues/10348
+ *
+ * Web search is handled by LinkUp tools instead.
  */
 export function shouldEnableGoogleProspectResearch(): boolean {
-  return !!process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  // Disabled until AI SDK is updated to support Gemini 3 search grounding
+  return false
+  // Original: return !!process.env.GOOGLE_GENERATIVE_AI_API_KEY
 }
 
 // ============================================================================
