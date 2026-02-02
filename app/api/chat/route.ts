@@ -747,8 +747,13 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
       // Web search tools - LinkUp (sole provider)
+      // In ultra-research mode (beta), use linkup_ultra_research instead
       if (shouldEnableLinkUpTools()) {
-        dataTools.push("linkup_prospect_research (comprehensive prospect research via LinkUp - real estate, business, philanthropy, securities, biography)")
+        if (researchMode === "ultra-research" && betaEnabled) {
+          dataTools.push("linkup_ultra_research [BETA] (exhaustive multi-step research via LinkUp /research endpoint - comprehensive synthesis with citations)")
+        } else {
+          dataTools.push("linkup_prospect_research (comprehensive prospect research via LinkUp - real estate, business, philanthropy, securities, biography)")
+        }
       }
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
       if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
@@ -759,10 +764,20 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
       if (dataTools.length > 0) {
+        // Determine primary research tool based on mode
+        const primaryResearchTool = (researchMode === "ultra-research" && betaEnabled)
+          ? "linkup_ultra_research"
+          : "linkup_prospect_research"
+
         // LinkUp system prompt guidance
         const webSearchGuidance = `
 [CAPABILITY]
-Built-in web search via LinkUp for prospect research.
+Built-in web search via LinkUp for prospect research.${researchMode === "ultra-research" && betaEnabled ? `
+
+**[ULTRA RESEARCH MODE - BETA]**
+You are in Ultra Research mode using LinkUp's /research endpoint.
+This performs exhaustive multi-step research that takes 10 seconds to 5 minutes.
+Use linkup_ultra_research for comprehensive, synthesized research with citations.` : ""}
 
 ### Available Data API Tools
 ${dataTools.join("\n")}
@@ -770,7 +785,7 @@ ${dataTools.join("\n")}
 ---
 
 [HARD CONSTRAINTS]
-1. **SINGLE TOOL**: Call linkup_prospect_research for comprehensive web research
+1. **SINGLE TOOL**: Call ${primaryResearchTool} for comprehensive web research
 2. **RESPONSE REQUIRED**: After ANY tool call, you MUST generate a text response—never return raw tool output
 3. **OFFICIAL SOURCES PRIORITY**: When conflicts exist, prefer SEC/FEC/ProPublica over web sources
 4. **SYNTHESIZE, DON'T DUMP**: Combine findings into unified reports with source citations
@@ -786,21 +801,21 @@ ${dataTools.join("\n")}
 ### Structured Thinking: Research Workflow
 
 **[UNDERSTAND]** - What research is needed?
-- Named prospect → CRM first, then linkup_prospect_research
+- Named prospect → CRM first, then ${primaryResearchTool}
 - Board verification → SEC insider + proxy search
 - Foundation research → ProPublica 990 data
 
 **[ANALYZE]** - Select tools based on research type:
 | Need | Primary Tool | Follow-up Tool |
 |------|--------------|----------------|
-| Comprehensive profile | linkup_prospect_research | - |
+| Comprehensive profile | ${primaryResearchTool} | - |
 | Political giving | fec_contributions | - |
 | Foundation/990 data | propublica_nonprofit_search | propublica_nonprofit_details |
 | Public company exec | sec_insider_search | sec_proxy_search |
 | Giving capacity | giving_capacity_calculator | - |
 
 **[STRATEGIZE]** - Research execution plan:
-1. Call linkup_prospect_research for comprehensive web research
+1. Call ${primaryResearchTool} for comprehensive web research
 2. Follow up with structured tools (FEC, SEC, ProPublica) for verified data
 3. Synthesize all findings into unified report
 
@@ -913,7 +928,8 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
         : {}),
       // Add LinkUp web search for prospect research
       // Comprehensive search with citations - real estate, business, philanthropy, securities, biography
-      ...(enableSearch && shouldEnableLinkUpTools()
+      // NOTE: Excluded when ultra-research mode is selected (uses linkup_ultra_research instead)
+      ...(enableSearch && shouldEnableLinkUpTools() && researchMode !== "ultra-research"
         ? {
             linkup_prospect_research: createLinkUpProspectResearchTool(
               researchMode === "deep-research"

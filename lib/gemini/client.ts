@@ -23,7 +23,7 @@ export interface GeminiGroundedResult {
 }
 
 export interface GeminiError extends Error {
-  code: "NOT_CONFIGURED" | "API_ERROR" | "TIMEOUT" | "UNKNOWN_ERROR"
+  code: "NOT_CONFIGURED" | "API_ERROR" | "TIMEOUT" | "UNKNOWN_ERROR" | "EMPTY_RESPONSE" | "SAFETY_BLOCKED"
   statusCode?: number
   retryable: boolean
 }
@@ -46,6 +46,73 @@ function createGeminiError(
     error.cause = options.cause
   }
   return error
+}
+
+/**
+ * Safely extract text from Gemini response
+ * The SDK can throw when accessing response.text if there are issues
+ */
+function extractTextFromResponse(response: any): string {
+  // Method 1: Try the convenience accessor (may throw)
+  try {
+    if (typeof response.text === "string") {
+      return response.text
+    }
+    // If response.text is a getter that throws, this will be caught below
+    const text = response.text
+    if (text) return text
+  } catch (e) {
+    console.warn("[Gemini] response.text accessor failed:", e)
+  }
+
+  // Method 2: Try candidates[0].content.parts[0].text
+  try {
+    const candidate = response?.candidates?.[0]
+    if (candidate?.content?.parts?.length > 0) {
+      const textParts = candidate.content.parts
+        .filter((p: any) => typeof p.text === "string")
+        .map((p: any) => p.text)
+      if (textParts.length > 0) {
+        return textParts.join("\n")
+      }
+    }
+  } catch (e) {
+    console.warn("[Gemini] candidates parsing failed:", e)
+  }
+
+  // Method 3: Check for direct content field
+  try {
+    if (response?.content) {
+      return typeof response.content === "string"
+        ? response.content
+        : JSON.stringify(response.content)
+    }
+  } catch (e) {
+    console.warn("[Gemini] content field parsing failed:", e)
+  }
+
+  return ""
+}
+
+/**
+ * Check if response was blocked by safety filters
+ */
+function checkSafetyBlock(response: any): string | null {
+  try {
+    const candidate = response?.candidates?.[0]
+    if (candidate?.finishReason === "SAFETY") {
+      return "Response blocked by safety filters"
+    }
+    if (candidate?.finishReason === "RECITATION") {
+      return "Response blocked due to recitation concerns"
+    }
+    if (!candidate && response?.promptFeedback?.blockReason) {
+      return `Prompt blocked: ${response.promptFeedback.blockReason}`
+    }
+  } catch {
+    // Ignore parsing errors
+  }
+  return null
 }
 
 /**
@@ -80,32 +147,43 @@ export async function geminiGroundedSearch(
       },
     })
 
-    // Log response structure for debugging
     console.log("[Gemini] Response received, extracting content...")
 
-    // Extract text from response - try multiple paths
-    let text = ""
-    try {
-      // Primary: use convenience accessor
-      text = response.text || ""
-    } catch {
-      // Fallback: access through candidates structure
-      const candidate = response.candidates?.[0]
-      if (candidate?.content?.parts?.[0]) {
-        const part = candidate.content.parts[0] as { text?: string }
-        text = part.text || ""
-      }
+    // Check for safety blocks first
+    const safetyBlock = checkSafetyBlock(response)
+    if (safetyBlock) {
+      throw createGeminiError(safetyBlock, "SAFETY_BLOCKED", {
+        retryable: false,
+      })
     }
 
+    // Extract text using robust method
+    const text = extractTextFromResponse(response)
+
     if (!text) {
-      console.warn("[Gemini] No text in response, raw response:", JSON.stringify(response).slice(0, 500))
+      // Log response structure for debugging
+      console.warn(
+        "[Gemini] No text extracted. Response structure:",
+        JSON.stringify(response, null, 2).slice(0, 1000)
+      )
+      throw createGeminiError(
+        "Empty response from Gemini. The model may not have generated a response.",
+        "EMPTY_RESPONSE",
+        { retryable: true }
+      )
     }
 
     // Extract grounding metadata for citations
-    const groundingMetadata = response.candidates?.[0]?.groundingMetadata as {
+    let groundingMetadata: {
       groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>
       webSearchQueries?: string[]
     } | undefined
+
+    try {
+      groundingMetadata = response.candidates?.[0]?.groundingMetadata
+    } catch (e) {
+      console.warn("[Gemini] Failed to extract grounding metadata:", e)
+    }
 
     const sources =
       groundingMetadata?.groundingChunks?.map((chunk) => ({
@@ -124,12 +202,17 @@ export async function geminiGroundedSearch(
       searchQueries: groundingMetadata?.webSearchQueries || [],
     }
   } catch (error) {
+    // If it's already our error type, rethrow
+    if (error instanceof Error && "code" in error && (error as GeminiError).code) {
+      throw error
+    }
+
     // Log the full error for debugging
     console.error("[Gemini] Error details:", error)
 
     if (error instanceof Error) {
       const message = error.message.toLowerCase()
-      const fullMessage = error.message // Keep original case for user
+      const fullMessage = error.message
 
       // Check for specific error types
       if (message.includes("timeout") || message.includes("timed out")) {
@@ -152,8 +235,7 @@ export async function geminiGroundedSearch(
         })
       }
 
-      // Be more specific about rate limits - check for actual rate limit errors
-      // vs quota errors (which are different)
+      // Check for rate limits
       if (message.includes("429") || message.includes("resource_exhausted")) {
         throw createGeminiError(
           "Gemini rate limit exceeded. Try again in a moment.",
@@ -166,7 +248,7 @@ export async function geminiGroundedSearch(
         )
       }
 
-      // Check for quota exceeded (different from rate limit)
+      // Check for quota exceeded
       if (message.includes("quota") || message.includes("billing")) {
         throw createGeminiError(
           "Gemini quota exceeded. Check your Google Cloud billing and quotas.",
@@ -192,7 +274,19 @@ export async function geminiGroundedSearch(
         )
       }
 
-      // Pass through the actual error message for better debugging
+      // Check for parsing errors from SDK
+      if (message.includes("parse") || message.includes("json")) {
+        throw createGeminiError(
+          `Failed to parse Gemini response: ${fullMessage}`,
+          "API_ERROR",
+          {
+            retryable: true,
+            cause: error,
+          }
+        )
+      }
+
+      // Pass through the actual error message
       throw createGeminiError(fullMessage, "API_ERROR", {
         retryable: false,
         cause: error,
