@@ -372,7 +372,8 @@ export async function POST(req: Request) {
             .eq("user_id", userId)
             .single()
 
-          return data?.beta_features_enabled || false
+          // Type assertion needed until Supabase types are regenerated after migration
+          return (data as { beta_features_enabled?: boolean } | null)?.beta_features_enabled || false
         } catch (error) {
           console.error("Failed to check beta features:", error)
           return false

@@ -50,14 +50,16 @@ export async function GET() {
       )
     }
 
+    // Type assertion needed until Supabase types are regenerated after migration
+    const prefs = data as typeof data & { beta_features_enabled?: boolean }
     return NextResponse.json({
-      layout: data.layout,
-      prompt_suggestions: data.prompt_suggestions,
-      show_tool_invocations: data.show_tool_invocations,
-      show_conversation_previews: data.show_conversation_previews,
-      multi_model_enabled: data.multi_model_enabled,
-      hidden_models: data.hidden_models || [],
-      beta_features_enabled: data.beta_features_enabled || false,
+      layout: prefs.layout,
+      prompt_suggestions: prefs.prompt_suggestions,
+      show_tool_invocations: prefs.show_tool_invocations,
+      show_conversation_previews: prefs.show_conversation_previews,
+      multi_model_enabled: prefs.multi_model_enabled,
+      hidden_models: prefs.hidden_models || [],
+      beta_features_enabled: prefs.beta_features_enabled || false,
     })
   } catch (error) {
     console.error("Error in user-preferences GET API:", error)
@@ -154,15 +156,17 @@ export async function PUT(request: NextRequest) {
       )
     }
 
+    // Type assertion needed until Supabase types are regenerated after migration
+    const prefsData = data as typeof data & { beta_features_enabled?: boolean }
     return NextResponse.json({
       success: true,
-      layout: data.layout,
-      prompt_suggestions: data.prompt_suggestions,
-      show_tool_invocations: data.show_tool_invocations,
-      show_conversation_previews: data.show_conversation_previews,
-      multi_model_enabled: data.multi_model_enabled,
-      hidden_models: data.hidden_models || [],
-      beta_features_enabled: data.beta_features_enabled || false,
+      layout: prefsData.layout,
+      prompt_suggestions: prefsData.prompt_suggestions,
+      show_tool_invocations: prefsData.show_tool_invocations,
+      show_conversation_previews: prefsData.show_conversation_previews,
+      multi_model_enabled: prefsData.multi_model_enabled,
+      hidden_models: prefsData.hidden_models || [],
+      beta_features_enabled: prefsData.beta_features_enabled || false,
     })
   } catch (error) {
     console.error("Error in user-preferences PUT API:", error)
