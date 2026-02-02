@@ -28,3 +28,24 @@ export {
   getShareConversationEmailSubject,
 } from "./templates/share-conversation"
 export type { ShareConversationEmailData } from "./templates/share-conversation"
+
+// Onboarding email sequence
+export {
+  sendWelcomeEmail,
+  sendHowItWorksEmail,
+  sendCommonChallengesEmail,
+  sendMovingForwardEmail,
+  scheduleOnboardingSequence,
+} from "./onboarding"
+
+export {
+  getWelcomeEmailHtml,
+  getWelcomeEmailSubject,
+  getHowItWorksEmailHtml,
+  getHowItWorksEmailSubject,
+  getCommonChallengesEmailHtml,
+  getCommonChallengesEmailSubject,
+  getMovingForwardEmailHtml,
+  getMovingForwardEmailSubject,
+} from "./templates/onboarding"
+export type { OnboardingEmailData } from "./templates/onboarding"

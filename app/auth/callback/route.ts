@@ -1,4 +1,5 @@
 import { MODEL_DEFAULT } from "@/lib/config"
+import { scheduleOnboardingSequence } from "@/lib/email"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { createClient } from "@/lib/supabase/server"
 import { createGuestServerClient } from "@/lib/supabase/server-guest"
@@ -46,6 +47,8 @@ export async function GET(request: Request) {
     )
   }
 
+  let isNewUser = false
+
   try {
     // Try to insert user only if not exists
     const { error: insertError } = await supabaseAdmin.from("users").insert({
@@ -60,6 +63,31 @@ export async function GET(request: Request) {
 
     if (insertError && insertError.code !== "23505") {
       console.error("Error inserting user:", insertError)
+    } else if (!insertError) {
+      // Successfully inserted new user
+      isNewUser = true
+
+      // Schedule onboarding email sequence for new users
+      // Extract first name from user metadata or email
+      const firstName =
+        user.user_metadata?.full_name?.split(" ")[0] ||
+        user.user_metadata?.name?.split(" ")[0] ||
+        user.email?.split("@")[0] ||
+        "there"
+
+      // Fire and forget - don't block auth flow for email scheduling
+      scheduleOnboardingSequence(user.email!, firstName).then((result) => {
+        if (result.success) {
+          console.log(
+            `[Onboarding] Scheduled ${result.scheduledEmails} emails for ${user.email}`
+          )
+        } else {
+          console.warn(
+            `[Onboarding] Failed to schedule emails for ${user.email}:`,
+            result.errors
+          )
+        }
+      })
     }
   } catch (err) {
     console.error("Unexpected user insert error:", err)
