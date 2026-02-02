@@ -508,10 +508,8 @@ export async function linkupParallelSearch(
 export interface LinkUpResearchOptions {
   /** Research query/objective */
   query: string
-  /** Research depth: 'standard' or 'deep' */
-  depth?: "standard" | "deep"
-  /** Output format */
-  outputType?: "searchResults" | "sourcedAnswer" | "structured"
+  /** Output format - only 'sourcedAnswer' and 'structured' are available for /research */
+  outputType?: "sourcedAnswer" | "structured"
   /** Structured output schema (if outputType is structured) */
   structuredOutputSchema?: Record<string, unknown>
 }
@@ -529,19 +527,127 @@ export interface LinkUpResearchResult {
   searchQueries?: string[]
 }
 
+// Research polling configuration
+const RESEARCH_POLL_INTERVAL_MS = 2000 // 2 seconds between polls
+const RESEARCH_MAX_WAIT_MS = 5 * 60 * 1000 // 5 minutes max wait time
+
+/**
+ * Start a research task on LinkUp's /research endpoint
+ * Returns the task ID for polling
+ */
+async function startResearchTask(
+  apiKey: string,
+  query: string,
+  outputType: "sourcedAnswer" | "structured"
+): Promise<string> {
+  const response = await fetch("https://api.linkup.so/v1/research", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      q: query,
+      outputType,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "Unknown error")
+    throw createLinkUpError(
+      `Failed to start research task: ${response.status} ${errorText}`,
+      response.status === 401 ? "AUTHENTICATION_ERROR" :
+      response.status === 429 ? "RATE_LIMITED" : "SERVER_ERROR",
+      {
+        statusCode: response.status,
+        retryable: response.status >= 500 || response.status === 429,
+      }
+    )
+  }
+
+  const data = await response.json()
+  if (!data.id) {
+    throw createLinkUpError(
+      "Research task started but no task ID returned",
+      "SERVER_ERROR"
+    )
+  }
+
+  return data.id
+}
+
+/**
+ * Poll for research task results
+ * Returns the result when complete, or throws on error/timeout
+ */
+async function pollResearchResults(
+  apiKey: string,
+  taskId: string
+): Promise<any> {
+  const startTime = Date.now()
+
+  while (Date.now() - startTime < RESEARCH_MAX_WAIT_MS) {
+    const response = await fetch(
+      `https://api.linkup.so/v1/research/${taskId}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "Unknown error")
+      throw createLinkUpError(
+        `Failed to poll research results: ${response.status} ${errorText}`,
+        response.status === 401 ? "AUTHENTICATION_ERROR" : "SERVER_ERROR",
+        {
+          statusCode: response.status,
+          retryable: false,
+        }
+      )
+    }
+
+    const data = await response.json()
+    const status = data.status
+
+    // Check if still processing
+    if (status === "pending" || status === "processing") {
+      // Wait before polling again
+      await sleep(RESEARCH_POLL_INTERVAL_MS)
+      continue
+    }
+
+    // Task is complete - return the result
+    return data
+  }
+
+  // Timeout reached
+  throw createLinkUpError(
+    `Research task timed out after ${RESEARCH_MAX_WAIT_MS / 1000} seconds`,
+    "TIMEOUT",
+    { retryable: false }
+  )
+}
+
 /**
  * Execute comprehensive research using LinkUp's /research endpoint
  *
- * [BETA] This is a multi-step research process that:
+ * [BETA] This is an asynchronous multi-step research process that:
  * 1. Analyzes the query to understand research objectives
  * 2. Generates multiple targeted search queries
  * 3. Aggregates and synthesizes results
  * 4. Returns a comprehensive answer with citations
  *
- * Best for complex investigations requiring maximum depth.
- * Note: This is slower (2-5 minutes) but provides the most thorough results.
+ * The /research endpoint is designed for deep, multi-step reasoning and search.
+ * Unlike standard search, it can take from a few seconds to a few minutes.
  *
- * @param options - Research configuration
+ * API Flow:
+ * 1. POST /v1/research - starts task, returns { id: task_id }
+ * 2. GET /v1/research/{task_id} - poll until status != "pending"/"processing"
+ *
+ * @param options - Research configuration (NO depth parameter - removed in /research)
  * @returns Comprehensive research result with sources
  */
 export async function linkupResearch(
@@ -551,6 +657,14 @@ export async function linkupResearch(
   if (!isLinkUpAvailable()) {
     throw createLinkUpError(
       "LINKUP_API_KEY not configured - set it in environment variables",
+      "NOT_CONFIGURED"
+    )
+  }
+
+  const apiKey = process.env.LINKUP_API_KEY
+  if (!apiKey) {
+    throw createLinkUpError(
+      "LINKUP_API_KEY not configured",
       "NOT_CONFIGURED"
     )
   }
@@ -566,40 +680,31 @@ export async function linkupResearch(
     )
   }
 
-  // Get client
-  let client: LinkupClient
-  try {
-    client = getClient()
-  } catch (error) {
-    throw classifyError(error)
-  }
+  const outputType = options.outputType || "sourcedAnswer"
 
   try {
-    const result = await withRetry(async () => {
-      // Use the research method with deep mode for comprehensive results
-      // The SDK's research method handles the multi-step process
-      const response = await (client as any).research({
-        query: options.query,
-        depth: options.depth || "deep",
-        outputType: options.outputType || "sourcedAnswer",
-        structuredOutputSchema: options.structuredOutputSchema,
-      })
+    // Step 1: Start the research task
+    console.log("[LinkUp Research] Starting research task...")
+    const taskId = await startResearchTask(apiKey, options.query, outputType)
+    console.log(`[LinkUp Research] Task started: ${taskId}`)
 
-      return response
-    })
+    // Step 2: Poll for results
+    console.log("[LinkUp Research] Polling for results...")
+    const result = await pollResearchResults(apiKey, taskId)
+    console.log("[LinkUp Research] Research complete")
 
     // Record success
     circuitBreaker.recordSuccess()
 
-    // Normalize response
+    // Normalize response - extract answer/output and sources
     const answer =
-      (result as any).output ||
-      (result as any).answer ||
-      (result as any).content ||
+      result.output ||
+      result.answer ||
+      result.content ||
       ""
 
     const sources =
-      (result as any).sources?.map((s: any) => ({
+      result.sources?.map((s: any) => ({
         name: s.name || s.title || "",
         url: s.url || "",
         snippet: s.snippet || s.content || "",
@@ -608,13 +713,14 @@ export async function linkupResearch(
     return {
       answer,
       sources,
-      searchQueries: (result as any).searchQueries,
+      searchQueries: result.searchQueries,
     }
   } catch (error) {
     const linkupError = classifyError(error)
     if (linkupError.code !== "CIRCUIT_OPEN") {
       circuitBreaker.recordFailure()
     }
+    console.error("[LinkUp Research] Error:", linkupError.message)
     throw linkupError
   }
 }

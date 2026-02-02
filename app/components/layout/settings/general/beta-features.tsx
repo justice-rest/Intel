@@ -1,9 +1,9 @@
 "use client"
 
-import { Switch } from "@/components/ui/switch"
+import { Button } from "@/components/ui/button"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { useSubscriptionPlan } from "@/lib/subscription/hooks"
-import { Flask } from "@phosphor-icons/react"
+import { Flask, X } from "@phosphor-icons/react"
 
 /**
  * BetaFeatures toggle component for Settings > General tab
@@ -28,42 +28,32 @@ export function BetaFeatures() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Flask className="text-purple-500 size-5" weight="duotone" />
-          <div>
-            <h3 className="text-sm font-medium">Beta Features</h3>
-            <p className="text-muted-foreground text-xs">
-              Enable experimental features for advanced research
-            </p>
-          </div>
-        </div>
-        <Switch
-          checked={preferences.betaFeaturesEnabled}
-          onCheckedChange={setBetaFeaturesEnabled}
-        />
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-medium">Beta features</h3>
+        <p className="text-muted-foreground text-xs">
+          Enable experimental research features
+        </p>
       </div>
-
-      {preferences.betaFeaturesEnabled && (
-        <div className="bg-muted/50 rounded-md p-3 text-xs space-y-2">
-          <p className="font-medium text-purple-600 dark:text-purple-400">
-            Beta features enabled:
-          </p>
-          <ul className="text-muted-foreground space-y-1 ml-4 list-disc">
-            <li>
-              <span className="font-medium">Gemini Grounded Search</span> - Google&apos;s
-              native search with inline citations
-            </li>
-            <li>
-              <span className="font-medium">Ultra Research Mode</span> - Comprehensive
-              multi-step research using LinkUp&apos;s research endpoint
-            </li>
-          </ul>
-          <p className="text-muted-foreground/80 italic mt-2">
-            These features are experimental and may change or be removed.
-          </p>
-        </div>
+      {preferences.betaFeaturesEnabled ? (
+        <Button
+          variant="destructive"
+          size="sm"
+          className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0"
+          onClick={() => setBetaFeaturesEnabled(false)}
+        >
+          <X className="size-4" />
+          <span>Disable</span>
+        </Button>
+      ) : (
+        <Button
+          size="sm"
+          className="flex items-center justify-center gap-2 h-9 min-w-[105px] px-4 shrink-0 bg-purple-600 text-white hover:bg-purple-700"
+          onClick={() => setBetaFeaturesEnabled(true)}
+        >
+          <Flask className="size-4" />
+          <span>Enable</span>
+        </Button>
       )}
     </div>
   )

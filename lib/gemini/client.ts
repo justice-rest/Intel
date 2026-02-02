@@ -69,6 +69,7 @@ export async function geminiGroundedSearch(
   }
 
   try {
+    console.log("[Gemini] Starting grounded search with model:", config.model)
     const ai = new GoogleGenAI({ apiKey: config.apiKey })
 
     const response = await ai.models.generateContent({
@@ -79,8 +80,33 @@ export async function geminiGroundedSearch(
       },
     })
 
+    // Log response structure for debugging
+    console.log("[Gemini] Response received, extracting content...")
+
+    // Extract text from response - try multiple paths
+    let text = ""
+    try {
+      // Primary: use convenience accessor
+      text = response.text || ""
+    } catch {
+      // Fallback: access through candidates structure
+      const candidate = response.candidates?.[0]
+      if (candidate?.content?.parts?.[0]) {
+        const part = candidate.content.parts[0] as { text?: string }
+        text = part.text || ""
+      }
+    }
+
+    if (!text) {
+      console.warn("[Gemini] No text in response, raw response:", JSON.stringify(response).slice(0, 500))
+    }
+
     // Extract grounding metadata for citations
-    const groundingMetadata = response.candidates?.[0]?.groundingMetadata
+    const groundingMetadata = response.candidates?.[0]?.groundingMetadata as {
+      groundingChunks?: Array<{ web?: { uri?: string; title?: string } }>
+      webSearchQueries?: string[]
+    } | undefined
+
     const sources =
       groundingMetadata?.groundingChunks?.map((chunk) => ({
         uri: chunk.web?.uri || "",
@@ -90,14 +116,20 @@ export async function geminiGroundedSearch(
     // Filter out empty sources
     const validSources = sources.filter((s) => s.uri && s.title)
 
+    console.log(`[Gemini] Search complete: ${text.length} chars, ${validSources.length} sources`)
+
     return {
-      text: response.text || "",
+      text,
       sources: validSources,
       searchQueries: groundingMetadata?.webSearchQueries || [],
     }
   } catch (error) {
+    // Log the full error for debugging
+    console.error("[Gemini] Error details:", error)
+
     if (error instanceof Error) {
       const message = error.message.toLowerCase()
+      const fullMessage = error.message // Keep original case for user
 
       // Check for specific error types
       if (message.includes("timeout") || message.includes("timed out")) {
@@ -110,7 +142,8 @@ export async function geminiGroundedSearch(
       if (
         message.includes("401") ||
         message.includes("unauthorized") ||
-        message.includes("invalid api key")
+        message.includes("invalid api key") ||
+        message.includes("api key not valid")
       ) {
         throw createGeminiError("Invalid Gemini API key", "API_ERROR", {
           statusCode: 401,
@@ -119,15 +152,48 @@ export async function geminiGroundedSearch(
         })
       }
 
-      if (message.includes("429") || message.includes("rate limit")) {
-        throw createGeminiError("Gemini rate limit exceeded", "API_ERROR", {
-          statusCode: 429,
-          retryable: true,
-          cause: error,
-        })
+      // Be more specific about rate limits - check for actual rate limit errors
+      // vs quota errors (which are different)
+      if (message.includes("429") || message.includes("resource_exhausted")) {
+        throw createGeminiError(
+          "Gemini rate limit exceeded. Try again in a moment.",
+          "API_ERROR",
+          {
+            statusCode: 429,
+            retryable: true,
+            cause: error,
+          }
+        )
       }
 
-      throw createGeminiError(error.message, "API_ERROR", {
+      // Check for quota exceeded (different from rate limit)
+      if (message.includes("quota") || message.includes("billing")) {
+        throw createGeminiError(
+          "Gemini quota exceeded. Check your Google Cloud billing and quotas.",
+          "API_ERROR",
+          {
+            statusCode: 403,
+            retryable: false,
+            cause: error,
+          }
+        )
+      }
+
+      // Check for model not found
+      if (message.includes("not found") || message.includes("404")) {
+        throw createGeminiError(
+          `Model ${config.model} not available. Check model name.`,
+          "API_ERROR",
+          {
+            statusCode: 404,
+            retryable: false,
+            cause: error,
+          }
+        )
+      }
+
+      // Pass through the actual error message for better debugging
+      throw createGeminiError(fullMessage, "API_ERROR", {
         retryable: false,
         cause: error,
       })

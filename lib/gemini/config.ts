@@ -32,7 +32,9 @@ export function getGeminiConfig(): GeminiConfig | null {
 
   return {
     apiKey,
-    model: "gemini-2.0-flash",
-    timeout: 30000, // 30 seconds
+    // Use Gemini 3 Flash Preview for grounded search
+    // Pro-level intelligence at Flash speed with 1M context window
+    model: "gemini-3-flash-preview",
+    timeout: 60000, // 60 seconds (grounded search can take longer)
   }
 }
