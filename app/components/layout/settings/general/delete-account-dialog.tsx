@@ -191,7 +191,7 @@ export function DeleteAccountDialog({ open, onOpenChange }: DeleteAccountDialogP
           <div className="space-y-3 py-2">
             <div className="space-y-2">
               <Label htmlFor="confirmation" className="text-sm">
-                Type <span className="font-mono font-semibold">{CONFIRMATION_STRING}</span> to confirm:
+                Type <code className="font-mono font-bold text-destructive bg-destructive/10 px-1.5 py-0.5 rounded">{CONFIRMATION_STRING}</code> to confirm:
               </Label>
               <Input
                 id="confirmation"
