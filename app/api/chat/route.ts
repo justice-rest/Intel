@@ -93,8 +93,17 @@ import type { Provider } from "@/lib/user-keys"
 import {
   preCheckDeepResearchCredits,
   deductDeepResearchCredits,
+  hasScalePlan,
   type DeepResearchCreditCheck,
 } from "@/lib/subscription/autumn-client"
+import {
+  geminiGroundedSearchTool,
+  shouldEnableGeminiGroundedSearchTool,
+} from "@/lib/tools/gemini-grounded-search"
+import {
+  linkupUltraResearchTool,
+  shouldEnableLinkUpUltraResearchTool,
+} from "@/lib/tools/linkup-ultra-research"
 import { optimizeMessagePayload, estimateTokens } from "@/lib/message-payload-optimizer"
 import { Attachment } from "@ai-sdk/ui-utils"
 import { Message as MessageAISDK, streamText, smoothStream, ToolSet, tool } from "ai"
@@ -115,7 +124,7 @@ export const maxDuration = 300
 export const preferredRegion = "auto" // Use closest region to reduce latency
 export const dynamic = "force-dynamic" // Ensure fresh responses
 
-type ResearchMode = "research" | "deep-research"
+type ResearchMode = "research" | "deep-research" | "ultra-research"
 
 type ChatRequest = {
   messages: MessageAISDK[]
@@ -135,6 +144,7 @@ type ChatRequest = {
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
   "research": "openrouter:x-ai/grok-4.1-fast",
   "deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
+  "ultra-research": "openrouter:x-ai/grok-4.1-fast-thinking", // Same model, different tool
 }
 
 export async function POST(req: Request) {
@@ -188,6 +198,8 @@ export async function POST(req: Request) {
       hasGmail,
       hasDrive,
       chatConfig,
+      betaFeaturesEnabled,
+      isScalePlan,
     ] = await Promise.all([
       // 1. Validate user and check rate limits (critical - blocks streaming)
       validateAndTrackUsage({
@@ -346,6 +358,31 @@ export async function POST(req: Request) {
           return null
         }
       })(),
+      // 12. BETA FEATURES CHECK - Check if user has beta features enabled
+      (async (): Promise<boolean> => {
+        if (!isAuthenticated) return false
+        try {
+          const { createClient } = await import("@/lib/supabase/server")
+          const supabaseClient = await createClient()
+          if (!supabaseClient) return false
+
+          const { data } = await supabaseClient
+            .from("user_preferences")
+            .select("beta_features_enabled")
+            .eq("user_id", userId)
+            .single()
+
+          return data?.beta_features_enabled || false
+        } catch (error) {
+          console.error("Failed to check beta features:", error)
+          return false
+        }
+      })(),
+      // 13. SCALE PLAN CHECK - Check if user has Scale plan (required for beta features)
+      (async (): Promise<boolean> => {
+        if (!isAuthenticated) return false
+        return hasScalePlan(userId)
+      })(),
     ])
 
     // Verify model config exists
@@ -355,8 +392,16 @@ export async function POST(req: Request) {
     }
 
     /**
+     * Beta Features Access Check
+     * Beta features require BOTH: enabled preference AND Scale plan
+     * This provides defense-in-depth for premium features
+     */
+    const betaEnabled = betaFeaturesEnabled && isScalePlan
+
+    /**
      * Deep Research Credit Check (Growth Plan: 2 credits)
      * Pre-check ran in parallel above; now validate result and deduct if needed
+     * Note: Ultra Research mode also uses 2 credits (same as Deep Research)
      */
     let skipAutumnTracking = false
     if (deepResearchCreditCheck) {
@@ -993,6 +1038,20 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       // Requires user to have connected Google account with Drive access
       ...(isAuthenticated && hasDrive
         ? createDriveTools(userId)
+        : {}),
+      // [BETA] Add Gemini Grounded Search - Google's native search with citations
+      // Only available when: beta features enabled + Scale plan + search enabled + API key configured
+      ...(enableSearch && betaEnabled && shouldEnableGeminiGroundedSearchTool()
+        ? {
+            gemini_grounded_search: geminiGroundedSearchTool,
+          }
+        : {}),
+      // [BETA] Add LinkUp Ultra Research - Comprehensive multi-step research
+      // Only available when: beta features enabled + Scale plan + ultra-research mode selected
+      ...(enableSearch && betaEnabled && researchMode === "ultra-research" && shouldEnableLinkUpUltraResearchTool()
+        ? {
+            linkup_ultra_research: linkupUltraResearchTool,
+          }
         : {}),
     } as ToolSet
 

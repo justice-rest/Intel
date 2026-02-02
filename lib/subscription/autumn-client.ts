@@ -128,6 +128,43 @@ export function normalizePlanId(productId?: string): string | null {
 }
 
 /**
+ * Check if a user has a Scale plan (server-side)
+ * Used to gate access to beta features (Gemini Grounded Search, Ultra Research)
+ *
+ * IMPORTANT: Fails CLOSED on error - beta features are premium and should
+ * not be granted access when we can't verify the subscription.
+ *
+ * @param userId - The user's ID
+ * @returns Promise<boolean> - True if user has Scale plan
+ */
+export async function hasScalePlan(userId: string): Promise<boolean> {
+  try {
+    const customerData = await getCustomerData(userId, 2000) // 2 second timeout
+
+    if (!customerData?.products) {
+      return false
+    }
+
+    // Find an active product
+    const activeProduct = customerData.products.find(
+      (p: { status: string }) => p.status === "active" || p.status === "trialing"
+    )
+
+    if (!activeProduct?.id) {
+      return false
+    }
+
+    // Normalize and check for Scale plan only
+    const planId = normalizePlanId(activeProduct.id)
+    return planId === "scale"
+  } catch (error) {
+    console.error("[Autumn] Error checking Scale plan status:", error)
+    // Fail CLOSED for beta features - don't grant access on error
+    return false
+  }
+}
+
+/**
  * Check if a user has a Pro or Scale plan (server-side)
  * Used to gate access to premium features like PDF branding
  *

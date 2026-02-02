@@ -501,6 +501,124 @@ export async function linkupParallelSearch(
   }
 }
 
+// ============================================================================
+// RESEARCH ENDPOINT (Ultra Research Mode)
+// ============================================================================
+
+export interface LinkUpResearchOptions {
+  /** Research query/objective */
+  query: string
+  /** Research depth: 'standard' or 'deep' */
+  depth?: "standard" | "deep"
+  /** Output format */
+  outputType?: "searchResults" | "sourcedAnswer" | "structured"
+  /** Structured output schema (if outputType is structured) */
+  structuredOutputSchema?: Record<string, unknown>
+}
+
+export interface LinkUpResearchResult {
+  /** The comprehensive research answer */
+  answer: string
+  /** Sources with citations */
+  sources: Array<{
+    name: string
+    url: string
+    snippet?: string
+  }>
+  /** Intermediate search queries executed */
+  searchQueries?: string[]
+}
+
+/**
+ * Execute comprehensive research using LinkUp's /research endpoint
+ *
+ * [BETA] This is a multi-step research process that:
+ * 1. Analyzes the query to understand research objectives
+ * 2. Generates multiple targeted search queries
+ * 3. Aggregates and synthesizes results
+ * 4. Returns a comprehensive answer with citations
+ *
+ * Best for complex investigations requiring maximum depth.
+ * Note: This is slower (2-5 minutes) but provides the most thorough results.
+ *
+ * @param options - Research configuration
+ * @returns Comprehensive research result with sources
+ */
+export async function linkupResearch(
+  options: LinkUpResearchOptions
+): Promise<LinkUpResearchResult> {
+  // Pre-flight check
+  if (!isLinkUpAvailable()) {
+    throw createLinkUpError(
+      "LINKUP_API_KEY not configured - set it in environment variables",
+      "NOT_CONFIGURED"
+    )
+  }
+
+  const circuitBreaker = getSearchCircuitBreaker()
+
+  // Check circuit breaker state
+  if (circuitBreaker.isOpen()) {
+    throw createLinkUpError(
+      "LinkUp research circuit breaker is open - service temporarily unavailable",
+      "CIRCUIT_OPEN",
+      { retryable: true }
+    )
+  }
+
+  // Get client
+  let client: LinkupClient
+  try {
+    client = getClient()
+  } catch (error) {
+    throw classifyError(error)
+  }
+
+  try {
+    const result = await withRetry(async () => {
+      // Use the research method with deep mode for comprehensive results
+      // The SDK's research method handles the multi-step process
+      const response = await (client as any).research({
+        query: options.query,
+        depth: options.depth || "deep",
+        outputType: options.outputType || "sourcedAnswer",
+        structuredOutputSchema: options.structuredOutputSchema,
+      })
+
+      return response
+    })
+
+    // Record success
+    circuitBreaker.recordSuccess()
+
+    // Normalize response
+    const answer =
+      (result as any).output ||
+      (result as any).answer ||
+      (result as any).content ||
+      ""
+
+    const sources =
+      (result as any).sources?.map((s: any) => ({
+        name: s.name || s.title || "",
+        url: s.url || "",
+        snippet: s.snippet || s.content || "",
+      })) || []
+
+    return {
+      answer,
+      sources,
+      searchQueries: (result as any).searchQueries,
+    }
+  } catch (error) {
+    const linkupError = classifyError(error)
+    if (linkupError.code !== "CIRCUIT_OPEN") {
+      circuitBreaker.recordFailure()
+    }
+    throw linkupError
+  }
+}
+
 /**
  * Get LinkUp client status
  *

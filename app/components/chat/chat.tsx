@@ -23,6 +23,7 @@ import { useChatCore } from "./use-chat-core"
 import { useChatOperations } from "./use-chat-operations"
 import { useFileUpload } from "./use-file-upload"
 import { useCustomer } from "autumn-js/react"
+import { useSubscriptionPlan } from "@/lib/subscription/hooks"
 
 const FeedbackWidget = dynamic(
   () => import("./feedback-widget").then((mod) => mod.FeedbackWidget),
@@ -96,6 +97,7 @@ export function Chat({
   const { user } = useUser()
   const { preferences } = useUserPreferences()
   const { customer } = useCustomer()
+  const { isScale } = useSubscriptionPlan()
 
   // Check if user has an active subscription (any paid plan, including trials)
   const productStatus = customer?.products?.[0]?.status
@@ -315,6 +317,8 @@ export function Chat({
       firstName,
       hasActiveSubscription,
       onSlashCommand: handleSlashCommand,
+      betaFeaturesEnabled: preferences.betaFeaturesEnabled,
+      isScalePlan: isScale,
     }),
     [
       input,
@@ -338,6 +342,8 @@ export function Chat({
       firstName,
       hasActiveSubscription,
       handleSlashCommand,
+      preferences.betaFeaturesEnabled,
+      isScale,
     ]
   )
 

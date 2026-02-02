@@ -28,6 +28,7 @@ interface UserPreferencesContextType {
   setPromptSuggestions: (enabled: boolean) => void
   setShowToolInvocations: (enabled: boolean) => void
   setShowConversationPreviews: (enabled: boolean) => void
+  setBetaFeaturesEnabled: (enabled: boolean) => void
   toggleModelVisibility: (modelId: string) => void
   isModelHidden: (modelId: string) => boolean
   isLoading: boolean
@@ -219,6 +220,10 @@ export function UserPreferencesProvider({
     updatePreferences({ showConversationPreviews: enabled })
   }
 
+  const setBetaFeaturesEnabled = (enabled: boolean) => {
+    updatePreferences({ betaFeaturesEnabled: enabled })
+  }
+
   const toggleModelVisibility = (modelId: string) => {
     const currentHidden = preferences.hiddenModels || []
     const isHidden = currentHidden.includes(modelId)
@@ -241,6 +246,7 @@ export function UserPreferencesProvider({
         setPromptSuggestions,
         setShowToolInvocations,
         setShowConversationPreviews,
+        setBetaFeaturesEnabled,
         toggleModelVisibility,
         isModelHidden,
         isLoading,

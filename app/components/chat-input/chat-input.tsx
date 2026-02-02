@@ -46,6 +46,10 @@ type ChatInputProps = {
   hasActiveSubscription?: boolean
   /** Callback for slash commands. Returns true if command was handled. */
   onSlashCommand?: (command: string) => boolean
+  /** Whether beta features are enabled in user preferences */
+  betaFeaturesEnabled?: boolean
+  /** Whether user has Scale plan (required for beta features) */
+  isScalePlan?: boolean
 }
 
 export function ChatInput({
@@ -69,6 +73,8 @@ export function ChatInput({
   onWelcomeDismiss,
   hasActiveSubscription,
   onSlashCommand,
+  betaFeaturesEnabled = false,
+  isScalePlan = false,
 }: ChatInputProps) {
   const isOnlyWhitespace = (text: string) => !/[^\s]/.test(text)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -296,6 +302,8 @@ export function ChatInput({
                     selectedMode={researchMode}
                     onModeChange={setResearchMode}
                     isUserAuthenticated={isUserAuthenticated}
+                    betaFeaturesEnabled={betaFeaturesEnabled}
+                    isScalePlan={isScalePlan}
                     className="h-9 rounded-full"
                   />
                 </div>

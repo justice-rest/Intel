@@ -39,6 +39,7 @@ export async function GET() {
           show_conversation_previews: true,
           multi_model_enabled: false,
           hidden_models: [],
+          beta_features_enabled: false,
         })
       }
 
@@ -56,6 +57,7 @@ export async function GET() {
       show_conversation_previews: data.show_conversation_previews,
       multi_model_enabled: data.multi_model_enabled,
       hidden_models: data.hidden_models || [],
+      beta_features_enabled: data.beta_features_enabled || false,
     })
   } catch (error) {
     console.error("Error in user-preferences GET API:", error)
@@ -96,6 +98,7 @@ export async function PUT(request: NextRequest) {
       show_conversation_previews,
       multi_model_enabled,
       hidden_models,
+      beta_features_enabled,
     } = body
 
     // Validate the data types
@@ -125,6 +128,8 @@ export async function PUT(request: NextRequest) {
     if (multi_model_enabled !== undefined)
       updateData.multi_model_enabled = multi_model_enabled
     if (hidden_models !== undefined) updateData.hidden_models = hidden_models
+    if (beta_features_enabled !== undefined)
+      updateData.beta_features_enabled = beta_features_enabled
 
     // Try to update first, then insert if doesn't exist
     const { data, error } = await supabase
@@ -157,6 +162,7 @@ export async function PUT(request: NextRequest) {
       show_conversation_previews: data.show_conversation_previews,
       multi_model_enabled: data.multi_model_enabled,
       hidden_models: data.hidden_models || [],
+      beta_features_enabled: data.beta_features_enabled || false,
     })
   } catch (error) {
     console.error("Error in user-preferences PUT API:", error)

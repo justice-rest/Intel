@@ -33,7 +33,7 @@ import {
 } from "@phosphor-icons/react"
 import { useState } from "react"
 
-export type ResearchMode = "research" | "deep-research"
+export type ResearchMode = "research" | "deep-research" | "ultra-research"
 
 type ResearchOption = {
   id: ResearchMode
@@ -44,6 +44,8 @@ type ResearchOption = {
     reasoning: boolean
     multiStep: boolean
   }
+  /** If true, only shown to Scale plan users with beta features enabled */
+  isBeta?: boolean
 }
 
 const RESEARCH_OPTIONS: ResearchOption[] = [
@@ -67,6 +69,17 @@ const RESEARCH_OPTIONS: ResearchOption[] = [
       multiStep: true,
     },
   },
+  {
+    id: "ultra-research",
+    name: "Ultra Research",
+    description: "Exhaustive multi-step research using LinkUp's research endpoint. Best for complex investigations requiring maximum depth.",
+    features: {
+      webSearch: true,
+      reasoning: true,
+      multiStep: true,
+    },
+    isBeta: true,
+  },
 ]
 
 type ResearchSelectorProps = {
@@ -74,6 +87,10 @@ type ResearchSelectorProps = {
   onModeChange: (mode: ResearchMode | null) => void
   className?: string
   isUserAuthenticated?: boolean
+  /** Whether beta features are enabled in user preferences */
+  betaFeaturesEnabled?: boolean
+  /** Whether user has Scale plan (required for beta features) */
+  isScalePlan?: boolean
 }
 
 export function ResearchSelector({
@@ -81,13 +98,24 @@ export function ResearchSelector({
   onModeChange,
   className,
   isUserAuthenticated = true,
+  betaFeaturesEnabled = false,
+  isScalePlan = false,
 }: ResearchSelectorProps) {
   const isMobile = useBreakpoint(768)
   const [hoveredMode, setHoveredMode] = useState<ResearchMode | null>(null)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
-  const currentOption = RESEARCH_OPTIONS.find((opt) => opt.id === selectedMode)
+  // Filter modes based on beta + Scale status
+  // Beta modes (like Ultra Research) only shown to Scale plan users with beta enabled
+  const availableOptions = RESEARCH_OPTIONS.filter((option) => {
+    if (option.isBeta) {
+      return betaFeaturesEnabled && isScalePlan
+    }
+    return true
+  })
+
+  const currentOption = availableOptions.find((opt) => opt.id === selectedMode)
 
   const trigger = (
     <Button
@@ -132,7 +160,7 @@ export function ResearchSelector({
   }
 
   // Get the hovered option data for submenu
-  const hoveredOption = RESEARCH_OPTIONS.find((opt) => opt.id === hoveredMode)
+  const hoveredOption = availableOptions.find((opt) => opt.id === hoveredMode)
 
   // Submenu component
   const renderSubMenu = (option: ResearchOption) => (
@@ -187,7 +215,7 @@ export function ResearchSelector({
             <DrawerTitle>Select Research Mode</DrawerTitle>
           </DrawerHeader>
           <div className="flex h-full flex-col space-y-2 overflow-y-auto px-4 pb-6">
-            {RESEARCH_OPTIONS.map((option) => (
+            {availableOptions.map((option) => (
               <div
                 key={option.id}
                 className={cn(
@@ -204,6 +232,11 @@ export function ResearchSelector({
                 <div className="flex items-center gap-2">
                   <MagnifyingGlassIcon className="size-4" />
                   <span className="font-medium">{option.name}</span>
+                  {option.isBeta && (
+                    <span className="rounded bg-purple-100 px-1 py-0.5 text-[9px] font-medium text-purple-700 dark:bg-purple-800 dark:text-purple-100">
+                      BETA
+                    </span>
+                  )}
                 </div>
                 <p className="text-muted-foreground text-sm">
                   {option.description}
@@ -261,7 +294,7 @@ export function ResearchSelector({
             forceMount
             side="top"
           >
-            {RESEARCH_OPTIONS.map((option) => (
+            {availableOptions.map((option) => (
               <DropdownMenuItem
                 key={option.id}
                 className={cn(
@@ -285,6 +318,11 @@ export function ResearchSelector({
               >
                 <MagnifyingGlassIcon className="size-4" />
                 <span className="text-sm">{option.name}</span>
+                {option.isBeta && (
+                  <span className="rounded bg-purple-100 px-1 py-0.5 text-[9px] font-medium text-purple-700 dark:bg-purple-800 dark:text-purple-100">
+                    BETA
+                  </span>
+                )}
               </DropdownMenuItem>
             ))}
 

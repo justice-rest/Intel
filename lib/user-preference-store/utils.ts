@@ -7,6 +7,7 @@ export type UserPreferences = {
   showConversationPreviews: boolean
   multiModelEnabled: boolean
   hiddenModels: string[]
+  betaFeaturesEnabled: boolean
 }
 
 export const defaultPreferences: UserPreferences = {
@@ -16,6 +17,7 @@ export const defaultPreferences: UserPreferences = {
   showConversationPreviews: true,
   multiModelEnabled: false,
   hiddenModels: [],
+  betaFeaturesEnabled: false,
 }
 
 /**
@@ -47,6 +49,7 @@ export function validatePreferences(prefs: unknown): UserPreferences {
     showConversationPreviews: typeof p.showConversationPreviews === "boolean" ? p.showConversationPreviews : defaultPreferences.showConversationPreviews,
     multiModelEnabled: typeof p.multiModelEnabled === "boolean" ? p.multiModelEnabled : defaultPreferences.multiModelEnabled,
     hiddenModels: Array.isArray(p.hiddenModels) ? p.hiddenModels.filter((id): id is string => typeof id === "string") : defaultPreferences.hiddenModels,
+    betaFeaturesEnabled: typeof p.betaFeaturesEnabled === "boolean" ? p.betaFeaturesEnabled : defaultPreferences.betaFeaturesEnabled,
   }
 }
 
@@ -59,6 +62,7 @@ export function convertFromApiFormat(apiData: Record<string, unknown>): UserPref
     showConversationPreviews: typeof apiData.show_conversation_previews === "boolean" ? apiData.show_conversation_previews : true,
     multiModelEnabled: typeof apiData.multi_model_enabled === "boolean" ? apiData.multi_model_enabled : false,
     hiddenModels: Array.isArray(apiData.hidden_models) ? (apiData.hidden_models as string[]) : [],
+    betaFeaturesEnabled: typeof apiData.beta_features_enabled === "boolean" ? apiData.beta_features_enabled : false,
   }
 }
 
@@ -75,5 +79,7 @@ export function convertToApiFormat(preferences: Partial<UserPreferences>): Recor
     apiData.multi_model_enabled = preferences.multiModelEnabled
   if (preferences.hiddenModels !== undefined)
     apiData.hidden_models = preferences.hiddenModels
+  if (preferences.betaFeaturesEnabled !== undefined)
+    apiData.beta_features_enabled = preferences.betaFeaturesEnabled
   return apiData
 }

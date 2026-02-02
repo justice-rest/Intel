@@ -34,7 +34,7 @@ import {
 } from "@phosphor-icons/react"
 import { useState } from "react"
 
-export type ResearchMode = "research" | "deep-research"
+export type ResearchMode = "research" | "deep-research" | "ultra-research"
 
 type ResearchModeOption = {
   id: ResearchMode
@@ -49,6 +49,8 @@ type ResearchModeOption = {
     reasoning: boolean
     multiStep: boolean
   }
+  /** If true, only shown to Scale plan users with beta features enabled */
+  isBeta?: boolean
 }
 
 const RESEARCH_MODES: ResearchModeOption[] = [
@@ -79,6 +81,21 @@ const RESEARCH_MODES: ResearchModeOption[] = [
       reasoning: true,
       multiStep: true,
     },
+  },
+  {
+    id: "ultra-research",
+    name: "Ultra Research",
+    description: "Exhaustive multi-step research using LinkUp's research endpoint. Best for complex investigations requiring maximum depth.",
+    speed: "Slowest (~2-5min)",
+    depth: "Maximum",
+    model: "Grok 4.1 Fast (Thinking)",
+    modelLink: "https://openrouter.ai/x-ai/grok-4.1-fast",
+    features: {
+      webSearch: true,
+      reasoning: true,
+      multiStep: true,
+    },
+    isBeta: true,
   },
 ]
 
@@ -162,6 +179,10 @@ type ResearchModeSelectorProps = {
   onModeChange: (mode: ResearchMode | null) => void
   isAuthenticated: boolean
   className?: string
+  /** Whether beta features are enabled in user preferences */
+  betaFeaturesEnabled?: boolean
+  /** Whether user has Scale plan (required for beta features) */
+  isScalePlan?: boolean
 }
 
 export function ResearchModeSelector({
@@ -169,14 +190,25 @@ export function ResearchModeSelector({
   onModeChange,
   isAuthenticated,
   className,
+  betaFeaturesEnabled = false,
+  isScalePlan = false,
 }: ResearchModeSelectorProps) {
   const isMobile = useBreakpoint(768)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const [hoveredMode, setHoveredMode] = useState<ResearchMode | null>(null)
 
+  // Filter modes based on beta + Scale status
+  // Beta modes (like Ultra Research) only shown to Scale plan users with beta enabled
+  const availableModes = RESEARCH_MODES.filter((mode) => {
+    if (mode.isBeta) {
+      return betaFeaturesEnabled && isScalePlan
+    }
+    return true
+  })
+
   const currentMode = selectedMode
-    ? RESEARCH_MODES.find((mode) => mode.id === selectedMode)
+    ? availableModes.find((mode) => mode.id === selectedMode)
     : null
   const isActive = selectedMode !== null
 
@@ -260,7 +292,7 @@ export function ResearchModeSelector({
                 Use standard AI chat without web research
               </span>
             </div>
-            {RESEARCH_MODES.map((mode) => (
+            {availableModes.map((mode) => (
               <div
                 key={mode.id}
                 className={cn(
@@ -273,7 +305,14 @@ export function ResearchModeSelector({
                 }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{mode.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-medium">{mode.name}</span>
+                    {mode.isBeta && (
+                      <span className="rounded bg-purple-100 px-1 py-0.5 text-[9px] font-medium text-purple-700 dark:bg-purple-800 dark:text-purple-100">
+                        BETA
+                      </span>
+                    )}
+                  </div>
                   {selectedMode === mode.id && (
                     <div className="bg-primary size-2 rounded-full" />
                   )}
@@ -313,7 +352,7 @@ export function ResearchModeSelector({
   }
 
   // Get the hovered mode data
-  const hoveredModeData = RESEARCH_MODES.find(
+  const hoveredModeData = availableModes.find(
     (mode) => mode.id === hoveredMode
   )
 
@@ -363,7 +402,7 @@ export function ResearchModeSelector({
             </span>
           </DropdownMenuItem>
 
-          {RESEARCH_MODES.map((mode) => (
+          {availableModes.map((mode) => (
             <DropdownMenuItem
               key={mode.id}
               className={cn(
@@ -389,6 +428,11 @@ export function ResearchModeSelector({
                 <div className="flex items-center gap-2">
                   <MagnifyingGlassIcon className="text-muted-foreground size-4" />
                   <span className="text-sm font-medium">{mode.name}</span>
+                  {mode.isBeta && (
+                    <span className="rounded bg-purple-100 px-1 py-0.5 text-[9px] font-medium text-purple-700 dark:bg-purple-800 dark:text-purple-100">
+                      BETA
+                    </span>
+                  )}
                 </div>
                 {selectedMode === mode.id && (
                   <div className="bg-primary size-2 rounded-full" />
