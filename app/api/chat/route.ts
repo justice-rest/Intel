@@ -1070,16 +1070,16 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       }
     })
 
-    // Convert UIMessages to ModelMessages for streamText (v5 migration)
+    // Convert UIMessages to ModelMessages for streamText (v5→v6: now async)
     // ModelMessages have content string format that providers expect
-    const modelMessages = convertToModelMessages(cleanedMessages, {
+    const modelMessages = await convertToModelMessages(cleanedMessages, {
       tools: modelSupportsTools ? tools : undefined,
       ignoreIncompleteToolCalls: true,
     })
 
     // SAFETY NET: Final check for empty content (xAI/Grok requires non-empty content in every message)
     // This should never trigger if cleanMessagesForTools is working correctly, but prevents API errors
-    const finalMessages: ModelMessage[] = modelMessages.map((msg) => {
+    const finalMessages: ModelMessage[] = modelMessages.map((msg: ModelMessage) => {
       // Check if content is effectively empty
       const isEmpty = !msg.content ||
         (typeof msg.content === "string" && !msg.content.trim()) ||

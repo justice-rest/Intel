@@ -1,4 +1,73 @@
-# AI SDK v4 to v5 Migration Log
+# AI SDK Migration Log
+
+## AI SDK v5 to v6 Migration
+
+**Started**: 2026-02-02
+**Completed**: 2026-02-02
+**Status**: ✅ MIGRATION COMPLETE - ALL QUALITY GATES PASSED
+
+### Version Changes
+
+| Package | v5 Version | v6 Version |
+|---------|------------|------------|
+| `ai` | `^5.0.124` | `^6.0.67` |
+| `@ai-sdk/react` | `^2.0.126` | `^3.0.69` |
+| `@ai-sdk/openai` | `^2.0.89` | `^3.0.25` |
+| `@ai-sdk/anthropic` | `^2.0.58` | `^3.0.35` |
+| `@ai-sdk/google` | `^2.0.52` | `^3.0.20` |
+| `@ai-sdk/mistral` | `^2.0.27` | `^3.0.18` |
+| `@ai-sdk/xai` | `^2.0.56` | `^3.0.46` |
+| `@ai-sdk/perplexity` | `^2.0.23` | `^3.0.17` |
+| `@openrouter/ai-sdk-provider` | `^1.5.4` | `^2.1.1` |
+
+### Breaking Changes Addressed
+
+#### 1. `convertToModelMessages()` Now Async
+
+In v6, `convertToModelMessages()` returns a `Promise<ModelMessage[]>` instead of `ModelMessage[]`.
+
+**File**: `app/api/chat/route.ts`
+
+```typescript
+// v5 (sync)
+const modelMessages = convertToModelMessages(cleanedMessages, { ... })
+
+// v6 (async)
+const modelMessages = await convertToModelMessages(cleanedMessages, { ... })
+```
+
+#### 2. Provider Package Peer Dependency Update
+
+The `@openrouter/ai-sdk-provider` package v1.x requires `ai@^5.0.0`, so updated to v2.x which supports `ai@^6.0.0`.
+
+### Quality Gates Status
+
+| Gate | Status | Notes |
+|------|--------|-------|
+| TypeScript Errors | ✅ 0 errors | `npm run type-check` passes |
+| Build | ✅ Succeeds | `npm run build` completes successfully |
+| ESLint | ⚠️ Pre-existing issues | Not migration-related (no-explicit-any, unused vars) |
+| Tests | N/A | No test script configured in project |
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `package.json` | Updated all AI SDK packages to v6/v3 versions |
+| `app/api/chat/route.ts` | Made `convertToModelMessages()` call async |
+
+### Not Required (No Breaking Changes)
+
+The following v6 changes were checked but **not applicable** to this codebase:
+
+1. **`generateObject` deprecation**: Still works, not yet removed. Used in `lib/knowledge/processors/document-analyzer.ts`
+2. **Token usage property renames** (`cachedInputTokens` → `inputTokenDetails.cacheReadTokens`): Not used in codebase
+3. **`Experimental_Agent` → `ToolLoopAgent`**: Not used in codebase
+4. **`CoreMessage` → `ModelMessage`**: Already migrated in v5
+
+---
+
+# AI SDK v4 to v5 Migration Log (Historical)
 
 **Started**: 2026-02-02
 **Completed**: 2026-02-02
