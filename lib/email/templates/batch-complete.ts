@@ -1,6 +1,6 @@
 /**
  * Batch Research Complete Email Template
- * Brand-consistent email design
+ * Brand-consistent email design with refined aesthetic
  */
 
 export interface BatchCompleteEmailData {
@@ -12,6 +12,23 @@ export interface BatchCompleteEmailData {
   appUrl?: string
 }
 
+// Shared email styles for consistency
+const emailStyles = `
+table { border-collapse: separate; table-layout: fixed; mso-table-lspace: 0pt; mso-table-rspace: 0pt }
+table td { border-collapse: collapse }
+.ExternalClass { width: 100% }
+.ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100% }
+body, a, li, p, h1, h2, h3 { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: none !important }
+body { min-width: 100%; Margin: 0px; padding: 0px; }
+body, #innerTable { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale }
+#innerTable img+div { display: none; display: none !important }
+img { Margin: 0; padding: 0; -ms-interpolation-mode: bicubic }
+h1, h2, h3, p, a { line-height: inherit; overflow-wrap: normal; white-space: normal; word-break: break-word }
+a { text-decoration: none }
+h1, h2, h3, p { min-width: 100%!important; width: 100%!important; max-width: 100%!important; display: inline-block!important; border: 0; padding: 0; margin: 0 }
+`
+
 export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string {
   const {
     jobName,
@@ -22,201 +39,140 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
     appUrl = "https://intel.getromy.app",
   } = data
 
+  const successRate = totalProspects > 0 ? Math.round((completedCount / totalProspects) * 100) : 0
+
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
 <head>
 <title>Research Complete</title>
 <meta charset="UTF-8" />
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<!--[if !mso]>-->
 <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<!--<![endif]-->
 <meta name="x-apple-disable-message-reformatting" content="" />
 <meta content="target-densitydpi=device-dpi" name="viewport" />
 <meta content="true" name="HandheldFriendly" />
 <meta content="width=device-width" name="viewport" />
 <meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no" />
-<style type="text/css">
-table {
-border-collapse: separate;
-table-layout: fixed;
-mso-table-lspace: 0pt;
-mso-table-rspace: 0pt
-}
-table td {
-border-collapse: collapse
-}
-.ExternalClass {
-width: 100%
-}
-.ExternalClass,
-.ExternalClass p,
-.ExternalClass span,
-.ExternalClass font,
-.ExternalClass td,
-.ExternalClass div {
-line-height: 100%
-}
-body, a, li, p, h1, h2, h3 {
--ms-text-size-adjust: 100%;
--webkit-text-size-adjust: 100%;
-}
-html {
--webkit-text-size-adjust: none !important
-}
-body {
-min-width: 100%;
-Margin: 0px;
-padding: 0px;
-}
-body, #innerTable {
--webkit-font-smoothing: antialiased;
--moz-osx-font-smoothing: grayscale
-}
-#innerTable img+div {
-display: none;
-display: none !important
-}
-img {
-Margin: 0;
-padding: 0;
--ms-interpolation-mode: bicubic
-}
-h1, h2, h3, p, a {
-line-height: inherit;
-overflow-wrap: normal;
-white-space: normal;
-word-break: break-word
-}
-a {
-text-decoration: none
-}
-h1, h2, h3, p {
-min-width: 100%!important;
-width: 100%!important;
-max-width: 100%!important;
-display: inline-block!important;
-border: 0;
-padding: 0;
-margin: 0
-}
-a[x-apple-data-detectors] {
-color: inherit !important;
-text-decoration: none !important;
-font-size: inherit !important;
-font-family: inherit !important;
-font-weight: inherit !important;
-line-height: inherit !important
-}
-u + #body a {
-color: inherit;
-text-decoration: none;
-font-size: inherit;
-font-family: inherit;
-font-weight: inherit;
-line-height: inherit;
-}
-a[href^="mailto"],
-a[href^="tel"],
-a[href^="sms"] {
-color: inherit;
-text-decoration: none
-}
-</style>
-<style type="text/css">
-@media (min-width: 481px) {
-.hd { display: none!important }
-}
-</style>
-<style type="text/css">
-@media (max-width: 480px) {
-.hm { display: none!important }
-}
-</style>
-<style type="text/css">
-@media (max-width: 480px) {
-.t36,.t41{mso-line-height-alt:0px!important;line-height:0!important;display:none!important}.t37{padding-top:43px!important;border:0!important;border-radius:0!important}.t31{mso-line-height-alt:26px!important;line-height:26px!important}
-}
-</style>
-<!--[if !mso]>-->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&amp;family=Albert+Sans:wght@500&amp;display=swap" rel="stylesheet" type="text/css" />
-<!--<![endif]-->
-<!--[if mso]>
-<xml>
-<o:OfficeDocumentSettings>
-<o:AllowPNG/>
-<o:PixelsPerInch>96</o:PixelsPerInch>
-</o:OfficeDocumentSettings>
-</xml>
-<![endif]-->
+<style type="text/css">${emailStyles}</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" type="text/css" />
 </head>
-<body id="body" class="t44" style="min-width:100%;Margin:0px;padding:0px;background-color:#F9F9F9;"><div class="t43" style="background-color:#F9F9F9;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center"><tr><td class="t42" style="font-size:0;line-height:0;mso-line-height-rule:exactly;background-color:#F9F9F9;background-image:none;background-repeat:repeat;background-size:auto;background-position:center top;" valign="top" align="center">
-<!--[if mso]>
-<v:background xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false">
-<v:fill color="#F9F9F9"/>
-</v:background>
-<![endif]-->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" id="innerTable"><tr><td><div class="t36" style="mso-line-height-rule:exactly;mso-line-height-alt:70px;line-height:70px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
-<table class="t40" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="400" class="t39" style="width:400px;">
-<table class="t38" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t37" style="border:1px solid #CECECE;overflow:hidden;background-color:#FFFFFF;padding:50px 40px 40px 40px;border-radius:20px 20px 20px 20px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100% !important;"><tr><td align="center">
-<table class="t4" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="316" class="t3" style="width:316px;">
-<table class="t2" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t1"><a href="${appUrl}" style="font-size:0px;" target="_blank"><img class="t0" style="display:block;border:0;height:auto;width:100%;Margin:0;max-width:100%;" width="316" height="95.2051282051282" alt="" src="https://the-romy.vercel.app/BrandmarkRōmy.png"/></a></td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class="t5" style="mso-line-height-rule:exactly;mso-line-height-alt:40px;line-height:40px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
-<table class="t10" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="280" class="t9" style="width:280px;">
-<table class="t8" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t7"><h1 class="t6" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:28px;font-weight:600;font-style:normal;font-size:24px;text-decoration:none;text-transform:none;letter-spacing:-1.2px;direction:ltr;color:#111111;text-align:left;mso-line-height-rule:exactly;mso-text-raise:1px;">Your research is ready! 🎉</h1></td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class="t12" style="mso-line-height-rule:exactly;mso-line-height-alt:17px;line-height:17px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
-<table class="t16" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="308" class="t15" style="width:308px;">
-<table class="t14" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t13"><p class="t11" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:15px;text-decoration:none;text-transform:none;letter-spacing:-0.6px;direction:ltr;color:#424040;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">Your batch research <strong>${jobName}</strong> has finished processing.</p></td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class="t18" style="mso-line-height-rule:exactly;mso-line-height-alt:25px;line-height:25px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
+<body id="body" style="min-width:100%;Margin:0px;padding:0px;background-color:#F4F4F5;">
+<div style="background-color:#F4F4F5;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
+<tr><td style="font-size:0;line-height:0;background-color:#F4F4F5;" valign="top" align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" id="innerTable">
+<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:50px;line-height:50px;font-size:1px;display:block;">&nbsp;</div></td></tr>
+<tr><td align="center">
+<table role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;">
+<tr><td width="440" style="width:440px;">
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;">
+<tr><td style="overflow:hidden;background-color:#FFFFFF;padding:48px 40px 40px 40px;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+<!-- Logo -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center">
+<a href="${appUrl}" style="font-size:0px;" target="_blank">
+<img style="display:block;border:0;height:auto;width:160px;max-width:100%;" width="160" alt="Rōmy" src="https://the-romy.vercel.app/BrandmarkRōmy.png"/>
+</a>
+</td></tr>
+</table>
+
+<div style="mso-line-height-rule:exactly;mso-line-height-alt:36px;line-height:36px;font-size:1px;display:block;">&nbsp;</div>
+
+<!-- Heading -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center">
+<h1 style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:32px;font-weight:600;font-size:24px;letter-spacing:-0.5px;color:#18181B;text-align:center;">Your Research is Ready</h1>
+</td></tr>
+</table>
+
+<div style="mso-line-height-rule:exactly;mso-line-height-alt:16px;line-height:16px;font-size:1px;display:block;">&nbsp;</div>
+
+<!-- Body -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center">
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:24px;font-weight:400;font-size:15px;color:#52525B;text-align:center;">
+Your batch research <strong style="color:#18181B;">${jobName}</strong><br/>has finished processing.
+</p>
+</td></tr>
+</table>
+
+<div style="mso-line-height-rule:exactly;mso-line-height-alt:28px;line-height:28px;font-size:1px;display:block;">&nbsp;</div>
 
 <!-- Stats Section -->
-<table role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;width:100%;">
-<tr>
-<td style="padding:20px;background-color:#F2EFF3;border-radius:12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="padding:24px;background-color:#F4F4F5;border-radius:12px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 <tr>
-<td align="center" width="33%" style="padding:10px;vertical-align:top;">
-<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
-<tr><td align="center" style="font-size:32px;font-weight:700;color:#111111;font-family:Inter,sans-serif;line-height:1.2;">${completedCount}</td></tr>
-<tr><td align="center" style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;padding-top:8px;">Completed</td></tr>
-</table>
+<td align="center" width="33%" style="vertical-align:top;">
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:28px;font-weight:700;color:#18181B;line-height:1.2;">${completedCount}</p>
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:12px;color:#71717A;padding-top:6px;text-transform:uppercase;letter-spacing:0.5px;">Completed</p>
 </td>
-<td align="center" width="33%" style="padding:10px;vertical-align:top;">
-<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
-<tr><td align="center" style="font-size:32px;font-weight:700;color:#424040;font-family:Inter,sans-serif;line-height:1.2;">${totalProspects}</td></tr>
-<tr><td align="center" style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;padding-top:8px;">Total</td></tr>
-</table>
+<td align="center" width="33%" style="vertical-align:top;border-left:1px solid #E4E4E7;border-right:1px solid #E4E4E7;">
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:28px;font-weight:700;color:#52525B;line-height:1.2;">${totalProspects}</p>
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:12px;color:#71717A;padding-top:6px;text-transform:uppercase;letter-spacing:0.5px;">Total</p>
 </td>
-<td align="center" width="33%" style="padding:10px;vertical-align:top;">
-<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;">
-<tr><td align="center" style="font-size:32px;font-weight:700;color:#111111;font-family:Inter,sans-serif;line-height:1.2;">${failedCount}</td></tr>
-<tr><td align="center" style="font-size:12px;color:#84828E;font-family:Inter,sans-serif;padding-top:8px;">Failed</td></tr>
-</table>
+<td align="center" width="33%" style="vertical-align:top;">
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:28px;font-weight:700;color:${failedCount > 0 ? '#DC2626' : '#18181B'};line-height:1.2;">${failedCount}</p>
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:12px;color:#71717A;padding-top:6px;text-transform:uppercase;letter-spacing:0.5px;">Failed</p>
 </td>
 </tr>
 </table>
-</td>
-</tr>
+</td></tr>
 </table>
 
-</td></tr><tr><td><div class="t18" style="mso-line-height-rule:exactly;mso-line-height-alt:30px;line-height:30px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
-<table class="t22" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="154" class="t21" style="width:154px;">
-<table class="t20" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t19" style="overflow:hidden;background-color:#00A5E4;text-align:center;line-height:40px;mso-line-height-rule:exactly;mso-text-raise:8px;border-radius:8px 8px 8px 8px;"><a class="t17" href="${appUrl}/labs/${jobId}" style="display:block;margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:40px;font-weight:700;font-style:normal;font-size:15px;text-decoration:none;letter-spacing:-0.5px;direction:ltr;color:#FFFFFF;text-align:center;mso-line-height-rule:exactly;mso-text-raise:8px;" target="_blank">View Results</a></td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class="t25" style="mso-line-height-rule:exactly;mso-line-height-alt:40px;line-height:40px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
-<table class="t29" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="318" class="t28" style="width:318px;">
-<table class="t27" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t26"><p class="t24" style="margin:0;Margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:500;font-style:normal;font-size:14px;text-decoration:none;text-transform:none;letter-spacing:-0.6px;direction:ltr;color:#424040;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">You&#39;re receiving this email because you ran a batch research job in Rōmy. If you are not sure why you&#39;re receiving this, please contact us by replying to this <a class="t23" href="mailto:solomon@getromy.app" style="margin:0;Margin:0;font-weight:700;font-style:normal;text-decoration:none;direction:ltr;color:#00A5E4;mso-line-height-rule:exactly;" target="_blank">email</a>.</p></td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class="t31" style="mso-line-height-rule:exactly;mso-line-height-alt:30px;line-height:30px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr><tr><td align="center">
-<table class="t35" role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;"><tr><td width="318" class="t34" style="width:420px;">
-<table class="t33" role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;"><tr><td class="t32" style="overflow:hidden;background-color:#F2EFF3;padding:20px 30px 20px 30px;border-radius:8px 8px 8px 8px;"><p class="t30" style="margin:0;Margin:0;font-family:Albert Sans,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:18px;font-weight:500;font-style:normal;font-size:12px;text-decoration:none;text-transform:none;direction:ltr;color:#84828E;text-align:center;mso-line-height-rule:exactly;mso-text-raise:2px;">Rōmy helps small nonprofits find new major donors at a fraction of the cost of existing solutions. It is effective, fun &amp; affordable</p></td></tr></table>
-</td></tr></table>
-</td></tr></table></td></tr></table>
-</td></tr></table>
-</td></tr><tr><td><div class="t41" style="mso-line-height-rule:exactly;mso-line-height-alt:70px;line-height:70px;font-size:1px;display:block;">&nbsp;&nbsp;</div></td></tr></table></td></tr></table></div><div class="gmail-fix" style="display: none; white-space: nowrap; font: 15px courier; line-height: 0;">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;</div></body>
+<div style="mso-line-height-rule:exactly;mso-line-height-alt:12px;line-height:12px;font-size:1px;display:block;">&nbsp;</div>
+
+<!-- Success Rate -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center">
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:13px;color:#71717A;">
+${successRate}% success rate
+</p>
+</td></tr>
+</table>
+
+<div style="mso-line-height-rule:exactly;mso-line-height-alt:28px;line-height:28px;font-size:1px;display:block;">&nbsp;</div>
+
+<!-- CTA Button -->
+<table role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;">
+<tr><td style="overflow:hidden;background-color:#00A5E4;text-align:center;line-height:48px;border-radius:10px;">
+<a href="${appUrl}/labs/${jobId}" style="display:inline-block;padding:0 32px;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:48px;font-weight:600;font-size:15px;color:#FFFFFF;text-align:center;" target="_blank">View Results</a>
+</td></tr>
+</table>
+
+<div style="mso-line-height-rule:exactly;mso-line-height-alt:32px;line-height:32px;font-size:1px;display:block;">&nbsp;</div>
+
+<!-- Footer note -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td align="center">
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:20px;font-weight:400;font-size:13px;color:#A1A1AA;text-align:center;">
+You're receiving this because you ran a batch research job.<br/>
+Questions? Just reply to this email.
+</p>
+</td></tr>
+</table>
+
+</td></tr>
+</table>
+</td></tr>
+</table>
+</td></tr>
+
+<!-- Brand Footer -->
+<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:32px;line-height:32px;font-size:1px;display:block;">&nbsp;</div></td></tr>
+<tr><td align="center">
+<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:18px;font-weight:400;font-size:12px;color:#A1A1AA;text-align:center;">
+Rōmy · Donor Intelligence for Nonprofits
+</p>
+</td></tr>
+<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:40px;line-height:40px;font-size:1px;display:block;">&nbsp;</div></td></tr>
+
+</table>
+</td></tr>
+</table>
+</div>
+</body>
 </html>`
 }
 
