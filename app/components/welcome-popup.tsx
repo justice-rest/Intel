@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { useUser } from "@/lib/user-store/provider"
 import { toast } from "sonner"
-import { Spinner, Sparkle, Brain, ArrowRight } from "@phosphor-icons/react"
+import { Spinner, Sparkle, ArrowRight } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
 
 interface WelcomePopupProps {
@@ -168,9 +168,8 @@ export function WelcomePopup({ isOpen, onComplete }: WelcomePopupProps) {
                       >
                         <label
                           htmlFor="notes"
-                          className="text-sm font-medium text-foreground flex items-center gap-2"
+                          className="text-sm font-medium text-foreground"
                         >
-                          <Brain className="size-4 text-muted-foreground" weight="duotone" />
                           Notes for my memory
                           <span className="text-muted-foreground/60 font-normal text-xs">(optional)</span>
                         </label>
