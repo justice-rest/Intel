@@ -1,7 +1,7 @@
 /**
  * GDPR Email Templates
+ * Clean, minimal Maily-style design
  * Data Export and Account Deletion Emails
- * Brand-consistent email design with refined aesthetic
  */
 
 export interface DataExportEmailData {
@@ -17,22 +17,73 @@ export interface AccountDeletionEmailData {
   appUrl?: string
 }
 
-// Shared email styles for consistency
-const emailStyles = `
-table { border-collapse: separate; table-layout: fixed; mso-table-lspace: 0pt; mso-table-rspace: 0pt }
-table td { border-collapse: collapse }
-.ExternalClass { width: 100% }
-.ExternalClass, .ExternalClass p, .ExternalClass span, .ExternalClass font, .ExternalClass td, .ExternalClass div { line-height: 100% }
-body, a, li, p, h1, h2, h3 { -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; }
-html { -webkit-text-size-adjust: none !important }
-body { min-width: 100%; Margin: 0px; padding: 0px; }
-body, #innerTable { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale }
-#innerTable img+div { display: none; display: none !important }
-img { Margin: 0; padding: 0; -ms-interpolation-mode: bicubic }
-h1, h2, h3, p, a { line-height: inherit; overflow-wrap: normal; white-space: normal; word-break: break-word }
-a { text-decoration: none }
-h1, h2, h3, p { min-width: 100%!important; width: 100%!important; max-width: 100%!important; display: inline-block!important; border: 0; padding: 0; margin: 0 }
-`
+const APP_URL = "https://intel.getromy.app"
+const LOGO_URL = "https://the-romy.vercel.app/BrandmarkRōmy.png"
+
+// Maily-style email wrapper
+function getEmailWrapper(content: string): string {
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html dir="ltr" lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width" />
+    <link rel="preload" as="image" href="${LOGO_URL}" />
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <style>
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 400;
+        mso-font-alt: 'sans-serif';
+        src: url(https://rsms.me/inter/font-files/Inter-Regular.woff2?v=3.19) format('woff2');
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 600;
+        mso-font-alt: 'sans-serif';
+        src: url(https://rsms.me/inter/font-files/Inter-SemiBold.woff2?v=3.19) format('woff2');
+      }
+      @font-face {
+        font-family: 'Inter';
+        font-style: normal;
+        font-weight: 700;
+        mso-font-alt: 'sans-serif';
+        src: url(https://rsms.me/inter/font-files/Inter-Bold.woff2?v=3.19) format('woff2');
+      }
+      * {
+        font-family: 'Inter', sans-serif;
+      }
+    </style>
+    <style>
+      blockquote,h1,h2,h3,img,li,ol,p,ul{margin-top:0;margin-bottom:0}@media only screen and (max-width:425px){.tab-row-full{width:100%!important}.tab-col-full{display:block!important;width:100%!important}.tab-pad{padding:0!important}}
+    </style>
+  </head>
+  <body style="background-color:#ffffff;margin:0;padding:0">
+    <table border="0" width="100%" cellpadding="0" cellspacing="0" role="presentation" align="center">
+      <tbody>
+        <tr>
+          <td style="margin:0px;background-color:#ffffff;padding:0">
+            <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;width:100%;margin-left:auto;margin-right:auto;background-color:#ffffff;min-width:300px;padding:32px 24px">
+              <tbody>
+                <tr style="width:100%">
+                  <td>
+${content}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>`
+}
 
 /**
  * Data Export Confirmation Email
@@ -43,141 +94,89 @@ export function getDataExportEmailHtml(data: DataExportEmailData): string {
     userName = "there",
     exportDate,
     sectionsExported,
-    appUrl = "https://intel.getromy.app",
+    appUrl = APP_URL,
   } = data
 
   const sectionsText = sectionsExported.length > 0
     ? sectionsExported.join(", ")
     : "all data"
 
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
-<head>
-<title>Your Data Export</title>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="x-apple-disable-message-reformatting" content="" />
-<meta content="target-densitydpi=device-dpi" name="viewport" />
-<meta content="true" name="HandheldFriendly" />
-<meta content="width=device-width" name="viewport" />
-<meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no" />
-<style type="text/css">${emailStyles}</style>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" type="text/css" />
-</head>
-<body id="body" style="min-width:100%;Margin:0px;padding:0px;background-color:#F4F4F5;">
-<div style="background-color:#F4F4F5;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
-<tr><td style="font-size:0;line-height:0;background-color:#F4F4F5;" valign="top" align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" id="innerTable">
-<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:50px;line-height:50px;font-size:1px;display:block;">&nbsp;</div></td></tr>
-<tr><td align="center">
-<table role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;">
-<tr><td width="440" style="width:440px;">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;">
-<tr><td style="overflow:hidden;background-color:#FFFFFF;padding:48px 40px 40px 40px;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+  const content = `
+                    <!-- Logo -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+                      <tbody>
+                        <tr>
+                          <td align="left">
+                            <img title="Rōmy" alt="Rōmy" src="${LOGO_URL}" style="display:block;outline:none;border:none;text-decoration:none;width:120px;height:auto" />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
 
-<!-- Logo -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<a href="${appUrl}" style="font-size:0px;" target="_blank">
-<img style="display:block;border:0;height:auto;width:160px;max-width:100%;" width="160" alt="Rōmy" src="https://the-romy.vercel.app/BrandmarkRōmy.png"/>
-</a>
-</td></tr>
-</table>
+                    <!-- Spacer -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="height:48px">
+                      <tbody><tr><td></td></tr></tbody>
+                    </table>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:36px;line-height:36px;font-size:1px;display:block;">&nbsp;</div>
+                    <!-- Heading -->
+                    <h2 style="margin:0 0 12px 0;color:#111827;font-size:30px;line-height:36px;font-weight:700">
+                      <strong>Your Data Export is Ready</strong>
+                    </h2>
 
-<!-- Heading -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<h1 style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:32px;font-weight:600;font-size:24px;letter-spacing:-0.5px;color:#18181B;text-align:center;">Your Data Export is Ready</h1>
-</td></tr>
-</table>
+                    <!-- Body -->
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 20px 0">
+                      Hey ${userName}! Your data export has been completed and the download should have started automatically.
+                    </p>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:16px;line-height:16px;font-size:1px;display:block;">&nbsp;</div>
+                    <!-- Export Details Box -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f9fafb;border-radius:12px;margin-bottom:24px">
+                      <tbody>
+                        <tr>
+                          <td style="padding:20px 24px">
+                            <p style="margin:0 0 4px;font-size:12px;font-weight:600;color:#111827;text-transform:uppercase;letter-spacing:0.5px">Export Details</p>
+                            <p style="font-size:14px;line-height:22px;color:#374151;margin:0 0 8px 0">
+                              <strong style="color:#111827">Date:</strong> ${exportDate}
+                            </p>
+                            <p style="font-size:14px;line-height:22px;color:#374151;margin:0">
+                              <strong style="color:#111827">Included:</strong> ${sectionsText}
+                            </p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
 
-<!-- Body -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:24px;font-weight:400;font-size:15px;color:#52525B;text-align:center;">
-Hey ${userName}! Your data export has been completed.<br/>The download should have started automatically.
-</p>
-</td></tr>
-</table>
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 24px 0">
+                      We're committed to transparency and giving you full control over your information. You can request another export anytime from your account settings.
+                    </p>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:28px;line-height:28px;font-size:1px;display:block;">&nbsp;</div>
+                    <!-- CTA Button -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:32px">
+                      <tbody>
+                        <tr>
+                          <td>
+                            <a href="${appUrl}" style="line-height:100%;text-decoration:none;display:inline-block;color:#ffffff;background-color:#00A5E4;font-size:14px;font-weight:500;border-radius:9999px;padding:12px 32px" target="_blank">
+                              <span style="display:inline-block;line-height:120%">Back to Rōmy →</span>
+                            </a>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
 
-<!-- Info Box -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td style="padding:20px 24px;background-color:#F4F4F5;border-radius:12px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr>
-<td style="padding-bottom:12px;border-bottom:1px solid #E4E4E7;">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:20px;font-weight:500;font-size:13px;color:#71717A;text-transform:uppercase;letter-spacing:0.5px;">Export Details</p>
-</td>
-</tr>
-<tr>
-<td style="padding-top:16px;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr>
-<td style="padding:6px 0;">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:14px;color:#52525B;"><span style="color:#71717A;">Date:</span> <strong style="color:#18181B;font-weight:600;">${exportDate}</strong></p>
-</td>
-</tr>
-<tr>
-<td style="padding:6px 0;">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;font-size:14px;color:#52525B;"><span style="color:#71717A;">Included:</span> <strong style="color:#18181B;font-weight:600;">${sectionsText}</strong></p>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</td></tr>
-</table>
+                    <!-- Signature -->
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0">
+                      Best regards,<br /><strong style="color:#111827">The Rōmy Team</strong>
+                    </p>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:28px;line-height:28px;font-size:1px;display:block;">&nbsp;</div>
+                    <!-- Footer -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="height:48px">
+                      <tbody><tr><td></td></tr></tbody>
+                    </table>
 
-<!-- CTA Button -->
-<table role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;">
-<tr><td style="overflow:hidden;background-color:#00A5E4;text-align:center;line-height:48px;border-radius:10px;">
-<a href="${appUrl}" style="display:inline-block;padding:0 32px;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:48px;font-weight:600;font-size:15px;color:#FFFFFF;text-align:center;" target="_blank">Back to Rōmy</a>
-</td></tr>
-</table>
+                    <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0">
+                      Questions about your data? Reply to this email.
+                    </p>`
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:32px;line-height:32px;font-size:1px;display:block;">&nbsp;</div>
-
-<!-- Footer note -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:20px;font-weight:400;font-size:13px;color:#A1A1AA;text-align:center;">
-Your data is yours. We're committed to transparency<br/>and giving you full control over your information.
-</p>
-</td></tr>
-</table>
-
-</td></tr>
-</table>
-</td></tr>
-</table>
-</td></tr>
-
-<!-- Brand Footer -->
-<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:32px;line-height:32px;font-size:1px;display:block;">&nbsp;</div></td></tr>
-<tr><td align="center">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:18px;font-weight:400;font-size:12px;color:#A1A1AA;text-align:center;">
-Rōmy · Donor Intelligence for Nonprofits
-</p>
-</td></tr>
-<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:40px;line-height:40px;font-size:1px;display:block;">&nbsp;</div></td></tr>
-
-</table>
-</td></tr>
-</table>
-</div>
-</body>
-</html>`
+  return getEmailWrapper(content)
 }
 
 export function getDataExportEmailSubject(): string {
@@ -192,123 +191,76 @@ export function getAccountDeletionEmailHtml(data: AccountDeletionEmailData): str
   const {
     userName = "there",
     deletionDate,
-    appUrl = "https://intel.getromy.app",
+    appUrl = APP_URL,
   } = data
 
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office" lang="en">
-<head>
-<title>Goodbye from Rōmy</title>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-<meta name="x-apple-disable-message-reformatting" content="" />
-<meta content="target-densitydpi=device-dpi" name="viewport" />
-<meta content="true" name="HandheldFriendly" />
-<meta content="width=device-width" name="viewport" />
-<meta name="format-detection" content="telephone=no, date=no, address=no, email=no, url=no" />
-<style type="text/css">${emailStyles}</style>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet" type="text/css" />
-</head>
-<body id="body" style="min-width:100%;Margin:0px;padding:0px;background-color:#F4F4F5;">
-<div style="background-color:#F4F4F5;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center">
-<tr><td style="font-size:0;line-height:0;background-color:#F4F4F5;" valign="top" align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" align="center" id="innerTable">
-<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:50px;line-height:50px;font-size:1px;display:block;">&nbsp;</div></td></tr>
-<tr><td align="center">
-<table role="presentation" cellpadding="0" cellspacing="0" style="Margin-left:auto;Margin-right:auto;">
-<tr><td width="440" style="width:440px;">
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;">
-<tr><td style="overflow:hidden;background-color:#FFFFFF;padding:48px 40px 40px 40px;border-radius:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+  const content = `
+                    <!-- Logo -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
+                      <tbody>
+                        <tr>
+                          <td align="left">
+                            <img title="Rōmy" alt="Rōmy" src="${LOGO_URL}" style="display:block;outline:none;border:none;text-decoration:none;width:120px;height:auto" />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
 
-<!-- Logo -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<a href="${appUrl}" style="font-size:0px;" target="_blank">
-<img style="display:block;border:0;height:auto;width:160px;max-width:100%;" width="160" alt="Rōmy" src="https://the-romy.vercel.app/BrandmarkRōmy.png"/>
-</a>
-</td></tr>
-</table>
+                    <!-- Spacer -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="height:48px">
+                      <tbody><tr><td></td></tr></tbody>
+                    </table>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:36px;line-height:36px;font-size:1px;display:block;">&nbsp;</div>
+                    <!-- Heading -->
+                    <h2 style="margin:0 0 12px 0;color:#111827;font-size:30px;line-height:36px;font-weight:700">
+                      <strong>Goodbye, ${userName}</strong>
+                    </h2>
 
-<!-- Heading -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<h1 style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:32px;font-weight:600;font-size:24px;letter-spacing:-0.5px;color:#18181B;text-align:center;">Goodbye, ${userName}</h1>
-</td></tr>
-</table>
+                    <!-- Body -->
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 20px 0">
+                      Your Rōmy account has been deleted and all your data has been completely removed from our systems.
+                    </p>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:16px;line-height:16px;font-size:1px;display:block;">&nbsp;</div>
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 20px 0">
+                      It was a genuine pleasure having you with us. Every moment you spent using Rōmy meant the world to our small team.
+                    </p>
 
-<!-- Body -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:24px;font-weight:400;font-size:15px;color:#52525B;text-align:center;">
-Your Rōmy account has been deleted. All your data<br/>has been completely removed from our systems.
-</p>
-</td></tr>
-</table>
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 20px 0">
+                      If you ever decide to come back, we'll be here with open arms, ready to help you find major donors and make a bigger impact.
+                    </p>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:28px;line-height:28px;font-size:1px;display:block;">&nbsp;</div>
+                    <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0 0 24px 0">
+                      Account deleted on ${deletionDate}
+                    </p>
 
-<!-- Farewell Message -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td style="padding:24px;background-color:#F4F4F5;border-radius:12px;border-left:3px solid #00A5E4;">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:26px;font-weight:400;font-size:15px;color:#3F3F46;text-align:left;">
-It was a genuine pleasure having you with us. Every moment you spent using Rōmy meant the world to our small team.
-</p>
-<div style="height:16px;"></div>
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:26px;font-weight:400;font-size:15px;color:#3F3F46;text-align:left;">
-If you ever decide to come back, we'll be here with open arms, ready to help you find major donors and make a bigger impact.
-</p>
-</td></tr>
-</table>
+                    <!-- CTA Button -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:32px">
+                      <tbody>
+                        <tr>
+                          <td>
+                            <a href="${appUrl}" style="line-height:100%;text-decoration:none;display:inline-block;color:#ffffff;background-color:#00A5E4;font-size:14px;font-weight:500;border-radius:9999px;padding:12px 32px" target="_blank">
+                              <span style="display:inline-block;line-height:120%">Create New Account →</span>
+                            </a>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:24px;line-height:24px;font-size:1px;display:block;">&nbsp;</div>
+                    <!-- Signature -->
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0">
+                      With gratitude,<br /><strong style="color:#111827">Howard Freeman</strong><br /><span style="color:#6b7280">Founder & CEO, Rōmy</span>
+                    </p>
 
-<!-- Deletion Info -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:20px;font-weight:500;font-size:13px;color:#A1A1AA;text-align:center;">
-Account deleted on ${deletionDate}
-</p>
-</td></tr>
-</table>
+                    <!-- Footer -->
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="height:48px">
+                      <tbody><tr><td></td></tr></tbody>
+                    </table>
 
-<div style="mso-line-height-rule:exactly;mso-line-height-alt:28px;line-height:28px;font-size:1px;display:block;">&nbsp;</div>
+                    <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0">
+                      Thank you for being part of our journey.
+                    </p>`
 
-<!-- Note -->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td align="center">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:22px;font-weight:400;font-size:14px;color:#71717A;text-align:center;">
-Changed your mind? You can always create a new account at<br/><a href="${appUrl}" style="color:#00A5E4;font-weight:600;text-decoration:none;" target="_blank">intel.getromy.app</a>
-</p>
-</td></tr>
-</table>
-
-</td></tr>
-</table>
-</td></tr>
-</table>
-</td></tr>
-
-<!-- Brand Footer -->
-<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:32px;line-height:32px;font-size:1px;display:block;">&nbsp;</div></td></tr>
-<tr><td align="center">
-<p style="margin:0;font-family:Inter,BlinkMacSystemFont,Segoe UI,Helvetica Neue,Arial,sans-serif;line-height:18px;font-weight:400;font-size:12px;color:#A1A1AA;text-align:center;">
-With gratitude · The Rōmy Team
-</p>
-</td></tr>
-<tr><td><div style="mso-line-height-rule:exactly;mso-line-height-alt:40px;line-height:40px;font-size:1px;display:block;">&nbsp;</div></td></tr>
-
-</table>
-</td></tr>
-</table>
-</div>
-</body>
-</html>`
+  return getEmailWrapper(content)
 }
 
 export function getAccountDeletionEmailSubject(): string {

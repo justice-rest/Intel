@@ -1,28 +1,8 @@
-/**
- * Batch Research Complete Email Template
- * Clean, minimal Maily-style design
- */
-
-export interface BatchCompleteEmailData {
-  jobName: string
-  totalProspects: number
-  completedCount: number
-  failedCount: number
-  jobId: string
-  appUrl?: string
-  userName?: string
-}
-
-const APP_URL = "https://intel.getromy.app"
-const LOGO_URL = "https://the-romy.vercel.app/BrandmarkRōmy.png"
-
-// Maily-style email wrapper
-function getEmailWrapper(content: string): string {
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
     <meta name="viewport" content="width=device-width" />
-    <link rel="preload" as="image" href="${LOGO_URL}" />
+    <link rel="preload" as="image" href="https://the-romy.vercel.app/BrandmarkRōmy.png" />
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
     <meta name="x-apple-disable-message-reformatting" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -68,41 +48,12 @@ function getEmailWrapper(content: string): string {
               <tbody>
                 <tr style="width:100%">
                   <td>
-${content}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </body>
-</html>`
-}
-
-export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string {
-  const {
-    jobName,
-    totalProspects,
-    completedCount,
-    failedCount,
-    jobId,
-    appUrl = APP_URL,
-    userName = "there",
-  } = data
-
-  const successRate = totalProspects > 0 ? Math.round((completedCount / totalProspects) * 100) : 0
-  const progressBarWidth = `${successRate}%`
-  const progressBarColor = failedCount > 0 ? "#f59e0b" : "#10b981"
-
-  const content = `
                     <!-- Logo -->
                     <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
                       <tbody>
                         <tr>
                           <td align="left">
-                            <img title="Rōmy" alt="Rōmy" src="${LOGO_URL}" style="display:block;outline:none;border:none;text-decoration:none;width:120px;height:auto" />
+                            <img title="Rōmy" alt="Rōmy" src="https://the-romy.vercel.app/BrandmarkRōmy.png" style="display:block;outline:none;border:none;text-decoration:none;width:120px;height:auto" />
                           </td>
                         </tr>
                       </tbody>
@@ -120,7 +71,7 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
 
                     <!-- Body -->
                     <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 20px 0">
-                      Hey ${userName}! Your batch research job <strong style="color:#111827">"${jobName}"</strong> has finished processing.
+                      Hey Solomon! Your batch research job <strong style="color:#111827">"Q4 Gala Attendees"</strong> has finished processing.
                     </p>
 
                     <!-- Stats Box -->
@@ -132,9 +83,9 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
                             <table width="100%" border="0" cellpadding="0" cellspacing="0" style="margin-bottom:20px">
                               <tr>
                                 <td style="background-color:#e5e7eb;border-radius:999px;height:8px">
-                                  <table width="${progressBarWidth}" border="0" cellpadding="0" cellspacing="0">
+                                  <table width="100%" border="0" cellpadding="0" cellspacing="0">
                                     <tr>
-                                      <td style="background-color:${progressBarColor};border-radius:999px;height:8px;width:100%"></td>
+                                      <td style="background-color:#10b981;border-radius:999px;height:8px;width:100%"></td>
                                     </tr>
                                   </table>
                                 </td>
@@ -144,12 +95,12 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
                             <table width="100%" border="0" cellpadding="0" cellspacing="0">
                               <tr>
                                 <td align="left" style="padding:4px 0">
-                                  <span style="display:inline-block;width:10px;height:10px;background-color:${progressBarColor};border-radius:50%;margin-right:8px;vertical-align:middle"></span>
-                                  <span style="font-size:14px;color:#374151;vertical-align:middle"><strong style="color:#111827">${completedCount}</strong> prospects researched</span>
+                                  <span style="display:inline-block;width:10px;height:10px;background-color:#10b981;border-radius:50%;margin-right:8px;vertical-align:middle"></span>
+                                  <span style="font-size:14px;color:#374151;vertical-align:middle"><strong style="color:#111827">47</strong> prospects researched</span>
                                 </td>
                                 <td align="right" style="padding:4px 0">
-                                  <span style="display:inline-block;width:10px;height:10px;background-color:${failedCount > 0 ? '#ef4444' : '#d1d5db'};border-radius:50%;margin-right:8px;vertical-align:middle"></span>
-                                  <span style="font-size:14px;color:#6b7280;vertical-align:middle"><strong style="color:${failedCount > 0 ? '#ef4444' : '#9ca3af'}">${failedCount}</strong> failed</span>
+                                  <span style="display:inline-block;width:10px;height:10px;background-color:#d1d5db;border-radius:50%;margin-right:8px;vertical-align:middle"></span>
+                                  <span style="font-size:14px;color:#6b7280;vertical-align:middle"><strong style="color:#9ca3af">0</strong> failed</span>
                                 </td>
                               </tr>
                             </table>
@@ -167,7 +118,7 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
                       <tbody>
                         <tr>
                           <td>
-                            <a href="${appUrl}/labs/${jobId}" style="line-height:100%;text-decoration:none;display:inline-block;color:#ffffff;background-color:#00A5E4;font-size:14px;font-weight:500;border-radius:9999px;padding:12px 32px" target="_blank">
+                            <a href="https://intel.getromy.app/labs/123" style="line-height:100%;text-decoration:none;display:inline-block;color:#ffffff;background-color:#00A5E4;font-size:14px;font-weight:500;border-radius:9999px;padding:12px 32px" target="_blank">
                               <span style="display:inline-block;line-height:120%">View Your Results →</span>
                             </a>
                           </td>
@@ -192,11 +143,14 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
 
                     <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0">
                       Questions? Reply to this email — we read every message.
-                    </p>`
-
-  return getEmailWrapper(content)
-}
-
-export function getBatchCompleteEmailSubject(jobName: string): string {
-  return `Your research is ready: ${jobName}`
-}
+                    </p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>

@@ -1,27 +1,8 @@
-/**
- * Share Conversation Email Template
- * Clean, minimal Maily-style design
- * Sent when a user shares a public conversation link via email
- */
-
-export interface ShareConversationEmailData {
-  senderName: string
-  recipientName?: string
-  personalNote?: string
-  conversationLink: string
-  appUrl?: string
-}
-
-const APP_URL = "https://intel.getromy.app"
-const LOGO_URL = "https://the-romy.vercel.app/BrandmarkRōmy.png"
-
-// Maily-style email wrapper
-function getEmailWrapper(content: string): string {
-  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
     <meta name="viewport" content="width=device-width" />
-    <link rel="preload" as="image" href="${LOGO_URL}" />
+    <link rel="preload" as="image" href="https://the-romy.vercel.app/BrandmarkRōmy.png" />
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
     <meta name="x-apple-disable-message-reformatting" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
@@ -67,56 +48,12 @@ function getEmailWrapper(content: string): string {
               <tbody>
                 <tr style="width:100%">
                   <td>
-${content}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </body>
-</html>`
-}
-
-export function getShareConversationEmailHtml(
-  data: ShareConversationEmailData
-): string {
-  const {
-    senderName,
-    recipientName,
-    personalNote,
-    conversationLink,
-    appUrl = APP_URL,
-  } = data
-
-  const greeting = recipientName ? `Hi ${recipientName},` : "Hi there,"
-
-  const noteSection = personalNote
-    ? `
-                    <!-- Personal Note Box -->
-                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="background-color:#f9fafb;border-radius:12px;margin-bottom:24px">
-                      <tbody>
-                        <tr>
-                          <td style="padding:20px 24px">
-                            <p style="margin:0 0 8px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px">Personal Note</p>
-                            <p style="font-size:15px;line-height:24px;color:#374151;margin:0;font-style:italic">
-                              "${personalNote}"
-                            </p>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>`
-    : ""
-
-  const content = `
                     <!-- Logo -->
                     <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation">
                       <tbody>
                         <tr>
                           <td align="left">
-                            <img title="Rōmy" alt="Rōmy" src="${LOGO_URL}" style="display:block;outline:none;border:none;text-decoration:none;width:120px;height:auto" />
+                            <img title="Rōmy" alt="Rōmy" src="https://the-romy.vercel.app/BrandmarkRōmy.png" style="display:block;outline:none;border:none;text-decoration:none;width:120px;height:auto" />
                           </td>
                         </tr>
                       </tbody>
@@ -129,20 +66,24 @@ export function getShareConversationEmailHtml(
 
                     <!-- Heading -->
                     <h2 style="margin:0 0 12px 0;color:#111827;font-size:30px;line-height:36px;font-weight:700">
-                      <strong>Research Shared With You</strong>
+                      <strong>Goodbye, Solomon</strong>
                     </h2>
 
                     <!-- Body -->
                     <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 20px 0">
-                      ${greeting}
+                      Your Rōmy account has been deleted and all your data has been completely removed from our systems.
                     </p>
 
                     <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 20px 0">
-                      <strong style="color:#111827">${senderName}</strong> shared a prospect research conversation with you on Rōmy.
+                      It was a genuine pleasure having you with us. Every moment you spent using Rōmy meant the world to our small team.
                     </p>
-${noteSection}
-                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 24px 0">
-                      Click below to view the full research findings, including wealth indicators, giving capacity analysis, and cultivation strategies.
+
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0 0 20px 0">
+                      If you ever decide to come back, we'll be here with open arms, ready to help you find major donors and make a bigger impact.
+                    </p>
+
+                    <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0 0 24px 0">
+                      Account deleted on February 3, 2026
                     </p>
 
                     <!-- CTA Button -->
@@ -150,30 +91,34 @@ ${noteSection}
                       <tbody>
                         <tr>
                           <td>
-                            <a href="${conversationLink}" style="line-height:100%;text-decoration:none;display:inline-block;color:#ffffff;background-color:#00A5E4;font-size:14px;font-weight:500;border-radius:9999px;padding:12px 32px" target="_blank">
-                              <span style="display:inline-block;line-height:120%">View Research →</span>
+                            <a href="https://intel.getromy.app" style="line-height:100%;text-decoration:none;display:inline-block;color:#ffffff;background-color:#00A5E4;font-size:14px;font-weight:500;border-radius:9999px;padding:12px 32px" target="_blank">
+                              <span style="display:inline-block;line-height:120%">Create New Account →</span>
                             </a>
                           </td>
                         </tr>
                       </tbody>
                     </table>
 
+                    <!-- Signature -->
+                    <p style="font-size:15px;line-height:26.25px;-webkit-font-smoothing:antialiased;color:#374151;margin:0">
+                      With gratitude,<br /><strong style="color:#111827">Howard Freeman</strong><br /><span style="color:#6b7280">Founder & CEO, Rōmy</span>
+                    </p>
+
                     <!-- Footer -->
-                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="height:24px">
+                    <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="height:48px">
                       <tbody><tr><td></td></tr></tbody>
                     </table>
 
-                    <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0 0 12px 0">
-                      You're receiving this because ${senderName} wanted to share this research with you. If you don't recognize this sender, please ignore this email.
-                    </p>
-
                     <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0">
-                      <a href="${appUrl}" style="color:#6b7280;text-decoration:none" target="_blank">Learn more about Rōmy →</a>
-                    </p>`
-
-  return getEmailWrapper(content)
-}
-
-export function getShareConversationEmailSubject(senderName: string): string {
-  return `${senderName} shared research with you`
-}
+                      Thank you for being part of our journey.
+                    </p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </body>
+</html>
