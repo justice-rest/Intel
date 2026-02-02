@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
 /**
  * PDF Branding Storage
  *
@@ -41,7 +44,7 @@ export interface UploadLogoResult {
  * @returns Upload result with URL and base64
  */
 export async function uploadLogo(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   file: File,
   userId: string
 ): Promise<UploadLogoResult> {
@@ -132,7 +135,7 @@ export interface DeleteLogoResult {
  * @returns Deletion result
  */
 export async function deleteLogo(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   logoUrl: string
 ): Promise<DeleteLogoResult> {
   try {

@@ -53,7 +53,7 @@ export const createDriveSearchTool = (userId: string) =>
       "Returns relevant content from documents imported via the Google Drive integration. " +
       "Use this when the user asks about their documents, files, or information stored in Drive. " +
       "This searches documents that have been specifically imported by the user.",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z
         .string()
         .describe("Search query to find relevant content in indexed documents"),
@@ -182,7 +182,7 @@ export const createDriveListDocumentsTool = (userId: string) =>
     description:
       "List all Google Drive documents that have been imported and indexed. " +
       "Use this when the user wants to see what Drive files are available for search.",
-    parameters: z.object({
+    inputSchema: z.object({
       status: z
         .enum(["all", "ready", "pending", "failed"])
         .optional()

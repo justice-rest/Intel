@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
 /**
  * Knowledge Graph Extractor - Entity & Relation Extraction
  *
@@ -181,9 +184,9 @@ Return ONLY valid JSON, no explanations.`
 // ============================================================================
 
 export class KnowledgeGraphManager {
-  private supabase: SupabaseClient
+  private supabase: AnySupabaseClient
 
-  constructor(supabase: SupabaseClient) {
+  constructor(supabase: AnySupabaseClient) {
     this.supabase = supabase
   }
 
@@ -565,8 +568,8 @@ export class KnowledgeGraphManager {
 
     if (!entities || entities.length < 2) return null
 
-    const primary = entities.find((e) => e.id === primaryId) as KGEntity
-    const duplicates = entities.filter((e) => e.id !== primaryId) as KGEntity[]
+    const primary = entities.find((e: any) => e.id === primaryId) as KGEntity
+    const duplicates = entities.filter((e: any) => e.id !== primaryId) as KGEntity[]
 
     // Merge aliases
     const allAliases = [
@@ -676,7 +679,7 @@ let kgManagerInstance: KnowledgeGraphManager | null = null
 /**
  * Get the knowledge graph manager instance
  */
-export function getKGManager(supabase: SupabaseClient): KnowledgeGraphManager {
+export function getKGManager(supabase: AnySupabaseClient): KnowledgeGraphManager {
   if (!kgManagerInstance) {
     kgManagerInstance = new KnowledgeGraphManager(supabase)
   }

@@ -1,4 +1,10 @@
-import { Attachment } from "@ai-sdk/ui-utils"
+// Define Attachment type locally (v4 → v5 migration)
+// In AI SDK v5, Attachment is no longer exported
+export interface Attachment {
+  url: string
+  name: string
+  contentType: string
+}
 
 export type Json =
   | string

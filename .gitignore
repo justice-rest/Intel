@@ -76,3 +76,4 @@ bublr/
 # V2 Enterprise Memory System - NOW PRODUCTION READY
 supabase/.temp/
 env-secrets.txt
+.env*.local

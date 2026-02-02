@@ -9,7 +9,8 @@
  * - Audit logging
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any  // Using any to allow both server and client Supabase instances
 import type {
   Persona,
   PersonaWithProfile,
@@ -90,7 +91,7 @@ function validateUpdateRequest(request: UpdatePersonaRequest): void {
  * List all personas for a user
  */
 export async function listPersonas(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string,
   options: {
     includeArchived?: boolean
@@ -140,7 +141,7 @@ export async function listPersonas(
  * Get a single persona by ID
  */
 export async function getPersona(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   personaId: string,
   userId: string
 ): Promise<PersonaWithProfile | null> {
@@ -176,7 +177,7 @@ export async function getPersona(
  * Create a new persona
  */
 export async function createPersona(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string,
   request: CreatePersonaRequest
 ): Promise<Persona> {
@@ -250,7 +251,7 @@ export async function createPersona(
  * Update an existing persona
  */
 export async function updatePersona(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   personaId: string,
   userId: string,
   request: UpdatePersonaRequest
@@ -325,7 +326,7 @@ export async function updatePersona(
  * Delete a persona (soft delete)
  */
 export async function deletePersona(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   personaId: string,
   userId: string
 ): Promise<void> {
@@ -362,7 +363,7 @@ export async function deletePersona(
  * List all available persona templates
  */
 export async function listPersonaTemplates(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   options: {
     category?: string
   } = {}
@@ -391,7 +392,7 @@ export async function listPersonaTemplates(
  * Clone a persona from a template
  */
 export async function cloneFromTemplate(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string,
   templateId: string,
   customName?: string
@@ -430,7 +431,7 @@ export async function cloneFromTemplate(
  * Assign a persona to a chat
  */
 export async function assignPersonaToChat(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   chatId: string,
   userId: string,
   personaId: string | null
@@ -474,7 +475,7 @@ export async function assignPersonaToChat(
  * Get effective chat configuration (persona + knowledge + overrides)
  */
 export async function getEffectiveChatConfig(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   chatId: string,
   userId: string
 ): Promise<EffectiveChatConfig | null> {
@@ -514,7 +515,7 @@ export async function getEffectiveChatConfig(
  * Fallback method for getting effective chat config without database function
  */
 async function getEffectiveChatConfigFallback(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   chatId: string,
   userId: string
 ): Promise<EffectiveChatConfig | null> {
@@ -588,7 +589,7 @@ async function getEffectiveChatConfigFallback(
  * Get user's default persona
  */
 export async function getDefaultPersona(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string
 ): Promise<Persona | null> {
   const { data, error } = await supabase
@@ -614,7 +615,7 @@ export async function getDefaultPersona(
  * Set a persona as the default
  */
 export async function setDefaultPersona(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   personaId: string,
   userId: string
 ): Promise<void> {

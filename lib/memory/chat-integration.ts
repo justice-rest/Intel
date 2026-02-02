@@ -6,7 +6,7 @@
  * automatic fallback and feature detection.
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js"
+import type { AnySupabaseClient } from "@/lib/supabase/types"
 import type { MemoryProfile, MemorySearchResultV2, MemoryKind } from "./types"
 import { isMemoryEnabled } from "./config"
 import { buildConversationContext } from "./retrieval"
@@ -20,7 +20,7 @@ import { buildConversationContext } from "./retrieval"
  */
 let v2Available: boolean | null = null
 
-export async function isV2Available(supabase: SupabaseClient): Promise<boolean> {
+export async function isV2Available(supabase: AnySupabaseClient): Promise<boolean> {
   if (v2Available !== null) return v2Available
 
   try {
@@ -78,7 +78,7 @@ export interface GetChatMemoriesParams {
  * Automatically uses V2 if available, falls back to V1
  */
 export async function getChatMemories(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   params: GetChatMemoriesParams
 ): Promise<ChatMemoryContext> {
   const startTime = Date.now()
@@ -192,7 +192,7 @@ async function getChatMemoriesV1(
 // ============================================================================
 
 async function getChatMemoriesV2(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string,
   conversationContext: string,
   count: number,
@@ -307,7 +307,7 @@ function formatMemoriesForPromptV2(memories: MemorySearchResultV2[]): string {
  * Should be called when user starts a session
  */
 export async function warmUserMemoryCache(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string
 ): Promise<{ success: boolean; timing: number }> {
   const startTime = Date.now()
@@ -362,7 +362,7 @@ export interface ExtractAndSaveMemoriesParams {
  * Should be called after response is complete
  */
 export async function extractAndSaveMemories(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   params: ExtractAndSaveMemoriesParams
 ): Promise<{ extracted: number; saved: number }> {
   try {

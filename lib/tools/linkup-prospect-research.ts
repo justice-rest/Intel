@@ -1054,7 +1054,7 @@ export function createLinkUpProspectResearchTool(useDeepMode: boolean = false) {
         "CAPABILITY: Fast AI-powered web research via LinkUp (~15-30s). " +
         "OUTPUT: Comprehensive findings with sources. " +
         "Uses multi-query architecture for best price/performance.",
-    parameters: linkupProspectResearchSchema,
+  inputSchema: linkupProspectResearchSchema,
     execute: async (params): Promise<LinkUpProspectResult> => {
       const { name, address, context, focus_areas } = params
       console.log(`[LinkUp ${modeLabel}] Starting research for:`, name)

@@ -694,7 +694,7 @@ export const givingCapacityCalculatorTool = tool({
     "Returns capacity rating (A-D), dollar capacity, and detailed breakdown showing how each component contributes. " +
     "Use this AFTER gathering wealth data from property_valuation, find_business_ownership, fec_contributions, etc.",
 
-  parameters: givingCapacitySchema,
+  inputSchema: givingCapacitySchema,
 
   execute: async (params): Promise<GivingCapacityResult> => {
     console.log("[Giving Capacity] Calculating capacity...")

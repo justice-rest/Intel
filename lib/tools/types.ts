@@ -34,10 +34,11 @@ export interface LinkupSearchResponse {
 }
 
 /**
- * Tool definition type for Vercel AI SDK
+ * Tool definition type for Vercel AI SDK v5
+ * Note: In v5, 'parameters' was renamed to 'inputSchema'
  */
 export interface ToolDefinition<TParameters = unknown, TResult = unknown> {
   description: string
-  parameters: z.ZodType<TParameters>
+  inputSchema: z.ZodType<TParameters>
   execute: (params: TParameters) => Promise<TResult>
 }

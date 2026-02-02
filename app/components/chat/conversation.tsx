@@ -6,9 +6,10 @@ import { TextShimmer } from "@/components/prompt-kit/loader"
 import { NewMessagesIndicator } from "@/components/prompt-kit/new-messages-indicator"
 import { ScrollButton } from "@/components/prompt-kit/scroll-button"
 import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
-import { Message as MessageType } from "@ai-sdk/react"
+import type { UIMessage as MessageType } from "ai"
 import { useRef } from "react"
 import { Message } from "./message"
+import { AppMessage, getAttachments, getCreatedAt, getTextContent } from "@/app/types/message.types"
 
 type ConversationProps = {
   messages: MessageType[]
@@ -64,13 +65,17 @@ export function Conversation({
               index === messages.length - 1 && status !== "submitted"
             const hasScrollAnchor =
               isLast && messages.length > initialMessageCount.current
+            const appMessage = message as AppMessage
+            const messageAttachments = getAttachments(appMessage)
+            const messageCreatedAt = getCreatedAt(appMessage)
+            const messageContent = getTextContent(appMessage)
 
             return (
               <Message
                 key={message.id}
                 id={message.id}
                 variant={message.role}
-                attachments={message.experimental_attachments}
+                attachments={messageAttachments.length > 0 ? messageAttachments : undefined}
                 isLast={isLast}
                 onDelete={onDelete}
                 onEdit={onEdit}
@@ -83,9 +88,9 @@ export function Conversation({
                   (message as ExtendedMessageAISDK).message_group_id ?? null
                 }
                 isUserAuthenticated={isUserAuthenticated}
-                createdAt={message.createdAt instanceof Date ? message.createdAt : undefined}
+                createdAt={messageCreatedAt}
               >
-                {message.content}
+                {messageContent}
               </Message>
             )
           })}

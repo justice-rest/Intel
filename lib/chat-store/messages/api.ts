@@ -1,14 +1,12 @@
 import { createClient } from "@/lib/supabase/client"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
-import type { Message as MessageAISDK } from "ai"
+import type { UIMessage as MessageAISDK, UIMessagePart, UIDataTypes, UITools } from "ai"
 import { readFromIndexedDB, writeToIndexedDB } from "../persist"
+import type { AppMessage, Attachment } from "@/app/types/message.types"
+import { toAppMessage } from "@/app/types/message.types"
 
-export interface ExtendedMessageAISDK extends MessageAISDK {
-  message_group_id?: string
-  model?: string
-  /** The user ID who sent this message (for collaborative chats) */
-  user_id?: string
-}
+// Re-export for backward compatibility
+export type ExtendedMessageAISDK = AppMessage
 
 /**
  * Extract text content from message parts array
@@ -51,7 +49,7 @@ function getEffectiveContent(content: string | null, parts: unknown[] | null, ro
 
 export async function getMessagesFromDb(
   chatId: string
-): Promise<MessageAISDK[]> {
+): Promise<AppMessage[]> {
   // fallback to local cache only
   if (!isSupabaseEnabled) {
     const cached = await getCachedMessages(chatId)
@@ -76,28 +74,39 @@ export async function getMessagesFromDb(
     return cached
   }
 
-  return data.map((message) => ({
-    id: String(message.id),
-    role: message.role as MessageAISDK["role"],
-    // Use getEffectiveContent to ensure non-empty content for xAI/Grok
-    content: getEffectiveContent(
+  return data.map((message) => {
+    // Get effective content from DB (prioritize content field, fallback to parts)
+    const content = getEffectiveContent(
       message.content as string | null,
       message.parts as unknown[] | null,
       message.role as string
-    ),
-    createdAt: new Date((message.created_at as string) || ""),
-    experimental_attachments: message.experimental_attachments as MessageAISDK["experimental_attachments"],
-    parts: (message.parts as MessageAISDK["parts"]) || undefined,
-    message_group_id: message.message_group_id as string | undefined,
-    model: message.model as string | undefined,
-    user_id: message.user_id as string | undefined,
-  }))
+    )
+
+    // Build parts array for v5 compatibility
+    const parts: UIMessagePart<UIDataTypes, UITools>[] = (message.parts as UIMessagePart<UIDataTypes, UITools>[]) || []
+    if (parts.length === 0 && content) {
+      parts.push({ type: "text", text: content })
+    }
+
+    return {
+      id: String(message.id),
+      role: message.role as "user" | "assistant" | "system",
+      parts,
+      // Legacy fields for backward compatibility
+      content,
+      createdAt: new Date((message.created_at as string) || ""),
+      experimental_attachments: message.experimental_attachments as Attachment[] | undefined,
+      message_group_id: message.message_group_id as string | undefined,
+      model: message.model as string | undefined,
+      user_id: message.user_id as string | undefined,
+    } as AppMessage
+  })
 }
 
 export async function getLastMessagesFromDb(
   chatId: string,
   limit: number = 2
-): Promise<MessageAISDK[]> {
+): Promise<AppMessage[]> {
   if (!isSupabaseEnabled) {
     const cached = await getCachedMessages(chatId)
     return cached.slice(-limit)
@@ -121,21 +130,30 @@ export async function getLastMessagesFromDb(
   }
 
   const ascendingData = [...data].reverse()
-  return ascendingData.map((message) => ({
-    ...message,
-    id: String(message.id),
-    // Use getEffectiveContent to ensure non-empty content for xAI/Grok
-    content: getEffectiveContent(
+  return ascendingData.map((message) => {
+    const content = getEffectiveContent(
       message.content as string | null,
       message.parts as unknown[] | null,
       message.role as string
-    ),
-    createdAt: new Date(message.created_at || ""),
-    parts: (message?.parts as MessageAISDK["parts"]) || undefined,
-    message_group_id: message.message_group_id,
-    model: message.model,
-    user_id: message.user_id as string | undefined,
-  }))
+    )
+
+    const parts: UIMessagePart<UIDataTypes, UITools>[] = (message.parts as UIMessagePart<UIDataTypes, UITools>[]) || []
+    if (parts.length === 0 && content) {
+      parts.push({ type: "text", text: content })
+    }
+
+    return {
+      id: String(message.id),
+      role: message.role as "user" | "assistant" | "system",
+      parts,
+      content,
+      createdAt: new Date(message.created_at || ""),
+      experimental_attachments: message.experimental_attachments as Attachment[] | undefined,
+      message_group_id: message.message_group_id,
+      model: message.model,
+      user_id: message.user_id as string | undefined,
+    } as AppMessage
+  })
 }
 
 async function insertMessageToDb(
@@ -149,11 +167,11 @@ async function insertMessageToDb(
     chat_id: chatId,
     role: message.role,
     content: message.content,
-    experimental_attachments: message.experimental_attachments,
+    experimental_attachments: message.experimental_attachments as any,
     created_at: message.createdAt?.toISOString() || new Date().toISOString(),
     message_group_id: message.message_group_id || null,
     model: message.model || null,
-  })
+  } as any)
 }
 
 async function insertMessagesToDb(
@@ -173,7 +191,7 @@ async function insertMessagesToDb(
     model: message.model || null,
   }))
 
-  await supabase.from("messages").insert(payload)
+  await supabase.from("messages").insert(payload as any)
 }
 
 async function deleteMessagesFromDb(chatId: string) {
@@ -192,12 +210,12 @@ async function deleteMessagesFromDb(chatId: string) {
 
 type ChatMessageEntry = {
   id: string
-  messages: MessageAISDK[]
+  messages: AppMessage[]
 }
 
 export async function getCachedMessages(
   chatId: string
-): Promise<MessageAISDK[]> {
+): Promise<AppMessage[]> {
   const entry = await readFromIndexedDB<ChatMessageEntry>("messages", chatId)
 
   if (!entry || Array.isArray(entry)) return []
@@ -209,14 +227,14 @@ export async function getCachedMessages(
 
 export async function cacheMessages(
   chatId: string,
-  messages: MessageAISDK[]
+  messages: AppMessage[]
 ): Promise<void> {
   await writeToIndexedDB("messages", { id: chatId, messages })
 }
 
 export async function addMessage(
   chatId: string,
-  message: MessageAISDK
+  message: AppMessage
 ): Promise<void> {
   await insertMessageToDb(chatId, message)
   const current = await getCachedMessages(chatId)
@@ -227,7 +245,7 @@ export async function addMessage(
 
 export async function setMessages(
   chatId: string,
-  messages: MessageAISDK[]
+  messages: AppMessage[]
 ): Promise<void> {
   await insertMessagesToDb(chatId, messages)
   await writeToIndexedDB("messages", { id: chatId, messages })

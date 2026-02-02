@@ -3,7 +3,6 @@
  * Gathers user data for export in a human-readable format
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   ExportOptions,
   ExportData,
@@ -18,7 +17,7 @@ import type {
 
 // Use a more flexible type to handle tables not in generated types
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySupabaseClient = SupabaseClient<any>
+type AnySupabaseClient = any
 
 /**
  * Gather all user data for export based on selected sections
@@ -162,7 +161,7 @@ async function gatherChats(
   }
 
   // Then get all messages for these chats
-  const chatIds = chats.map(c => c.id)
+  const chatIds = chats.map((c: any) => c.id)
   const { data: messages } = await supabase
     .from('messages')
     .select('chat_id, role, content, model, created_at, experimental_attachments')
@@ -178,7 +177,7 @@ async function gatherChats(
   }
 
   // Build export chats
-  return chats.map(chat => {
+  return chats.map((chat: any) => {
     const chatMessages = messagesByChat.get(chat.id) || []
 
     return {
@@ -188,7 +187,7 @@ async function gatherChats(
       pinned: chat.pinned || false,
       createdAt: chat.created_at || new Date().toISOString(),
       updatedAt: chat.updated_at || chat.created_at || new Date().toISOString(),
-      messages: chatMessages.map(msg => {
+      messages: chatMessages.map((msg: any) => {
         const exportMsg: ExportMessage = {
           role: msg.role as 'user' | 'assistant' | 'system',
           content: msg.content || '',
@@ -234,7 +233,7 @@ async function gatherMemories(
     .order('created_at', { ascending: false })
 
   if (memoriesV2 && memoriesV2.length > 0) {
-    return memoriesV2.map(mem => ({
+    return memoriesV2.map((mem: any) => ({
       content: mem.content || '',
       category: mem.category,
       importance: mem.importance_score || 0.5,
@@ -252,7 +251,7 @@ async function gatherMemories(
     .order('created_at', { ascending: false })
 
   if (memoriesV1 && memoriesV1.length > 0) {
-    return memoriesV1.map(mem => ({
+    return memoriesV1.map((mem: any) => ({
       content: mem.content || '',
       category: mem.category,
       importance: mem.importance_score || 0.5,
@@ -279,7 +278,7 @@ async function gatherCrmData(
     .eq('user_id', userId)
     .in('provider', ['bloomerang', 'virtuous', 'neoncrm', 'donorperfect', 'salesforce', 'blackbaud', 'everyaction'])
 
-  const connectedProviders = keys?.map(k => k.provider) || []
+  const connectedProviders = keys?.map((k: any) => k.provider) || []
 
   // Get last sync time
   const { data: lastSync } = await supabase
@@ -307,7 +306,7 @@ async function gatherCrmData(
 
   return {
     connectedProviders,
-    constituents: (constituents || []).map(c => ({
+    constituents: (constituents || []).map((c: any) => ({
       provider: c.provider,
       externalId: c.external_id,
       name: c.name || '',
@@ -319,7 +318,7 @@ async function gatherCrmData(
       lastGiftAmount: c.last_gift_amount,
       createdAt: c.created_at || new Date().toISOString(),
     })),
-    donations: (donations || []).map(d => ({
+    donations: (donations || []).map((d: any) => ({
       provider: d.provider,
       amount: d.amount || 0,
       currency: d.currency || 'USD',

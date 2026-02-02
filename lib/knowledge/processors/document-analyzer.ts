@@ -247,14 +247,16 @@ Focus on elements that would help an AI assistant communicate and advise in the 
       document_type: object.document_type,
     }
 
+    // AI SDK v5 uses inputTokens/outputTokens instead of promptTokens/completionTokens
+    const usageAny = usage as any
     return {
       success: true,
       analysis,
       tokenUsage: usage
         ? {
-            promptTokens: usage.promptTokens,
-            completionTokens: usage.completionTokens,
-            totalTokens: usage.totalTokens,
+            promptTokens: usageAny.inputTokens ?? usageAny.promptTokens ?? 0,
+            completionTokens: usageAny.outputTokens ?? usageAny.completionTokens ?? 0,
+            totalTokens: usageAny.totalTokens ?? ((usageAny.inputTokens ?? 0) + (usageAny.outputTokens ?? 0)),
           }
         : undefined,
     }

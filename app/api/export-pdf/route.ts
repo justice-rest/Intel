@@ -8,6 +8,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import type { Browser, Page } from "puppeteer-core"
 import { createClient } from "@/lib/supabase/server"
+import type { Tables } from "@/app/types/database.types"
 import {
   toBrandingSettings,
   type BrandingSettings,
@@ -508,7 +509,7 @@ export async function POST(request: NextRequest) {
               .from("pdf_branding")
               .select("*")
               .eq("user_id", user.id)
-              .single()
+              .single() as { data: Tables<"pdf_branding"> | null; error: any }
 
             if (!brandingError && brandingData) {
               console.log("[ExportPDF] Found custom branding for user")

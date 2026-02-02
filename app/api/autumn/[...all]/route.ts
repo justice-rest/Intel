@@ -36,7 +36,7 @@ export const { GET, POST } = autumnHandler({
       .from("users")
       .select("display_name, email")
       .eq("id", user.id)
-      .single()
+      .single() as { data: { display_name: string | null; email: string | null } | null }
 
     // Return customer information for Autumn
     return {

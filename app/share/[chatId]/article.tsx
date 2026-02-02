@@ -17,8 +17,28 @@ import { APP_NAME } from "@/lib/config"
 import { exportToPdf } from "@/lib/pdf-export"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import type { Message as MessageAISDK } from "@ai-sdk/react"
+import type { UIMessage as MessageAISDK } from "ai"
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
+
+// Helper functions for v4/v5 tool compatibility
+function getToolName(part: any): string | null {
+  if (part.type.startsWith("tool-") && part.type !== "tool-invocation") {
+    return part.type.replace("tool-", "")
+  }
+  if (part.type === "tool-invocation" && part.toolInvocation?.toolName) {
+    return part.toolInvocation.toolName
+  }
+  return null
+}
+
+function getToolState(part: any): string | null {
+  if (part.state) return part.state
+  return part.toolInvocation?.state || null
+}
+
+function getToolResult(part: any): any {
+  return part.output || part.result || part.toolInvocation?.result
+}
 import { Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
 import Link from "next/link"
 import React, { useEffect, useState } from "react"
@@ -138,24 +158,26 @@ export default function Article({
             const toolInvocationParts = parts?.filter(
               (part) => part.type === "tool-invocation"
             )
-            const reasoningParts = parts?.find((part) => part.type === "reasoning")
+            // In v5, reasoning parts use .text property instead of .reasoning
+            const reasoningParts = parts?.find((part) => part.type === "reasoning") as { type: "reasoning"; text?: string; reasoning?: string } | undefined
             const searchImageResults =
               parts
                 ?.filter(
-                  (part) =>
-                    part.type === "tool-invocation" &&
-                    part.toolInvocation?.state === "result" &&
-                    part.toolInvocation?.toolName === "imageSearch" &&
-                    part.toolInvocation?.result?.content?.[0]?.type === "images"
+                  (part) => {
+                    const toolName = getToolName(part)
+                    const toolState = getToolState(part)
+                    const toolResult = getToolResult(part)
+                    return (
+                      toolName === "imageSearch" &&
+                      toolState === "result" &&
+                      toolResult?.content?.[0]?.type === "images"
+                    )
+                  }
                 )
-                .flatMap((part) =>
-                  part.type === "tool-invocation" &&
-                  part.toolInvocation?.state === "result" &&
-                  part.toolInvocation?.toolName === "imageSearch" &&
-                  part.toolInvocation?.result?.content?.[0]?.type === "images"
-                    ? (part.toolInvocation?.result?.content?.[0]?.results ?? [])
-                    : []
-                ) ?? []
+                .flatMap((part) => {
+                  const toolResult = getToolResult(part)
+                  return toolResult?.content?.[0]?.results ?? []
+                }) ?? []
 
             const contentNullOrEmpty = !message.content || message.content === ""
 
@@ -173,10 +195,10 @@ export default function Article({
                     message.role === "assistant" && "min-w-full max-w-full",
                     message.role === "user" && "max-w-[85%]"
                   )}>
-                    {/* Render reasoning for assistant messages */}
-                    {message.role === "assistant" && reasoningParts && reasoningParts.reasoning && (
+                    {/* Render reasoning for assistant messages - v5 uses .text, v4 used .reasoning */}
+                    {message.role === "assistant" && reasoningParts && (reasoningParts.text || reasoningParts.reasoning) && (
                       <Reasoning
-                        reasoning={reasoningParts.reasoning}
+                        reasoning={reasoningParts.text || reasoningParts.reasoning || ""}
                         isStreaming={false}
                       />
                     )}

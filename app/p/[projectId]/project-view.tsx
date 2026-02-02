@@ -17,7 +17,9 @@ import { useUser } from "@/lib/user-store/provider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
 import { ChatCircleIcon } from "@phosphor-icons/react"
+import { AppMessage, createAppMessage, getAttachments } from "@/app/types/message.types"
 import { useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
 import { usePathname } from "next/navigation"
@@ -88,20 +90,25 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     })
   }, [])
 
+  // State for manual input management (v5)
+  const [input, setInput] = useState("")
+
   const {
     messages,
-    input,
-    handleSubmit,
     status,
-    reload,
     stop,
     setMessages,
-    setInput,
+    sendMessage,
+    regenerate,
   } = useChat({
     id: `project-${projectId}-${currentChatId}`,
-    api: API_ROUTE_CHAT,
-    initialMessages: [],
-    onFinish: cacheAndAddMessage,
+    transport: new DefaultChatTransport({
+      api: API_ROUTE_CHAT,
+    }),
+    messages: [],
+    onFinish: async ({ message }) => {
+      cacheAndAddMessage(message)
+    },
     onError: handleError,
   })
 
@@ -202,14 +209,13 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     const optimisticAttachments =
       files.length > 0 ? createOptimisticAttachments(files) : []
 
-    const optimisticMessage = {
+    const optimisticMessage = createAppMessage({
       id: optimisticId,
       content: input,
-      role: "user" as const,
+      role: "user",
       createdAt: new Date(),
-      experimental_attachments:
-        optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
-    }
+      attachments: optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
+    })
 
     setMessages((prev) => [...prev, optimisticMessage])
     setInput("")
@@ -247,22 +253,24 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         }
       }
 
-      const options = {
-        body: {
-          chatId: currentChatId,
-          userId: user.id,
-          model: selectedModel,
-          isAuthenticated: true,
-          systemPrompt: SYSTEM_PROMPT_DEFAULT,
-          enableSearch,
-          researchMode,
-        },
-        experimental_attachments: attachments || undefined,
-      }
+      // Send message with v5 API
+      await sendMessage(
+        { text: input },
+        {
+          body: {
+            chatId: currentChatId,
+            userId: user.id,
+            model: selectedModel,
+            isAuthenticated: true,
+            systemPrompt: SYSTEM_PROMPT_DEFAULT,
+            enableSearch,
+            researchMode,
+          },
+        }
+      )
 
-      handleSubmit(undefined, options)
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-      cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+      cleanupOptimisticAttachments(getAttachments(optimisticMessage))
       cacheAndAddMessage(optimisticMessage)
 
       // Bump existing chats to top (non-blocking, after submit)
@@ -271,7 +279,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       }
     } catch {
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-      cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+      cleanupOptimisticAttachments(getAttachments(optimisticMessage))
       toast({ title: "Failed to send message", status: "error" })
     } finally {
       setIsSubmitting(false)
@@ -282,13 +290,12 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     createOptimisticAttachments,
     input,
     setMessages,
-    setInput,
     setFiles,
     cleanupOptimisticAttachments,
     ensureChatExists,
     handleFileUploads,
     selectedModel,
-    handleSubmit,
+    sendMessage,
     cacheAndAddMessage,
     messages.length,
     bumpChat,
@@ -301,7 +308,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       return
     }
 
-    const options = {
+    await regenerate({
       body: {
         chatId: null,
         userId: user.id,
@@ -311,10 +318,8 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         enableSearch,
         researchMode,
       },
-    }
-
-    reload(options)
-  }, [user, selectedModel, enableSearch, researchMode, reload])
+    })
+  }, [user, selectedModel, enableSearch, researchMode, regenerate])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {

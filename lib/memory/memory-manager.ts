@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
 /**
  * Memory Manager - Lifecycle Management & Consolidation
  *
@@ -58,12 +61,12 @@ const DEFAULT_CONSOLIDATION_OPTIONS: ConsolidationOptions = {
 // ============================================================================
 
 export class MemoryManager {
-  private supabase: SupabaseClient
+  private supabase: AnySupabaseClient
   private decayConfig: DecayConfig
   private tierCriteria: TierCriteria
 
   constructor(
-    supabase: SupabaseClient,
+    supabase: AnySupabaseClient,
     decayConfig?: Partial<DecayConfig>,
     tierCriteria?: Partial<TierCriteria>
   ) {
@@ -847,7 +850,7 @@ let memoryManagerInstance: MemoryManager | null = null
  * Get the memory manager instance
  */
 export function getMemoryManager(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   config?: {
     decayConfig?: Partial<DecayConfig>
     tierCriteria?: Partial<TierCriteria>

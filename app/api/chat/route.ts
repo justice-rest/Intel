@@ -96,8 +96,41 @@ import {
   type DeepResearchCreditCheck,
 } from "@/lib/subscription/autumn-client"
 import { optimizeMessagePayload, estimateTokens } from "@/lib/message-payload-optimizer"
-import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, smoothStream, ToolSet, tool } from "ai"
+import type { UIMessage, ModelMessage, FileUIPart } from "ai"
+import { streamText, smoothStream, ToolSet, tool, stepCountIs, convertToModelMessages, isTextUIPart } from "ai"
+
+// Define Attachment type for backward compatibility (v4 → v5 migration)
+// In v5, attachments are handled via FileUIPart in message parts
+type Attachment = {
+  url: string
+  name: string
+  contentType: string
+}
+
+/**
+ * Helper to extract text content from UIMessage (v5 uses parts array, not content string)
+ */
+function getMessageContent(message: UIMessage): string {
+  if (!message.parts) return ""
+  return message.parts
+    .filter(isTextUIPart)
+    .map(part => part.text)
+    .join("\n")
+}
+
+/**
+ * Helper to extract attachments from UIMessage parts
+ */
+function getMessageAttachments(message: UIMessage): Attachment[] {
+  if (!message.parts) return []
+  return message.parts
+    .filter((part): part is FileUIPart => part.type === "file")
+    .map(part => ({
+      url: part.url ?? "",
+      name: part.filename ?? "file",
+      contentType: part.mediaType ?? "application/octet-stream",
+    }))
+}
 import { z } from "zod"
 import {
   incrementMessageCount,
@@ -118,7 +151,7 @@ export const dynamic = "force-dynamic" // Ensure fresh responses
 type ResearchMode = "research" | "deep-research"
 
 type ChatRequest = {
-  messages: MessageAISDK[]
+  messages: UIMessage[]
   chatId: string
   userId: string
   model: string
@@ -245,7 +278,7 @@ export async function POST(req: Request) {
             userId,
             conversationMessages: messages.slice(-3).map((m) => ({
               role: m.role,
-              content: String(m.content),
+              content: getMessageContent(m),
             })),
             count: 5, // V2 uses more memories with better relevance scoring
             minImportance: 0.4,
@@ -272,7 +305,7 @@ export async function POST(req: Request) {
           if (!isBatchReportsRAGEnabled()) return null
 
           const conversationContext = buildConversationContext(
-            messages.slice(-3).map((m) => ({ role: m.role, content: String(m.content) }))
+            messages.slice(-3).map((m) => ({ role: m.role, content: getMessageContent(m) }))
           )
 
           if (!conversationContext) return null
@@ -808,8 +841,8 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
               supabase,
               userId,
               chatId,
-              content: userMessage.content,
-              attachments: userMessage.experimental_attachments as Attachment[],
+              content: getMessageContent(userMessage),
+              attachments: getMessageAttachments(userMessage),
               model: normalizedModel,
               isAuthenticated,
               message_group_id,
@@ -972,13 +1005,14 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
                 "Search your connected CRM systems (Bloomerang, Virtuous) for constituent/donor information. " +
                 "Returns name, contact info, address, and giving history from synced CRM data. " +
                 "Use this to look up existing donors by name or email BEFORE running external prospect research.",
-              parameters: z.object({
+              // v5: parameters → inputSchema
+              inputSchema: z.object({
                 query: z.string().describe("Search term - name, email, or keyword"),
                 provider: z.enum(["bloomerang", "virtuous", "all"]).optional().default("all")
                   .describe("Which CRM to search. Default 'all' searches all connected CRMs."),
                 limit: z.number().optional().default(10).describe("Max results (1-50)"),
               }),
-              execute: async ({ query, provider, limit }) => {
+              execute: async ({ query, provider, limit }: { query: string; provider?: "bloomerang" | "virtuous" | "all"; limit?: number }) => {
                 return await searchCRMConstituents(userId, query, provider, limit)
               },
             }),
@@ -1024,20 +1058,28 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       hasEnvKey: !!process.env.OPENROUTER_API_KEY,
     })
 
-    // Log message structure for debugging
+    // Log message structure for debugging (v5: messages use parts array)
     console.log("[Chat API] Messages being sent:")
     cleanedMessages.forEach((msg, i) => {
-      const msgAny = msg as any
-      const contentEmpty = !msg.content || (typeof msg.content === "string" && !msg.content.trim()) || (Array.isArray(msg.content) && msg.content.length === 0)
-      console.log(`[Chat API]   [${i}] role: ${msg.role}, contentType: ${typeof msg.content}, isEmpty: ${contentEmpty}, hasAttachments: ${!!msgAny.experimental_attachments}`)
-      if (Array.isArray(msg.content)) {
-        console.log(`[Chat API]       content parts: ${(msg.content as any[]).map((p: any) => `${p.type || 'unknown'}(${p.text ? 'has text' : 'no text'})`).join(', ')}`)
+      const content = getMessageContent(msg)
+      const attachments = getMessageAttachments(msg)
+      const contentEmpty = !content || !content.trim()
+      console.log(`[Chat API]   [${i}] role: ${msg.role}, partsCount: ${msg.parts?.length ?? 0}, contentEmpty: ${contentEmpty}, hasAttachments: ${attachments.length > 0}`)
+      if (msg.parts && msg.parts.length > 0) {
+        console.log(`[Chat API]       parts: ${msg.parts.map((p) => `${p.type}${p.type === 'text' ? `(${(p as any).text?.substring(0, 30)}...)` : ''}`).join(', ')}`)
       }
+    })
+
+    // Convert UIMessages to ModelMessages for streamText (v5 migration)
+    // ModelMessages have content string format that providers expect
+    const modelMessages = convertToModelMessages(cleanedMessages, {
+      tools: modelSupportsTools ? tools : undefined,
+      ignoreIncompleteToolCalls: true,
     })
 
     // SAFETY NET: Final check for empty content (xAI/Grok requires non-empty content in every message)
     // This should never trigger if cleanMessagesForTools is working correctly, but prevents API errors
-    const finalMessages = cleanedMessages.map((msg) => {
+    const finalMessages: ModelMessage[] = modelMessages.map((msg) => {
       // Check if content is effectively empty
       const isEmpty = !msg.content ||
         (typeof msg.content === "string" && !msg.content.trim()) ||
@@ -1047,11 +1089,11 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
         ))
 
       if (isEmpty) {
-        console.warn(`[Chat API] WARNING: Empty content detected in message ${msg.id}, role: ${msg.role}. Adding placeholder.`)
+        console.warn(`[Chat API] WARNING: Empty content detected in message, role: ${msg.role}. Adding placeholder.`)
         return {
           ...msg,
           content: msg.role === "assistant" ? "[Assistant response]" : "[User message]",
-        }
+        } as ModelMessage
       }
       return msg
     })
@@ -1070,8 +1112,9 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       // Only pass tools if model supports them
       ...(modelSupportsTools && { tools }),
       // Allow multiple tool call steps for complex research workflows
-      maxSteps: modelSupportsTools ? 50 : 1,
-      maxTokens: AI_MAX_OUTPUT_TOKENS,
+      // v5: maxSteps replaced with stopWhen
+      stopWhen: modelSupportsTools ? stepCountIs(50) : stepCountIs(1),
+      maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
       // Increase retries to handle rate limits (default is 3, which often fails)
       // Uses exponential backoff: ~1s, ~2s, ~4s, ~8s, ~16s, ~32s, ~64s, ~128s
       maxRetries: 8,
@@ -1157,13 +1200,16 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
             // Check if durable memory extraction is enabled
             const useDurableMemory = isWorkflowEnabled("durable-memory-extraction", userId)
 
+            // Get user message content (v5: UIMessage uses parts, not content)
+            const userMessageContent = userMessage ? getMessageContent(userMessage) : ""
+
             if (useDurableMemory) {
               // NEW: Durable workflow with guaranteed completion
               console.log("[Memory] Using durable workflow for user:", userId)
               runDurableWorkflow(extractMemoriesWorkflow, {
                 userId,
                 chatId,
-                userMessage: String(userMessage.content),
+                userMessage: userMessageContent,
                 assistantResponse: responseText,
                 messageId: savedMessage?.messageId,
                 apiKey: apiKey || undefined,
@@ -1185,7 +1231,7 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
 
                   // Build conversation history for extraction (last user message + assistant response)
                   const conversationForExtraction = [
-                    { role: userMessage.role, content: String(userMessage.content) },
+                    { role: userMessage?.role ?? "user", content: userMessageContent },
                     { role: "assistant", content: responseText },
                   ]
 
@@ -1274,10 +1320,11 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     })
 
     // Return streaming response with sources enabled
-    const response = result.toDataStreamResponse({
+    // v5: toDataStreamResponse → toUIMessageStreamResponse
+    const response = result.toUIMessageStreamResponse({
       sendReasoning: true,
       sendSources: true,
-      getErrorMessage: (error: unknown) => {
+      onError: (error: unknown) => {
         console.error("[Chat API] Response error:", error)
         return extractErrorMessage(error)
       },
@@ -1296,6 +1343,6 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       statusCode?: number
     }
 
-    return createErrorResponse(error)
+    return createErrorResponse(error.message || "An unexpected error occurred", error.statusCode || 500)
   }
 }

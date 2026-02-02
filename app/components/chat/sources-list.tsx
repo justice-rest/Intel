@@ -1,15 +1,23 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import type { SourceUIPart } from "@ai-sdk/ui-utils"
+import type { SourceUrlUIPart } from "ai"
 import { CaretDown, Link } from "@phosphor-icons/react"
 import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
 import { useState } from "react"
 import { addUTM, formatUrl, getFavicon } from "./utils"
 
+// Source type for backward compatibility with v4 and v5
+type Source = {
+  url: string
+  title?: string
+  text?: string
+  id?: string
+}
+
 type SourcesListProps = {
-  sources: SourceUIPart["source"][]
+  sources: Source[]
   className?: string
 }
 

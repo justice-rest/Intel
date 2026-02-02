@@ -233,8 +233,10 @@ export async function extractWithValidation<T extends z.ZodType>(
     }
 
     // Validation failed - collect errors
-    const errorSummary = validationResult.error.errors
-      .map((e) => `${e.path.join(".")}: ${e.message}`)
+    // Zod 4 uses .issues instead of .errors
+    const zodIssues = (validationResult.error as any).issues || (validationResult.error as any).errors || []
+    const errorSummary = zodIssues
+      .map((e: { path?: (string | number)[]; message?: string }) => `${(e.path || []).join(".")}: ${e.message || "Unknown error"}`)
       .join("; ")
 
     console.warn(`[ValidatedParser] Validation failed on attempt ${attempt + 1}: ${errorSummary}`)
@@ -307,11 +309,13 @@ ${originalResponse.slice(0, 8000)}
 ${correctionPrompt}
 
 Return ONLY the corrected JSON, no other text.`,
-      maxTokens: 4000,
+      maxOutputTokens: 4000,
       temperature: 0.1,
     })
 
-    const tokensUsed = (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0)
+    // AI SDK v5: usage now has inputTokens/outputTokens instead of promptTokens/completionTokens
+    const usage = result.usage as { inputTokens?: number; outputTokens?: number; promptTokens?: number; completionTokens?: number } | undefined
+    const tokensUsed = (usage?.inputTokens || usage?.promptTokens || 0) + (usage?.outputTokens || usage?.completionTokens || 0)
     console.log(`[ValidatedParser] Correction request used ${tokensUsed} tokens`)
 
     return {
@@ -341,7 +345,9 @@ function getEmptyResult(schema: z.ZodType): unknown {
     const result: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(shape)) {
       if (value instanceof z.ZodDefault) {
-        result[key] = value._def.defaultValue()
+        // Zod 4 has different _def structure
+        const defaultVal = (value._def as any).defaultValue
+        result[key] = typeof defaultVal === "function" ? defaultVal() : defaultVal
       } else if (value instanceof z.ZodNullable || value instanceof z.ZodOptional) {
         result[key] = null
       } else if (value instanceof z.ZodString) {
@@ -442,9 +448,11 @@ export function extractOnce<T extends z.ZodType>(
     return { success: true, data: result.data }
   }
 
+  // Zod 4 uses .issues instead of .errors
+  const zodIssues = (result.error as any).issues || (result.error as any).errors || []
   return {
     success: false,
-    error: result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; "),
+    error: zodIssues.map((e: { path?: (string | number)[]; message?: string }) => `${(e.path || []).join(".")}: ${e.message || "Unknown error"}`).join("; "),
   }
 }
 

@@ -1,8 +1,16 @@
 import type { Database, Json } from "@/app/types/database.types"
-import type { Attachment } from "@ai-sdk/ui-utils"
-import type { SupabaseClient } from "@supabase/supabase-js"
 
-export type SupabaseClientType = SupabaseClient<Database>
+// Define Attachment type for backward compatibility (v4 → v5 migration)
+// In v5, attachments are handled via FileUIPart in message parts
+export interface Attachment {
+  url: string
+  name: string
+  contentType: string
+}
+
+// Use any for SupabaseClientType to allow both server and browser clients
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type SupabaseClientType = any
 
 export interface ContentPart {
   type: string

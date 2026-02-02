@@ -2,7 +2,58 @@
 
 import { cn } from "@/lib/utils"
 import { Markdown } from "@/components/prompt-kit/markdown"
-import type { ToolInvocationUIPart } from "@ai-sdk/ui-utils"
+// AI SDK v5: ToolInvocationUIPart was renamed to UIToolInvocation
+// But we use a custom type for backward compatibility
+interface ToolInvocationPart {
+  type: string
+  toolCallId?: string
+  toolName?: string
+  args?: unknown
+  input?: unknown
+  state?: string
+  result?: unknown
+  output?: unknown
+  // v4 format had toolInvocation nested
+  toolInvocation?: {
+    toolCallId: string
+    toolName: string
+    args?: unknown
+    state?: string
+    result?: unknown
+  }
+}
+
+// Helper functions for v4/v5 compatibility
+function getToolCallId(part: ToolInvocationPart): string {
+  return part.toolCallId || part.toolInvocation?.toolCallId || ""
+}
+
+function getToolName(part: ToolInvocationPart): string {
+  // v5: toolName is on part directly, or extract from type "tool-{toolName}"
+  if (part.toolName) return part.toolName
+  if (part.type.startsWith("tool-") && part.type !== "tool-invocation") {
+    return part.type.replace("tool-", "")
+  }
+  // v4: toolName is in toolInvocation
+  return part.toolInvocation?.toolName || "unknown"
+}
+
+function getToolArgs(part: ToolInvocationPart): unknown {
+  // v5: args or input
+  return part.args || part.input || part.toolInvocation?.args || {}
+}
+
+function getToolState(part: ToolInvocationPart): string {
+  // v5: state on part directly
+  if (part.state) return part.state
+  // v4: state in toolInvocation
+  return part.toolInvocation?.state || "pending"
+}
+
+function getToolResult(part: ToolInvocationPart): unknown {
+  // v5: output or result
+  return part.output || part.result || part.toolInvocation?.result
+}
 import {
   CaretDown,
   CheckCircle,
@@ -16,7 +67,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { useMemo, useState } from "react"
 
 interface ToolInvocationProps {
-  toolInvocations: ToolInvocationUIPart[]
+  toolInvocations: ToolInvocationPart[]
   className?: string
   defaultOpen?: boolean
 }
@@ -90,14 +141,14 @@ export function ToolInvocation({
   // Group tool invocations by toolCallId
   const groupedTools = toolInvocationsData.reduce(
     (acc, item) => {
-      const { toolCallId } = item.toolInvocation
+      const toolCallId = getToolCallId(item)
       if (!acc[toolCallId]) {
         acc[toolCallId] = []
       }
       acc[toolCallId].push(item)
       return acc
     },
-    {} as Record<string, ToolInvocationUIPart[]>
+    {} as Record<string, ToolInvocationPart[]>
   )
 
   const uniqueToolIds = Object.keys(groupedTools)
@@ -106,12 +157,12 @@ export function ToolInvocation({
   // Calculate aggregate status for the header badge
   const anyRunning = uniqueToolIds.some((toolId) => {
     const tools = groupedTools[toolId]
-    return tools?.some((t) => t.toolInvocation.state === "call")
+    return tools?.some((t: ToolInvocationPart) => getToolState(t) === "call")
   })
 
   const allCompleted = uniqueToolIds.every((toolId) => {
     const tools = groupedTools[toolId]
-    return tools?.some((t) => t.toolInvocation.state === "result")
+    return tools?.some((t: ToolInvocationPart) => getToolState(t) === "result")
   })
 
   const aggregateStatus = anyRunning ? "running" : allCompleted ? "completed" : "pending"
@@ -219,7 +270,7 @@ export function ToolInvocation({
 }
 
 type SingleToolViewProps = {
-  toolInvocations: ToolInvocationUIPart[]
+  toolInvocations: ToolInvocationPart[]
   defaultOpen?: boolean
   className?: string
 }
@@ -232,33 +283,33 @@ function SingleToolView({
   // Group by toolCallId and pick the most informative state
   const groupedTools = toolInvocations.reduce(
     (acc, item) => {
-      const { toolCallId } = item.toolInvocation
+      const toolCallId = getToolCallId(item)
       if (!acc[toolCallId]) {
         acc[toolCallId] = []
       }
       acc[toolCallId].push(item)
       return acc
     },
-    {} as Record<string, ToolInvocationUIPart[]>
+    {} as Record<string, ToolInvocationPart[]>
   )
 
   // For each toolCallId, get the most informative state (result > call > requested)
   const toolsToDisplay = Object.values(groupedTools)
-    .map((group) => {
+    .map((group: ToolInvocationPart[]) => {
       const resultTool = group.find(
-        (item) => item.toolInvocation.state === "result"
+        (item: ToolInvocationPart) => getToolState(item) === "result"
       )
       const callTool = group.find(
-        (item) => item.toolInvocation.state === "call"
+        (item: ToolInvocationPart) => getToolState(item) === "call"
       )
       const partialCallTool = group.find(
-        (item) => item.toolInvocation.state === "partial-call"
+        (item: ToolInvocationPart) => getToolState(item) === "partial-call"
       )
 
       // Return the most informative one
       return resultTool || callTool || partialCallTool
     })
-    .filter(Boolean) as ToolInvocationUIPart[]
+    .filter(Boolean) as ToolInvocationPart[]
 
   if (toolsToDisplay.length === 0) return null
 
@@ -279,7 +330,7 @@ function SingleToolView({
       <div className="space-y-4">
         {toolsToDisplay.map((tool) => (
           <SingleToolCard
-            key={tool.toolInvocation.toolCallId}
+            key={getToolCallId(tool)}
             toolData={tool}
             defaultOpen={defaultOpen}
           />
@@ -295,16 +346,19 @@ function SingleToolCard({
   defaultOpen = false,
   className,
 }: {
-  toolData: ToolInvocationUIPart
+  toolData: ToolInvocationPart
   defaultOpen?: boolean
   className?: string
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultOpen)
-  const { toolInvocation } = toolData
-  const { state, toolName, toolCallId, args } = toolInvocation
+  // Use helper functions for v4/v5 compatibility
+  const state = getToolState(toolData)
+  const toolName = getToolName(toolData)
+  const toolCallId = getToolCallId(toolData)
+  const args = getToolArgs(toolData) as Record<string, unknown> | undefined
   const isLoading = state === "call"
   const isCompleted = state === "result"
-  const result = isCompleted ? toolInvocation.result : undefined
+  const result = isCompleted ? getToolResult(toolData) : undefined
 
   // Parse the result JSON if available
   const { parsedResult, parseError } = useMemo(() => {
@@ -319,9 +373,11 @@ function SingleToolCard({
         result !== null &&
         "content" in result
       ) {
-        const textContent = result.content?.find(
-          (item: { type: string }) => item.type === "text"
-        )
+        const resultWithContent = result as { content?: unknown[] }
+        const contentArray = Array.isArray(resultWithContent.content) ? resultWithContent.content : []
+        const textContent = contentArray.find(
+          (item: unknown) => item && typeof item === "object" && (item as { type?: string }).type === "text"
+        ) as { type: string; text?: string } | undefined
         if (!textContent?.text) return { parsedResult: null, parseError: null }
 
         try {

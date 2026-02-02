@@ -7,16 +7,18 @@ import { MESSAGE_MAX_LENGTH, SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
 import { Attachment } from "@/lib/file-handling"
 import { API_ROUTE_CHAT } from "@/lib/routes"
 import type { UserProfile } from "@/lib/user/types"
-import type { Message } from "@ai-sdk/react"
+import type { UIMessage, FileUIPart } from "ai"
+import { DefaultChatTransport } from "ai"
 import { useChat } from "@ai-sdk/react"
 import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ResearchMode } from "@/app/components/chat-input/research-mode-selector"
+import { AppMessage, createAppMessage, getCreatedAt, getAttachments, getTextContent } from "@/app/types/message.types"
 
 type UseChatCoreProps = {
-  initialMessages: Message[]
+  initialMessages: UIMessage[]
   draftValue: string
-  cacheAndAddMessage: (message: Message) => void
+  cacheAndAddMessage: (message: UIMessage) => void
   chatId: string | null
   user: UserProfile | null
   files: File[]
@@ -57,7 +59,8 @@ export function useChatCore({
   setHasDialogSubscriptionRequired,
   setHasDialogLimitReached,
 }: UseChatCoreProps) {
-  // State management
+  // State management - input is now managed manually in v5
+  const [input, setInput] = useState(draftValue)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [hasDialogAuth, setHasDialogAuth] = useState(false)
   const [enableSearch, setEnableSearch] = useState(true)
@@ -117,25 +120,23 @@ export function useChatCore({
     [setHasDialogSubscriptionRequired, setHasDialogLimitReached]
   )
 
-  // Initialize useChat
+  // Initialize useChat with v5 API
   const {
     messages,
-    input,
-    handleSubmit,
     status,
     error,
-    reload,
     stop,
     setMessages,
-    setInput,
-    append,
+    sendMessage,
+    regenerate,
   } = useChat({
     id: chatId || "new-chat",
-    api: API_ROUTE_CHAT,
-    initialMessages,
-    initialInput: draftValue,
-    onFinish: async (m) => {
-      cacheAndAddMessage(m)
+    messages: initialMessages,
+    transport: new DefaultChatTransport({
+      api: API_ROUTE_CHAT,
+    }),
+    onFinish: async ({ message }) => {
+      cacheAndAddMessage(message)
       setResponseStartTime(null) // Clear time estimate when response finishes
       try {
         const effectiveChatId =
@@ -164,7 +165,7 @@ export function useChatCore({
     if (prompt && typeof window !== "undefined") {
       requestAnimationFrame(() => setInput(prompt))
     }
-  }, [prompt, setInput])
+  }, [prompt])
 
   // Reset messages and state when navigating from a chat to home
   // Check actual URL to avoid false positives from pushState not updating usePathname
@@ -186,6 +187,16 @@ export function useChatCore({
     prevChatIdRef.current = chatId
   }
 
+  // Helper to create file parts from attachments
+  const createFileParts = (attachments: Attachment[]): FileUIPart[] => {
+    return attachments.map(att => ({
+      type: "file" as const,
+      url: att.url,
+      filename: att.name,
+      mediaType: att.contentType,
+    }))
+  }
+
   // Submit action
   const submit = useCallback(async () => {
     setIsSubmitting(true)
@@ -203,14 +214,13 @@ export function useChatCore({
     const optimisticAttachments =
       files.length > 0 ? createOptimisticAttachments(files) : []
 
-    const optimisticMessage = {
+    const optimisticMessage = createAppMessage({
       id: optimisticId,
       content: input,
-      role: "user" as const,
+      role: "user",
       createdAt: new Date(),
-      experimental_attachments:
-        optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
-    }
+      attachments: optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
+    })
 
     setMessages((prev) => [...prev, optimisticMessage])
     setInput("")
@@ -258,23 +268,29 @@ export function useChatCore({
         }
       }
 
-      const options = {
-        body: {
-          chatId: currentChatId,
-          userId: uid,
-          model: selectedModel,
-          isAuthenticated,
-          systemPrompt: systemPrompt || SYSTEM_PROMPT_DEFAULT,
-          enableSearch,
-          researchMode,
-        },
-        experimental_attachments: attachments || undefined,
-      }
-
-      handleSubmit(undefined, options)
+      // CRITICAL: Remove optimistic message BEFORE sendMessage to avoid duplicates
+      // In AI SDK v5, sendMessage() adds its own user message to the messages array
+      // If we don't remove the optimistic message first, the API receives duplicates
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
       cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
-      cacheAndAddMessage(optimisticMessage)
+
+      // Send message with v5 API - this will add the real user message
+      await sendMessage(
+        attachments && attachments.length > 0
+          ? { text: input, files: createFileParts(attachments) }
+          : { text: input },
+        {
+          body: {
+            chatId: currentChatId,
+            userId: uid,
+            model: selectedModel,
+            isAuthenticated,
+            systemPrompt: systemPrompt || SYSTEM_PROMPT_DEFAULT,
+            enableSearch,
+            researchMode,
+          },
+        }
+      )
       clearDraft()
       setResponseStartTime(Date.now()) // Track when response generation starts
 
@@ -294,7 +310,6 @@ export function useChatCore({
     createOptimisticAttachments,
     input,
     setMessages,
-    setInput,
     setFiles,
     checkLimitsAndNotify,
     cleanupOptimisticAttachments,
@@ -305,7 +320,7 @@ export function useChatCore({
     systemPrompt,
     enableSearch,
     researchMode,
-    handleSubmit,
+    sendMessage,
     cacheAndAddMessage,
     clearDraft,
     messages.length,
@@ -340,8 +355,9 @@ export function useChatCore({
         return
       }
 
-      const target = messages[editIndex]
-      const cutoffIso = target?.createdAt?.toISOString()
+      const target = messages[editIndex] as AppMessage
+      const createdAt = getCreatedAt(target)
+      const cutoffIso = createdAt?.toISOString()
       if (!cutoffIso) {
         console.error("Unable to locate message timestamp.")
         return
@@ -359,13 +375,14 @@ export function useChatCore({
       const originalMessages = [...messages]
 
       const optimisticId = `optimistic-edit-${Date.now().toString()}`
-      const optimisticEditedMessage = {
+      const targetAttachments = getAttachments(target)
+      const optimisticEditedMessage = createAppMessage({
         id: optimisticId,
         content: newContent,
-        role: "user" as const,
+        role: "user",
         createdAt: new Date(),
-        experimental_attachments: target.experimental_attachments || undefined,
-      }
+        attachments: targetAttachments.length > 0 ? targetAttachments : undefined,
+      })
 
       try {
         const trimmedMessages = messages.slice(0, editIndex)
@@ -401,21 +418,6 @@ export function useChatCore({
 
         prevChatIdRef.current = currentChatId
 
-        const options = {
-          body: {
-            chatId: currentChatId,
-            userId: uid,
-            model: selectedModel,
-            isAuthenticated,
-            systemPrompt: systemPrompt || SYSTEM_PROMPT_DEFAULT,
-            enableSearch,
-            researchMode,
-            editCutoffTimestamp: cutoffIso, // Backend will delete messages from this timestamp
-          },
-          experimental_attachments:
-            target.experimental_attachments || undefined,
-        }
-
         // If this is an edit of the very first user message, update chat title
         if (editIndex === 0 && target.role === "user") {
           try {
@@ -423,16 +425,28 @@ export function useChatCore({
           } catch {}
         }
 
-        append(
-          {
-            role: "user",
-            content: newContent,
-          },
-          options
-        )
-
-        // Remove optimistic message
+        // CRITICAL: Remove optimistic message BEFORE sendMessage to avoid duplicates
+        // In AI SDK v5, sendMessage() adds its own user message to the messages array
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
+
+        // Send message with v5 API - this will add the real user message
+        await sendMessage(
+          targetAttachments.length > 0
+            ? { text: newContent, files: createFileParts(targetAttachments) }
+            : { text: newContent },
+          {
+            body: {
+              chatId: currentChatId,
+              userId: uid,
+              model: selectedModel,
+              isAuthenticated,
+              systemPrompt: systemPrompt || SYSTEM_PROMPT_DEFAULT,
+              enableSearch,
+              researchMode,
+              editCutoffTimestamp: cutoffIso, // Backend will delete messages from this timestamp
+            },
+          }
+        )
 
         bumpChat(currentChatId)
       } catch (error) {
@@ -452,7 +466,7 @@ export function useChatCore({
       systemPrompt,
       enableSearch,
       researchMode,
-      append,
+      sendMessage,
       setMessages,
       bumpChat,
       updateTitle,
@@ -466,12 +480,12 @@ export function useChatCore({
     async (suggestion: string) => {
       setIsSubmitting(true)
       const optimisticId = `optimistic-${Date.now().toString()}`
-      const optimisticMessage = {
+      const optimisticMessage = createAppMessage({
         id: optimisticId,
         content: suggestion,
-        role: "user" as const,
+        role: "user",
         createdAt: new Date(),
-      }
+      })
 
       setMessages((prev) => [...prev, optimisticMessage])
 
@@ -498,26 +512,25 @@ export function useChatCore({
 
         prevChatIdRef.current = currentChatId
 
-        const options = {
-          body: {
-            chatId: currentChatId,
-            userId: uid,
-            model: selectedModel,
-            isAuthenticated,
-            systemPrompt: SYSTEM_PROMPT_DEFAULT,
-            enableSearch,
-            researchMode,
-          },
-        }
-
-        append(
-          {
-            role: "user",
-            content: suggestion,
-          },
-          options
-        )
+        // CRITICAL: Remove optimistic message BEFORE sendMessage to avoid duplicates
+        // In AI SDK v5, sendMessage() adds its own user message to the messages array
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
+
+        // Send message with v5 API - this will add the real user message
+        await sendMessage(
+          { text: suggestion },
+          {
+            body: {
+              chatId: currentChatId,
+              userId: uid,
+              model: selectedModel,
+              isAuthenticated,
+              systemPrompt: SYSTEM_PROMPT_DEFAULT,
+              enableSearch,
+              researchMode,
+            },
+          }
+        )
       } catch {
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
         toast({ title: "Failed to send suggestion", status: "error" })
@@ -529,7 +542,7 @@ export function useChatCore({
       ensureChatExists,
       selectedModel,
       user,
-      append,
+      sendMessage,
       checkLimitsAndNotify,
       isAuthenticated,
       enableSearch,
@@ -539,14 +552,14 @@ export function useChatCore({
     ]
   )
 
-  // Handle reload
+  // Handle reload (regenerate in v5)
   const handleReload = useCallback(async () => {
     const uid = await getOrCreateGuestUserId(user)
     if (!uid) {
       return
     }
 
-    const options = {
+    await regenerate({
       body: {
         chatId,
         userId: uid,
@@ -556,19 +569,26 @@ export function useChatCore({
         enableSearch,
         researchMode,
       },
-    }
+    })
+  }, [user, chatId, selectedModel, isAuthenticated, systemPrompt, enableSearch, researchMode, regenerate])
 
-    reload(options)
-  }, [user, chatId, selectedModel, isAuthenticated, systemPrompt, enableSearch, researchMode, reload])
-
-  // Handle input change - now with access to the real setInput function!
+  // Handle input change - manages state manually in v5
   const { setDraftValue } = useChatDraft(chatId)
   const handleInputChange = useCallback(
     (value: string) => {
       setInput(value)
       setDraftValue(value)
     },
-    [setInput, setDraftValue]
+    [setDraftValue]
+  )
+
+  // Legacy handleSubmit for form compatibility (wraps submit)
+  const handleSubmit = useCallback(
+    (e?: { preventDefault?: () => void }) => {
+      e?.preventDefault?.()
+      submit()
+    },
+    [submit]
   )
 
   return {
@@ -578,11 +598,11 @@ export function useChatCore({
     handleSubmit,
     status,
     error,
-    reload,
+    reload: handleReload, // Alias for backward compatibility
     stop,
     setMessages,
     setInput,
-    append,
+    append: sendMessage, // Alias for backward compatibility
     isAuthenticated,
     systemPrompt,
     hasSentFirstMessageRef,

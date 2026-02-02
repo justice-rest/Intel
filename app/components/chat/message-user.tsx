@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { cn } from "@/lib/utils"
-import { Message as MessageType } from "@ai-sdk/react"
+import type { Attachment } from "@/app/types/message.types"
 import {
   Check,
   Copy,
@@ -67,7 +67,7 @@ const getFileIcon = (contentType: string) => {
 
 export type MessageUserProps = {
   hasScrollAnchor?: boolean
-  attachments?: MessageType["experimental_attachments"]
+  attachments?: Attachment[]
   children: string
   copied: boolean
   copyToClipboard: () => void

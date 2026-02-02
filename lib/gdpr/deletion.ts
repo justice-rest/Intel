@@ -3,7 +3,6 @@
  * Complete user data deletion with subscription handling
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { deleteUserStorageFiles } from './storage-cleanup'
 import type {
   DeletionRequest,
@@ -14,7 +13,7 @@ import type {
 
 // Use a more flexible type to handle tables not in generated types
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySupabaseClient = SupabaseClient<any>
+type AnySupabaseClient = any
 
 const CONFIRMATION_STRING = 'DELETE MY ACCOUNT'
 
@@ -58,7 +57,7 @@ export async function checkDeletionPrerequisites(
     blockers.push({
       code: 'PENDING_BATCH_JOBS',
       message: `You have ${jobCount} pending batch job(s). Please wait for them to complete before deleting your account.`,
-      details: { pendingJobs: pendingJobs?.map(j => ({ id: j.id, name: j.name, status: j.status })) },
+      details: { pendingJobs: pendingJobs?.map((j: any) => ({ id: j.id, name: j.name, status: j.status })) },
     })
   }
 

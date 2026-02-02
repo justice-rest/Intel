@@ -367,7 +367,7 @@ export const propublicaNonprofitSearchTool = tool({
     "RETURNS: EINs, locations, NTEE categories, 990 filing availability. " +
     "COVERS: 1.8M+ tax-exempt organizations. " +
     "SOURCE: ProPublica Nonprofit Explorer (IRS 990 data).",
-  parameters: nonprofitSearchSchema,
+  inputSchema: nonprofitSearchSchema,
   execute: async ({ query, state, nteeCategory, page }): Promise<NonprofitSearchResult> => {
     console.log("[ProPublica] Searching nonprofits:", { query, state, nteeCategory, page })
     const startTime = Date.now()
@@ -464,7 +464,7 @@ export const propublicaNonprofitDetailsTool = tool({
     "USE CASE: Research foundation giving capacity, validate nonprofit financials. " +
     "CRITICAL: For prospect research—foundations with $10M+ assets indicate major gift potential. " +
     "SOURCE: IRS Form 990 via ProPublica.",
-  parameters: nonprofitDetailsSchema,
+  inputSchema: nonprofitDetailsSchema,
   execute: async ({ ein }): Promise<NonprofitDetailsResult> => {
     // Clean EIN - remove hyphens and spaces
     const cleanEin = ein.replace(/[-\s]/g, "")

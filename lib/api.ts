@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
 import { APP_DOMAIN } from "@/lib/config"
 import type { UserProfile } from "@/lib/user/types"
 import { SupabaseClient } from "@supabase/supabase-js"
@@ -134,7 +137,7 @@ function getAuthRedirectUrl(): string {
 /**
  * Signs in user with Google OAuth via Supabase
  */
-export async function signInWithGoogle(supabase: SupabaseClient) {
+export async function signInWithGoogle(supabase: AnySupabaseClient) {
   try {
     const baseUrl = getAuthRedirectUrl()
 

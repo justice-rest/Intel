@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "@/components/ui/toast"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
 import { useMemo } from "react"
 
 type ModelConfig = {
@@ -14,7 +15,7 @@ type ModelChat = {
   model: ModelConfig
   messages: any[]
   isLoading: boolean
-  append: (message: any, options?: any) => void
+  sendMessage: (message: any, options?: any) => void
   stop: () => void
 }
 
@@ -27,7 +28,9 @@ export function useMultiChat(models: ModelConfig[]): ModelChat[] {
     // todo: fix this
     // eslint-disable-next-line react-hooks/rules-of-hooks
     useChat({
-      api: "/api/chat",
+      transport: new DefaultChatTransport({
+        api: "/api/chat",
+      }),
       onError: (error) => {
         const model = models[index]
         if (model) {
@@ -50,9 +53,11 @@ export function useMultiChat(models: ModelConfig[]): ModelChat[] {
       return {
         model,
         messages: chatHook.messages,
-        isLoading: chatHook.isLoading,
-        append: (message: any, options?: any) => {
-          return chatHook.append(message, options)
+        // In v5, use status instead of isLoading
+        isLoading: chatHook.status === "submitted" || chatHook.status === "streaming",
+        // In v5, use sendMessage instead of append
+        sendMessage: (message: any, options?: any) => {
+          return chatHook.sendMessage(message, options)
         },
         stop: chatHook.stop,
       }
@@ -61,7 +66,7 @@ export function useMultiChat(models: ModelConfig[]): ModelChat[] {
     return instances
     // todo: fix this
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [models, ...chatHooks.flatMap((chat) => [chat.messages, chat.isLoading])])
+  }, [models, ...chatHooks.flatMap((chat) => [chat.messages, chat.status])])
 
   return activeChatInstances
 }

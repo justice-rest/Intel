@@ -489,7 +489,7 @@ export const cmsOpenPaymentsTool = tool({
     "WEALTH INDICATOR: High-paid physician consultants/speakers indicate significant income. " +
     "$100K+ annual = key opinion leader, $500K+ = major industry relationship.",
 
-  parameters: cmsOpenPaymentsSchema,
+  inputSchema: cmsOpenPaymentsSchema,
 
   execute: async ({
     physicianName,

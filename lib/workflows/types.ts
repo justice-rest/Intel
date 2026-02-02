@@ -130,7 +130,7 @@ export const NonEmptyStringSchema = z.string().min(1)
 export const WorkflowRunInputSchema = z.object({
   workflowName: NonEmptyStringSchema,
   userId: UUIDSchema,
-  input: z.record(z.unknown()),
+  input: z.record(z.string(), z.unknown()),
 })
 
 export type WorkflowRunInput = z.infer<typeof WorkflowRunInputSchema>

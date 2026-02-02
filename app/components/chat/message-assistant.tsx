@@ -9,14 +9,14 @@ import { useChatSession } from "@/lib/chat-store/session/provider"
 import { exportToPdf } from "@/lib/pdf-export"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { cn } from "@/lib/utils"
-import type { Message as MessageAISDK } from "@ai-sdk/react"
+import type { UIMessage as MessageAISDK } from "ai"
 import { ArrowClockwise, Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
 import { useCallback, useMemo, useRef, useState } from "react"
 import { getSources } from "./get-sources"
 import { getCitations } from "./get-citations"
 import { QuoteButton } from "./quote-button"
 import { Reasoning } from "./reasoning"
-import { SearchImages } from "./search-images"
+import { SearchImages, type ImageResult } from "./search-images"
 import { SourcesList } from "./sources-list"
 import { CitationSources } from "./citation-sources"
 import { ToolInvocation } from "./tool-invocation"
@@ -58,31 +58,49 @@ export function MessageAssistant({
   const { getChatById } = useChats()
   const [isExporting, setIsExporting] = useState(false)
 
-  const sources = getSources(parts)
-  const citations = getCitations(parts) // Extract RAG citations
-  const toolInvocationParts = parts?.filter(
-    (part) => part.type === "tool-invocation"
+  const sources = getSources(parts || [])
+  const citations = getCitations(parts || []) // Extract RAG citations
+  // In v5, tool parts have type starting with "tool-" prefix (e.g., "tool-imageSearch")
+  // Filter for both old "tool-invocation" type and new "tool-*" pattern
+  const toolInvocationParts = (parts || []).filter(
+    (part) => part.type === "tool-invocation" || part.type.startsWith("tool-")
   )
-  const reasoningParts = parts?.find((part) => part.type === "reasoning")
+  // In v5, reasoning parts have .text property, not .reasoning
+  const reasoningParts = (parts || []).find((part) => part.type === "reasoning") as { type: "reasoning"; text?: string; reasoning?: string } | undefined
   const contentNullOrEmpty = children === null || children === ""
   const isLastStreaming = status === "streaming" && isLast
+  // Handle both v4 (toolInvocation.state === "result") and v5 (state === "output-available") tool structures
   const searchImageResults =
-    parts
-      ?.filter(
-        (part) =>
-          part.type === "tool-invocation" &&
-          part.toolInvocation?.state === "result" &&
-          part.toolInvocation?.toolName === "imageSearch" &&
-          part.toolInvocation?.result?.content?.[0]?.type === "images"
-      )
-      .flatMap((part) =>
-        part.type === "tool-invocation" &&
-        part.toolInvocation?.state === "result" &&
-        part.toolInvocation?.toolName === "imageSearch" &&
-        part.toolInvocation?.result?.content?.[0]?.type === "images"
-          ? (part.toolInvocation?.result?.content?.[0]?.results ?? [])
-          : []
-      ) ?? []
+    (parts || [])
+      .filter((part) => {
+        // Check for v5 tool-imageSearch type
+        if (part.type === "tool-imageSearch") {
+          const toolPart = part as unknown as { state: string; output?: { content?: Array<{ type: string; results?: unknown[] }> } }
+          return toolPart.state === "output-available" &&
+                 toolPart.output?.content?.[0]?.type === "images"
+        }
+        // Check for v4 tool-invocation type (backward compatibility)
+        if (part.type === "tool-invocation") {
+          const v4Part = part as unknown as { toolInvocation?: { state: string; toolName: string; result?: { content?: Array<{ type: string; results?: unknown[] }> } } }
+          return v4Part.toolInvocation?.state === "result" &&
+                 v4Part.toolInvocation?.toolName === "imageSearch" &&
+                 v4Part.toolInvocation?.result?.content?.[0]?.type === "images"
+        }
+        return false
+      })
+      .flatMap((part) => {
+        // Extract results from v5 structure
+        if (part.type === "tool-imageSearch") {
+          const toolPart = part as unknown as { output?: { content?: Array<{ results?: unknown[] }> } }
+          return (toolPart.output?.content?.[0]?.results ?? []) as ImageResult[]
+        }
+        // Extract results from v4 structure
+        if (part.type === "tool-invocation") {
+          const v4Part = part as unknown as { toolInvocation?: { result?: { content?: Array<{ results?: unknown[] }> } } }
+          return (v4Part.toolInvocation?.result?.content?.[0]?.results ?? []) as ImageResult[]
+        }
+        return [] as ImageResult[]
+      }) ?? [] as ImageResult[]
 
   const isQuoteEnabled = true
   const messageRef = useRef<HTMLDivElement>(null)
@@ -138,9 +156,9 @@ export function MessageAssistant({
         )}
         {...(isQuoteEnabled && { "data-message-id": messageId })}
       >
-        {reasoningParts && reasoningParts.reasoning && (
+        {reasoningParts && (reasoningParts.text || reasoningParts.reasoning) && (
           <Reasoning
-            reasoning={reasoningParts.reasoning}
+            reasoning={reasoningParts.text || reasoningParts.reasoning || ""}
             isStreaming={status === "streaming"}
           />
         )}

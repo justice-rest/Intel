@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
 /**
  * Hybrid Memory Search - Vector + Lexical with RRF Fusion
  *
@@ -54,7 +57,7 @@ const DEFAULT_PROFILE_PARAMS = {
  * Perform hybrid search combining vector and lexical search with RRF fusion
  */
 export async function hybridSearch(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   params: HybridSearchParams
 ): Promise<HybridSearchResponse> {
   const startTime = Date.now()
@@ -172,7 +175,7 @@ export async function hybridSearch(
  * Vector-only search using pgvector HNSW index
  */
 async function vectorSearch(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   params: {
     userId: string
     queryEmbedding: number[]
@@ -231,7 +234,7 @@ async function vectorSearch(
  * Lexical-only search using tsvector and trigram
  */
 async function lexicalSearch(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   params: {
     userId: string
     query: string
@@ -359,7 +362,7 @@ function rrfFusion(
  * Implements Supermemory's /v4/profile pattern
  */
 export async function getMemoryProfile(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   params: ProfileSearchParams
 ): Promise<ProfileSearchResponse> {
   const startTime = Date.now()
@@ -484,7 +487,7 @@ export async function getMemoryProfile(
  * Returns as soon as sufficient results found
  */
 export async function tieredSearch(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   params: HybridSearchParams
 ): Promise<HybridSearchResponse> {
   const startTime = Date.now()

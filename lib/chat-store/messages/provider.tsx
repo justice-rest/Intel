@@ -8,7 +8,7 @@ import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { useUnreadOptional } from "@/lib/unread"
 import { useNotificationsOptional } from "@/lib/notifications"
 import { useChats } from "@/lib/chat-store/chats/provider"
-import type { Message as MessageAISDK } from "ai"
+import type { UIMessage as MessageAISDK } from "ai"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { writeToIndexedDB } from "../persist"
 import {
@@ -18,6 +18,8 @@ import {
   getMessagesFromDb,
   setMessages as saveMessages,
 } from "./api"
+import type { AppMessage } from "@/app/types/message.types"
+import { getCreatedAt } from "@/app/types/message.types"
 
 interface MessagesContextType {
   messages: MessageAISDK[]
@@ -278,18 +280,21 @@ export function MessagesProvider({
 
               // Convert DB message to AI SDK format
               // Include user_id for sender attribution in collaborative chats
-              const aiMessage: MessageAISDK & { user_id?: string } = {
+              // Filter "data" role to be valid AI SDK role
+              // In AI SDK v5, UIMessage uses parts array instead of content string
+              const validRole = newMessage.role === "data" ? "assistant" : (newMessage.role as "user" | "assistant" | "system")
+              const aiMessage = {
                 id: messageId,
-                content: effectiveContent,
-                role: newMessage.role as "user" | "assistant" | "system" | "data",
+                parts: [{ type: "text" as const, text: effectiveContent }],
+                role: validRole,
                 createdAt: new Date(newMessage.created_at),
                 user_id: newMessage.user_id || undefined,
-              }
+              } as MessageAISDK & { user_id?: string }
 
               // Sort by created_at to maintain order
               const updated = [...prev, aiMessage].sort((a, b) => {
-                const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0
-                const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0
+                const aTime = getCreatedAt(a as AppMessage)?.getTime() || 0
+                const bTime = getCreatedAt(b as AppMessage)?.getTime() || 0
                 return aTime - bTime
               })
 

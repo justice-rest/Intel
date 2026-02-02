@@ -339,7 +339,7 @@ export const npiRegistryTool = tool({
     "Family Medicine: $180K-$280K. " +
     "Use to verify medical credentials and estimate income.",
 
-  parameters: npiRegistrySchema,
+  inputSchema: npiRegistrySchema,
 
   execute: async ({ searchTerm, state, specialty }): Promise<NPIRegistryResult> => {
     return searchNPIRegistry(searchTerm, state, specialty)

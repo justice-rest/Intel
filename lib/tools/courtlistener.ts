@@ -387,7 +387,7 @@ export const courtSearchTool = tool({
     "Useful for due diligence, finding litigation history, bankruptcy cases, and legal disputes. " +
     "Search by party name, case name, or legal issues. Covers Supreme Court, Circuit Courts, " +
     "District Courts, and Bankruptcy Courts. FREE API - no key required.",
-  parameters: courtSearchSchema,
+  inputSchema: courtSearchSchema,
   execute: async ({
     query,
     searchType = "opinions",
@@ -531,7 +531,7 @@ export const judgeSearchTool = tool({
     "Search the judicial database for information about federal judges. Returns biographical data, " +
     "judicial positions, education, political affiliations, and ABA ratings. Useful for understanding " +
     "judicial appointments and connections. FREE API - no key required.",
-  parameters: judgeSearchSchema,
+  inputSchema: judgeSearchSchema,
   execute: async ({
     name,
     court,

@@ -515,7 +515,7 @@ export const federalLobbyingTool = tool({
     "WEALTH INDICATOR: Lobbyists and lobbying firm principals are typically high-income. " +
     "INFLUENCE INDICATOR: Companies spending on lobbying have significant policy interests.",
 
-  parameters: federalLobbyingSchema,
+  inputSchema: federalLobbyingSchema,
 
   execute: async ({ query, searchType, year }): Promise<LobbyingResult> => {
     if (!isLDAEnabled()) {

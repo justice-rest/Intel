@@ -10,9 +10,10 @@ import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
 import { getModelInfo, normalizeModelId } from "@/lib/models"
 import { PROVIDERS } from "@/lib/providers"
 import { cn } from "@/lib/utils"
-import { Message as MessageType } from "@ai-sdk/react"
+import type { UIMessage as MessageType } from "ai"
 import { useEffect, useState } from "react"
 import { Message } from "../chat/message"
+import { AppMessage, getTextContent, getAttachments } from "@/app/types/message.types"
 
 type GroupedMessage = {
   userMessage: MessageType
@@ -65,10 +66,10 @@ function ResponseCard({ response, group }: ResponseCardProps) {
             variant="assistant"
             parts={
               response.message.parts || [
-                { type: "text", text: response.message.content },
+                { type: "text", text: getTextContent(response.message as AppMessage) },
               ]
             }
-            attachments={response.message.experimental_attachments}
+            attachments={getAttachments(response.message as AppMessage)}
             onDelete={() => group.onDelete(response.model, response.message.id)}
             onEdit={(id, newText) => group.onEdit(response.model, id, newText)}
             onReload={() => group.onReload(response.model)}
@@ -77,7 +78,7 @@ function ResponseCard({ response, group }: ResponseCardProps) {
             hasScrollAnchor={false}
             className="bg-transparent p-0 px-0"
           >
-            {response.message.content}
+            {getTextContent(response.message as AppMessage)}
           </Message>
         ) : response.isLoading ? (
           <div className="space-y-2">
@@ -140,10 +141,10 @@ export function MultiModelConversation({
                         variant="user"
                         parts={
                           group.userMessage.parts || [
-                            { type: "text", text: group.userMessage.content },
+                            { type: "text", text: getTextContent(group.userMessage as AppMessage) },
                           ]
                         }
-                        attachments={group.userMessage.experimental_attachments}
+                        attachments={getAttachments(group.userMessage as AppMessage)}
                         onDelete={() => {}}
                         onEdit={() => {}}
                         onReload={() => {}}
@@ -153,7 +154,7 @@ export function MultiModelConversation({
                             .message_group_id ?? null
                         }
                       >
-                        {group.userMessage.content}
+                        {getTextContent(group.userMessage as AppMessage)}
                       </Message>
                     </div>
 

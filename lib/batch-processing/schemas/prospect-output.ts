@@ -272,8 +272,10 @@ export function validateProspectOutput(data: unknown): {
   }
 
   // Generate human-readable error summary
-  const errorSummary = result.error.errors
-    .map((e) => `${e.path.join(".")}: ${e.message}`)
+  // Zod 4 uses .issues instead of .errors
+  const zodIssues = (result.error as any).issues || (result.error as any).errors || []
+  const errorSummary = zodIssues
+    .map((e: { path?: (string | number)[]; message?: string }) => `${(e.path || []).join(".")}: ${e.message || "Unknown error"}`)
     .join("; ")
 
   return {
@@ -338,9 +340,11 @@ export function parseLenientProspectOutput(data: unknown): LenientProspectResear
  * Generate a correction prompt for LLM based on validation errors
  */
 export function generateValidationErrorPrompt(errors: z.ZodError): string {
-  const errorDetails = errors.errors.map((e) => {
-    const path = e.path.join(".")
-    const message = e.message
+  // Zod 4 uses .issues instead of .errors
+  const zodIssues = (errors as any).issues || (errors as any).errors || []
+  const errorDetails = zodIssues.map((e: { path?: (string | number)[]; message?: string; code?: string; expected?: string; received?: string }) => {
+    const path = (e.path || []).join(".")
+    const message = e.message || "Unknown error"
 
     // Provide specific guidance based on error type
     let guidance = ""

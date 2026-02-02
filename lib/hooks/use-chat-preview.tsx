@@ -3,6 +3,8 @@ import {
   getCachedMessages,
   getMessagesFromDb,
 } from "@/lib/chat-store/messages/api"
+import { getTextContent, getCreatedAt } from "@/app/types/message.types"
+import type { AppMessage } from "@/app/types/message.types"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 interface ChatMessage {
@@ -66,13 +68,16 @@ export function useChatPreview(): UseChatPreviewReturn {
           ) {
             const cachedMessages = cached
               .slice(-5) // Get last 5 messages
-              .map((msg) => ({
-                id: msg.id,
-                content: msg.content,
-                role: msg.role as "user" | "assistant",
-                created_at:
-                  msg.createdAt?.toISOString() || new Date().toISOString(),
-              }))
+              .map((msg) => {
+                const appMsg = msg as AppMessage
+                const createdAt = getCreatedAt(appMsg)
+                return {
+                  id: msg.id,
+                  content: getTextContent(appMsg),
+                  role: msg.role as "user" | "assistant",
+                  created_at: createdAt?.toISOString() || new Date().toISOString(),
+                }
+              })
             setMessages(cachedMessages)
           }
         } else {
@@ -90,13 +95,16 @@ export function useChatPreview(): UseChatPreviewReturn {
 
             const freshMessages = fresh
               .slice(-5) // Get last 5 messages
-              .map((msg) => ({
-                id: msg.id,
-                content: msg.content,
-                role: msg.role as "user" | "assistant",
-                created_at:
-                  msg.createdAt?.toISOString() || new Date().toISOString(),
-              }))
+              .map((msg) => {
+                const appMsg = msg as AppMessage
+                const createdAt = getCreatedAt(appMsg)
+                return {
+                  id: msg.id,
+                  content: getTextContent(appMsg),
+                  role: msg.role as "user" | "assistant",
+                  created_at: createdAt?.toISOString() || new Date().toISOString(),
+                }
+              })
             setMessages(freshMessages)
           }
         }

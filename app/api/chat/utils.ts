@@ -1,70 +1,56 @@
-import { Message as MessageAISDK } from "ai"
+import type { UIMessage, UIMessagePart } from "ai"
+import { isTextUIPart, isToolUIPart, isFileUIPart } from "ai"
+
+/**
+ * Helper to extract text content from UIMessage parts (v5 uses parts array, not content string)
+ */
+export function getMessageTextContent(message: UIMessage): string {
+  if (!message.parts) return ""
+  return message.parts
+    .filter(isTextUIPart)
+    .map(part => part.text)
+    .join("\n")
+}
+
+/**
+ * Helper to check if UIMessage parts are empty (v5)
+ */
+function isEmptyParts(parts: UIMessagePart<any, any>[] | undefined): boolean {
+  if (!parts || parts.length === 0) return true
+
+  // Check if any part has meaningful content
+  for (const part of parts) {
+    if (isTextUIPart(part) && part.text?.trim()) {
+      return false
+    }
+    // Non-text parts (tool invocations, files, etc.) count as content
+    if (part.type !== "text") {
+      return false
+    }
+  }
+  return true
+}
 
 /**
  * Clean messages for models based on their capabilities.
  * - Removes tool invocations when model doesn't support tools
- * - Removes attachments when model doesn't support vision/files
+ * - Removes file parts when model doesn't support vision/files
  * This prevents "Bad Request" errors when using models like Perplexity.
+ *
+ * NOTE: In AI SDK v5, UIMessage uses `parts` array, not `content` string.
  */
 export function cleanMessagesForTools(
-  messages: MessageAISDK[],
+  messages: UIMessage[],
   hasTools: boolean,
   hasVision: boolean = true // Default to true for backwards compatibility
-): MessageAISDK[] {
-  // Helper to check if content is empty/invalid
-  // This handles both string content and array content with empty text parts
-  const isEmptyContent = (content: unknown): boolean => {
-    if (content === null || content === undefined) return true
-    if (typeof content === "string") return content.trim() === ""
-    if (Array.isArray(content)) {
-      // Empty array is empty
-      if (content.length === 0) return true
-      // Check if all text parts are empty (xAI requires at least one non-empty content element)
-      const hasNonEmptyText = content.some((part: any) => {
-        if (part && typeof part === "object") {
-          // Text part - check if text is non-empty
-          if (part.type === "text" && typeof part.text === "string") {
-            return part.text.trim() !== ""
-          }
-          // Non-text parts (tool-invocation, image, etc.) count as content
-          if (part.type && part.type !== "text") {
-            return true
-          }
-        }
-        return false
-      })
-      return !hasNonEmptyText
-    }
-    return false
-  }
-
-  // Helper to extract meaningful text from content arrays
-  const extractTextFromArray = (content: unknown[]): string => {
-    const texts: string[] = []
-    for (const part of content) {
-      if (part && typeof part === "object" && (part as any).type === "text") {
-        const text = (part as any).text
-        if (typeof text === "string" && text.trim()) {
-          texts.push(text.trim())
-        }
-      }
-    }
-    return texts.join("\n")
-  }
-
+): UIMessage[] {
   // Always sanitize messages to ensure no empty content (xAI/Grok requires non-empty)
   const sanitizedMessages = messages.map((message) => {
-    if (isEmptyContent(message.content)) {
-      // For arrays with empty text, try to extract any meaningful content first
-      if (Array.isArray(message.content)) {
-        const extractedText = extractTextFromArray(message.content)
-        if (extractedText) {
-          return { ...message, content: extractedText }
-        }
-      }
+    if (isEmptyParts(message.parts)) {
+      // Add a placeholder text part
       return {
         ...message,
-        content: message.role === "assistant" ? "[Assistant response]" : "[User message]",
+        parts: [{ type: "text" as const, text: message.role === "assistant" ? "[Assistant response]" : "[User message]" }],
       }
     }
     return message
@@ -78,146 +64,61 @@ export function cleanMessagesForTools(
   // Clean messages based on model capabilities
   const cleanedMessages = sanitizedMessages
     .map((message) => {
-      // Skip tool messages entirely when no tools are available
-      if (!hasTools && (message as { role: string }).role === "tool") {
+      // Skip tool role messages entirely when no tools are available
+      // Note: In v5, tool results are in parts, not separate role
+      if (!hasTools && (message as any).role === "tool") {
         return null
       }
 
-      // Start with a copy of the message
-      let cleanedMessage: MessageAISDK = { ...message }
-
-      // Remove attachments for non-vision models (like Perplexity which only supports text)
-      if (!hasVision && (cleanedMessage as any).experimental_attachments) {
-        delete (cleanedMessage as any).experimental_attachments
-      }
-
-      if (message.role === "assistant") {
-        // Clean tool invocations if model doesn't support tools
-        if (!hasTools && message.toolInvocations && message.toolInvocations.length > 0) {
-          delete cleanedMessage.toolInvocations
-        }
-
-        if (Array.isArray(message.content)) {
-          const filteredContent = (
-            message.content as Array<{ type?: string; text?: string }>
-          ).filter((part: { type?: string }) => {
-            if (part && typeof part === "object" && part.type) {
-              // Remove tool-related parts if model doesn't support tools
-              if (!hasTools) {
-                const isToolPart =
-                  part.type === "tool-call" ||
-                  part.type === "tool-result" ||
-                  part.type === "tool-invocation"
-                if (isToolPart) return false
-              }
-              // Remove image parts if model doesn't support vision
-              if (!hasVision) {
-                const isImagePart =
-                  part.type === "image" ||
-                  part.type === "image_url" ||
-                  part.type === "file"
-                if (isImagePart) return false
-              }
-            }
-            return true
-          })
-
-          // Extract text content
-          const textParts = filteredContent.filter(
-            (part: { type?: string }) =>
-              part && typeof part === "object" && part.type === "text"
-          )
-
-          if (textParts.length > 0) {
-            // Combine text parts into a single string
-            const textContent = textParts
-              .map((part: { text?: string }) => part.text || "")
-              .join("\n")
-              .trim()
-            cleanedMessage.content = textContent || "[Assistant response]"
-          } else if (filteredContent.length === 0) {
-            // If no content remains after filtering, provide fallback
-            cleanedMessage.content = "[Assistant response]"
-          } else {
-            // Keep the filtered content as string if possible
-            cleanedMessage.content = "[Assistant response]"
+      // Filter parts based on model capabilities
+      const filteredParts = message.parts?.filter((part) => {
+        // Remove tool parts if model doesn't support tools
+        if (!hasTools) {
+          if (isToolUIPart(part)) return false
+          // Also remove dynamic tool parts
+          if ((part as any).type === "tool-invocation" || (part as any).type === "tool-result") {
+            return false
           }
         }
 
-        // If the message has no meaningful content after cleaning, provide fallback
-        if (
-          !cleanedMessage.content ||
-          (typeof cleanedMessage.content === "string" &&
-            cleanedMessage.content.trim() === "")
-        ) {
-          cleanedMessage.content = "[Assistant response]"
-        }
-
-        return cleanedMessage
-      }
-
-      // For user messages, clean content based on model capabilities
-      if (message.role === "user" && Array.isArray(message.content)) {
-        const filteredContent = (
-          message.content as Array<{ type?: string }>
-        ).filter((part: { type?: string }) => {
-          if (part && typeof part === "object" && part.type) {
-            // Remove tool-related parts if model doesn't support tools
-            if (!hasTools) {
-              const isToolPart =
-                part.type === "tool-call" ||
-                part.type === "tool-result" ||
-                part.type === "tool-invocation"
-              if (isToolPart) return false
-            }
-            // Remove image parts if model doesn't support vision
-            if (!hasVision) {
-              const isImagePart =
-                part.type === "image" ||
-                part.type === "image_url" ||
-                part.type === "file"
-              if (isImagePart) return false
-            }
-          }
-          return true
-        })
-
-        if (
-          filteredContent.length !== (message.content as Array<unknown>).length
-        ) {
-          return {
-            ...cleanedMessage,
-            content:
-              filteredContent.length > 0 ? filteredContent : "User message",
+        // Remove file parts if model doesn't support vision
+        if (!hasVision) {
+          if (isFileUIPart(part)) return false
+          // Also remove image type parts for backward compatibility
+          if ((part as any).type === "image" || (part as any).type === "image_url") {
+            return false
           }
         }
-      }
 
-      return cleanedMessage
+        return true
+      }) || []
+
+      // If all parts were filtered out, add a placeholder
+      const finalParts = filteredParts.length > 0
+        ? filteredParts
+        : [{ type: "text" as const, text: message.role === "assistant" ? "[Assistant response]" : "[User message]" }]
+
+      return {
+        ...message,
+        parts: finalParts,
+      }
     })
-    .filter((message): message is MessageAISDK => message !== null)
+    .filter((message): message is UIMessage => message !== null)
 
   return cleanedMessages
 }
 
 /**
- * Check if a message contains tool-related content
+ * Check if a message contains tool-related content (v5: check parts array)
  */
-export function messageHasToolContent(message: MessageAISDK): boolean {
-  return !!(
-    message.toolInvocations?.length ||
-    (message as { role: string }).role === "tool" ||
-    (Array.isArray(message.content) &&
-      (message.content as Array<{ type?: string }>).some(
-        (part: { type?: string }) =>
-          part &&
-          typeof part === "object" &&
-          part.type &&
-          (part.type === "tool-call" ||
-            part.type === "tool-result" ||
-            part.type === "tool-invocation")
-      ))
-  )
+export function messageHasToolContent(message: UIMessage): boolean {
+  if (!message.parts) return false
+
+  return message.parts.some((part) => {
+    if (isToolUIPart(part)) return true
+    const partType = (part as any).type
+    return partType === "tool-invocation" || partType === "tool-result" || partType === "tool-call"
+  })
 }
 
 /**
@@ -248,188 +149,125 @@ export function handleStreamError(err: unknown): ApiError {
     if (aiError.responseBody) {
       try {
         const parsed = JSON.parse(aiError.responseBody)
-        // Handle different error response formats
         if (parsed.error?.message) {
           detailedMessage = parsed.error.message
-        } else if (parsed.error && typeof parsed.error === "string") {
-          detailedMessage = parsed.error
         } else if (parsed.message) {
           detailedMessage = parsed.message
         }
       } catch {
-        // Fallback to generic message if parsing fails
+        // JSON parse failed, use raw body
+        detailedMessage = String(aiError.responseBody).substring(0, 200)
       }
     }
 
-    // Handle specific API errors with proper status codes
-    if (aiError.statusCode === 402) {
-      // Payment required
-      const message =
-        detailedMessage || "Insufficient credits or payment required"
-      return Object.assign(new Error(message), {
-        statusCode: 402,
-        code: "PAYMENT_REQUIRED",
-      })
-    } else if (aiError.statusCode === 401) {
-      // Authentication error - use detailed message if available
-      const message =
-        detailedMessage ||
-        "Invalid API key or authentication failed. Please check your API key in settings."
-      return Object.assign(new Error(message), {
-        statusCode: 401,
-        code: "AUTHENTICATION_ERROR",
-      })
-    } else if (aiError.statusCode === 429) {
-      // Rate limit - use friendly message
-      const message =
-        detailedMessage || "We're experiencing high demand right now! Our systems are a bit overloaded. Please wait a moment and try again. Sorry for the inconvenience!"
-      return Object.assign(new Error(message), {
-        statusCode: 429,
-        code: "RATE_LIMIT_EXCEEDED",
-      })
-    } else if (aiError.statusCode >= 400 && aiError.statusCode < 500) {
-      // Other client errors
-      const message = detailedMessage || aiError.message || "Request failed"
-      return Object.assign(new Error(message), {
-        statusCode: aiError.statusCode,
-        code: "CLIENT_ERROR",
-      })
-    } else {
-      // Server errors or other issues
-      const message = detailedMessage || aiError.message || "AI service error"
-      return Object.assign(new Error(message), {
-        statusCode: aiError.statusCode || 500,
-        code: "SERVER_ERROR",
-      })
+    // Check for specific error types
+    if (aiError.statusCode === 429) {
+      const error = new Error(
+        detailedMessage || "Rate limit exceeded. Please wait a moment and try again."
+      ) as ApiError
+      error.statusCode = 429
+      error.code = "RATE_LIMIT_EXCEEDED"
+      return error
     }
-  } else {
-    // Fallback for unknown error format
-    return Object.assign(
-      new Error("AI generation failed. Please check your model or API key."),
-      {
-        statusCode: 500,
-        code: "UNKNOWN_ERROR",
-      }
-    )
-  }
-}
 
-/**
- * Extract a user-friendly error message from various error types
- * Used for streaming errors that need to be forwarded to the client
- * @param error - The error from AI SDK or other sources
- * @returns User-friendly error message string
- */
-export function extractErrorMessage(error: unknown): string {
-  // Handle null/undefined
-  if (error == null) {
-    return "An unknown error occurred."
-  }
+    if (aiError.statusCode === 400) {
+      const error = new Error(
+        detailedMessage || "Bad request. The model may not support certain features."
+      ) as ApiError
+      error.statusCode = 400
+      error.code = "BAD_REQUEST"
+      return error
+    }
 
-  // Handle string errors
-  if (typeof error === "string") {
+    if (aiError.statusCode === 401 || aiError.statusCode === 403) {
+      const error = new Error(
+        detailedMessage || "Authentication failed. Please check your API key."
+      ) as ApiError
+      error.statusCode = aiError.statusCode
+      error.code = "AUTH_ERROR"
+      return error
+    }
+
+    // Generic AI error with status code
+    const error = new Error(
+      detailedMessage || aiError.message || "AI model request failed"
+    ) as ApiError
+    error.statusCode = aiError.statusCode || 500
+    error.code = "AI_ERROR"
     return error
   }
 
-  // Handle Error objects
-  if (error instanceof Error) {
-    // Check for specific error patterns
-    if (
-      error.message.includes("invalid x-api-key") ||
-      error.message.includes("authentication_error")
-    ) {
-      return "Invalid API key or authentication failed. Please check your API key in settings."
-    } else if (
-      error.message.includes("402") ||
-      error.message.includes("payment") ||
-      error.message.includes("credits")
-    ) {
-      return "Insufficient credits or payment required."
-    } else if (
-      error.message.includes("429") ||
-      error.message.includes("rate limit")
-    ) {
-      return "We're experiencing high demand right now! Our systems are a bit overloaded. Please wait a moment and try again. Sorry for the inconvenience!"
-    }
-
-    return error.message
-  }
-
-  // Handle AI SDK error objects
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const aiError = (error as any)?.error
-  if (aiError) {
-    if (aiError.statusCode === 401) {
-      return "Invalid API key or authentication failed. Please check your API key in settings."
-    } else if (aiError.statusCode === 402) {
-      return "Insufficient credits or payment required."
-    } else if (aiError.statusCode === 429) {
-      return "We're experiencing high demand right now! Our systems are a bit overloaded. Please wait a moment and try again. Sorry for the inconvenience!"
-    } else if (aiError.responseBody) {
-      try {
-        const parsed = JSON.parse(aiError.responseBody)
-        if (parsed.error?.message) {
-          return parsed.error.message
-        }
-      } catch {
-        // Fall through to generic message
-      }
-    }
-
-    return aiError.message || "Request failed"
-  }
-
-  return "An error occurred. Please try again."
+  // Unknown error type
+  const error = new Error(
+    err instanceof Error ? err.message : "Unknown streaming error"
+  ) as ApiError
+  error.statusCode = 500
+  error.code = "STREAM_ERROR"
+  return error
 }
 
 /**
- * Create error response for API endpoints
- * @param error - Error object with optional statusCode and code
- * @returns Response object with proper status and JSON body
+ * Extract error message from AI SDK stream errors
+ * Works with the newer toDataStreamResponse error format
+ * @param err - The error from streamText
+ * @returns Human-readable error message
  */
-export function createErrorResponse(error: {
-  code?: string
-  message?: string
-  statusCode?: number
-}): Response {
-  // Handle subscription required
-  if (error.code === "SUBSCRIPTION_REQUIRED") {
-    return new Response(
-      JSON.stringify({ error: error.message, code: error.code }),
-      { status: 403 }
-    )
+export function extractErrorMessage(err: unknown): string {
+  if (!err) return "Unknown error"
+
+  // Handle Error objects
+  if (err instanceof Error) {
+    // Check for nested error details
+    const anyErr = err as any
+    if (anyErr.cause?.message) {
+      return anyErr.cause.message
+    }
+    return err.message
   }
 
-  // Handle pro limit reached
-  if (error.code === "PRO_LIMIT_REACHED") {
-    return new Response(
-      JSON.stringify({ error: error.message, code: error.code }),
-      { status: 429 }
-    )
+  // Handle API error response format
+  if (typeof err === "object") {
+    const anyErr = err as any
+
+    // Check for responseBody (JSON string from API)
+    if (anyErr.responseBody) {
+      try {
+        const parsed = JSON.parse(anyErr.responseBody)
+        if (parsed.error?.message) return parsed.error.message
+        if (parsed.message) return parsed.message
+      } catch {
+        // Not JSON, use as-is
+        return String(anyErr.responseBody).substring(0, 200)
+      }
+    }
+
+    // Check for nested error object
+    if (anyErr.error?.message) {
+      return anyErr.error.message
+    }
+
+    // Check for direct message
+    if (anyErr.message) {
+      return anyErr.message
+    }
   }
 
-  // Handle daily limit first (existing logic)
-  if (error.code === "DAILY_LIMIT_REACHED") {
-    return new Response(
-      JSON.stringify({ error: error.message, code: error.code }),
-      { status: 403 }
-    )
-  }
+  // Fallback to string conversion
+  return String(err)
+}
 
-  // Handle stream errors with proper status codes
-  if (error.statusCode) {
-    return new Response(
-      JSON.stringify({
-        error: error.message || "Request failed",
-        code: error.code || "REQUEST_ERROR",
-      }),
-      { status: error.statusCode }
-    )
-  }
-
-  // Fallback for other errors
-  return new Response(
-    JSON.stringify({ error: error.message || "Internal server error" }),
-    { status: 500 }
-  )
+/**
+ * Create a standardized error response for the API
+ * @param message - Error message to return
+ * @param statusCode - HTTP status code
+ * @returns Response object with JSON error body
+ */
+export function createErrorResponse(
+  message: string,
+  statusCode: number = 500
+): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: statusCode,
+    headers: { "Content-Type": "application/json" },
+  })
 }

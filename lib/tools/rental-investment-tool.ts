@@ -89,7 +89,7 @@ export const rentalInvestmentTool = tool({
     "Returns: estimated rent, investment metrics, monthly expense breakdown, and ROI projections. " +
     "Works best with property details (sqft, beds, baths) for accurate rent estimation.",
 
-  parameters: rentalInvestmentSchema,
+  inputSchema: rentalInvestmentSchema,
 
   execute: async (params: RentalInvestmentParams): Promise<RentalInvestmentResult> => {
     console.log("[Rental Investment] Analyzing:", params.address)

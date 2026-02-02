@@ -10,8 +10,13 @@
  * - MODEL-AWARE: Respects model-specific context window limits
  */
 
-import type { Message } from "@ai-sdk/react"
+import type { UIMessage } from "ai"
+import type { AppMessage, ContentPart } from "@/app/types/message.types"
+import { getTextContent, getAttachments } from "@/app/types/message.types"
 import { MAX_MESSAGES_IN_PAYLOAD, MAX_TOOL_RESULT_SIZE, MAX_MESSAGE_CONTENT_SIZE } from "./config"
+
+// Use AppMessage internally for backward compatibility
+type Message = UIMessage | AppMessage
 
 // ============================================================================
 // TOKEN ESTIMATION
@@ -34,15 +39,18 @@ export function estimateTokens(text: string): number {
 export function estimateMessageTokens(message: Message): number {
   let tokens = 0
 
-  // Estimate content tokens
-  if (typeof message.content === "string") {
-    tokens += estimateTokens(message.content)
-  } else if (Array.isArray(message.content)) {
-    for (const part of message.content as any[]) {
-      if (part.type === "text" && part.text) {
-        tokens += estimateTokens(part.text)
-      } else if (part.type === "tool-invocation" || part.type === "tool-result") {
-        const result = part.toolInvocation?.result || part.result
+  // Get text content using helper (handles both v4 and v5 formats)
+  const textContent = getTextContent(message as AppMessage)
+  if (textContent) {
+    tokens += estimateTokens(textContent)
+  }
+
+  // Check parts for tool results (v5 format)
+  if (message.parts && Array.isArray(message.parts)) {
+    for (const part of message.parts) {
+      const partAny = part as ContentPart
+      if (partAny.type === "tool-invocation" || partAny.type === "tool-result" || partAny.type?.startsWith("tool-")) {
+        const result = partAny.toolInvocation?.result || partAny.result
         if (result) {
           try {
             tokens += estimateTokens(JSON.stringify(result))
@@ -208,28 +216,20 @@ function truncateToolResult(result: any): any {
  * Removes blob URLs, truncates large tool results, keeps essential data
  */
 function cleanMessage(message: Message): Message {
+  const appMsg = message as AppMessage
+
   // Check if this message has attachments (needs more aggressive truncation)
-  const hasAttachments = !!(
-    message.experimental_attachments &&
-    Array.isArray(message.experimental_attachments) &&
-    message.experimental_attachments.length > 0
-  )
+  const attachments = getAttachments(appMsg)
+  const hasAttachments = attachments.length > 0
 
-  const cleaned: Message = {
-    ...message,
-    // Sanitize and truncate text content if it's a string
-    content: typeof message.content === "string"
-      ? truncateMessageContent(sanitizeTextContent(message.content), hasAttachments)
-      : message.content,
-    // Clean attachments
-    experimental_attachments: cleanAttachments(
-      message.experimental_attachments as any
-    ),
-  }
+  // Get text content using helper
+  const textContent = getTextContent(appMsg)
+  const truncatedContent = truncateMessageContent(sanitizeTextContent(textContent), hasAttachments)
 
-  // Clean tool invocations if present in content
-  if (Array.isArray(message.content)) {
-    cleaned.content = message.content.map((part: any) => {
+  // Clean parts array (v5 format)
+  let cleanedParts = message.parts ? [...message.parts] : []
+  if (cleanedParts.length > 0) {
+    cleanedParts = cleanedParts.map((part: any) => {
       // Sanitize and truncate text parts
       if (part.type === "text" && typeof part.text === "string") {
         return {
@@ -237,7 +237,7 @@ function cleanMessage(message: Message): Message {
           text: truncateMessageContent(sanitizeTextContent(part.text), hasAttachments),
         }
       }
-      if (part.type === "tool-invocation" && part.toolInvocation?.result) {
+      if ((part.type === "tool-invocation" || part.type?.startsWith("tool-")) && part.toolInvocation?.result) {
         return {
           ...part,
           toolInvocation: {
@@ -253,7 +253,21 @@ function cleanMessage(message: Message): Message {
         }
       }
       return part
-    }) as any // Type assertion needed due to AI SDK's complex content types
+    })
+  }
+
+  // Build cleaned message with both v4 and v5 compatible fields
+  const cleaned: Message = {
+    ...message,
+    parts: cleanedParts,
+  }
+
+  // Add legacy fields if they exist on the original message (backward compatibility)
+  if (appMsg.content !== undefined) {
+    (cleaned as AppMessage).content = truncatedContent
+  }
+  if (appMsg.experimental_attachments !== undefined) {
+    (cleaned as AppMessage).experimental_attachments = cleanAttachments(appMsg.experimental_attachments)
   }
 
   return cleaned
@@ -427,11 +441,22 @@ export function optimizeForContextWindow(
 
     // Truncate each message proportionally
     conversationMessages = conversationMessages.map(msg => {
-      if (typeof msg.content === "string" && msg.content.length > 1000) {
-        const maxChars = Math.max(500, msg.content.length - Math.floor(excessChars / conversationMessages.length))
+      const msgContent = getTextContent(msg as AppMessage)
+      if (msgContent && msgContent.length > 1000) {
+        const maxChars = Math.max(500, msgContent.length - Math.floor(excessChars / conversationMessages.length))
+        const truncatedText = msgContent.substring(0, maxChars) + "\n\n[Content truncated to fit context window]"
+        // Update the parts with truncated content
+        const newParts = msg.parts ? msg.parts.map((part: any) => {
+          if (part.type === "text") {
+            return { ...part, text: truncatedText }
+          }
+          return part
+        }) : [{ type: "text", text: truncatedText }]
         return {
           ...msg,
-          content: msg.content.substring(0, maxChars) + "\n\n[Content truncated to fit context window]"
+          parts: newParts,
+          // Also update legacy content field if it exists
+          ...((msg as AppMessage).content !== undefined ? { content: truncatedText } : {}),
         }
       }
       return msg

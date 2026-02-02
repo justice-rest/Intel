@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
 import { UsageLimitError } from "@/lib/api"
 import {
   AUTH_DAILY_MESSAGE_LIMIT,
@@ -20,7 +23,7 @@ const isProModel = (modelId: string) => !isFreeModel(modelId)
  * @throws UsageLimitError if the daily limit is reached, or a generic Error if checking fails.
  * @returns User data including message counts and reset date
  */
-export async function checkUsage(supabase: SupabaseClient, userId: string) {
+export async function checkUsage(supabase: AnySupabaseClient, userId: string) {
   const { data: userData, error: userDataError } = await supabase
     .from("users")
     .select(
@@ -88,7 +91,7 @@ export async function checkUsage(supabase: SupabaseClient, userId: string) {
  * @throws Error if updating fails.
  */
 export async function incrementUsage(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string
 ): Promise<void> {
   const { data: userData, error: userDataError } = await supabase
@@ -125,7 +128,7 @@ export async function incrementUsage(
   }
 }
 
-export async function checkProUsage(supabase: SupabaseClient, userId: string) {
+export async function checkProUsage(supabase: AnySupabaseClient, userId: string) {
   const { data: userData, error: userDataError } = await supabase
     .from("users")
     .select("daily_pro_message_count, daily_pro_reset")
@@ -177,7 +180,7 @@ export async function checkProUsage(supabase: SupabaseClient, userId: string) {
 }
 
 export async function incrementProUsage(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string
 ) {
   const { data, error } = await supabase
@@ -206,7 +209,7 @@ export async function incrementProUsage(
 }
 
 export async function checkUsageByModel(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string,
   modelId: string,
   isAuthenticated: boolean
@@ -222,7 +225,7 @@ export async function checkUsageByModel(
 }
 
 export async function incrementUsageByModel(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   userId: string,
   modelId: string,
   isAuthenticated: boolean

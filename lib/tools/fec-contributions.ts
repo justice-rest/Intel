@@ -272,7 +272,7 @@ export const fecContributionsTool = tool({
     "WHY USE: Political giving indicates wealth, civic engagement, philanthropic capacity. " +
     "Major donors ($2,800+) are 14x more likely to make major charitable gifts. " +
     "SOURCE: FEC.gov (official government data).",
-  parameters: fecContributionsSchema,
+  inputSchema: fecContributionsSchema,
   execute: async ({
     contributorName,
     contributorState,

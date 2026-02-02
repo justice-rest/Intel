@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
 /**
  * Agentic RAG Pipeline - Self-Correcting Retrieval
  *
@@ -149,7 +152,7 @@ export interface AgenticRAGResult {
  * @returns Agentic RAG result
  */
 export async function agenticRetrieve(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   query: string,
   userId: string,
   config: Partial<AgenticRAGConfig> = {}
@@ -247,7 +250,7 @@ export async function agenticRetrieve(
  * Run a single pipeline iteration
  */
 async function runIteration(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   state: PipelineState,
   userId: string,
   config: AgenticRAGConfig
@@ -429,7 +432,7 @@ async function applyReranking(
  * Fast retrieval without grading (for low-latency scenarios)
  */
 export async function fastRetrieve(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   query: string,
   userId: string,
   limit: number = 5
@@ -452,7 +455,7 @@ export async function fastRetrieve(
  * Retrieve with single-pass grading (balanced speed/quality)
  */
 export async function gradedRetrieve(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   query: string,
   userId: string,
   limit: number = 10

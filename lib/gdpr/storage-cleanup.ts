@@ -4,11 +4,9 @@
  * These are NOT auto-deleted by database CASCADE
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js'
-
 // Use a more flexible type to handle tables not in generated types
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySupabaseClient = SupabaseClient<any>
+type AnySupabaseClient = any
 
 // Storage buckets that contain user data
 const USER_STORAGE_BUCKETS = [
@@ -89,8 +87,8 @@ async function deleteFilesFromBucket(
 
     // Build full paths for deletion
     const filePaths = files
-      .filter(file => file.name !== '.emptyFolderPlaceholder') // Skip placeholder files
-      .map(file => `${userId}/${file.name}`)
+      .filter((file: any) => file.name !== '.emptyFolderPlaceholder') // Skip placeholder files
+      .map((file: any) => `${userId}/${file.name}`)
 
     if (filePaths.length === 0) {
       return {
@@ -163,8 +161,8 @@ async function deleteNestedFolders(
 
       if (subItems && subItems.length > 0) {
         const subPaths = subItems
-          .filter(f => f.name !== '.emptyFolderPlaceholder')
-          .map(f => `${userId}/${item.name}/${f.name}`)
+          .filter((f: any) => f.name !== '.emptyFolderPlaceholder')
+          .map((f: any) => `${userId}/${item.name}/${f.name}`)
 
         if (subPaths.length > 0) {
           await supabaseAdmin.storage.from(bucket).remove(subPaths)
@@ -193,10 +191,10 @@ export async function getUserStorageStats(
         .list(userId, { limit: 1000 })
 
       if (files && files.length > 0) {
-        const totalSize = files.reduce((sum, file) => sum + (file.metadata?.size || 0), 0)
+        const totalSize = files.reduce((sum: any, file: any) => sum + (file.metadata?.size || 0), 0)
         stats.push({
           bucket,
-          fileCount: files.filter(f => f.name !== '.emptyFolderPlaceholder').length,
+          fileCount: files.filter((f: any) => f.name !== '.emptyFolderPlaceholder').length,
           totalSize,
         })
       } else {

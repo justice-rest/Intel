@@ -1,4 +1,4 @@
-import type { LanguageModelV1 } from "@ai-sdk/provider"
+import type { LanguageModel } from "ai"
 import { getProviderForModel } from "./provider-map"
 import type { SupportedModel } from "./types"
 
@@ -8,7 +8,7 @@ export function openproviders<T extends SupportedModel>(
   modelId: T,
   settings?: OpenProvidersOptions<T>,
   apiKey?: string
-): LanguageModelV1 {
+): LanguageModel {
   const provider = getProviderForModel(modelId)
 
   if (provider === "openrouter") {

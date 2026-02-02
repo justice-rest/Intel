@@ -10,6 +10,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import type { Tables } from "@/app/types/database.types"
 import type { BatchProspectJob, BatchProspectItem } from "@/lib/batch-processing"
 import {
   generateProspectPdf,
@@ -285,7 +286,7 @@ export async function GET(
             .from("pdf_branding")
             .select("*")
             .eq("user_id", user.id)
-            .single()
+            .single() as { data: Tables<"pdf_branding"> | null; error: any }
 
           if (brandingData) {
             branding = toBrandingSettings({

@@ -14,7 +14,7 @@ export const createListDocumentsTool = (userId: string) =>
   tool({
     description:
       "List all documents the user has uploaded. Use this when the user asks what documents they have, what files they've uploaded, or wants to see their document library. Returns document names, upload dates, page counts, and status.",
-    parameters: z.object({
+    inputSchema: z.object({
       status: z
         .enum(["ready", "processing", "failed", "all"])
         .optional()

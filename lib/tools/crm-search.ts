@@ -47,7 +47,7 @@ export const crmSearchTool = tool({
     "SEARCHES: Bloomerang, Virtuous, Neon CRM, DonorPerfect for: " +
     "existing records, lifetime giving, gift history, contact info, addresses. " +
     "PURPOSE: Prevent duplicate research, leverage verified CRM data as baseline.",
-  parameters: crmSearchSchema,
+  inputSchema: crmSearchSchema,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   execute: async (_params, _context) => {
     // Note: userId needs to be passed in context - this will be handled by the chat route

@@ -1,3 +1,6 @@
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
+
 import { toast } from "@/components/ui/toast"
 import { SupabaseClient } from "@supabase/supabase-js"
 import * as fileType from "file-type"
@@ -85,7 +88,7 @@ export async function validateFile(
 }
 
 export async function uploadFile(
-  supabase: SupabaseClient,
+  supabase: AnySupabaseClient,
   file: File,
   userId: string
 ): Promise<string> {

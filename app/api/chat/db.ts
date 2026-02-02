@@ -1,6 +1,7 @@
 import type { ContentPart, Message } from "@/app/types/api.types"
 import type { Database, Json } from "@/app/types/database.types"
-import type { SupabaseClient } from "@supabase/supabase-js"
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = any
 import { MAX_TOOL_RESULT_SIZE } from "@/lib/config"
 
 const DEFAULT_STEP = 0
@@ -51,7 +52,7 @@ function truncateToolResult(result: any): any {
 }
 
 export async function saveFinalAssistantMessage(
-  supabase: SupabaseClient<Database>,
+  supabase: AnySupabaseClient,
   chatId: string,
   messages: Message[],
   message_group_id?: string,
