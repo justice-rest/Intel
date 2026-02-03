@@ -98,6 +98,7 @@ import {
 } from "@/lib/subscription/autumn-client"
 import {
   geminiGroundedSearchTool,
+  geminiUltraSearchTool,
   shouldEnableGeminiGroundedSearchTool,
 } from "@/lib/tools/gemini-grounded-search"
 import {
@@ -746,13 +747,20 @@ Call search_memory FIRST before external research to avoid duplicating work.
       if (shouldEnableFecTools()) dataTools.push("fec_contributions (FEC political contributions by individual name)")
       if (shouldEnableProPublicaTools()) dataTools.push("propublica_nonprofit_* (foundation 990s, nonprofit financials)")
       if (shouldEnableUsGovDataTools()) dataTools.push("usaspending_awards (federal contracts/grants/loans by company/org name)")
-      // Web search tools - LinkUp (sole provider)
+      // Web search tools - LinkUp + Gemini (when beta enabled)
       // In ultra-research mode (beta), use linkup_ultra_research instead
       if (shouldEnableLinkUpTools()) {
         if (researchMode === "ultra-research" && betaEnabled) {
           dataTools.push("linkup_ultra_research [BETA] (exhaustive multi-step research via LinkUp /research endpoint - comprehensive synthesis with citations)")
         } else {
           dataTools.push("linkup_prospect_research (comprehensive prospect research via LinkUp - real estate, business, philanthropy, securities, biography)")
+        }
+      }
+      // [BETA] Gemini Search tools - Google's native search with grounding
+      if (betaEnabled && shouldEnableGeminiGroundedSearchTool()) {
+        dataTools.push("gemini_grounded_search [BETA] (fast Google Search via Gemini 3 Flash - current events, quick fact-checking, news)")
+        if (researchMode === "deep-research" || researchMode === "ultra-research") {
+          dataTools.push("gemini_ultra_search [BETA] (deep research via Gemini 3 Pro - comprehensive multi-angle investigation)")
         }
       }
       if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
@@ -769,15 +777,25 @@ Call search_memory FIRST before external research to avoid duplicating work.
           ? "linkup_ultra_research"
           : "linkup_prospect_research"
 
-        // LinkUp system prompt guidance
+        // Check if Gemini tools are available
+        const hasGemini = betaEnabled && shouldEnableGeminiGroundedSearchTool()
+        const hasGeminiUltra = hasGemini && (researchMode === "deep-research" || researchMode === "ultra-research")
+
+        // Web search guidance - includes both LinkUp and Gemini when available
         const webSearchGuidance = `
 [CAPABILITY]
-Built-in web search via LinkUp for prospect research.${researchMode === "ultra-research" && betaEnabled ? `
+Built-in web search for prospect research.${researchMode === "ultra-research" && betaEnabled ? `
 
 **[ULTRA RESEARCH MODE - BETA]**
-You are in Ultra Research mode using LinkUp's /research endpoint.
-This performs exhaustive multi-step research that takes 10 seconds to 5 minutes.
-Use linkup_ultra_research for comprehensive, synthesized research with citations.` : ""}
+You are in Ultra Research mode. Use BOTH search tools for comprehensive coverage:
+- linkup_ultra_research: Exhaustive multi-step research (10s-5min) with synthesized citations
+- gemini_ultra_search: Deep research via Gemini 3 Pro with Google Search grounding` : ""}${hasGemini ? `
+
+**[BETA SEARCH TOOLS]**
+You have access to Gemini Search tools powered by Google Search:
+- gemini_grounded_search: Fast search for current events, news, quick fact-checking
+${hasGeminiUltra ? "- gemini_ultra_search: Deep research for comprehensive multi-angle investigation" : ""}
+Use Gemini tools alongside LinkUp for more comprehensive results.` : ""}
 
 ### Available Data API Tools
 ${dataTools.join("\n")}
@@ -785,7 +803,9 @@ ${dataTools.join("\n")}
 ---
 
 [HARD CONSTRAINTS]
-1. **SINGLE TOOL**: Call ${primaryResearchTool} for comprehensive web research
+1. **WEB SEARCH**: ${hasGemini
+  ? `Use BOTH LinkUp AND Gemini tools for comprehensive research. Call them in parallel when possible.`
+  : `Call ${primaryResearchTool} for comprehensive web research`}
 2. **RESPONSE REQUIRED**: After ANY tool call, you MUST generate a text response—never return raw tool output
 3. **OFFICIAL SOURCES PRIORITY**: When conflicts exist, prefer SEC/FEC/ProPublica over web sources
 4. **SYNTHESIZE, DON'T DUMP**: Combine findings into unified reports with source citations
@@ -801,26 +821,29 @@ ${dataTools.join("\n")}
 ### Structured Thinking: Research Workflow
 
 **[UNDERSTAND]** - What research is needed?
-- Named prospect → CRM first, then ${primaryResearchTool}
+- Named prospect → CRM first, then ${hasGemini ? "LinkUp + Gemini" : primaryResearchTool}
 - Board verification → SEC insider + proxy search
 - Foundation research → ProPublica 990 data
+- Current events/news → ${hasGemini ? "gemini_grounded_search" : primaryResearchTool}
 
 **[ANALYZE]** - Select tools based on research type:
-| Need | Primary Tool | Follow-up Tool |
-|------|--------------|----------------|
-| Comprehensive profile | ${primaryResearchTool} | - |
+| Need | Primary Tool | Complementary Tool |
+|------|--------------|-------------------|
+| Comprehensive profile | ${primaryResearchTool} | ${hasGemini ? "gemini_grounded_search" : "-"} |
+| Current news/events | ${hasGemini ? "gemini_grounded_search" : primaryResearchTool} | ${hasGemini ? primaryResearchTool : "-"} |
+| Deep research | ${hasGeminiUltra ? "linkup_ultra_research + gemini_ultra_search" : primaryResearchTool} | - |
 | Political giving | fec_contributions | - |
 | Foundation/990 data | propublica_nonprofit_search | propublica_nonprofit_details |
 | Public company exec | sec_insider_search | sec_proxy_search |
 | Giving capacity | giving_capacity_calculator | - |
 
 **[STRATEGIZE]** - Research execution plan:
-1. Call ${primaryResearchTool} for comprehensive web research
+1. ${hasGemini ? "Call LinkUp AND Gemini search tools in parallel for comprehensive web coverage" : `Call ${primaryResearchTool} for comprehensive web research`}
 2. Follow up with structured tools (FEC, SEC, ProPublica) for verified data
 3. Synthesize all findings into unified report
 
 **[EXECUTE]** - After tool results:
-- Combine findings, deduplicate sources
+- Combine findings from all sources, deduplicate
 - Flag discrepancies, note confidence levels
 - Present formatted report with all sources
 - ALWAYS end with text response to user`
@@ -1068,6 +1091,13 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       ...(enableSearch && betaEnabled && researchMode === "ultra-research" && shouldEnableLinkUpUltraResearchTool()
         ? {
             linkup_ultra_research: linkupUltraResearchTool,
+          }
+        : {}),
+      // [BETA] Add Gemini Ultra Search - Deep research using Gemini 3 Pro
+      // Only available when: beta features enabled + Scale plan + deep-research or ultra-research mode
+      ...(enableSearch && betaEnabled && (researchMode === "deep-research" || researchMode === "ultra-research") && shouldEnableGeminiGroundedSearchTool()
+        ? {
+            gemini_ultra_search: geminiUltraSearchTool,
           }
         : {}),
     } as ToolSet

@@ -5,6 +5,7 @@ import { Markdown } from "@/components/prompt-kit/markdown"
 import type { ToolInvocationUIPart } from "@ai-sdk/ui-utils"
 import {
   CaretDown,
+  CaretRight,
   CheckCircle,
   Code,
   Link,
@@ -37,6 +38,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // Beta research tools
   linkup_ultra_research: "Ultra Research",
   gemini_grounded_search: "Gemini Search",
+  gemini_ultra_search: "Gemini Deep Search",
   // Nonprofit tools
   propublica_nonprofit_search: "Nonprofit Search",
   propublica_nonprofit_details: "Nonprofit Details",
@@ -669,10 +671,11 @@ function SingleToolCard({
             <Markdown>{geminiResult.content}</Markdown>
           </div>
 
-          {/* Sources section - collapsible */}
+          {/* Sources section - expandable */}
           {geminiResult.sources && geminiResult.sources.length > 0 && (
-            <details className="group">
-              <summary className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs hover:text-foreground">
+            <details className="border-t border-border pt-3">
+              <summary className="text-muted-foreground flex cursor-pointer list-none items-center gap-2 text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <CaretRight className="h-3 w-3 transition-transform [[open]>&]:rotate-90" />
                 <span>{geminiResult.sources.length} sources</span>
                 {geminiResult.durationMs && (
                   <span className="text-muted-foreground/70">
@@ -680,7 +683,7 @@ function SingleToolCard({
                   </span>
                 )}
               </summary>
-              <div className="mt-3 space-y-2">
+              <div className="mt-3 space-y-2 pl-5">
                 {geminiResult.sources.map((source, index) => (
                   <div
                     key={index}
@@ -691,7 +694,77 @@ function SingleToolCard({
                       href={source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary hover:underline"
+                      className="text-primary hover:underline break-all"
+                    >
+                      {source.name || "Source"}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Gemini Ultra Search results (Beta - Pro model)
+    if (
+      toolName === "gemini_ultra_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "content" in parsedResult
+    ) {
+      const geminiUltraResult = parsedResult as {
+        content: string
+        sources: Array<{ name: string; url: string }>
+        searchQueries?: string[]
+        durationMs?: number
+        model?: string
+        mode?: string
+        provider: string
+        isBeta: boolean
+        error?: string
+      }
+
+      if (geminiUltraResult.error) {
+        return (
+          <div className="text-destructive">
+            {geminiUltraResult.error}
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Content - rendered as markdown */}
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <Markdown>{geminiUltraResult.content}</Markdown>
+          </div>
+
+          {/* Sources section - expandable */}
+          {geminiUltraResult.sources && geminiUltraResult.sources.length > 0 && (
+            <details className="border-t border-border pt-3">
+              <summary className="text-muted-foreground flex cursor-pointer list-none items-center gap-2 text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <CaretRight className="h-3 w-3 transition-transform [[open]>&]:rotate-90" />
+                <span>{geminiUltraResult.sources.length} sources</span>
+                {geminiUltraResult.durationMs && (
+                  <span className="text-muted-foreground/70">
+                    • {(geminiUltraResult.durationMs / 1000).toFixed(1)}s
+                  </span>
+                )}
+              </summary>
+              <div className="mt-3 space-y-2 pl-5">
+                {geminiUltraResult.sources.map((source, index) => (
+                  <div
+                    key={index}
+                    className="flex items-start gap-2 text-sm"
+                  >
+                    <span className="text-muted-foreground shrink-0">{index + 1}.</span>
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline break-all"
                     >
                       {source.name || "Source"}
                     </a>
@@ -737,10 +810,11 @@ function SingleToolCard({
             <Markdown>{ultraResult.content}</Markdown>
           </div>
 
-          {/* Sources section - collapsible */}
+          {/* Sources section - expandable */}
           {ultraResult.sources && ultraResult.sources.length > 0 && (
-            <details className="group">
-              <summary className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs hover:text-foreground">
+            <details className="border-t border-border pt-3">
+              <summary className="text-muted-foreground flex cursor-pointer list-none items-center gap-2 text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <CaretRight className="h-3 w-3 transition-transform [[open]>&]:rotate-90" />
                 <span>{ultraResult.sources.length} sources</span>
                 {ultraResult.durationMs && (
                   <span className="text-muted-foreground/70">
@@ -748,25 +822,33 @@ function SingleToolCard({
                   </span>
                 )}
               </summary>
-              <div className="mt-3 space-y-2">
-                {ultraResult.sources.map((source, index) => (
-                  <div
-                    key={index}
-                    className="flex items-start gap-2 text-sm"
-                  >
-                    <span className="text-muted-foreground shrink-0">{index + 1}.</span>
-                    <div className="min-w-0">
+              <div className="mt-3 space-y-2 pl-5">
+                {ultraResult.sources.map((source, index) => {
+                  let displayName = source.name || "Source"
+                  try {
+                    if (!source.name && source.url) {
+                      displayName = new URL(source.url).hostname
+                    }
+                  } catch {
+                    // Keep default
+                  }
+                  return (
+                    <div
+                      key={index}
+                      className="flex items-start gap-2 text-sm"
+                    >
+                      <span className="text-muted-foreground shrink-0">{index + 1}.</span>
                       <a
                         href={source.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-primary hover:underline"
+                        className="text-primary hover:underline break-all"
                       >
-                        {source.name || new URL(source.url).hostname}
+                        {displayName}
                       </a>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </details>
           )}

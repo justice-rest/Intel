@@ -250,7 +250,7 @@ async function testGeminiGroundedSearch(): Promise<boolean> {
     const { GoogleGenAI } = await import("@google/genai")
 
     const ai = new GoogleGenAI({ apiKey })
-    const model = "gemini-3-flash-preview"
+    const model = process.env.GEMINI_TEST_MODEL || "gemini-3-flash-preview"
     const testQuery = "What are the latest features in Claude 3.5 Sonnet?"
 
     logInfo(`Model: ${model}`)

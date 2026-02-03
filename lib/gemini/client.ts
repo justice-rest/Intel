@@ -4,11 +4,15 @@
  * Client for Google's Gemini API with grounded search capability.
  * Uses the @google/genai SDK for native Google Search grounding.
  *
+ * Supports two modes:
+ * - Flash (gemini-3-flash-preview): Fast, efficient for standard searches
+ * - Pro (gemini-3-pro-preview): More capable for deep/ultra research
+ *
  * @see https://ai.google.dev/gemini-api/docs/grounding
  */
 
 import { GoogleGenAI } from "@google/genai"
-import { getGeminiConfig } from "./config"
+import { getGeminiConfig, type GeminiModelType } from "./config"
 
 export interface GeminiGroundedResult {
   /** The generated text response */
@@ -20,6 +24,17 @@ export interface GeminiGroundedResult {
   }>
   /** Search queries that were executed */
   searchQueries: string[]
+  /** Model used for this search */
+  model: string
+}
+
+export interface GeminiSearchOptions {
+  /** The search query */
+  query: string
+  /** Model type: 'flash' for fast search, 'pro' for deep/ultra research */
+  modelType?: GeminiModelType
+  /** Additional context to improve search quality */
+  context?: string
 }
 
 export interface GeminiError extends Error {
@@ -58,7 +73,6 @@ function extractTextFromResponse(response: any): string {
     if (typeof response.text === "string") {
       return response.text
     }
-    // If response.text is a getter that throws, this will be caught below
     const text = response.text
     if (text) return text
   } catch (e) {
@@ -116,18 +130,73 @@ function checkSafetyBlock(response: any): string | null {
 }
 
 /**
+ * Build an optimized prompt for grounded search
+ * This ensures we get the most relevant, recent, and comprehensive results
+ */
+function buildSearchPrompt(query: string, modelType: GeminiModelType, context?: string): string {
+  const currentDate = new Date().toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
+
+  const baseInstructions = `You are a research assistant with access to Google Search. Today's date is ${currentDate}.
+
+IMPORTANT INSTRUCTIONS:
+- Search for the MOST RECENT and UP-TO-DATE information available
+- Prioritize authoritative sources (official websites, news outlets, government records, Wikipedia)
+- Include specific facts, dates, numbers, and verifiable details
+- If information might be outdated, search for the latest updates
+- Cross-reference multiple sources when possible
+- Format your response with clear structure using markdown`
+
+  if (modelType === "pro") {
+    // Pro model - more comprehensive, multi-angle research
+    return `${baseInstructions}
+
+FOR THIS DEEP RESEARCH QUERY:
+- Conduct MULTIPLE searches from different angles to ensure comprehensive coverage
+- Look for primary sources and official records
+- Include relevant background context and history
+- Identify any recent news, updates, or changes
+- Note any controversies, different perspectives, or nuances
+- Provide specific citations and source attribution
+
+${context ? `ADDITIONAL CONTEXT:\n${context}\n\n` : ""}RESEARCH QUERY:
+${query}
+
+Provide a thorough, well-structured response with all relevant findings.`
+  }
+
+  // Flash model - fast, focused search
+  return `${baseInstructions}
+
+${context ? `CONTEXT:\n${context}\n\n` : ""}QUERY:
+${query}
+
+Provide a clear, accurate, and well-sourced response.`
+}
+
+/**
  * Execute a grounded search using Gemini with Google Search
  *
  * This uses Gemini's native Google Search grounding to provide
  * real-time search results with citations.
  *
- * @param query - The search query
+ * @param options - Search options including query and model type
  * @returns Grounded result with text and sources
  */
 export async function geminiGroundedSearch(
-  query: string
+  options: GeminiSearchOptions | string
 ): Promise<GeminiGroundedResult> {
-  const config = getGeminiConfig()
+  // Handle both string query and options object for backwards compatibility
+  const opts: GeminiSearchOptions = typeof options === "string"
+    ? { query: options, modelType: "flash" }
+    : options
+
+  const { query, modelType = "flash", context } = opts
+
+  const config = getGeminiConfig(modelType)
   if (!config) {
     throw createGeminiError(
       "GOOGLE_AI_API_KEY is not configured",
@@ -136,12 +205,15 @@ export async function geminiGroundedSearch(
   }
 
   try {
-    console.log("[Gemini] Starting grounded search with model:", config.model)
+    console.log(`[Gemini] Starting grounded search with model: ${config.model} (${modelType})`)
     const ai = new GoogleGenAI({ apiKey: config.apiKey })
+
+    // Build optimized prompt for maximum quality results
+    const optimizedPrompt = buildSearchPrompt(query, modelType, context)
 
     const response = await ai.models.generateContent({
       model: config.model,
-      contents: query,
+      contents: optimizedPrompt,
       config: {
         tools: [{ googleSearch: {} }],
       },
@@ -161,7 +233,6 @@ export async function geminiGroundedSearch(
     const text = extractTextFromResponse(response)
 
     if (!text) {
-      // Log response structure for debugging
       console.warn(
         "[Gemini] No text extracted. Response structure:",
         JSON.stringify(response, null, 2).slice(0, 1000)
@@ -194,12 +265,13 @@ export async function geminiGroundedSearch(
     // Filter out empty sources
     const validSources = sources.filter((s) => s.uri && s.title)
 
-    console.log(`[Gemini] Search complete: ${text.length} chars, ${validSources.length} sources`)
+    console.log(`[Gemini] Search complete: ${text.length} chars, ${validSources.length} sources, ${groundingMetadata?.webSearchQueries?.length || 0} queries`)
 
     return {
       text,
       sources: validSources,
       searchQueries: groundingMetadata?.webSearchQueries || [],
+      model: config.model,
     }
   } catch (error) {
     // If it's already our error type, rethrow
@@ -207,14 +279,12 @@ export async function geminiGroundedSearch(
       throw error
     }
 
-    // Log the full error for debugging
     console.error("[Gemini] Error details:", error)
 
     if (error instanceof Error) {
       const message = error.message.toLowerCase()
       const fullMessage = error.message
 
-      // Check for specific error types
       if (message.includes("timeout") || message.includes("timed out")) {
         throw createGeminiError("Gemini request timed out", "TIMEOUT", {
           retryable: true,
@@ -235,7 +305,6 @@ export async function geminiGroundedSearch(
         })
       }
 
-      // Check for rate limits
       if (message.includes("429") || message.includes("resource_exhausted")) {
         throw createGeminiError(
           "Gemini rate limit exceeded. Try again in a moment.",
@@ -248,7 +317,6 @@ export async function geminiGroundedSearch(
         )
       }
 
-      // Check for quota exceeded
       if (message.includes("quota") || message.includes("billing")) {
         throw createGeminiError(
           "Gemini quota exceeded. Check your Google Cloud billing and quotas.",
@@ -261,7 +329,6 @@ export async function geminiGroundedSearch(
         )
       }
 
-      // Check for model not found
       if (message.includes("not found") || message.includes("404")) {
         throw createGeminiError(
           `Model ${config.model} not available. Check model name.`,
@@ -274,7 +341,6 @@ export async function geminiGroundedSearch(
         )
       }
 
-      // Check for parsing errors from SDK
       if (message.includes("parse") || message.includes("json")) {
         throw createGeminiError(
           `Failed to parse Gemini response: ${fullMessage}`,
@@ -286,7 +352,6 @@ export async function geminiGroundedSearch(
         )
       }
 
-      // Pass through the actual error message
       throw createGeminiError(fullMessage, "API_ERROR", {
         retryable: false,
         cause: error,
