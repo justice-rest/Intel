@@ -319,19 +319,26 @@ function SingleToolCard({
         result !== null &&
         "content" in result
       ) {
-        const textContent = result.content?.find(
-          (item: { type: string }) => item.type === "text"
-        )
-        if (!textContent?.text) return { parsedResult: null, parseError: null }
+        // Handle content as array of content blocks (AI SDK format)
+        if (Array.isArray(result.content)) {
+          const textContent = result.content?.find(
+            (item: { type: string }) => item.type === "text"
+          )
+          if (!textContent?.text) return { parsedResult: null, parseError: null }
 
-        try {
-          return {
-            parsedResult: JSON.parse(textContent.text),
-            parseError: null,
+          try {
+            return {
+              parsedResult: JSON.parse(textContent.text),
+              parseError: null,
+            }
+          } catch {
+            return { parsedResult: textContent.text, parseError: null }
           }
-        } catch {
-          return { parsedResult: textContent.text, parseError: null }
         }
+
+        // Handle content as direct string (Gemini, LinkUp Ultra Research tools)
+        // Return the whole result object so we can access other fields like sources
+        return { parsedResult: result, parseError: null }
       }
 
       return { parsedResult: result, parseError: null }
@@ -621,6 +628,182 @@ function SingleToolCard({
           ) : (
             <div className="text-muted-foreground">
               No results found for this search.
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle Gemini Grounded Search results (Beta)
+    if (
+      toolName === "gemini_grounded_search" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "content" in parsedResult
+    ) {
+      const geminiResult = parsedResult as {
+        content: string
+        sources: Array<{ name: string; url: string }>
+        searchQueries?: string[]
+        durationMs?: number
+        provider: string
+        isBeta: boolean
+        error?: string
+      }
+
+      if (geminiResult.error) {
+        return (
+          <div className="text-destructive">
+            {geminiResult.error}
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Beta badge */}
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+              Beta
+            </span>
+            <span className="text-muted-foreground text-xs">
+              Gemini Grounded Search
+            </span>
+            {geminiResult.durationMs && (
+              <span className="text-muted-foreground text-xs">
+                • {(geminiResult.durationMs / 1000).toFixed(1)}s
+              </span>
+            )}
+          </div>
+
+          {/* Content section */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Answer
+            </div>
+            <div className="text-foreground leading-relaxed whitespace-pre-wrap">
+              {geminiResult.content}
+            </div>
+          </div>
+
+          {/* Sources section */}
+          {geminiResult.sources && geminiResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources ({geminiResult.sources.length})
+              </div>
+              <div className="space-y-3">
+                {geminiResult.sources.map((source, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                    >
+                      {source.name || "Untitled"}
+                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                    </a>
+                    <div className="text-muted-foreground mt-1 truncate font-mono text-xs">
+                      {source.url}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    // Handle LinkUp Ultra Research results (Beta)
+    if (
+      toolName === "linkup_ultra_research" &&
+      typeof parsedResult === "object" &&
+      parsedResult !== null &&
+      "content" in parsedResult
+    ) {
+      const ultraResult = parsedResult as {
+        content: string
+        sources: Array<{ name: string; url: string; snippet?: string }>
+        searchQueries?: string[]
+        durationMs?: number
+        mode: string
+        provider: string
+        isBeta: boolean
+        error?: string
+      }
+
+      if (ultraResult.error) {
+        return (
+          <div className="text-destructive">
+            {ultraResult.error}
+          </div>
+        )
+      }
+
+      return (
+        <div className="space-y-4">
+          {/* Beta badge */}
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+              Beta
+            </span>
+            <span className="text-muted-foreground text-xs">
+              Ultra Research
+            </span>
+            {ultraResult.durationMs && (
+              <span className="text-muted-foreground text-xs">
+                • {(ultraResult.durationMs / 1000).toFixed(1)}s
+              </span>
+            )}
+          </div>
+
+          {/* Content section */}
+          <div>
+            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+              Research Summary
+            </div>
+            <div className="text-foreground leading-relaxed whitespace-pre-wrap">
+              {ultraResult.content}
+            </div>
+          </div>
+
+          {/* Sources section */}
+          {ultraResult.sources && ultraResult.sources.length > 0 && (
+            <div>
+              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
+                Sources ({ultraResult.sources.length})
+              </div>
+              <div className="space-y-3">
+                {ultraResult.sources.map((source, index) => (
+                  <div
+                    key={index}
+                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                  >
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                    >
+                      {source.name || "Untitled"}
+                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                    </a>
+                    <div className="text-muted-foreground mt-1 truncate font-mono text-xs">
+                      {source.url}
+                    </div>
+                    {source.snippet && (
+                      <div className="text-muted-foreground mt-1 line-clamp-2 text-sm">
+                        {source.snippet}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

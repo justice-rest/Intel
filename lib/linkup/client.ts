@@ -696,19 +696,26 @@ export async function linkupResearch(
     // Record success
     circuitBreaker.recordSuccess()
 
-    // Normalize response - extract answer/output and sources
-    const answer =
-      result.output ||
-      result.answer ||
-      result.content ||
-      ""
+    // Normalize response - handle nested output structure from /research endpoint
+    // Response format: { output: { answer: string, sources: [...] }, ... }
+    let answer: string = ""
+    let rawSources: any[] = []
 
-    const sources =
-      result.sources?.map((s: any) => ({
-        name: s.name || s.title || "",
-        url: s.url || "",
-        snippet: s.snippet || s.content || "",
-      })) || []
+    if (result.output && typeof result.output === "object") {
+      // Nested structure: { output: { answer, sources } }
+      answer = result.output.answer || result.output.content || ""
+      rawSources = result.output.sources || []
+    } else {
+      // Flat structure fallback
+      answer = result.answer || result.content || result.output || ""
+      rawSources = result.sources || []
+    }
+
+    const sources = rawSources.map((s: any) => ({
+      name: s.name || s.title || "",
+      url: s.url || "",
+      snippet: s.snippet || s.content || "",
+    }))
 
     return {
       answer,
