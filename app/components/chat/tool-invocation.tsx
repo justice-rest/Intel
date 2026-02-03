@@ -34,6 +34,9 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // Primary research tools
   perplexity_prospect_research: "Web Search",
   linkup_prospect_research: "LinkUp Research",
+  // Beta research tools
+  linkup_ultra_research: "Ultra Research",
+  gemini_grounded_search: "Gemini Search",
   // Nonprofit tools
   propublica_nonprofit_search: "Nonprofit Search",
   propublica_nonprofit_details: "Nonprofit Details",
@@ -661,59 +664,41 @@ function SingleToolCard({
 
       return (
         <div className="space-y-4">
-          {/* Beta badge */}
-          <div className="flex items-center gap-2">
-            <span className="rounded bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-              Beta
-            </span>
-            <span className="text-muted-foreground text-xs">
-              Gemini Grounded Search
-            </span>
-            {geminiResult.durationMs && (
-              <span className="text-muted-foreground text-xs">
-                • {(geminiResult.durationMs / 1000).toFixed(1)}s
-              </span>
-            )}
+          {/* Content - rendered as markdown */}
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <Markdown>{geminiResult.content}</Markdown>
           </div>
 
-          {/* Content section */}
-          <div>
-            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-              Answer
-            </div>
-            <div className="text-foreground leading-relaxed whitespace-pre-wrap">
-              {geminiResult.content}
-            </div>
-          </div>
-
-          {/* Sources section */}
+          {/* Sources section - collapsible */}
           {geminiResult.sources && geminiResult.sources.length > 0 && (
-            <div>
-              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-                Sources ({geminiResult.sources.length})
-              </div>
-              <div className="space-y-3">
+            <details className="group">
+              <summary className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs hover:text-foreground">
+                <span>{geminiResult.sources.length} sources</span>
+                {geminiResult.durationMs && (
+                  <span className="text-muted-foreground/70">
+                    • {(geminiResult.durationMs / 1000).toFixed(1)}s
+                  </span>
+                )}
+              </summary>
+              <div className="mt-3 space-y-2">
                 {geminiResult.sources.map((source, index) => (
                   <div
                     key={index}
-                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                    className="flex items-start gap-2 text-sm"
                   >
+                    <span className="text-muted-foreground shrink-0">{index + 1}.</span>
                     <a
                       href={source.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
+                      className="text-primary hover:underline"
                     >
-                      {source.name || "Untitled"}
-                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
+                      {source.name || "Source"}
                     </a>
-                    <div className="text-muted-foreground mt-1 truncate font-mono text-xs">
-                      {source.url}
-                    </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
           )}
         </div>
       )
@@ -747,64 +732,43 @@ function SingleToolCard({
 
       return (
         <div className="space-y-4">
-          {/* Beta badge */}
-          <div className="flex items-center gap-2">
-            <span className="rounded bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-              Beta
-            </span>
-            <span className="text-muted-foreground text-xs">
-              Ultra Research
-            </span>
-            {ultraResult.durationMs && (
-              <span className="text-muted-foreground text-xs">
-                • {(ultraResult.durationMs / 1000).toFixed(1)}s
-              </span>
-            )}
+          {/* Research content - rendered as markdown */}
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <Markdown>{ultraResult.content}</Markdown>
           </div>
 
-          {/* Content section */}
-          <div>
-            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-              Research Summary
-            </div>
-            <div className="text-foreground leading-relaxed whitespace-pre-wrap">
-              {ultraResult.content}
-            </div>
-          </div>
-
-          {/* Sources section */}
+          {/* Sources section - collapsible */}
           {ultraResult.sources && ultraResult.sources.length > 0 && (
-            <div>
-              <div className="text-muted-foreground mb-2 text-xs font-medium uppercase tracking-wide">
-                Sources ({ultraResult.sources.length})
-              </div>
-              <div className="space-y-3">
+            <details className="group">
+              <summary className="text-muted-foreground flex cursor-pointer items-center gap-2 text-xs hover:text-foreground">
+                <span>{ultraResult.sources.length} sources</span>
+                {ultraResult.durationMs && (
+                  <span className="text-muted-foreground/70">
+                    • {(ultraResult.durationMs / 1000).toFixed(1)}s
+                  </span>
+                )}
+              </summary>
+              <div className="mt-3 space-y-2">
                 {ultraResult.sources.map((source, index) => (
                   <div
                     key={index}
-                    className="border-border border-b pb-3 last:border-0 last:pb-0"
+                    className="flex items-start gap-2 text-sm"
                   >
-                    <a
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary group flex items-center gap-1 font-medium hover:underline"
-                    >
-                      {source.name || "Untitled"}
-                      <Link className="h-3 w-3 opacity-70 transition-opacity group-hover:opacity-100" />
-                    </a>
-                    <div className="text-muted-foreground mt-1 truncate font-mono text-xs">
-                      {source.url}
+                    <span className="text-muted-foreground shrink-0">{index + 1}.</span>
+                    <div className="min-w-0">
+                      <a
+                        href={source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline"
+                      >
+                        {source.name || new URL(source.url).hostname}
+                      </a>
                     </div>
-                    {source.snippet && (
-                      <div className="text-muted-foreground mt-1 line-clamp-2 text-sm">
-                        {source.snippet}
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
-            </div>
+            </details>
           )}
         </div>
       )
