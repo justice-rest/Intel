@@ -38,7 +38,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   // Beta research tools
   linkup_ultra_research: "Ultra Research",
   gemini_grounded_search: "Gemini Search",
-  gemini_ultra_search: "Gemini Deep Search",
+  gemini_ultra_search: "Gemini Ultra Search",
   // Nonprofit tools
   propublica_nonprofit_search: "Nonprofit Search",
   propublica_nonprofit_details: "Nonprofit Details",
@@ -673,9 +673,9 @@ function SingleToolCard({
 
           {/* Sources section - expandable */}
           {geminiResult.sources && geminiResult.sources.length > 0 && (
-            <details className="border-t border-border pt-3">
+            <details className="group border-t border-border pt-3">
               <summary className="text-muted-foreground flex cursor-pointer list-none items-center gap-2 text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
-                <CaretRight className="h-3 w-3 transition-transform [[open]>&]:rotate-90" />
+                <CaretRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                 <span>{geminiResult.sources.length} sources</span>
                 {geminiResult.durationMs && (
                   <span className="text-muted-foreground/70">
@@ -743,9 +743,9 @@ function SingleToolCard({
 
           {/* Sources section - expandable */}
           {geminiUltraResult.sources && geminiUltraResult.sources.length > 0 && (
-            <details className="border-t border-border pt-3">
+            <details className="group border-t border-border pt-3">
               <summary className="text-muted-foreground flex cursor-pointer list-none items-center gap-2 text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
-                <CaretRight className="h-3 w-3 transition-transform [[open]>&]:rotate-90" />
+                <CaretRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                 <span>{geminiUltraResult.sources.length} sources</span>
                 {geminiUltraResult.durationMs && (
                   <span className="text-muted-foreground/70">
@@ -812,9 +812,9 @@ function SingleToolCard({
 
           {/* Sources section - expandable */}
           {ultraResult.sources && ultraResult.sources.length > 0 && (
-            <details className="border-t border-border pt-3">
+            <details className="group border-t border-border pt-3">
               <summary className="text-muted-foreground flex cursor-pointer list-none items-center gap-2 text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
-                <CaretRight className="h-3 w-3 transition-transform [[open]>&]:rotate-90" />
+                <CaretRight className="h-3 w-3 transition-transform group-open:rotate-90" />
                 <span>{ultraResult.sources.length} sources</span>
                 {ultraResult.durationMs && (
                   <span className="text-muted-foreground/70">
