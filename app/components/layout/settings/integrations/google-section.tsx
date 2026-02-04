@@ -723,25 +723,20 @@ export function GoogleIntegrationSection() {
                     </p>
                   </>
                 )}
-                <div className="flex flex-col items-center gap-2">
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-gray-300 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60"
-                  >
-                    <Image
-                      src="/svgs/Google Color Icon.svg"
-                      alt="Google"
-                      width={16}
-                      height={16}
-                      className="size-4 grayscale"
-                    />
-                    Connect Google Account
-                  </button>
-                  <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                    Coming Soon
-                  </span>
-                </div>
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded bg-gray-300 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60"
+                >
+                  <Image
+                    src="/svgs/Google Color Icon.svg"
+                    alt="Google"
+                    width={16}
+                    height={16}
+                    className="size-4 grayscale"
+                  />
+                  Coming Soon
+                </button>
               </div>
             )}
 
