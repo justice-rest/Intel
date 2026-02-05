@@ -36,7 +36,7 @@ export const createGmailInboxTool = (userId: string) =>
       "Returns a list of recent emails with sender, subject, date, and snippet. " +
       "Use this when the user asks about their emails, inbox, or recent messages. " +
       "You can optionally filter by a search query (e.g., 'from:john' or 'is:unread').",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z
         .string()
         .optional()
@@ -105,7 +105,7 @@ export const createGmailThreadTool = (userId: string) =>
       "Returns all messages in the thread with full content. " +
       "Use this when the user wants to see a complete email conversation " +
       "or when you need full context to draft a reply.",
-    parameters: z.object({
+    inputSchema: z.object({
       threadId: z
         .string()
         .describe(
@@ -159,7 +159,7 @@ export const createGmailDraftTool = (userId: string, chatId?: string) =>
       "The AI cannot send emails directly. " +
       "The draft will match the user's writing style if style analysis has been done. " +
       "Use this when the user asks you to draft, compose, or write an email.",
-    parameters: z.object({
+    inputSchema: z.object({
       to: z
         .array(z.string().email())
         .describe("Email addresses of recipients"),
@@ -245,7 +245,7 @@ export const createGmailListDraftsTool = (userId: string) =>
     description:
       "List the user's pending Gmail drafts. " +
       "Use this when the user asks about their drafts or wants to see what emails are waiting to be sent.",
-    parameters: z.object({
+    inputSchema: z.object({
       limit: z
         .number()
         .optional()
@@ -302,7 +302,7 @@ export const createGmailSearchTool = (userId: string) =>
       "Search the user's Gmail for specific emails. " +
       "Supports Gmail's powerful search syntax. " +
       "Use this when the user wants to find specific emails by sender, subject, date, or content.",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z
         .string()
         .describe(

@@ -1,7 +1,9 @@
 // todo: fix this
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { toast } from "@/components/ui/toast"
+import type { ChatMessage, ChatMessageMetadata } from "@/lib/ai/message-utils"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport, type UIMessage } from "ai"
 import { useMemo } from "react"
 
 type ModelConfig = {
@@ -12,11 +14,13 @@ type ModelConfig = {
 
 type ModelChat = {
   model: ModelConfig
-  messages: any[]
+  messages: ChatMessage[]
   isLoading: boolean
-  append: (message: any, options?: any) => void
+  sendMessage: (message: any, options?: any) => void
   stop: () => void
 }
+
+type UiChatMessage = UIMessage<ChatMessageMetadata>
 
 // Maximum number of models we support
 const MAX_MODELS = 10
@@ -26,8 +30,8 @@ export function useMultiChat(models: ModelConfig[]): ModelChat[] {
   const chatHooks = Array.from({ length: MAX_MODELS }, (_, index) =>
     // todo: fix this
     // eslint-disable-next-line react-hooks/rules-of-hooks
-    useChat({
-      api: "/api/chat",
+    useChat<UiChatMessage>({
+      transport: new DefaultChatTransport({ api: "/api/chat" }),
       onError: (error) => {
         const model = models[index]
         if (model) {
@@ -49,10 +53,10 @@ export function useMultiChat(models: ModelConfig[]): ModelChat[] {
 
       return {
         model,
-        messages: chatHook.messages,
-        isLoading: chatHook.isLoading,
-        append: (message: any, options?: any) => {
-          return chatHook.append(message, options)
+        messages: chatHook.messages as ChatMessage[],
+        isLoading: chatHook.status === "streaming" || chatHook.status === "submitted",
+        sendMessage: (message: any, options?: any) => {
+          return chatHook.sendMessage(message, options)
         },
         stop: chatHook.stop,
       }
@@ -61,7 +65,7 @@ export function useMultiChat(models: ModelConfig[]): ModelChat[] {
     return instances
     // todo: fix this
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [models, ...chatHooks.flatMap((chat) => [chat.messages, chat.isLoading])])
+  }, [models, ...chatHooks.flatMap((chat) => [chat.messages, chat.status])])
 
   return activeChatInstances
 }

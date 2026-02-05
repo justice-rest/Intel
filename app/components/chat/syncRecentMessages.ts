@@ -1,10 +1,11 @@
 import { getLastMessagesFromDb } from "@/lib/chat-store/messages/api"
 import { writeToIndexedDB } from "@/lib/chat-store/persist"
-import type { Message as MessageAI } from "ai"
+import type { ChatMessage } from "@/lib/ai/message-utils"
+import { coerceMessageMetadata, getMessageCreatedAt } from "@/lib/ai/message-utils"
 
-export async function syncRecentMessages(
+export async function syncRecentMessages<T extends ChatMessage>(
   chatId: string,
-  setMessages: (updater: (prev: MessageAI[]) => MessageAI[]) => void,
+  setMessages: (updater: (prev: T[]) => T[]) => void,
   count: number = 2
 ): Promise<void> {
   const lastFromDb = await getLastMessagesFromDb(chatId, count)
@@ -26,11 +27,11 @@ export async function syncRecentMessages(
         if (local.role !== dbRole) continue
 
         if (String(local.id) !== String(dbMsg.id)) {
-          updated[i] = {
-            ...local,
-            id: String(dbMsg.id),
-            createdAt: dbMsg.createdAt,
-          }
+          const createdAt = getMessageCreatedAt(dbMsg)?.toISOString()
+          updated[i] = coerceMessageMetadata(
+            { ...local, id: String(dbMsg.id) },
+            createdAt ? { createdAt } : {}
+          ) as typeof updated[number]
           changed = true
         }
         break

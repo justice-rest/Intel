@@ -38,6 +38,6 @@ export interface LinkupSearchResponse {
  */
 export interface ToolDefinition<TParameters = unknown, TResult = unknown> {
   description: string
-  parameters: z.ZodType<TParameters>
+  inputSchema: z.ZodType<TParameters>
   execute: (params: TParameters) => Promise<TResult>
 }

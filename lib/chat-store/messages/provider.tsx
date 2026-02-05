@@ -8,7 +8,12 @@ import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { useUnreadOptional } from "@/lib/unread"
 import { useNotificationsOptional } from "@/lib/notifications"
 import { useChats } from "@/lib/chat-store/chats/provider"
-import type { Message as MessageAISDK } from "ai"
+import type { ChatMessage, ChatMessagePart } from "@/lib/ai/message-utils"
+import {
+  attachmentsToFileParts,
+  getMessageCreatedAt,
+  updateMessageText,
+} from "@/lib/ai/message-utils"
 import { createContext, useContext, useEffect, useRef, useState } from "react"
 import { writeToIndexedDB } from "../persist"
 import {
@@ -20,12 +25,12 @@ import {
 } from "./api"
 
 interface MessagesContextType {
-  messages: MessageAISDK[]
+  messages: ChatMessage[]
   isLoading: boolean
-  setMessages: React.Dispatch<React.SetStateAction<MessageAISDK[]>>
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>
   refresh: () => Promise<void>
-  saveAllMessages: (messages: MessageAISDK[]) => Promise<void>
-  cacheAndAddMessage: (message: MessageAISDK) => Promise<void>
+  saveAllMessages: (messages: ChatMessage[]) => Promise<void>
+  cacheAndAddMessage: (message: ChatMessage) => Promise<void>
   resetMessages: () => Promise<void>
   deleteMessages: () => Promise<void>
 }
@@ -46,7 +51,7 @@ export function MessagesProvider({
   children: React.ReactNode
   chatIdOverride?: string | null
 }) {
-  const [messages, setMessages] = useState<MessageAISDK[]>([])
+  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const urlSession = useChatSession()
   const standaloneSession = useStandaloneChatSession()
@@ -195,10 +200,7 @@ export function MessagesProvider({
             setMessages((prev) =>
               prev.map((msg) => {
                 if (msg.id === updatedMessageId) {
-                  return {
-                    ...msg,
-                    content: updatedMessage.content,
-                  } as MessageAISDK
+                  return updateMessageText(msg, updatedMessage.content || "")
                 }
                 return msg
               })
@@ -223,6 +225,7 @@ export function MessagesProvider({
               parts: unknown[] | null
               experimental_attachments: unknown[] | null
               model: string | null
+              message_group_id: string | null
               created_at: string
             }
 
@@ -265,39 +268,59 @@ export function MessagesProvider({
                 return prev
               }
 
-              // Get effective content - fallback to placeholder if empty (xAI/Grok requires non-empty)
-              let effectiveContent = newMessage.content || ""
-              if (!effectiveContent.trim()) {
-                // Try to extract from parts if available
-                if (newMessage.parts && Array.isArray(newMessage.parts)) {
-                  const texts: string[] = []
-                  for (const part of newMessage.parts as Array<{ type?: string; text?: string }>) {
-                    if (part?.type === "text" && part.text?.trim()) {
-                      texts.push(part.text)
-                    }
-                  }
-                  effectiveContent = texts.join("\n")
-                }
-                // Final fallback
-                if (!effectiveContent.trim()) {
-                  effectiveContent = newMessage.role === "assistant" ? "[Assistant response]" : "[User message]"
-                }
-              }
+              const baseParts = Array.isArray(newMessage.parts)
+                ? (newMessage.parts as ChatMessagePart[])
+                : []
+              const safeAttachments =
+                (newMessage.experimental_attachments as Array<{
+                  name?: string
+                  contentType?: string
+                  url?: string
+                }> | null)
+                  ?.filter((att) => att?.url && !att.url.startsWith("blob:"))
+                  .map((att) => ({
+                    name: att.name || "attachment",
+                    contentType: att.contentType || "application/octet-stream",
+                    url: att.url as string,
+                  })) || []
 
-              // Convert DB message to AI SDK format
-              // Include user_id for sender attribution in collaborative chats
-              const aiMessage: MessageAISDK & { user_id?: string } = {
+              const attachmentParts = attachmentsToFileParts(safeAttachments)
+              const combinedParts = [...baseParts, ...attachmentParts]
+              const hasText = combinedParts.some(
+                (part) =>
+                  part &&
+                  typeof part === "object" &&
+                  "type" in part &&
+                  part.type === "text" &&
+                  typeof (part as { text?: string }).text === "string" &&
+                  (part as { text?: string }).text?.trim()
+              )
+
+              const fallbackText =
+                newMessage.content?.trim() ||
+                (newMessage.role === "assistant" ? "[Assistant response]" : "[User message]")
+
+              const placeholderPart: ChatMessagePart = { type: "text", text: fallbackText }
+              const parts = hasText
+                ? combinedParts
+                : [placeholderPart, ...combinedParts]
+
+              const aiMessage: ChatMessage = {
                 id: messageId,
-                content: effectiveContent,
-                role: newMessage.role as "user" | "assistant" | "system" | "data",
-                createdAt: new Date(newMessage.created_at),
-                user_id: newMessage.user_id || undefined,
+                role: newMessage.role as ChatMessage["role"],
+                parts,
+                metadata: {
+                  createdAt: newMessage.created_at,
+                  user_id: newMessage.user_id || undefined,
+                  model: newMessage.model || undefined,
+                  message_group_id: newMessage.message_group_id || undefined,
+                },
               }
 
               // Sort by created_at to maintain order
               const updated = [...prev, aiMessage].sort((a, b) => {
-                const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0
-                const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0
+                const aTime = getMessageCreatedAt(a)?.getTime() || 0
+                const bTime = getMessageCreatedAt(b)?.getTime() || 0
                 return aTime - bTime
               })
 
@@ -367,7 +390,7 @@ export function MessagesProvider({
     }
   }
 
-  const cacheAndAddMessage = async (message: MessageAISDK) => {
+  const cacheAndAddMessage = async (message: ChatMessage) => {
     if (!chatId) return
 
     try {
@@ -381,7 +404,7 @@ export function MessagesProvider({
     }
   }
 
-  const saveAllMessages = async (newMessages: MessageAISDK[]) => {
+  const saveAllMessages = async (newMessages: ChatMessage[]) => {
     // @todo: manage the case where the chatId is null (first time the user opens the chat)
     if (!chatId) return
 

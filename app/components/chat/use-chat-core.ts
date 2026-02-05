@@ -3,20 +3,27 @@ import { useChatDraft } from "@/app/hooks/use-chat-draft"
 import { toast } from "@/components/ui/toast"
 import { getOrCreateGuestUserId } from "@/lib/api"
 import { useChats } from "@/lib/chat-store/chats/provider"
+import { cacheMessages, getCachedMessages } from "@/lib/chat-store/messages/api"
 import { MESSAGE_MAX_LENGTH, SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
+import type { ChatMessage, ChatMessageMetadata, ChatMessagePart } from "@/lib/ai/message-utils"
+import {
+  attachmentsToFileParts,
+  getMessageAttachments,
+  getMessageCreatedAt,
+} from "@/lib/ai/message-utils"
 import { Attachment } from "@/lib/file-handling"
 import { API_ROUTE_CHAT } from "@/lib/routes"
 import type { UserProfile } from "@/lib/user/types"
-import type { Message } from "@ai-sdk/react"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport, type UIMessage } from "ai"
 import { useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ResearchMode } from "@/app/components/chat-input/research-mode-selector"
 
 type UseChatCoreProps = {
-  initialMessages: Message[]
+  initialMessages: ChatMessage[]
   draftValue: string
-  cacheAndAddMessage: (message: Message) => void
+  cacheAndAddMessage: (message: ChatMessage) => void
   chatId: string | null
   user: UserProfile | null
   files: File[]
@@ -37,6 +44,8 @@ type UseChatCoreProps = {
   setHasDialogSubscriptionRequired: (value: boolean) => void
   setHasDialogLimitReached: (value: boolean) => void
 }
+
+type UiChatMessage = UIMessage<ChatMessageMetadata>
 
 export function useChatCore({
   initialMessages,
@@ -63,15 +72,23 @@ export function useChatCore({
   const [enableSearch, setEnableSearch] = useState(true)
   const [researchMode, setResearchMode] = useState<ResearchMode | null>("research")
   const [responseStartTime, setResponseStartTime] = useState<number | null>(null)
+  const [input, setInput] = useState(draftValue)
+  const asUiParts = useCallback(
+    (parts: ChatMessagePart[]): UiChatMessage["parts"] =>
+      parts as UiChatMessage["parts"],
+    []
+  )
 
   // Refs and derived state
   const hasSentFirstMessageRef = useRef(false)
   const prevChatIdRef = useRef<string | null>(chatId)
+  const inFlightChatIdRef = useRef<string | null>(null)
   const isAuthenticated = useMemo(() => !!user?.id, [user?.id])
   const systemPrompt = useMemo(
     () => user?.system_prompt || SYSTEM_PROMPT_DEFAULT,
     [user?.system_prompt]
   )
+  const { setDraftValue } = useChatDraft(chatId)
 
   // Search params handling
   const searchParams = useSearchParams()
@@ -120,33 +137,43 @@ export function useChatCore({
   // Initialize useChat
   const {
     messages,
-    input,
-    handleSubmit,
     status,
     error,
-    reload,
     stop,
     setMessages,
-    setInput,
-    append,
-  } = useChat({
+    sendMessage,
+    regenerate,
+  } = useChat<UiChatMessage>({
     id: chatId || "new-chat",
-    api: API_ROUTE_CHAT,
-    initialMessages,
-    initialInput: draftValue,
-    onFinish: async (m) => {
-      cacheAndAddMessage(m)
+    messages: initialMessages as UiChatMessage[],
+    transport: new DefaultChatTransport({ api: API_ROUTE_CHAT }),
+    onFinish: async ({ message: assistantMessage }) => {
+      const effectiveChatId =
+        inFlightChatIdRef.current ||
+        chatId ||
+        prevChatIdRef.current ||
+        (typeof window !== "undefined"
+          ? localStorage.getItem("guestChatId")
+          : null)
+
+      if (assistantMessage && effectiveChatId) {
+        if (effectiveChatId === chatId) {
+          cacheAndAddMessage(assistantMessage as ChatMessage)
+        } else {
+          try {
+            const cached = await getCachedMessages(effectiveChatId)
+            await cacheMessages(effectiveChatId, [...cached, assistantMessage])
+          } catch (err) {
+            console.error("Failed to cache message for inactive chat:", err)
+          }
+        }
+      }
       setResponseStartTime(null) // Clear time estimate when response finishes
       try {
-        const effectiveChatId =
-          chatId ||
-          prevChatIdRef.current ||
-          (typeof window !== "undefined"
-            ? localStorage.getItem("guestChatId")
-            : null)
-
         if (!effectiveChatId) return
-        await syncRecentMessages(effectiveChatId, setMessages, 2)
+        if (effectiveChatId === chatId) {
+          await syncRecentMessages(effectiveChatId, setMessages, 2)
+        }
 
         // Dispatch event to trigger subscription credit refresh
         if (typeof window !== "undefined") {
@@ -154,17 +181,30 @@ export function useChatCore({
         }
       } catch (error) {
         console.error("Message ID reconciliation failed: ", error)
+      } finally {
+        if (inFlightChatIdRef.current === effectiveChatId) {
+          inFlightChatIdRef.current = null
+        }
       }
     },
     onError: handleError,
   })
 
+  useEffect(() => {
+    if (draftValue !== input) {
+      setInput(draftValue)
+    }
+  }, [draftValue, input])
+
   // Handle search params on mount
   useEffect(() => {
     if (prompt && typeof window !== "undefined") {
-      requestAnimationFrame(() => setInput(prompt))
+      requestAnimationFrame(() => {
+        setInput(prompt)
+        setDraftValue(prompt)
+      })
     }
-  }, [prompt, setInput])
+  }, [prompt, setInput, setDraftValue])
 
   // Reset messages and state when navigating from a chat to home
   // Check actual URL to avoid false positives from pushState not updating usePathname
@@ -198,18 +238,24 @@ export function useChatCore({
       return
     }
 
+    const messageText = input
+    const createdAt = new Date().toISOString()
+
     // Create and show optimistic message FIRST for immediate UI feedback
     const optimisticId = `optimistic-${Date.now().toString()}`
     const optimisticAttachments =
       files.length > 0 ? createOptimisticAttachments(files) : []
+    const textPart: ChatMessagePart = { type: "text", text: messageText }
+    const optimisticParts: ChatMessagePart[] = [
+      textPart,
+      ...attachmentsToFileParts(optimisticAttachments),
+    ]
 
-    const optimisticMessage = {
+    const optimisticMessage: UiChatMessage = {
       id: optimisticId,
-      content: input,
       role: "user" as const,
-      createdAt: new Date(),
-      experimental_attachments:
-        optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
+      parts: asUiParts(optimisticParts),
+      metadata: { createdAt },
     }
 
     setMessages((prev) => [...prev, optimisticMessage])
@@ -223,26 +269,27 @@ export function useChatCore({
       const allowed = await checkLimitsAndNotify(uid)
       if (!allowed) {
         setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
-        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        cleanupOptimisticAttachments(optimisticAttachments)
         return
       }
 
-      const currentChatId = await ensureChatExists(uid, input)
+      const currentChatId = await ensureChatExists(uid, messageText)
       if (!currentChatId) {
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        cleanupOptimisticAttachments(optimisticAttachments)
         return
       }
 
       prevChatIdRef.current = currentChatId
+      inFlightChatIdRef.current = currentChatId
 
-      if (input.length > MESSAGE_MAX_LENGTH) {
+      if (messageText.length > MESSAGE_MAX_LENGTH) {
         toast({
           title: `The message you submitted was too long, please submit something shorter. (Max ${MESSAGE_MAX_LENGTH} characters)`,
           status: "error",
         })
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        cleanupOptimisticAttachments(optimisticAttachments)
         return
       }
 
@@ -251,11 +298,27 @@ export function useChatCore({
         attachments = await handleFileUploads(uid, currentChatId)
         if (attachments === null) {
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
-          cleanupOptimisticAttachments(
-            optimisticMessage.experimental_attachments
-          )
+          cleanupOptimisticAttachments(optimisticAttachments)
           return
         }
+      }
+
+      const uploadedParts = attachments && attachments.length > 0
+        ? attachmentsToFileParts(attachments)
+        : []
+
+      if (uploadedParts.length > 0) {
+        const updatedParts: ChatMessagePart[] = [textPart, ...uploadedParts]
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === optimisticId
+              ? {
+                  ...msg,
+                  parts: asUiParts(updatedParts),
+                }
+              : msg
+          )
+        )
       }
 
       const options = {
@@ -268,13 +331,27 @@ export function useChatCore({
           enableSearch,
           researchMode,
         },
-        experimental_attachments: attachments || undefined,
       }
 
-      handleSubmit(undefined, options)
-      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-      cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
-      cacheAndAddMessage(optimisticMessage)
+      await sendMessage(
+        uploadedParts.length > 0
+          ? {
+              text: messageText,
+              files: uploadedParts,
+              metadata: { createdAt },
+              messageId: optimisticId,
+            }
+          : { text: messageText, metadata: { createdAt }, messageId: optimisticId },
+        options
+      )
+
+      cleanupOptimisticAttachments(optimisticAttachments)
+
+      const cachedMessage: ChatMessage =
+        uploadedParts.length > 0
+          ? { ...(optimisticMessage as ChatMessage), parts: [textPart, ...uploadedParts] }
+          : (optimisticMessage as ChatMessage)
+      cacheAndAddMessage(cachedMessage)
       clearDraft()
       setResponseStartTime(Date.now()) // Track when response generation starts
 
@@ -283,7 +360,7 @@ export function useChatCore({
       }
     } catch {
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-      cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+      cleanupOptimisticAttachments(optimisticAttachments)
       toast({ title: "Failed to send message", status: "error" })
     } finally {
       setIsSubmitting(false)
@@ -305,12 +382,13 @@ export function useChatCore({
     systemPrompt,
     enableSearch,
     researchMode,
-    handleSubmit,
+    sendMessage,
     cacheAndAddMessage,
     clearDraft,
     messages.length,
     bumpChat,
     setIsSubmitting,
+    asUiParts,
   ])
 
   const submitEdit = useCallback(
@@ -341,7 +419,8 @@ export function useChatCore({
       }
 
       const target = messages[editIndex]
-      const cutoffIso = target?.createdAt?.toISOString()
+      const cutoffDate = getMessageCreatedAt(target)
+      const cutoffIso = cutoffDate?.toISOString()
       if (!cutoffIso) {
         console.error("Unable to locate message timestamp.")
         return
@@ -359,12 +438,14 @@ export function useChatCore({
       const originalMessages = [...messages]
 
       const optimisticId = `optimistic-edit-${Date.now().toString()}`
-      const optimisticEditedMessage = {
+      const targetAttachments = getMessageAttachments(target)
+      const createdAt = new Date().toISOString()
+      const editTextPart: ChatMessagePart = { type: "text", text: newContent }
+      const optimisticEditedMessage: UiChatMessage = {
         id: optimisticId,
-        content: newContent,
         role: "user" as const,
-        createdAt: new Date(),
-        experimental_attachments: target.experimental_attachments || undefined,
+        parts: asUiParts([editTextPart, ...attachmentsToFileParts(targetAttachments)]),
+        metadata: { createdAt },
       }
 
       try {
@@ -400,6 +481,7 @@ export function useChatCore({
         }
 
         prevChatIdRef.current = currentChatId
+        inFlightChatIdRef.current = currentChatId
 
         const options = {
           body: {
@@ -412,8 +494,6 @@ export function useChatCore({
             researchMode,
             editCutoffTimestamp: cutoffIso, // Backend will delete messages from this timestamp
           },
-          experimental_attachments:
-            target.experimental_attachments || undefined,
         }
 
         // If this is an edit of the very first user message, update chat title
@@ -423,16 +503,21 @@ export function useChatCore({
           } catch {}
         }
 
-        append(
-          {
-            role: "user",
-            content: newContent,
-          },
+        const fileParts = targetAttachments.length
+          ? attachmentsToFileParts(targetAttachments)
+          : undefined
+
+        await sendMessage(
+          fileParts
+            ? {
+                text: newContent,
+                files: fileParts,
+                metadata: { createdAt },
+                messageId: optimisticId,
+              }
+            : { text: newContent, metadata: { createdAt }, messageId: optimisticId },
           options
         )
-
-        // Remove optimistic message
-        setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
 
         bumpChat(currentChatId)
       } catch (error) {
@@ -452,12 +537,13 @@ export function useChatCore({
       systemPrompt,
       enableSearch,
       researchMode,
-      append,
+      sendMessage,
       setMessages,
       bumpChat,
       updateTitle,
       isSubmitting,
       status,
+      asUiParts,
     ]
   )
 
@@ -466,11 +552,13 @@ export function useChatCore({
     async (suggestion: string) => {
       setIsSubmitting(true)
       const optimisticId = `optimistic-${Date.now().toString()}`
-      const optimisticMessage = {
+      const createdAt = new Date().toISOString()
+      const suggestionPart: ChatMessagePart = { type: "text", text: suggestion }
+      const optimisticMessage: UiChatMessage = {
         id: optimisticId,
-        content: suggestion,
         role: "user" as const,
-        createdAt: new Date(),
+        parts: asUiParts([suggestionPart]),
+        metadata: { createdAt },
       }
 
       setMessages((prev) => [...prev, optimisticMessage])
@@ -497,6 +585,7 @@ export function useChatCore({
         }
 
         prevChatIdRef.current = currentChatId
+        inFlightChatIdRef.current = currentChatId
 
         const options = {
           body: {
@@ -510,14 +599,10 @@ export function useChatCore({
           },
         }
 
-        append(
-          {
-            role: "user",
-            content: suggestion,
-          },
+        await sendMessage(
+          { text: suggestion, metadata: { createdAt }, messageId: optimisticId },
           options
         )
-        setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
       } catch {
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
         toast({ title: "Failed to send suggestion", status: "error" })
@@ -529,13 +614,14 @@ export function useChatCore({
       ensureChatExists,
       selectedModel,
       user,
-      append,
+      sendMessage,
       checkLimitsAndNotify,
       isAuthenticated,
       enableSearch,
       researchMode,
       setMessages,
       setIsSubmitting,
+      asUiParts,
     ]
   )
 
@@ -558,11 +644,11 @@ export function useChatCore({
       },
     }
 
-    reload(options)
-  }, [user, chatId, selectedModel, isAuthenticated, systemPrompt, enableSearch, researchMode, reload])
+    inFlightChatIdRef.current = chatId || prevChatIdRef.current
+    regenerate(options)
+  }, [user, chatId, selectedModel, isAuthenticated, systemPrompt, enableSearch, researchMode, regenerate])
 
-  // Handle input change - now with access to the real setInput function!
-  const { setDraftValue } = useChatDraft(chatId)
+  // Handle input change
   const handleInputChange = useCallback(
     (value: string) => {
       setInput(value)
@@ -575,14 +661,9 @@ export function useChatCore({
     // Chat state
     messages,
     input,
-    handleSubmit,
     status,
     error,
-    reload,
     stop,
-    setMessages,
-    setInput,
-    append,
     isAuthenticated,
     systemPrompt,
     hasSentFirstMessageRef,

@@ -1,4 +1,5 @@
-import { Message as MessageAISDK } from "ai"
+import type { ChatMessage, ChatMessagePart } from "@/lib/ai/message-utils"
+import { getMessageParts } from "@/lib/ai/message-utils"
 
 /**
  * Clean messages for models based on their capabilities.
@@ -7,43 +8,30 @@ import { Message as MessageAISDK } from "ai"
  * This prevents "Bad Request" errors when using models like Perplexity.
  */
 export function cleanMessagesForTools(
-  messages: MessageAISDK[],
+  messages: ChatMessage[],
   hasTools: boolean,
   hasVision: boolean = true // Default to true for backwards compatibility
-): MessageAISDK[] {
+): ChatMessage[] {
   // Helper to check if content is empty/invalid
   // This handles both string content and array content with empty text parts
-  const isEmptyContent = (content: unknown): boolean => {
-    if (content === null || content === undefined) return true
-    if (typeof content === "string") return content.trim() === ""
-    if (Array.isArray(content)) {
-      // Empty array is empty
-      if (content.length === 0) return true
-      // Check if all text parts are empty (xAI requires at least one non-empty content element)
-      const hasNonEmptyText = content.some((part: any) => {
-        if (part && typeof part === "object") {
-          // Text part - check if text is non-empty
-          if (part.type === "text" && typeof part.text === "string") {
-            return part.text.trim() !== ""
-          }
-          // Non-text parts (tool-invocation, image, etc.) count as content
-          if (part.type && part.type !== "text") {
-            return true
-          }
-        }
-        return false
-      })
-      return !hasNonEmptyText
-    }
-    return false
+  const isEmptyContent = (parts: ChatMessagePart[]): boolean => {
+    if (!parts || parts.length === 0) return true
+    const hasNonEmpty = parts.some((part) => {
+      if (!part || typeof part !== "object" || !(("type" in part))) return false
+      if (part.type === "text" && "text" in part && typeof part.text === "string") {
+        return part.text.trim() !== ""
+      }
+      return part.type !== "text"
+    })
+    return !hasNonEmpty
   }
 
   // Helper to extract meaningful text from content arrays
-  const extractTextFromArray = (content: unknown[]): string => {
+  const extractTextFromArray = (content: ChatMessagePart[]): string => {
     const texts: string[] = []
     for (const part of content) {
-      if (part && typeof part === "object" && (part as any).type === "text") {
-        const text = (part as any).text
+      if (part && typeof part === "object" && "type" in part && part.type === "text") {
+        const text = (part as { text?: string }).text
         if (typeof text === "string" && text.trim()) {
           texts.push(text.trim())
         }
@@ -54,17 +42,14 @@ export function cleanMessagesForTools(
 
   // Always sanitize messages to ensure no empty content (xAI/Grok requires non-empty)
   const sanitizedMessages = messages.map((message) => {
-    if (isEmptyContent(message.content)) {
-      // For arrays with empty text, try to extract any meaningful content first
-      if (Array.isArray(message.content)) {
-        const extractedText = extractTextFromArray(message.content)
-        if (extractedText) {
-          return { ...message, content: extractedText }
-        }
-      }
+    const parts = getMessageParts(message)
+    if (isEmptyContent(parts)) {
+      const extractedText = extractTextFromArray(parts)
+      const placeholder = extractedText || (message.role === "assistant" ? "[Assistant response]" : "[User message]")
+      const placeholderPart: ChatMessagePart = { type: "text", text: placeholder }
       return {
         ...message,
-        content: message.role === "assistant" ? "[Assistant response]" : "[User message]",
+        parts: [placeholderPart],
       }
     }
     return message
@@ -78,124 +63,45 @@ export function cleanMessagesForTools(
   // Clean messages based on model capabilities
   const cleanedMessages = sanitizedMessages
     .map((message) => {
-      // Skip tool messages entirely when no tools are available
-      if (!hasTools && (message as { role: string }).role === "tool") {
-        return null
-      }
+      const parts = getMessageParts(message)
 
-      // Start with a copy of the message
-      let cleanedMessage: MessageAISDK = { ...message }
-
-      // Remove attachments for non-vision models (like Perplexity which only supports text)
-      if (!hasVision && (cleanedMessage as any).experimental_attachments) {
-        delete (cleanedMessage as any).experimental_attachments
-      }
-
-      if (message.role === "assistant") {
-        // Clean tool invocations if model doesn't support tools
-        if (!hasTools && message.toolInvocations && message.toolInvocations.length > 0) {
-          delete cleanedMessage.toolInvocations
+      const filteredParts = parts.filter((part) => {
+        if (!part || typeof part !== "object" || !(("type" in part))) return false
+        if (!hasTools) {
+          const isToolPart =
+            part.type === "tool-invocation" ||
+            part.type === "dynamic-tool" ||
+            (typeof part.type === "string" && part.type.startsWith("tool-"))
+          if (isToolPart) return false
         }
+        if (!hasVision && part.type === "file") return false
+        return true
+      })
 
-        if (Array.isArray(message.content)) {
-          const filteredContent = (
-            message.content as Array<{ type?: string; text?: string }>
-          ).filter((part: { type?: string }) => {
-            if (part && typeof part === "object" && part.type) {
-              // Remove tool-related parts if model doesn't support tools
-              if (!hasTools) {
-                const isToolPart =
-                  part.type === "tool-call" ||
-                  part.type === "tool-result" ||
-                  part.type === "tool-invocation"
-                if (isToolPart) return false
-              }
-              // Remove image parts if model doesn't support vision
-              if (!hasVision) {
-                const isImagePart =
-                  part.type === "image" ||
-                  part.type === "image_url" ||
-                  part.type === "file"
-                if (isImagePart) return false
-              }
-            }
-            return true
-          })
-
-          // Extract text content
-          const textParts = filteredContent.filter(
-            (part: { type?: string }) =>
-              part && typeof part === "object" && part.type === "text"
-          )
-
-          if (textParts.length > 0) {
-            // Combine text parts into a single string
-            const textContent = textParts
-              .map((part: { text?: string }) => part.text || "")
-              .join("\n")
-              .trim()
-            cleanedMessage.content = textContent || "[Assistant response]"
-          } else if (filteredContent.length === 0) {
-            // If no content remains after filtering, provide fallback
-            cleanedMessage.content = "[Assistant response]"
-          } else {
-            // Keep the filtered content as string if possible
-            cleanedMessage.content = "[Assistant response]"
-          }
+      const sanitizedParts = filteredParts.filter((part) => {
+        if (!part || typeof part !== "object" || !(("type" in part))) return false
+        if (part.type === "text" && "text" in part && typeof part.text === "string") {
+          return part.text.trim() !== ""
         }
+        return true
+      })
 
-        // If the message has no meaningful content after cleaning, provide fallback
-        if (
-          !cleanedMessage.content ||
-          (typeof cleanedMessage.content === "string" &&
-            cleanedMessage.content.trim() === "")
-        ) {
-          cleanedMessage.content = "[Assistant response]"
+      if (sanitizedParts.length === 0) {
+        const placeholderPart: ChatMessagePart = {
+          type: "text",
+          text: message.role === "assistant" ? "[Assistant response]" : "[User message]",
         }
-
-        return cleanedMessage
-      }
-
-      // For user messages, clean content based on model capabilities
-      if (message.role === "user" && Array.isArray(message.content)) {
-        const filteredContent = (
-          message.content as Array<{ type?: string }>
-        ).filter((part: { type?: string }) => {
-          if (part && typeof part === "object" && part.type) {
-            // Remove tool-related parts if model doesn't support tools
-            if (!hasTools) {
-              const isToolPart =
-                part.type === "tool-call" ||
-                part.type === "tool-result" ||
-                part.type === "tool-invocation"
-              if (isToolPart) return false
-            }
-            // Remove image parts if model doesn't support vision
-            if (!hasVision) {
-              const isImagePart =
-                part.type === "image" ||
-                part.type === "image_url" ||
-                part.type === "file"
-              if (isImagePart) return false
-            }
-          }
-          return true
-        })
-
-        if (
-          filteredContent.length !== (message.content as Array<unknown>).length
-        ) {
-          return {
-            ...cleanedMessage,
-            content:
-              filteredContent.length > 0 ? filteredContent : "User message",
-          }
+        return {
+          ...message,
+          parts: [placeholderPart],
         }
       }
 
-      return cleanedMessage
+      return {
+        ...message,
+        parts: sanitizedParts,
+      }
     })
-    .filter((message): message is MessageAISDK => message !== null)
 
   return cleanedMessages
 }
@@ -203,21 +109,13 @@ export function cleanMessagesForTools(
 /**
  * Check if a message contains tool-related content
  */
-export function messageHasToolContent(message: MessageAISDK): boolean {
-  return !!(
-    message.toolInvocations?.length ||
-    (message as { role: string }).role === "tool" ||
-    (Array.isArray(message.content) &&
-      (message.content as Array<{ type?: string }>).some(
-        (part: { type?: string }) =>
-          part &&
-          typeof part === "object" &&
-          part.type &&
-          (part.type === "tool-call" ||
-            part.type === "tool-result" ||
-            part.type === "tool-invocation")
-      ))
-  )
+export function messageHasToolContent(message: ChatMessage): boolean {
+  const parts = getMessageParts(message)
+  return parts.some((part) => {
+    if (!part || typeof part !== "object" || !("type" in part)) return false
+    if (part.type === "tool-invocation" || part.type === "dynamic-tool") return true
+    return typeof part.type === "string" && part.type.startsWith("tool-")
+  })
 }
 
 /**

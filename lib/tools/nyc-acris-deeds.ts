@@ -578,7 +578,7 @@ export const acrisDeedsTool = tool({
     "Coverage: All NYC boroughs since 1966. " +
     "Use to verify property ownership or find real estate portfolio.",
 
-  parameters: acrisDeedsSchema,
+  inputSchema: acrisDeedsSchema,
 
   execute: async ({ searchTerm, searchType }): Promise<ACRISDeedsResult> => {
     if (searchType === "address") {

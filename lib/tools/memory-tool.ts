@@ -28,7 +28,7 @@ export const createMemorySearchTool = (userId: string) =>
       "(d) user asks about anything they asked you to remember. " +
       "RETURNS: Facts, preferences, previous research findings, personal context. " +
       "PURPOSE: Prevent duplicate research, retrieve verified prior findings, maintain continuity.",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z
         .string()
         .describe(

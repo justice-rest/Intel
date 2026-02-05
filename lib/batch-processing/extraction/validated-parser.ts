@@ -307,11 +307,15 @@ ${originalResponse.slice(0, 8000)}
 ${correctionPrompt}
 
 Return ONLY the corrected JSON, no other text.`,
-      maxTokens: 4000,
+      maxOutputTokens: 4000,
       temperature: 0.1,
     })
 
-    const tokensUsed = (result.usage?.promptTokens || 0) + (result.usage?.completionTokens || 0)
+    const inputTokens =
+      result.usage?.inputTokens ?? (result.usage as { promptTokens?: number } | undefined)?.promptTokens ?? 0
+    const outputTokens =
+      result.usage?.outputTokens ?? (result.usage as { completionTokens?: number } | undefined)?.completionTokens ?? 0
+    const tokensUsed = inputTokens + outputTokens
     console.log(`[ValidatedParser] Correction request used ${tokensUsed} tokens`)
 
     return {

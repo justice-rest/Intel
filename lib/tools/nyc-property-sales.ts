@@ -402,7 +402,7 @@ export const nycPropertySalesTool = tool({
     "WEALTH INDICATOR: High-value property purchases indicate significant net worth. " +
     "$1M+ = affluent, $5M+ = wealthy, $20M+ = ultra-high net worth.",
 
-  parameters: nycPropertySalesSchema,
+  inputSchema: nycPropertySalesSchema,
 
   execute: async ({ searchTerm, searchType, minPrice, maxPrice }): Promise<NYCPropertySalesResult> => {
     if (searchType === "price_range") {

@@ -9,7 +9,8 @@ import { useChatSession } from "@/lib/chat-store/session/provider"
 import { exportToPdf } from "@/lib/pdf-export"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { cn } from "@/lib/utils"
-import type { Message as MessageAISDK } from "@ai-sdk/react"
+import type { ChatMessagePart } from "@/lib/ai/message-utils"
+import { getLegacyToolInvocationParts, getReasoningText } from "@/lib/ai/message-utils"
 import { ArrowClockwise, Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
 import { useCallback, useRef, useState } from "react"
 import { getSources } from "./get-sources"
@@ -30,7 +31,7 @@ type MessageAssistantProps = {
   copied?: boolean
   copyToClipboard?: () => void
   onReload?: () => void
-  parts?: MessageAISDK["parts"]
+  parts?: ChatMessagePart[]
   status?: "streaming" | "ready" | "submitted" | "error"
   className?: string
   messageId: string
@@ -60,27 +61,23 @@ export function MessageAssistant({
 
   const sources = getSources(parts)
   const citations = getCitations(parts) // Extract RAG citations
-  const toolInvocationParts = parts?.filter(
-    (part) => part.type === "tool-invocation"
-  )
-  const reasoningParts = parts?.find((part) => part.type === "reasoning")
+  const toolInvocationParts = getLegacyToolInvocationParts(parts)
+  const reasoningText = getReasoningText(parts)
   const contentNullOrEmpty = children === null || children === ""
   const isLastStreaming = status === "streaming" && isLast
   const searchImageResults =
-    parts
-      ?.filter(
+    toolInvocationParts
+      .filter(
         (part) =>
-          part.type === "tool-invocation" &&
           part.toolInvocation?.state === "result" &&
           part.toolInvocation?.toolName === "imageSearch" &&
-          part.toolInvocation?.result?.content?.[0]?.type === "images"
+          (part.toolInvocation?.result as any)?.content?.[0]?.type === "images"
       )
       .flatMap((part) =>
-        part.type === "tool-invocation" &&
         part.toolInvocation?.state === "result" &&
         part.toolInvocation?.toolName === "imageSearch" &&
-        part.toolInvocation?.result?.content?.[0]?.type === "images"
-          ? (part.toolInvocation?.result?.content?.[0]?.results ?? [])
+        (part.toolInvocation?.result as any)?.content?.[0]?.type === "images"
+          ? ((part.toolInvocation?.result as any)?.content?.[0]?.results ?? [])
           : []
       ) ?? []
 
@@ -138,9 +135,9 @@ export function MessageAssistant({
         )}
         {...(isQuoteEnabled && { "data-message-id": messageId })}
       >
-        {reasoningParts && reasoningParts.reasoning && (
+        {reasoningText && (
           <Reasoning
-            reasoning={reasoningParts.reasoning}
+            reasoning={reasoningText}
             isStreaming={status === "streaming"}
           />
         )}

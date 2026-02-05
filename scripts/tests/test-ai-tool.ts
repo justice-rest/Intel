@@ -34,6 +34,41 @@ function loadEnvFile(filePath: string): void {
 
 loadEnvFile(resolve(process.cwd(), ".env.local"))
 
+type UltraResearchResult = {
+  content: string
+  sources: Array<{ name: string; url: string; snippet?: string }>
+  searchQueries?: string[]
+  durationMs?: number
+  mode: string
+  provider: string
+  isBeta: boolean
+  error?: string
+}
+
+function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    Symbol.asyncIterator in value &&
+    typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function"
+  )
+}
+
+async function resolveToolResult<T>(value: T | AsyncIterable<T>): Promise<T> {
+  if (!isAsyncIterable<T>(value)) return value
+
+  let last: T | undefined
+  for await (const chunk of value) {
+    last = chunk
+  }
+
+  if (last === undefined) {
+    throw new Error("Tool returned an empty stream.")
+  }
+
+  return last
+}
+
 async function main() {
   console.log("\n🤖 Testing LinkUp Ultra Research AI Tool\n")
   console.log("=".repeat(60))
@@ -47,7 +82,12 @@ async function main() {
 
   try {
     // Call the tool's execute function directly (same as AI SDK does)
-    const result = await linkupUltraResearchTool.execute(
+    const execute = linkupUltraResearchTool.execute
+    if (typeof execute !== "function") {
+      throw new Error("linkupUltraResearchTool.execute is not available.")
+    }
+
+    const rawResult = await execute(
       {
         query: "What companies has Marc Benioff founded or invested in?",
         outputType: "sourcedAnswer",
@@ -56,6 +96,7 @@ async function main() {
     )
 
     const durationMs = Date.now() - startTime
+    const result = (await resolveToolResult(rawResult)) as UltraResearchResult
 
     console.log("✅ Tool executed successfully!\n")
     console.log("--- Raw Tool Result ---")

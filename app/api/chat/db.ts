@@ -1,9 +1,8 @@
-import type { ContentPart, Message } from "@/app/types/api.types"
 import type { Database, Json } from "@/app/types/database.types"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { MAX_TOOL_RESULT_SIZE } from "@/lib/config"
-
-const DEFAULT_STEP = 0
+import type { ChatMessage, ChatMessagePart, LegacyToolInvocationPart } from "@/lib/ai/message-utils"
+import { getMessageParts, getMessageText } from "@/lib/ai/message-utils"
 
 /**
  * Truncate large tool results to prevent database payload size errors
@@ -50,78 +49,58 @@ function truncateToolResult(result: any): any {
   return result
 }
 
-export async function saveFinalAssistantMessage(
-  supabase: SupabaseClient<Database>,
-  chatId: string,
-  messages: Message[],
-  message_group_id?: string,
-  model?: string
-) {
-  const parts: ContentPart[] = []
-  const toolMap = new Map<string, ContentPart>()
-  const textParts: string[] = []
+function normalizeParts(parts: ChatMessagePart[]): ChatMessagePart[] {
+  return parts.map((part) => {
+    if (!part || typeof part !== "object" || !(("type" in part))) return part
 
-  for (const msg of messages) {
-    if (msg.role === "assistant" && Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        if (part.type === "text") {
-          textParts.push(part.text || "")
-          parts.push(part)
-        } else if (part.type === "tool-invocation" && part.toolInvocation) {
-          const { toolCallId, state } = part.toolInvocation
-          if (!toolCallId) continue
+    if (part.type === "tool-invocation") {
+      const toolInvocation = (part as LegacyToolInvocationPart).toolInvocation
+      if (toolInvocation?.result) {
+        return {
+          ...part,
+          toolInvocation: {
+            ...toolInvocation,
+            result: truncateToolResult(toolInvocation.result),
+          },
+        } as LegacyToolInvocationPart
+      }
+    }
 
-          const existing = toolMap.get(toolCallId)
-          if (state === "result" || !existing) {
-            toolMap.set(toolCallId, {
-              ...part,
-              toolInvocation: {
-                ...part.toolInvocation,
-                args: part.toolInvocation?.args || {},
-                // Truncate large results to prevent payload errors
-                result: truncateToolResult(part.toolInvocation?.result),
-              },
-            })
-          }
-        } else if (part.type === "reasoning") {
-          parts.push({
-            type: "reasoning",
-            reasoning: part.text || "",
-            details: [
-              {
-                type: "text",
-                text: part.text || "",
-              },
-            ],
-          })
-        } else if (part.type === "step-start") {
-          parts.push(part)
+    if (typeof part.type === "string" && (part.type.startsWith("tool-") || part.type === "dynamic-tool")) {
+      if ("output" in part && (part as { output?: unknown }).output !== undefined) {
+        return {
+          ...part,
+          output: truncateToolResult((part as { output?: unknown }).output),
         }
       }
-    } else if (msg.role === "tool" && Array.isArray(msg.content)) {
-      for (const part of msg.content) {
-        if (part.type === "tool-result") {
-          const toolCallId = part.toolCallId || ""
-          toolMap.set(toolCallId, {
-            type: "tool-invocation",
-            toolInvocation: {
-              state: "result",
-              step: DEFAULT_STEP,
-              toolCallId,
-              toolName: part.toolName || "",
-              // Truncate large results to prevent payload errors
-              result: truncateToolResult(part.result),
-            },
-          })
+      if ("errorText" in part && typeof (part as { errorText?: unknown }).errorText === "string") {
+        return {
+          ...part,
+          errorText: truncateToolResult((part as { errorText?: string }).errorText),
         }
       }
     }
+
+    return part
+  })
+}
+
+export async function saveFinalAssistantMessage(
+  supabase: SupabaseClient<Database>,
+  chatId: string,
+  messages: ChatMessage[],
+  message_group_id?: string,
+  model?: string
+) {
+  const assistantMessage = [...messages].reverse().find((msg) => msg.role === "assistant")
+
+  if (!assistantMessage) {
+    console.warn("No assistant message found to save.")
+    return
   }
 
-  // Merge tool parts at the end
-  parts.push(...toolMap.values())
-
-  const finalPlainText = textParts.join("\n\n")
+  const parts = normalizeParts(getMessageParts(assistantMessage))
+  const finalPlainText = getMessageText(assistantMessage)
 
   const { data, error } = await supabase
     .from("messages")

@@ -196,7 +196,7 @@ export const secEdgarFilingsTool = tool({
     "Returns 10-K (annual) and 10-Q (quarterly) financial data including balance sheet, " +
     "income statement, cash flow, and share information. Essential for wealth assessment " +
     "of executives and major shareholders. No API key required.",
-  parameters: secEdgarFilingsSchema,
+  inputSchema: secEdgarFilingsSchema,
   execute: async ({ symbol, limit = 5 }): Promise<SecEdgarFilingsResult> => {
     console.log("[SEC EDGAR] Getting filings for:", symbol, "limit:", limit)
     const startTime = Date.now()

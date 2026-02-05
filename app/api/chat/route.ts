@@ -105,9 +105,28 @@ import {
   linkupUltraResearchTool,
   shouldEnableLinkUpUltraResearchTool,
 } from "@/lib/tools/linkup-ultra-research"
-import { optimizeMessagePayload, estimateTokens } from "@/lib/message-payload-optimizer"
-import { Attachment } from "@ai-sdk/ui-utils"
-import { Message as MessageAISDK, streamText, smoothStream, ToolSet, tool } from "ai"
+import { optimizeMessagePayload } from "@/lib/message-payload-optimizer"
+import type { Attachment } from "@/lib/file-handling"
+import type { ChatMessage, ChatMessageMetadata, ChatMessagePart } from "@/lib/ai/message-utils"
+import {
+  attachmentsToFileParts,
+  getMessageAttachments,
+  getMessageParts,
+  getMessageText,
+} from "@/lib/ai/message-utils"
+import {
+  convertToModelMessages,
+  smoothStream,
+  stepCountIs,
+  streamText,
+  tool,
+  type FileUIPart,
+  type ToolSet,
+  type UIDataTypes,
+  type UIMessage,
+  type UIMessagePart,
+  type UITools,
+} from "ai"
 import { z } from "zod"
 import {
   incrementMessageCount,
@@ -115,7 +134,7 @@ import {
   storeAssistantMessage,
   validateAndTrackUsage,
 } from "./api"
-import { createErrorResponse, extractErrorMessage, cleanMessagesForTools } from "./utils"
+import { createErrorResponse, cleanMessagesForTools } from "./utils"
 
 // Increase timeout to 5 minutes for large PDFs + web search operations
 // Note: Vercel Pro allows up to 300 seconds (5 min) for serverless functions
@@ -128,7 +147,7 @@ export const dynamic = "force-dynamic" // Ensure fresh responses
 type ResearchMode = "research" | "deep-research" | "ultra-research"
 
 type ChatRequest = {
-  messages: MessageAISDK[]
+  messages: ChatMessage[]
   chatId: string
   userId: string
   model: string
@@ -167,66 +186,126 @@ const SUPABASE_STORAGE_PUBLIC_PREFIX = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? `${process.env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/+$/, "")}/storage/v1/object/public/chat-attachments/`
   : null
 
-function normalizeAttachmentContentType(attachment: Attachment): string | null {
-  if (attachment.contentType) return attachment.contentType
-  if (!attachment.name) return null
-  const dotIndex = attachment.name.lastIndexOf(".")
-  if (dotIndex === -1) return null
-  const ext = attachment.name.slice(dotIndex).toLowerCase()
-  return ATTACHMENT_MIME_BY_EXTENSION[ext] ?? null
-}
-
 function isAllowedAttachmentUrl(url: string): boolean {
   if (!SUPABASE_STORAGE_PUBLIC_PREFIX) return false
   return url.startsWith(SUPABASE_STORAGE_PUBLIC_PREFIX)
 }
 
-function sanitizeAttachments(
-  attachments: Attachment[] | undefined
-): Attachment[] | undefined {
-  if (!attachments || attachments.length === 0) return undefined
-
-  const filtered: Attachment[] = []
-
-  for (const attachment of attachments) {
-    if (!attachment || typeof attachment !== "object") continue
-    const normalizedContentType = normalizeAttachmentContentType(attachment)
-    if (!normalizedContentType || !ALLOWED_ATTACHMENT_CONTENT_TYPES.has(normalizedContentType)) {
-      console.warn("[Chat API] Dropping attachment with unsupported content type.")
-      continue
-    }
-    if (!attachment.url || !isAllowedAttachmentUrl(attachment.url)) {
-      console.warn("[Chat API] Dropping attachment with invalid storage URL.")
-      continue
-    }
-
-    filtered.push({
-      ...attachment,
-      contentType: normalizedContentType,
-    })
-  }
-
-  return filtered.length > 0 ? filtered : undefined
+function normalizeFilePartMediaType(part: { mediaType?: string; filename?: string; url: string }): string | null {
+  if (part.mediaType) return part.mediaType
+  const name = part.filename || part.url.split("/").pop()
+  if (!name) return null
+  const dotIndex = name.lastIndexOf(".")
+  if (dotIndex === -1) return null
+  const ext = name.slice(dotIndex).toLowerCase()
+  return ATTACHMENT_MIME_BY_EXTENSION[ext] ?? null
 }
 
-function sanitizeMessageAttachments(messages: MessageAISDK[]): MessageAISDK[] {
-  return messages.map((message) => {
-    const messageWithAttachments = message as MessageAISDK & {
-      experimental_attachments?: Attachment[]
-    }
-    if (!messageWithAttachments.experimental_attachments) return message
+function sanitizeFilePart(part: FileUIPart): FileUIPart | null {
+  const normalizedMediaType = normalizeFilePartMediaType(part)
+  if (!normalizedMediaType || !ALLOWED_ATTACHMENT_CONTENT_TYPES.has(normalizedMediaType)) {
+    console.warn("[Chat API] Dropping attachment with unsupported content type.")
+    return null
+  }
+  if (!part.url || !isAllowedAttachmentUrl(part.url)) {
+    console.warn("[Chat API] Dropping attachment with invalid storage URL.")
+    return null
+  }
 
-    const sanitized = sanitizeAttachments(messageWithAttachments.experimental_attachments)
-    if (!sanitized) {
-      const { experimental_attachments: _unused, ...rest } = messageWithAttachments
-      return rest
-    }
+  return {
+    ...part,
+    mediaType: normalizedMediaType,
+    filename: part.filename || part.url.split("/").pop() || "attachment",
+  }
+}
+
+function sanitizeMessageAttachments(messages: ChatMessage[]): ChatMessage[] {
+  return messages.map((message) => {
+    const legacyAttachments = (message as { experimental_attachments?: Attachment[] }).experimental_attachments
+    const parts: ChatMessagePart[] = [
+      ...getMessageParts(message),
+      ...(legacyAttachments?.length ? attachmentsToFileParts(legacyAttachments) : []),
+    ]
+    if (!parts || parts.length === 0) return message
+
+    const sanitizedParts = parts.reduce<ChatMessagePart[]>((acc, part) => {
+      if (part.type === "file") {
+        const sanitized = sanitizeFilePart(part as FileUIPart)
+        if (sanitized) {
+          acc.push(sanitized)
+        }
+      } else {
+        acc.push(part)
+      }
+      return acc
+    }, [])
 
     return {
       ...message,
-      experimental_attachments: sanitized,
+      parts: sanitizedParts,
     }
   })
+}
+
+function toUiMessageParts(
+  message: ChatMessage
+): UIMessagePart<UIDataTypes, UITools>[] {
+  const parts = getMessageParts(message)
+  const uiParts: UIMessagePart<UIDataTypes, UITools>[] = []
+
+  for (const part of parts) {
+    if (!part || typeof part !== "object" || !("type" in part)) continue
+
+    if (part.type === "tool-invocation" || part.type === "source") {
+      continue
+    }
+
+    if (part.type === "reasoning") {
+      const text = (part as { text?: unknown }).text
+      const reasoning = (part as { reasoning?: unknown }).reasoning
+      const reasoningText =
+        typeof text === "string"
+          ? text
+          : typeof reasoning === "string"
+            ? reasoning
+            : ""
+      if (reasoningText.trim()) {
+        uiParts.push({ type: "reasoning", text: reasoningText })
+      }
+      continue
+    }
+
+    if (part.type === "text") {
+      const text = (part as { text?: unknown }).text
+      if (typeof text === "string") {
+        uiParts.push({ type: "text", text })
+      }
+      continue
+    }
+
+    uiParts.push(part as UIMessagePart<UIDataTypes, UITools>)
+  }
+
+  if (uiParts.length === 0) {
+    const fallbackText =
+      message.role === "assistant"
+        ? "[Assistant response]"
+        : message.role === "user"
+          ? "[User message]"
+          : "[System message]"
+    uiParts.push({ type: "text", text: fallbackText })
+  }
+
+  return uiParts
+}
+
+function toUiMessage(message: ChatMessage): UIMessage<ChatMessageMetadata> {
+  return {
+    id: message.id,
+    role: message.role,
+    metadata: message.metadata,
+    parts: toUiMessageParts(message),
+  }
 }
 
 // Map research modes to Grok model IDs (via OpenRouter)
@@ -349,7 +428,7 @@ export async function POST(req: Request) {
             userId,
             conversationMessages: messages.slice(-3).map((m) => ({
               role: m.role,
-              content: String(m.content),
+              content: getMessageText(m) || "[Message]",
             })),
             count: 5, // V2 uses more memories with better relevance scoring
             minImportance: 0.4,
@@ -376,7 +455,7 @@ export async function POST(req: Request) {
           if (!isBatchReportsRAGEnabled()) return null
 
           const conversationContext = buildConversationContext(
-            messages.slice(-3).map((m) => ({ role: m.role, content: String(m.content) }))
+            messages.slice(-3).map((m) => ({ role: m.role, content: getMessageText(m) || "[Message]" }))
           )
 
           if (!conversationContext) return null
@@ -528,6 +607,8 @@ export async function POST(req: Request) {
     }
 
     const userMessage = safeMessages[safeMessages.length - 1]
+    const userMessageText = userMessage ? getMessageText(userMessage) : ""
+    const userMessageAttachments = userMessage ? getMessageAttachments(userMessage) : []
 
     // =========================================================================
     // SYSTEM PROMPT CONSTRUCTION
@@ -983,8 +1064,8 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
               supabase,
               userId,
               chatId,
-              content: userMessage.content,
-              attachments: userMessage.experimental_attachments as Attachment[],
+              content: userMessageText,
+              attachments: userMessageAttachments,
               model: normalizedModel,
               isAuthenticated,
               message_group_id,
@@ -1148,7 +1229,7 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
                 "Search your connected CRM systems (Bloomerang, Virtuous) for constituent/donor information. " +
                 "Returns name, contact info, address, and giving history from synced CRM data. " +
                 "Use this to look up existing donors by name or email BEFORE running external prospect research.",
-              parameters: z.object({
+              inputSchema: z.object({
                 query: z.string().describe("Search term - name, email, or keyword"),
                 provider: z.enum(["bloomerang", "virtuous", "all"]).optional().default("all")
                   .describe("Which CRM to search. Default 'all' searches all connected CRMs."),
@@ -1207,7 +1288,11 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     // - Remove tool invocations if model doesn't support tools
     // - Remove image/file attachments if model doesn't support vision
     // This prevents "Bad Request" errors for models like Perplexity that only accept text
-    const cleanedMessages = cleanMessagesForTools(optimizedMessages, modelSupportsTools, modelSupportsVision)
+    const cleanedMessages = cleanMessagesForTools(
+      optimizedMessages,
+      modelSupportsTools,
+      modelSupportsVision
+    )
 
     // Debug logging for model configuration
     console.log("[Chat API] Request config:", {
@@ -1224,34 +1309,22 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     // Log message structure for debugging
     console.log("[Chat API] Messages being sent:")
     cleanedMessages.forEach((msg, i) => {
-      const msgAny = msg as any
-      const contentEmpty = !msg.content || (typeof msg.content === "string" && !msg.content.trim()) || (Array.isArray(msg.content) && msg.content.length === 0)
-      console.log(`[Chat API]   [${i}] role: ${msg.role}, contentType: ${typeof msg.content}, isEmpty: ${contentEmpty}, hasAttachments: ${!!msgAny.experimental_attachments}`)
-      if (Array.isArray(msg.content)) {
-        console.log(`[Chat API]       content parts: ${(msg.content as any[]).map((p: any) => `${p.type || 'unknown'}(${p.text ? 'has text' : 'no text'})`).join(', ')}`)
-      }
+      const parts = getMessageParts(msg)
+      const text = getMessageText(msg)
+      const fileCount = parts.filter((part) => part.type === "file").length
+      console.log(
+        `[Chat API]   [${i}] role: ${msg.role}, parts: ${parts.length}, textLength: ${text.length}, fileParts: ${fileCount}`
+      )
     })
 
-    // SAFETY NET: Final check for empty content (xAI/Grok requires non-empty content in every message)
-    // This should never trigger if cleanMessagesForTools is working correctly, but prevents API errors
-    const finalMessages = cleanedMessages.map((msg) => {
-      // Check if content is effectively empty
-      const isEmpty = !msg.content ||
-        (typeof msg.content === "string" && !msg.content.trim()) ||
-        (Array.isArray(msg.content) && (
-          msg.content.length === 0 ||
-          !msg.content.some((p: any) => (p.type === "text" && p.text?.trim()) || (p.type && p.type !== "text"))
-        ))
+    const uiMessages = cleanedMessages.map((message) => toUiMessage(message))
 
-      if (isEmpty) {
-        console.warn(`[Chat API] WARNING: Empty content detected in message ${msg.id}, role: ${msg.role}. Adding placeholder.`)
-        return {
-          ...msg,
-          content: msg.role === "assistant" ? "[Assistant response]" : "[User message]",
-        }
+    const modelMessages = await convertToModelMessages(
+      uiMessages.map(({ id, ...rest }) => rest),
+      {
+        tools: hasTools ? tools : undefined,
       }
-      return msg
-    })
+    )
 
     // =========================================================================
     // UNIFIED FLOW - All models (including Gemini 3 with native tool calling)
@@ -1263,12 +1336,12 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     const result = streamText({
       model: modelConfig.apiSdk(apiKey, { enableSearch, enableReasoning: true }),
       system: finalSystemPrompt,
-      messages: finalMessages,
+      messages: modelMessages,
       // Only pass tools if model supports them
       ...(modelSupportsTools && { tools }),
       // Allow multiple tool call steps for complex research workflows
-      maxSteps: modelSupportsTools ? 50 : 1,
-      maxTokens: AI_MAX_OUTPUT_TOKENS,
+      stopWhen: modelSupportsTools ? stepCountIs(50) : stepCountIs(1),
+      maxOutputTokens: AI_MAX_OUTPUT_TOKENS,
       // Increase retries to handle rate limits (default is 3, which often fails)
       // Uses exponential backoff: ~1s, ~2s, ~4s, ~8s, ~16s, ~32s, ~64s, ~128s
       maxRetries: 8,
@@ -1314,169 +1387,161 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
         console.error("[Chat API] =====================================")
       },
 
-      onFinish: async ({ response, text, finishReason, usage }) => {
+      onFinish: async ({ text, finishReason, usage }) => {
         // Log completion details for debugging stuck issues
         console.log("[Chat API] Stream finished:", {
           finishReason,
           textLength: text?.length ?? 0,
-          messageCount: response.messages?.length ?? 0,
           usage,
         })
-        if (supabase) {
-          // Store assistant message and get the message ID
-          const savedMessage = await storeAssistantMessage({
-            supabase,
-            chatId,
-            messages:
-              response.messages as unknown as import("@/app/types/api.types").Message[],
-            message_group_id,
-            model: normalizedModel,
-          })
-
-          // MEMORY EXTRACTION: Extract and save important facts (background operation)
-          // Feature Flag: `durable-memory-extraction`
-          // - When enabled: Uses Workflow DevKit for durable, resumable extraction
-          // - When disabled: Uses legacy fire-and-forget pattern (default)
-          if (isAuthenticated) {
-            // Extract text from response messages (needed for both paths)
-            const textParts: string[] = []
-            for (const msg of response.messages) {
-              if (msg.role === "assistant" && Array.isArray(msg.content)) {
-                for (const part of msg.content) {
-                  if (part.type === "text" && part.text) {
-                    textParts.push(part.text)
-                  }
-                }
-              }
-            }
-            const responseText = textParts.join("\n\n")
-
-            // Check if durable memory extraction is enabled
-            const useDurableMemory = isWorkflowEnabled("durable-memory-extraction", userId)
-
-            if (useDurableMemory) {
-              // NEW: Durable workflow with guaranteed completion
-              console.log("[Memory] Using durable workflow for user:", userId)
-              runDurableWorkflow(extractMemoriesWorkflow, {
-                userId,
-                chatId,
-                userMessage: String(userMessage.content),
-                assistantResponse: responseText,
-                messageId: savedMessage?.messageId,
-                apiKey: apiKey || undefined,
-              }).catch((error) => {
-                console.error("[Memory] Durable workflow failed:", error)
-              })
-            } else {
-              // LEGACY: Fire-and-forget (preserved for rollback)
-              Promise.resolve().then(async () => {
-                try {
-                  console.log("[Memory] Starting extraction for authenticated user:", userId)
-                  const { extractMemories, createMemory, memoryExists, calculateImportanceScore, isMemoryEnabled } = await import("@/lib/memory")
-                  const { generateEmbedding } = await import("@/lib/rag/embeddings")
-
-                  if (!isMemoryEnabled()) {
-                    console.log("[Memory] Memory system is disabled")
-                    return
-                  }
-
-                  // Build conversation history for extraction (last user message + assistant response)
-                  const conversationForExtraction = [
-                    { role: userMessage.role, content: String(userMessage.content) },
-                    { role: "assistant", content: responseText },
-                  ]
-
-                  console.log("[Memory] Extracting memories from conversation...")
-                  // Extract memories
-                  const extractedMemories = await extractMemories(
-                    {
-                      messages: conversationForExtraction,
-                      userId,
-                      chatId,
-                    },
-                    apiKey || process.env.OPENROUTER_API_KEY || ""
-                  )
-
-                  console.log(`[Memory] Found ${extractedMemories.length} potential memories to save`)
-
-                  // Save each extracted memory
-                  for (const memory of extractedMemories) {
-                    try {
-                      // Check if similar memory already exists (avoid duplicates)
-                      console.log(`[Memory] Checking if memory already exists: "${memory.content.substring(0, 50)}..."`)
-                      const exists = await memoryExists(
-                        memory.content,
-                        userId,
-                        apiKey || process.env.OPENROUTER_API_KEY || ""
-                      )
-
-                      if (exists) {
-                        console.log(`[Memory] ⏭️  Skipping duplicate memory`)
-                        continue
-                      }
-
-                      // Generate embedding for memory
-                      console.log(`[Memory] Generating embedding...`)
-                      const { embedding } = await generateEmbedding(
-                        memory.content,
-                        apiKey || process.env.OPENROUTER_API_KEY || ""
-                      )
-
-                      // Calculate final importance score
-                      const importanceScore = calculateImportanceScore(
-                        memory.content,
-                        memory.category,
-                        {
-                          tags: memory.tags,
-                          context: memory.context,
-                        }
-                      )
-
-                      console.log(`[Memory] Saving with importance score: ${importanceScore}`)
-                      // Save memory to database
-                      const savedMemory = await createMemory({
-                        user_id: userId,
-                        content: memory.content,
-                        memory_type: memory.tags?.includes("explicit") ? "explicit" : "auto",
-                        importance_score: importanceScore,
-                        metadata: {
-                          source_chat_id: chatId,
-                          category: memory.category,
-                          tags: memory.tags,
-                          context: memory.context,
-                        },
-                        embedding,
-                      })
-
-                      if (savedMemory) {
-                        console.log(`[Memory] ✅ Successfully saved: "${memory.content.substring(0, 50)}..." (importance: ${importanceScore})`)
-                      } else {
-                        console.error(`[Memory] ❌ Failed to save memory (returned null)`)
-                      }
-                    } catch (memErr) {
-                      console.error("[Memory] ❌ Error saving individual memory:", memErr)
-                    }
-                  }
-
-                  console.log(`[Memory] Extraction complete. Processed ${extractedMemories.length} memories.`)
-                } catch (error) {
-                  console.error("[Memory] ❌ Memory extraction failed:", error)
-                  // Don't fail the response if memory extraction fails
-                }
-              }).catch((err) => console.error("[Memory] ❌ Background memory extraction failed:", err))
-            }
-          }
-        }
       },
     })
 
     // Return streaming response with sources enabled
-    const response = result.toDataStreamResponse({
+    const responseMetadata = {
+      createdAt: new Date().toISOString(),
+      message_group_id,
+      model: normalizedModel,
+    }
+
+    const response = result.toUIMessageStreamResponse<UIMessage<ChatMessageMetadata>>({
       sendReasoning: true,
       sendSources: true,
-      getErrorMessage: (error: unknown) => {
-        console.error("[Chat API] Response error:", error)
-        return extractErrorMessage(error)
+      originalMessages: uiMessages,
+      messageMetadata: () => responseMetadata,
+      onFinish: async ({ responseMessage, messages }) => {
+        if (!supabase) return
+
+        const savedMessage = await storeAssistantMessage({
+          supabase,
+          chatId,
+          messages,
+          message_group_id,
+          model: normalizedModel,
+        })
+
+        if (!isAuthenticated) return
+
+        const responseText = getMessageText(responseMessage)
+
+        // MEMORY EXTRACTION: Extract and save important facts (background operation)
+        // Feature Flag: `durable-memory-extraction`
+        // - When enabled: Uses Workflow DevKit for durable, resumable extraction
+        // - When disabled: Uses legacy fire-and-forget pattern (default)
+        const useDurableMemory = isWorkflowEnabled("durable-memory-extraction", userId)
+
+        if (useDurableMemory) {
+          console.log("[Memory] Using durable workflow for user:", userId)
+          runDurableWorkflow(extractMemoriesWorkflow, {
+            userId,
+            chatId,
+            userMessage: userMessageText,
+            assistantResponse: responseText,
+            messageId: savedMessage?.messageId,
+            apiKey: apiKey || undefined,
+          }).catch((error) => {
+            console.error("[Memory] Durable workflow failed:", error)
+          })
+          return
+        }
+
+        Promise.resolve()
+          .then(async () => {
+            try {
+              console.log("[Memory] Starting extraction for authenticated user:", userId)
+              const {
+                extractMemories,
+                createMemory,
+                memoryExists,
+                calculateImportanceScore,
+                isMemoryEnabled,
+              } = await import("@/lib/memory")
+              const { generateEmbedding } = await import("@/lib/rag/embeddings")
+
+              if (!isMemoryEnabled()) {
+                console.log("[Memory] Memory system is disabled")
+                return
+              }
+
+              const conversationForExtraction = [
+                { role: userMessage?.role || "user", content: userMessageText },
+                { role: "assistant", content: responseText },
+              ]
+
+              console.log("[Memory] Extracting memories from conversation...")
+              const extractedMemories = await extractMemories(
+                {
+                  messages: conversationForExtraction,
+                  userId,
+                  chatId,
+                },
+                apiKey || process.env.OPENROUTER_API_KEY || ""
+              )
+
+              console.log(`[Memory] Found ${extractedMemories.length} potential memories to save`)
+
+              for (const memory of extractedMemories) {
+                try {
+                  console.log(`[Memory] Checking if memory already exists: \"${memory.content.substring(0, 50)}...\"`)
+                  const exists = await memoryExists(
+                    memory.content,
+                    userId,
+                    apiKey || process.env.OPENROUTER_API_KEY || ""
+                  )
+
+                  if (exists) {
+                    console.log("[Memory] ⏭️  Skipping duplicate memory")
+                    continue
+                  }
+
+                  console.log("[Memory] Generating embedding...")
+                  const { embedding } = await generateEmbedding(
+                    memory.content,
+                    apiKey || process.env.OPENROUTER_API_KEY || ""
+                  )
+
+                  const importanceScore = calculateImportanceScore(
+                    memory.content,
+                    memory.category,
+                    {
+                      tags: memory.tags,
+                      context: memory.context,
+                    }
+                  )
+
+                  console.log(`[Memory] Saving with importance score: ${importanceScore}`)
+                  const savedMemory = await createMemory({
+                    user_id: userId,
+                    content: memory.content,
+                    memory_type: memory.tags?.includes("explicit") ? "explicit" : "auto",
+                    importance_score: importanceScore,
+                    metadata: {
+                      source_chat_id: chatId,
+                      category: memory.category,
+                      tags: memory.tags,
+                      context: memory.context,
+                    },
+                    embedding,
+                  })
+
+                  if (savedMemory) {
+                    console.log(
+                      `[Memory] ✅ Successfully saved: \"${memory.content.substring(0, 50)}...\" (importance: ${importanceScore})`
+                    )
+                  } else {
+                    console.error("[Memory] ❌ Failed to save memory (returned null)")
+                  }
+                } catch (memErr) {
+                  console.error("[Memory] ❌ Error saving individual memory:", memErr)
+                }
+              }
+
+              console.log(`[Memory] Extraction complete. Processed ${extractedMemories.length} memories.`)
+            } catch (error) {
+              console.error("[Memory] ❌ Memory extraction failed:", error)
+            }
+          })
+          .catch((err) => console.error("[Memory] ❌ Background memory extraction failed:", err))
       },
     })
 

@@ -16,7 +16,6 @@ import {
 } from "@/components/prompt-kit/message"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Message as MessageType } from "@ai-sdk/react"
 import {
   Check,
   Copy,
@@ -25,6 +24,7 @@ import {
 } from "@phosphor-icons/react"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
+import type { Attachment } from "@/lib/file-handling"
 
 const getFileIcon = (contentType: string) => {
   if (contentType === "application/pdf") {
@@ -51,7 +51,7 @@ const getFileIcon = (contentType: string) => {
 
 export type MessageUserProps = {
   hasScrollAnchor?: boolean
-  attachments?: MessageType["experimental_attachments"]
+  attachments?: Attachment[]
   children: string
   copied: boolean
   copyToClipboard: () => void

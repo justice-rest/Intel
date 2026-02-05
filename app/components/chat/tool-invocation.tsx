@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { Markdown } from "@/components/prompt-kit/markdown"
-import type { ToolInvocationUIPart } from "@ai-sdk/ui-utils"
+import type { LegacyToolInvocationPart } from "@/lib/ai/message-utils"
 import {
   CaretDown,
   CaretRight,
@@ -14,10 +14,10 @@ import {
   Wrench,
 } from "@phosphor-icons/react"
 import { AnimatePresence, motion } from "framer-motion"
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 
 interface ToolInvocationProps {
-  toolInvocations: ToolInvocationUIPart[]
+  toolInvocations: LegacyToolInvocationPart[]
   className?: string
   defaultOpen?: boolean
 }
@@ -102,7 +102,7 @@ export function ToolInvocation({
       acc[toolCallId].push(item)
       return acc
     },
-    {} as Record<string, ToolInvocationUIPart[]>
+    {} as Record<string, LegacyToolInvocationPart[]>
   )
 
   const uniqueToolIds = Object.keys(groupedTools)
@@ -224,7 +224,7 @@ export function ToolInvocation({
 }
 
 type SingleToolViewProps = {
-  toolInvocations: ToolInvocationUIPart[]
+  toolInvocations: LegacyToolInvocationPart[]
   defaultOpen?: boolean
   className?: string
 }
@@ -244,11 +244,11 @@ function SingleToolView({
       acc[toolCallId].push(item)
       return acc
     },
-    {} as Record<string, ToolInvocationUIPart[]>
+    {} as Record<string, LegacyToolInvocationPart[]>
   )
 
   // For each toolCallId, get the most informative state (result > call > requested)
-  const toolsToDisplay = Object.values(groupedTools)
+  const toolsToDisplay = (Object.values(groupedTools) as LegacyToolInvocationPart[][])
     .map((group) => {
       const resultTool = group.find(
         (item) => item.toolInvocation.state === "result"
@@ -263,7 +263,7 @@ function SingleToolView({
       // Return the most informative one
       return resultTool || callTool || partialCallTool
     })
-    .filter(Boolean) as ToolInvocationUIPart[]
+    .filter(Boolean) as LegacyToolInvocationPart[]
 
   if (toolsToDisplay.length === 0) return null
 
@@ -300,13 +300,14 @@ function SingleToolCard({
   defaultOpen = false,
   className,
 }: {
-  toolData: ToolInvocationUIPart
+  toolData: LegacyToolInvocationPart
   defaultOpen?: boolean
   className?: string
 }) {
   const [isExpanded, setIsExpanded] = useState(defaultOpen)
   const { toolInvocation } = toolData
-  const { state, toolName, toolCallId, args } = toolInvocation
+  const { state, toolName, toolCallId } = toolInvocation
+  const args = (toolInvocation.args ?? undefined) as Record<string, unknown> | undefined
   const isLoading = state === "call"
   const isCompleted = state === "result"
   const result = isCompleted ? toolInvocation.result : undefined
@@ -373,7 +374,7 @@ function SingleToolCard({
     : null
 
   // Render generic results based on their structure
-  const renderResults = () => {
+  const renderResults = (): ReactNode => {
     if (!parsedResult) return "No result data available"
 
     // Handle Linkup searchWeb results (sourcedAnswer format)

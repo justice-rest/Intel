@@ -1,20 +1,51 @@
-import type { Message as MessageAISDK } from "@ai-sdk/react"
+import type { ChatMessagePart } from "@/lib/ai/message-utils"
+import { getLegacyToolInvocationParts } from "@/lib/ai/message-utils"
 
-export function getSources(parts: MessageAISDK["parts"]) {
-  const sources = parts
-    ?.filter(
-      (part) => part.type === "source" || part.type === "tool-invocation"
-    )
+export function getSources(parts: ChatMessagePart[] | undefined) {
+  if (!parts || parts.length === 0) return []
+
+  const directSources = parts
+    .filter((part) => part && typeof part === "object" && "type" in part)
     .map((part) => {
       if (part.type === "source") {
-        return part.source
+        return (part as { source: { id?: string; url: string; title?: string; text?: string } }).source
       }
 
-      if (
-        part.type === "tool-invocation" &&
-        part.toolInvocation.state === "result"
-      ) {
-        const result = part.toolInvocation.result
+      if (part.type === "source-url") {
+        const source = part as { sourceId: string; url: string; title?: string }
+        return {
+          id: source.sourceId,
+          url: source.url,
+          title: source.title || source.url,
+          text: "",
+        }
+      }
+
+      if (part.type === "source-document") {
+        const source = part as {
+          sourceId: string
+          title: string
+          filename?: string
+          providerMetadata?: { url?: string }
+        }
+        const url = source.providerMetadata?.url
+        if (!url) return null
+        return {
+          id: source.sourceId,
+          url,
+          title: source.title || source.filename || "Document",
+          text: "",
+        }
+      }
+
+      return null
+    })
+    .filter(Boolean)
+
+  const toolSources = getLegacyToolInvocationParts(parts)
+    .filter((part) => part.toolInvocation.state === "result")
+    .map((part) => {
+      const result = part.toolInvocation.result as any
 
         // Handle LinkUp prospect research tool results
         // Enhanced: Includes field attribution when available
@@ -375,18 +406,17 @@ export function getSources(parts: MessageAISDK["parts"]) {
           }))
         }
 
-        return Array.isArray(result) ? result.flat() : result
-      }
-
-      return null
+      return Array.isArray(result) ? result.flat() : result
     })
     .filter(Boolean)
     .flat()
 
+  const sources = [...directSources, ...toolSources]
+
   const validSources =
     sources?.filter(
       (source) =>
-        source && typeof source === "object" && source.url && source.url !== ""
+        source && typeof source === "object" && "url" in source && source.url && source.url !== ""
     ) || []
 
   return validSources

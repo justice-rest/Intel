@@ -480,7 +480,7 @@ export const stateContractsTool = tool({
     "WEALTH INDICATOR: $1M+ in state contracts suggests successful business. " +
     "Use IN ADDITION to usaspending_awards for complete government contracting picture.",
 
-  parameters: stateContractsSchema,
+  inputSchema: stateContractsSchema,
 
   execute: async ({ searchTerm, states }): Promise<StateContractsResult> => {
     return searchStateContracts(searchTerm, states)

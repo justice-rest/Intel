@@ -2,13 +2,14 @@ import { toast } from "@/components/ui/toast"
 import { checkRateLimits } from "@/lib/api"
 import type { Chats } from "@/lib/chat-store/types"
 import { REMAINING_QUERY_ALERT_THRESHOLD } from "@/lib/config"
-import { Message } from "@ai-sdk/react"
+import type { ChatMessage } from "@/lib/ai/message-utils"
+import { updateMessageText } from "@/lib/ai/message-utils"
 import { useCallback } from "react"
 
-type UseChatOperationsProps = {
+type UseChatOperationsProps<T extends ChatMessage = ChatMessage> = {
   isAuthenticated: boolean
   chatId: string | null
-  messages: Message[]
+  messages: T[]
   selectedModel: string
   systemPrompt: string
   createNewChat: (
@@ -20,12 +21,12 @@ type UseChatOperationsProps = {
   ) => Promise<Chats | undefined>
   setHasDialogAuth: (value: boolean) => void
   setMessages: (
-    messages: Message[] | ((messages: Message[]) => Message[])
+    messages: T[] | ((messages: T[]) => T[])
   ) => void
   setInput: (input: string) => void
 }
 
-export function useChatOperations({
+export function useChatOperations<T extends ChatMessage>({
   isAuthenticated,
   chatId,
   messages,
@@ -34,7 +35,7 @@ export function useChatOperations({
   createNewChat,
   setHasDialogAuth,
   setMessages,
-}: UseChatOperationsProps) {
+}: UseChatOperationsProps<T>) {
   // Chat utilities
   const checkLimitsAndNotify = async (uid: string): Promise<boolean> => {
     try {
@@ -127,7 +128,9 @@ export function useChatOperations({
     (id: string, newText: string) => {
       setMessages(
         messages.map((message) =>
-          message.id === id ? { ...message, content: newText } : message
+          message.id === id
+            ? (updateMessageText(message, newText) as T)
+            : message
         )
       )
     },

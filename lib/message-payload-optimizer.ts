@@ -10,7 +10,12 @@
  * - MODEL-AWARE: Respects model-specific context window limits
  */
 
-import type { Message } from "@ai-sdk/react"
+import type { ChatMessage, ChatMessagePart } from "@/lib/ai/message-utils"
+import {
+  getMessageParts,
+  getMessageText,
+  updateMessageText,
+} from "@/lib/ai/message-utils"
 import { MAX_MESSAGES_IN_PAYLOAD, MAX_TOOL_RESULT_SIZE, MAX_MESSAGE_CONTENT_SIZE } from "./config"
 
 // ============================================================================
@@ -31,23 +36,40 @@ export function estimateTokens(text: string): number {
 /**
  * Estimate total tokens in a message (content + attachments + tool results)
  */
-export function estimateMessageTokens(message: Message): number {
+export function estimateMessageTokens(message: ChatMessage): number {
   let tokens = 0
 
   // Estimate content tokens
-  if (typeof message.content === "string") {
-    tokens += estimateTokens(message.content)
-  } else if (Array.isArray(message.content)) {
-    for (const part of message.content as any[]) {
-      if (part.type === "text" && part.text) {
+  const parts = getMessageParts(message)
+
+  for (const part of parts) {
+    if (part && typeof part === "object" && "type" in part) {
+      if (part.type === "text" && "text" in part && typeof part.text === "string") {
         tokens += estimateTokens(part.text)
-      } else if (part.type === "tool-invocation" || part.type === "tool-result") {
-        const result = part.toolInvocation?.result || part.result
-        if (result) {
+        continue
+      }
+
+      if (part.type === "tool-invocation") {
+        const toolResult = (part as { toolInvocation?: { result?: unknown } }).toolInvocation?.result
+        if (toolResult) {
           try {
-            tokens += estimateTokens(JSON.stringify(result))
+            tokens += estimateTokens(JSON.stringify(toolResult))
           } catch {
-            tokens += 500 // Default estimate for unserializable results
+            tokens += 500
+          }
+        }
+        continue
+      }
+
+      if (typeof part.type === "string" && (part.type.startsWith("tool-") || part.type === "dynamic-tool")) {
+        const output = (part as { output?: unknown }).output
+        const input = (part as { input?: unknown }).input
+        const payload = output ?? input
+        if (payload !== undefined) {
+          try {
+            tokens += estimateTokens(JSON.stringify(payload))
+          } catch {
+            tokens += 500
           }
         }
       }
@@ -63,7 +85,7 @@ export function estimateMessageTokens(message: Message): number {
 /**
  * Estimate total tokens in all messages
  */
-export function estimateTotalTokens(messages: Message[]): number {
+export function estimateTotalTokens(messages: ChatMessage[]): number {
   return messages.reduce((total, msg) => total + estimateMessageTokens(msg), 0)
 }
 
@@ -124,30 +146,6 @@ function truncateMessageContent(content: string, hasAttachments: boolean = false
  * Clean attachment URLs by removing blob URLs
  * Blob URLs are client-side only and shouldn't be sent to server
  */
-function cleanAttachments(
-  attachments?: Array<{ url?: string; name?: string; contentType?: string; [key: string]: any }>
-): Array<{ url: string; name: string; contentType: string }> | undefined {
-  if (!attachments || attachments.length === 0) return undefined
-
-  // Filter out attachments with blob URLs and ensure required fields
-  const cleaned = attachments
-    .filter((attachment) => {
-      return (
-        attachment.url &&
-        !attachment.url.startsWith("blob:") &&
-        attachment.name &&
-        attachment.contentType
-      )
-    })
-    .map((attachment) => ({
-      url: attachment.url as string,
-      name: sanitizeTextContent(attachment.name as string),
-      contentType: attachment.contentType as string,
-    }))
-
-  return cleaned.length > 0 ? cleaned : undefined
-}
-
 /**
  * Truncate tool result content if it exceeds the maximum size
  * Keeps metadata intact while reducing content length
@@ -207,56 +205,58 @@ function truncateToolResult(result: any): any {
  * Clean message content to reduce payload size
  * Removes blob URLs, truncates large tool results, keeps essential data
  */
-function cleanMessage(message: Message): Message {
-  // Check if this message has attachments (needs more aggressive truncation)
-  const hasAttachments = !!(
-    message.experimental_attachments &&
-    Array.isArray(message.experimental_attachments) &&
-    message.experimental_attachments.length > 0
-  )
+function cleanMessage(message: ChatMessage): ChatMessage {
+  const parts = getMessageParts(message)
+  const hasAttachments = parts.some((part) => part.type === "file")
 
-  const cleaned: Message = {
-    ...message,
-    // Sanitize and truncate text content if it's a string
-    content: typeof message.content === "string"
-      ? truncateMessageContent(sanitizeTextContent(message.content), hasAttachments)
-      : message.content,
-    // Clean attachments
-    experimental_attachments: cleanAttachments(
-      message.experimental_attachments as any
-    ),
-  }
+  const cleanedParts = parts
+    .map((part) => {
+      if (!part || typeof part !== "object" || !("type" in part)) return part
 
-  // Clean tool invocations if present in content
-  if (Array.isArray(message.content)) {
-    cleaned.content = message.content.map((part: any) => {
-      // Sanitize and truncate text parts
-      if (part.type === "text" && typeof part.text === "string") {
+      if (part.type === "text" && "text" in part && typeof part.text === "string") {
         return {
           ...part,
           text: truncateMessageContent(sanitizeTextContent(part.text), hasAttachments),
         }
       }
-      if (part.type === "tool-invocation" && part.toolInvocation?.result) {
-        return {
-          ...part,
-          toolInvocation: {
-            ...part.toolInvocation,
-            result: truncateToolResult(part.toolInvocation.result),
-          },
-        }
-      }
-      if (part.type === "tool-result" && part.result) {
-        return {
-          ...part,
-          result: truncateToolResult(part.result),
-        }
-      }
-      return part
-    }) as any // Type assertion needed due to AI SDK's complex content types
-  }
 
-  return cleaned
+      if (part.type === "tool-invocation") {
+        const toolInvocation = (part as { toolInvocation?: { result?: unknown } }).toolInvocation
+        if (toolInvocation?.result) {
+          return {
+            ...part,
+            toolInvocation: {
+              ...toolInvocation,
+              result: truncateToolResult(toolInvocation.result),
+            },
+          }
+        }
+      }
+
+      if (typeof part.type === "string" && (part.type.startsWith("tool-") || part.type === "dynamic-tool")) {
+        if ((part as { output?: unknown }).output !== undefined) {
+          return {
+            ...part,
+            output: truncateToolResult((part as { output?: unknown }).output),
+          }
+        }
+      }
+
+      if (part.type === "file") {
+        const url = (part as { url?: string }).url
+        if (!url || url.startsWith("blob:")) {
+          return null
+        }
+      }
+
+      return part
+    })
+    .filter(Boolean) as ChatMessagePart[]
+
+  return {
+    ...message,
+    parts: cleanedParts,
+  }
 }
 
 /**
@@ -271,7 +271,7 @@ function cleanMessage(message: Message): Message {
  * @param messages - Full message history
  * @returns Optimized messages array safe for API request
  */
-export function optimizeMessagePayload(messages: Message[]): Message[] {
+export function optimizeMessagePayload(messages: ChatMessage[]): ChatMessage[] {
   if (!messages || messages.length === 0) return []
 
   // Strategy 1: Limit to recent messages
@@ -297,7 +297,7 @@ export function optimizeMessagePayload(messages: Message[]): Message[] {
  * Calculate approximate payload size in bytes
  * Used for monitoring and debugging
  */
-export function estimatePayloadSize(messages: Message[]): number {
+export function estimatePayloadSize(messages: ChatMessage[]): number {
   try {
     return JSON.stringify(messages).length
   } catch {
@@ -310,8 +310,8 @@ export function estimatePayloadSize(messages: Message[]): number {
  * Returns reduction percentage
  */
 export function calculateReduction(
-  original: Message[],
-  optimized: Message[]
+  original: ChatMessage[],
+  optimized: ChatMessage[]
 ): number {
   const originalSize = estimatePayloadSize(original)
   const optimizedSize = estimatePayloadSize(optimized)
@@ -352,10 +352,10 @@ export interface ModelContextConfig {
  * @returns Object with optimized messages and calculated max output tokens
  */
 export function optimizeForContextWindow(
-  messages: Message[],
+  messages: ChatMessage[],
   config: ModelContextConfig
 ): {
-  messages: Message[]
+  messages: ChatMessage[]
   maxOutputTokens: number
   inputTokens: number
   availableForInput: number
@@ -404,8 +404,8 @@ export function optimizeForContextWindow(
 
   // Strategy: Remove older messages until we fit
   // Keep system messages and at least the last 2 user/assistant exchanges
-  const systemMessages = optimized.filter(m => m.role === "system")
-  let conversationMessages = optimized.filter(m => m.role !== "system")
+  const systemMessages = optimized.filter((m) => m.role === "system")
+  let conversationMessages = optimized.filter((m) => m.role !== "system")
 
   // Keep removing oldest messages until we fit
   while (conversationMessages.length > 2 && totalTokens > availableForInput) {
@@ -426,13 +426,12 @@ export function optimizeForContextWindow(
     const excessChars = excessTokens * 4 // Convert back to chars
 
     // Truncate each message proportionally
-    conversationMessages = conversationMessages.map(msg => {
-      if (typeof msg.content === "string" && msg.content.length > 1000) {
-        const maxChars = Math.max(500, msg.content.length - Math.floor(excessChars / conversationMessages.length))
-        return {
-          ...msg,
-          content: msg.content.substring(0, maxChars) + "\n\n[Content truncated to fit context window]"
-        }
+    conversationMessages = conversationMessages.map((msg) => {
+      const text = getMessageText(msg)
+      if (text && text.length > 1000) {
+        const maxChars = Math.max(500, text.length - Math.floor(excessChars / conversationMessages.length))
+        const truncated = text.substring(0, maxChars) + "\n\n[Content truncated to fit context window]"
+        return updateMessageText(msg, truncated)
       }
       return msg
     })

@@ -11,12 +11,15 @@ import { toast } from "@/components/ui/toast"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useMessages } from "@/lib/chat-store/messages/provider"
 import { MESSAGE_MAX_LENGTH, SYSTEM_PROMPT_DEFAULT } from "@/lib/config"
+import type { ChatMessage, ChatMessageMetadata, ChatMessagePart } from "@/lib/ai/message-utils"
+import { attachmentsToFileParts } from "@/lib/ai/message-utils"
 import { Attachment } from "@/lib/file-handling"
 import { API_ROUTE_CHAT } from "@/lib/routes"
 import { useUser } from "@/lib/user-store/provider"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport, type UIMessage } from "ai"
 import { ChatCircleIcon } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "motion/react"
@@ -34,11 +37,18 @@ type ProjectViewProps = {
   projectId: string
 }
 
+type UiChatMessage = UIMessage<ChatMessageMetadata>
+
 export function ProjectView({ projectId }: ProjectViewProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [enableSearch, setEnableSearch] = useState(true)
   const [researchMode, setResearchMode] = useState<ResearchMode | null>("research")
   const [currentChatId, setCurrentChatId] = useState<string | null>(null)
+  const asUiParts = useCallback(
+    (parts: ChatMessagePart[]): UiChatMessage["parts"] =>
+      parts as UiChatMessage["parts"],
+    []
+  )
   const { user } = useUser()
   const { createNewChat, bumpChat } = useChats()
   const { cacheAndAddMessage } = useMessages()
@@ -88,20 +98,20 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     })
   }, [])
 
+  const [input, setInput] = useState("")
+
   const {
     messages,
-    input,
-    handleSubmit,
     status,
-    reload,
     stop,
     setMessages,
-    setInput,
-  } = useChat({
+    sendMessage,
+    regenerate,
+  } = useChat<UIMessage<ChatMessageMetadata>>({
     id: `project-${projectId}-${currentChatId}`,
-    api: API_ROUTE_CHAT,
-    initialMessages: [],
-    onFinish: cacheAndAddMessage,
+    messages: [] as UIMessage<ChatMessageMetadata>[],
+    transport: new DefaultChatTransport({ api: API_ROUTE_CHAT }),
+    onFinish: ({ message }) => cacheAndAddMessage(message as ChatMessage),
     onError: handleError,
   })
 
@@ -198,17 +208,21 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       return
     }
 
+    const messageText = input
+    const createdAt = new Date().toISOString()
     const optimisticId = `optimistic-${Date.now().toString()}`
     const optimisticAttachments =
       files.length > 0 ? createOptimisticAttachments(files) : []
 
-    const optimisticMessage = {
+    const textPart: ChatMessagePart = { type: "text", text: messageText }
+    const optimisticMessage: UiChatMessage = {
       id: optimisticId,
-      content: input,
       role: "user" as const,
-      createdAt: new Date(),
-      experimental_attachments:
-        optimisticAttachments.length > 0 ? optimisticAttachments : undefined,
+      parts: asUiParts([
+        textPart,
+        ...attachmentsToFileParts(optimisticAttachments),
+      ]),
+      metadata: { createdAt },
     }
 
     setMessages((prev) => [...prev, optimisticMessage])
@@ -221,17 +235,17 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       const currentChatId = await ensureChatExists(user.id)
       if (!currentChatId) {
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        cleanupOptimisticAttachments(optimisticAttachments)
         return
       }
 
-      if (input.length > MESSAGE_MAX_LENGTH) {
+      if (messageText.length > MESSAGE_MAX_LENGTH) {
         toast({
           title: `The message you submitted was too long, please submit something shorter. (Max ${MESSAGE_MAX_LENGTH} characters)`,
           status: "error",
         })
         setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-        cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+        cleanupOptimisticAttachments(optimisticAttachments)
         return
       }
 
@@ -240,11 +254,27 @@ export function ProjectView({ projectId }: ProjectViewProps) {
         attachments = await handleFileUploads(user.id, currentChatId)
         if (attachments === null) {
           setMessages((prev) => prev.filter((m) => m.id !== optimisticId))
-          cleanupOptimisticAttachments(
-            optimisticMessage.experimental_attachments
-          )
+          cleanupOptimisticAttachments(optimisticAttachments)
           return
         }
+      }
+
+      const uploadedParts = attachments && attachments.length > 0
+        ? attachmentsToFileParts(attachments)
+        : []
+
+      if (uploadedParts.length > 0) {
+        const updatedParts: ChatMessagePart[] = [textPart, ...uploadedParts]
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === optimisticId
+              ? {
+                  ...msg,
+                  parts: asUiParts(updatedParts),
+                }
+              : msg
+          )
+        )
       }
 
       const options = {
@@ -257,13 +287,25 @@ export function ProjectView({ projectId }: ProjectViewProps) {
           enableSearch,
           researchMode,
         },
-        experimental_attachments: attachments || undefined,
       }
 
-      handleSubmit(undefined, options)
-      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-      cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
-      cacheAndAddMessage(optimisticMessage)
+      await sendMessage(
+        uploadedParts.length > 0
+          ? {
+              text: messageText,
+              files: uploadedParts,
+              metadata: { createdAt },
+              messageId: optimisticId,
+            }
+          : { text: messageText, metadata: { createdAt }, messageId: optimisticId },
+        options
+      )
+      cleanupOptimisticAttachments(optimisticAttachments)
+      const cachedMessage: ChatMessage =
+        uploadedParts.length > 0
+          ? { ...(optimisticMessage as ChatMessage), parts: [textPart, ...uploadedParts] }
+          : (optimisticMessage as ChatMessage)
+      cacheAndAddMessage(cachedMessage)
 
       // Bump existing chats to top (non-blocking, after submit)
       if (messages.length > 0) {
@@ -271,7 +313,7 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       }
     } catch {
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticId))
-      cleanupOptimisticAttachments(optimisticMessage.experimental_attachments)
+      cleanupOptimisticAttachments(optimisticAttachments)
       toast({ title: "Failed to send message", status: "error" })
     } finally {
       setIsSubmitting(false)
@@ -288,12 +330,13 @@ export function ProjectView({ projectId }: ProjectViewProps) {
     ensureChatExists,
     handleFileUploads,
     selectedModel,
-    handleSubmit,
+    sendMessage,
     cacheAndAddMessage,
     messages.length,
     bumpChat,
     enableSearch,
     researchMode,
+    asUiParts,
   ])
 
   const handleReload = useCallback(async () => {
@@ -313,8 +356,8 @@ export function ProjectView({ projectId }: ProjectViewProps) {
       },
     }
 
-    reload(options)
-  }, [user, selectedModel, enableSearch, researchMode, reload])
+    regenerate(options)
+  }, [user, selectedModel, enableSearch, researchMode, regenerate])
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("en-US", {

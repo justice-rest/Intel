@@ -5,13 +5,18 @@ import {
 import { TextShimmer } from "@/components/prompt-kit/loader"
 import { NewMessagesIndicator } from "@/components/prompt-kit/new-messages-indicator"
 import { ScrollButton } from "@/components/prompt-kit/scroll-button"
-import { ExtendedMessageAISDK } from "@/lib/chat-store/messages/api"
-import { Message as MessageType } from "@ai-sdk/react"
+import type { ChatMessage } from "@/lib/ai/message-utils"
+import {
+  getMessageAttachments,
+  getMessageCreatedAt,
+  getMessageParts,
+  getMessageText,
+} from "@/lib/ai/message-utils"
 import { useRef } from "react"
 import { Message } from "./message"
 
 type ConversationProps = {
-  messages: MessageType[]
+  messages: ChatMessage[]
   status?: "streaming" | "ready" | "submitted" | "error"
   onDelete: (id: string) => void
   onEdit: (id: string, newText: string) => void
@@ -70,22 +75,20 @@ export function Conversation({
                 key={message.id}
                 id={message.id}
                 variant={message.role}
-                attachments={message.experimental_attachments}
+                attachments={getMessageAttachments(message)}
                 isLast={isLast}
                 onDelete={onDelete}
                 onEdit={onEdit}
                 onReload={onReload}
                 hasScrollAnchor={hasScrollAnchor}
-                parts={message.parts}
+                parts={getMessageParts(message)}
                 status={status}
                 onQuote={onQuote}
-                messageGroupId={
-                  (message as ExtendedMessageAISDK).message_group_id ?? null
-                }
+                messageGroupId={message.metadata?.message_group_id ?? null}
                 isUserAuthenticated={isUserAuthenticated}
-                createdAt={message.createdAt instanceof Date ? message.createdAt : undefined}
+                createdAt={getMessageCreatedAt(message)}
               >
-                {message.content}
+                {getMessageText(message)}
               </Message>
             )
           })}

@@ -247,17 +247,25 @@ Focus on elements that would help an AI assistant communicate and advise in the 
       document_type: object.document_type,
     }
 
-    return {
-      success: true,
-      analysis,
-      tokenUsage: usage
-        ? {
-            promptTokens: usage.promptTokens,
-            completionTokens: usage.completionTokens,
-            totalTokens: usage.totalTokens,
-          }
-        : undefined,
+    if (usage) {
+      const promptTokens =
+        usage.inputTokens ?? (usage as { promptTokens?: number }).promptTokens ?? 0
+      const completionTokens =
+        usage.outputTokens ?? (usage as { completionTokens?: number }).completionTokens ?? 0
+      const totalTokens = usage.totalTokens ?? promptTokens + completionTokens
+
+      return {
+        success: true,
+        analysis,
+        tokenUsage: {
+          promptTokens,
+          completionTokens,
+          totalTokens,
+        },
+      }
     }
+
+    return { success: true, analysis }
   } catch (error) {
     console.error('Document analysis error:', error)
     return {

@@ -435,7 +435,7 @@ export const usptoSearchTool = tool({
     "1-5 patents: High net worth, 20+ patents: Ultra high net worth. " +
     "Estimated patent values range from $10K to $5M+ for highly-cited patents.",
 
-  parameters: usptoSearchSchema,
+  inputSchema: usptoSearchSchema,
 
   execute: async ({ searchTerm, searchType }): Promise<USPTOSearchResult> => {
     return searchUSPTO(searchTerm, searchType)

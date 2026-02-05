@@ -1,19 +1,20 @@
-import { Message as MessageType } from "@ai-sdk/react"
+import type { ChatMessagePart } from "@/lib/ai/message-utils"
+import type { Attachment } from "@/lib/file-handling"
 import React, { useState } from "react"
 import { MessageAssistant } from "./message-assistant"
 import { MessageUser } from "./message-user"
 
 type MessageProps = {
-  variant: MessageType["role"]
+  variant: "user" | "assistant" | "system" | "data"
   children: string
   id: string
-  attachments?: MessageType["experimental_attachments"]
+  attachments?: Attachment[]
   isLast?: boolean
   onDelete: (id: string) => void
   onEdit: (id: string, newText: string) => Promise<void> | void
   onReload: () => void
   hasScrollAnchor?: boolean
-  parts?: MessageType["parts"]
+  parts?: ChatMessagePart[]
   status?: "streaming" | "ready" | "submitted" | "error"
   className?: string
   onQuote?: (text: string, messageId: string) => void

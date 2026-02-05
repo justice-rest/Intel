@@ -17,7 +17,8 @@ import { APP_NAME } from "@/lib/config"
 import { exportToPdf } from "@/lib/pdf-export"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
-import type { Message as MessageAISDK } from "@ai-sdk/react"
+import type { ChatMessage, ChatMessagePart } from "@/lib/ai/message-utils"
+import { getLegacyToolInvocationParts, getMessageParts, getMessageText, getReasoningText } from "@/lib/ai/message-utils"
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
 import { Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
 import Link from "next/link"
@@ -131,33 +132,31 @@ export default function Article({
         </div>
         <div className="mt-20 w-full">
           {messages.map((message) => {
-            const parts = message?.parts as MessageAISDK["parts"]
+            const messageAsChat = message as unknown as ChatMessage
+            const parts = getMessageParts(messageAsChat) as ChatMessagePart[]
             const sources = getSources(parts)
 
             // Extract different types of parts for proper rendering
-            const toolInvocationParts = parts?.filter(
-              (part) => part.type === "tool-invocation"
-            )
-            const reasoningParts = parts?.find((part) => part.type === "reasoning")
+            const toolInvocationParts = getLegacyToolInvocationParts(parts)
+            const reasoningText = getReasoningText(parts)
             const searchImageResults =
-              parts
+              toolInvocationParts
                 ?.filter(
                   (part) =>
-                    part.type === "tool-invocation" &&
                     part.toolInvocation?.state === "result" &&
                     part.toolInvocation?.toolName === "imageSearch" &&
-                    part.toolInvocation?.result?.content?.[0]?.type === "images"
+                    (part.toolInvocation?.result as any)?.content?.[0]?.type === "images"
                 )
                 .flatMap((part) =>
-                  part.type === "tool-invocation" &&
                   part.toolInvocation?.state === "result" &&
                   part.toolInvocation?.toolName === "imageSearch" &&
-                  part.toolInvocation?.result?.content?.[0]?.type === "images"
-                    ? (part.toolInvocation?.result?.content?.[0]?.results ?? [])
+                  (part.toolInvocation?.result as any)?.content?.[0]?.type === "images"
+                    ? ((part.toolInvocation?.result as any)?.content?.[0]?.results ?? [])
                     : []
                 ) ?? []
 
-            const contentNullOrEmpty = !message.content || message.content === ""
+            const contentText = getMessageText(messageAsChat)
+            const contentNullOrEmpty = !contentText || contentText === ""
 
             return (
               <div key={message.id} className="mb-8">
@@ -174,9 +173,9 @@ export default function Article({
                     message.role === "user" && "max-w-[85%]"
                   )}>
                     {/* Render reasoning for assistant messages */}
-                    {message.role === "assistant" && reasoningParts && reasoningParts.reasoning && (
+                    {message.role === "assistant" && reasoningText && (
                       <Reasoning
-                        reasoning={reasoningParts.reasoning}
+                        reasoning={reasoningText}
                         isStreaming={false}
                       />
                     )}
@@ -221,7 +220,7 @@ export default function Article({
                           },
                         })}
                       >
-                        {message.content!}
+                        {contentText}
                       </MessageContent>
                     )}
 
@@ -244,7 +243,7 @@ export default function Article({
                           <button
                             className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition"
                             aria-label="Copy text"
-                            onClick={() => copyToClipboard(message.id, message.content!)}
+                            onClick={() => copyToClipboard(message.id, contentText)}
                             type="button"
                           >
                             {copiedId === message.id ? (
@@ -261,7 +260,7 @@ export default function Article({
                           <button
                             className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
                             aria-label="Export PDF"
-                            onClick={() => handleExportPdf(message.id, message.content!)}
+                            onClick={() => handleExportPdf(message.id, contentText)}
                             type="button"
                             disabled={exportingId === message.id}
                           >

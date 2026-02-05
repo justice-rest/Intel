@@ -622,7 +622,7 @@ export const secInsiderSearchTool = tool({
     "VERIFIES: Officer, director, or 10%+ owner status at public companies. " +
     "SUPPORTS: Multiple aliases/name variations, direct CIK lookup. " +
     "SOURCE: SEC EDGAR (official government data). No API key required.",
-  parameters: insiderSearchSchema,
+  inputSchema: insiderSearchSchema,
   execute: async ({ personName, aliases, cik, limit = 10 }): Promise<InsiderSearchResult> => {
     const startTime = Date.now()
 
@@ -806,7 +806,7 @@ export const secProxySearchTool = tool({
     "USE WHEN: Need to verify WHO serves on a company's board. " +
     "SUPPORTS: Company name search, direct CIK lookup (faster). " +
     "SOURCE: SEC EDGAR (official government data). No API key required.",
-  parameters: proxySearchSchema,
+  inputSchema: proxySearchSchema,
   execute: async ({ companyName, cik, limit = 5 }): Promise<ProxyStatementResult> => {
     // Validate input
     if (!companyName && !cik) {

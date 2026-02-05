@@ -3,7 +3,8 @@
  * Similar to get-sources.ts but for RAG tool results
  */
 
-import type { Message as MessageAISDK } from "@ai-sdk/react"
+import type { ChatMessagePart } from "@/lib/ai/message-utils"
+import { getLegacyToolInvocationParts } from "@/lib/ai/message-utils"
 
 export interface Citation {
   document: string
@@ -28,17 +29,16 @@ type RagSearchResult = {
   results?: RagSearchResultItem[]
 }
 
-export function getCitations(parts: MessageAISDK["parts"]): Citation[] {
+export function getCitations(parts: ChatMessagePart[] | undefined): Citation[] {
   if (!parts || parts.length === 0) {
     return []
   }
 
   const citations: Citation[] = []
 
-  for (const part of parts) {
+  for (const part of getLegacyToolInvocationParts(parts)) {
     // Look for tool invocation parts with rag_search tool
     if (
-      part.type === "tool-invocation" &&
       part.toolInvocation.state === "result" &&
       part.toolInvocation.toolName === "rag_search"
     ) {

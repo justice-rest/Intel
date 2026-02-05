@@ -864,7 +864,7 @@ export const neonCRMSearchAccountsTool = tool({
     "Returns account IDs, contact info, and giving summaries. " +
     "Use this to find donors in the nonprofit's CRM before external research. " +
     "Requires NEON_CRM_ORG_ID and NEON_CRM_API_KEY environment variables.",
-  parameters: searchAccountsSchema,
+  inputSchema: searchAccountsSchema,
   execute: async (params): Promise<NeonCRMSearchAccountsResponse> => {
     console.log("[Neon CRM] Searching accounts:", params)
     const startTime = Date.now()
@@ -957,7 +957,7 @@ export const neonCRMGetAccountTool = tool({
     "Returns full contact info, custom fields, and donation history. " +
     "Use after searching to get complete donor profile. " +
     "Requires NEON_CRM_ORG_ID and NEON_CRM_API_KEY environment variables.",
-  parameters: getAccountSchema,
+  inputSchema: getAccountSchema,
   execute: async ({ accountId, includeDonations, donationLimit }): Promise<NeonCRMGetAccountResponse> => {
     console.log("[Neon CRM] Getting account:", accountId)
     const startTime = Date.now()
@@ -1048,7 +1048,7 @@ export const neonCRMSearchDonationsTool = tool({
     "Returns donation details with amounts and campaign attribution. " +
     "Use to analyze giving patterns and major gifts. " +
     "Requires NEON_CRM_ORG_ID and NEON_CRM_API_KEY environment variables.",
-  parameters: searchDonationsSchema,
+  inputSchema: searchDonationsSchema,
   execute: async (params): Promise<NeonCRMSearchDonationsResponse> => {
     console.log("[Neon CRM] Searching donations:", params)
     const startTime = Date.now()

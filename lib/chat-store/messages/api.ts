@@ -1,57 +1,65 @@
 import { createClient } from "@/lib/supabase/client"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
-import type { Message as MessageAISDK } from "ai"
+import type { Database, Json } from "@/app/types/database.types"
+import type { ChatMessage, ChatMessagePart } from "@/lib/ai/message-utils"
+import {
+  attachmentsToFileParts,
+  getMessageAttachments,
+  getMessageCreatedAt,
+  getMessageParts,
+  getMessageText,
+} from "@/lib/ai/message-utils"
+import type { Attachment } from "@/lib/file-handling"
 import { readFromIndexedDB, writeToIndexedDB } from "../persist"
 
-export interface ExtendedMessageAISDK extends MessageAISDK {
-  message_group_id?: string
-  model?: string
-  /** The user ID who sent this message (for collaborative chats) */
-  user_id?: string
+export type ExtendedChatMessage = ChatMessage
+
+function filterStoredAttachments(attachments?: Attachment[] | null): Attachment[] {
+  if (!attachments) return []
+  return attachments.filter(
+    (attachment) => attachment?.url && !attachment.url.startsWith("blob:")
+  )
 }
 
-/**
- * Extract text content from message parts array
- * Used when content field is empty but parts have data
- */
-function extractContentFromParts(parts: unknown[] | null): string {
-  if (!parts || !Array.isArray(parts) || parts.length === 0) return ""
+function buildMessageParts(options: {
+  content: string | null
+  parts: unknown[] | null
+  attachments: Attachment[] | null
+  role: string
+}): ChatMessagePart[] {
+  const baseParts = Array.isArray(options.parts)
+    ? (options.parts as ChatMessagePart[])
+    : []
 
-  const texts: string[] = []
-  for (const part of parts) {
-    if (part && typeof part === "object") {
-      const p = part as { type?: string; text?: string }
-      if (p.type === "text" && typeof p.text === "string" && p.text.trim()) {
-        texts.push(p.text)
-      }
-    }
-  }
-  return texts.join("\n")
-}
+  const attachmentParts = attachmentsToFileParts(
+    filterStoredAttachments(options.attachments)
+  )
 
-/**
- * Get effective content, preferring content field but falling back to parts
- * This ensures messages always have non-empty content for xAI/Grok
- */
-function getEffectiveContent(content: string | null, parts: unknown[] | null, role: string): string {
-  // If content has text, use it
-  if (content && content.trim()) {
-    return content
-  }
+  const combined = [...baseParts, ...attachmentParts]
+  const hasText = combined.some(
+    (part) =>
+      part &&
+      typeof part === "object" &&
+      "type" in part &&
+      part.type === "text" &&
+      typeof (part as { text?: string }).text === "string" &&
+      (part as { text?: string }).text?.trim()
+  )
 
-  // Try to extract from parts
-  const partsContent = extractContentFromParts(parts)
-  if (partsContent) {
-    return partsContent
+  const fallbackText =
+    options.content?.trim() ||
+    (options.role === "assistant" ? "[Assistant response]" : "[User message]")
+
+  if (!hasText) {
+    combined.unshift({ type: "text", text: fallbackText })
   }
 
-  // Fallback placeholder to prevent xAI empty content errors
-  return role === "assistant" ? "[Assistant response]" : "[User message]"
+  return combined
 }
 
 export async function getMessagesFromDb(
   chatId: string
-): Promise<MessageAISDK[]> {
+): Promise<ChatMessage[]> {
   // fallback to local cache only
   if (!isSupabaseEnabled) {
     const cached = await getCachedMessages(chatId)
@@ -76,28 +84,32 @@ export async function getMessagesFromDb(
     return cached
   }
 
-  return data.map((message) => ({
-    id: String(message.id),
-    role: message.role as MessageAISDK["role"],
-    // Use getEffectiveContent to ensure non-empty content for xAI/Grok
-    content: getEffectiveContent(
-      message.content as string | null,
-      message.parts as unknown[] | null,
-      message.role as string
-    ),
-    createdAt: new Date((message.created_at as string) || ""),
-    experimental_attachments: message.experimental_attachments as MessageAISDK["experimental_attachments"],
-    parts: (message.parts as MessageAISDK["parts"]) || undefined,
-    message_group_id: message.message_group_id as string | undefined,
-    model: message.model as string | undefined,
-    user_id: message.user_id as string | undefined,
-  }))
+  return data.map((message) => {
+    const parts = buildMessageParts({
+      content: message.content as string | null,
+      parts: message.parts as unknown[] | null,
+      attachments: message.experimental_attachments as Attachment[] | null,
+      role: message.role as string,
+    })
+
+    return {
+      id: String(message.id),
+      role: message.role as ChatMessage["role"],
+      parts,
+      metadata: {
+        createdAt: (message.created_at as string) || new Date().toISOString(),
+        message_group_id: message.message_group_id as string | null | undefined,
+        model: message.model as string | undefined,
+        user_id: message.user_id as string | undefined,
+      },
+    }
+  })
 }
 
 export async function getLastMessagesFromDb(
   chatId: string,
   limit: number = 2
-): Promise<MessageAISDK[]> {
+): Promise<ChatMessage[]> {
   if (!isSupabaseEnabled) {
     const cached = await getCachedMessages(chatId)
     return cached.slice(-limit)
@@ -121,57 +133,78 @@ export async function getLastMessagesFromDb(
   }
 
   const ascendingData = [...data].reverse()
-  return ascendingData.map((message) => ({
-    ...message,
-    id: String(message.id),
-    // Use getEffectiveContent to ensure non-empty content for xAI/Grok
-    content: getEffectiveContent(
-      message.content as string | null,
-      message.parts as unknown[] | null,
-      message.role as string
-    ),
-    createdAt: new Date(message.created_at || ""),
-    parts: (message?.parts as MessageAISDK["parts"]) || undefined,
-    message_group_id: message.message_group_id,
-    model: message.model,
-    user_id: message.user_id as string | undefined,
-  }))
+  return ascendingData.map((message) => {
+    const parts = buildMessageParts({
+      content: message.content as string | null,
+      parts: message.parts as unknown[] | null,
+      attachments: message.experimental_attachments as Attachment[] | null,
+      role: message.role as string,
+    })
+
+    return {
+      id: String(message.id),
+      role: message.role as ChatMessage["role"],
+      parts,
+      metadata: {
+        createdAt: (message.created_at as string) || new Date().toISOString(),
+        message_group_id: message.message_group_id as string | null | undefined,
+        model: message.model as string | undefined,
+        user_id: message.user_id as string | undefined,
+      },
+    }
+  })
 }
 
 async function insertMessageToDb(
   chatId: string,
-  message: ExtendedMessageAISDK
+  message: ExtendedChatMessage
 ) {
   const supabase = createClient()
   if (!supabase) return
 
-  await supabase.from("messages").insert({
+  const createdAt = getMessageCreatedAt(message)?.toISOString() || new Date().toISOString()
+  const content = getMessageText(message)
+  const attachments = getMessageAttachments(message)
+
+  const payload: Database["public"]["Tables"]["messages"]["Insert"] = {
     chat_id: chatId,
     role: message.role,
-    content: message.content,
-    experimental_attachments: message.experimental_attachments,
-    created_at: message.createdAt?.toISOString() || new Date().toISOString(),
-    message_group_id: message.message_group_id || null,
-    model: message.model || null,
-  })
+    content,
+    parts: getMessageParts(message) as Json,
+    experimental_attachments: attachments.length > 0 ? attachments : undefined,
+    created_at: createdAt,
+    message_group_id: message.metadata?.message_group_id || null,
+    model: message.metadata?.model || null,
+    user_id: message.metadata?.user_id || null,
+  }
+
+  await supabase.from("messages").insert(payload)
 }
 
 async function insertMessagesToDb(
   chatId: string,
-  messages: ExtendedMessageAISDK[]
+  messages: ExtendedChatMessage[]
 ) {
   const supabase = createClient()
   if (!supabase) return
 
-  const payload = messages.map((message) => ({
-    chat_id: chatId,
-    role: message.role,
-    content: message.content,
-    experimental_attachments: message.experimental_attachments,
-    created_at: message.createdAt?.toISOString() || new Date().toISOString(),
-    message_group_id: message.message_group_id || null,
-    model: message.model || null,
-  }))
+  const payload: Database["public"]["Tables"]["messages"]["Insert"][] = messages.map((message) => {
+    const createdAt = getMessageCreatedAt(message)?.toISOString() || new Date().toISOString()
+    const content = getMessageText(message)
+    const attachments = getMessageAttachments(message)
+
+    return {
+      chat_id: chatId,
+      role: message.role,
+      content,
+      parts: getMessageParts(message) as Json,
+      experimental_attachments: attachments.length > 0 ? attachments : undefined,
+      created_at: createdAt,
+      message_group_id: message.metadata?.message_group_id || null,
+      model: message.metadata?.model || null,
+      user_id: message.metadata?.user_id || null,
+    }
+  })
 
   await supabase.from("messages").insert(payload)
 }
@@ -192,31 +225,33 @@ async function deleteMessagesFromDb(chatId: string) {
 
 type ChatMessageEntry = {
   id: string
-  messages: MessageAISDK[]
+  messages: ChatMessage[]
 }
 
 export async function getCachedMessages(
   chatId: string
-): Promise<MessageAISDK[]> {
+): Promise<ChatMessage[]> {
   const entry = await readFromIndexedDB<ChatMessageEntry>("messages", chatId)
 
   if (!entry || Array.isArray(entry)) return []
 
-  return (entry.messages || []).sort(
-    (a, b) => +new Date(a.createdAt || 0) - +new Date(b.createdAt || 0)
-  )
+  return (entry.messages || []).sort((a, b) => {
+    const aTime = getMessageCreatedAt(a)?.getTime() || 0
+    const bTime = getMessageCreatedAt(b)?.getTime() || 0
+    return aTime - bTime
+  })
 }
 
 export async function cacheMessages(
   chatId: string,
-  messages: MessageAISDK[]
+  messages: ChatMessage[]
 ): Promise<void> {
   await writeToIndexedDB("messages", { id: chatId, messages })
 }
 
 export async function addMessage(
   chatId: string,
-  message: MessageAISDK
+  message: ChatMessage
 ): Promise<void> {
   await insertMessageToDb(chatId, message)
   const current = await getCachedMessages(chatId)
@@ -227,7 +262,7 @@ export async function addMessage(
 
 export async function setMessages(
   chatId: string,
-  messages: MessageAISDK[]
+  messages: ChatMessage[]
 ): Promise<void> {
   await insertMessagesToDb(chatId, messages)
   await writeToIndexedDB("messages", { id: chatId, messages })

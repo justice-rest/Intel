@@ -3,9 +3,10 @@ import {
   getCachedMessages,
   getMessagesFromDb,
 } from "@/lib/chat-store/messages/api"
+import { getMessageCreatedAt, getMessageText } from "@/lib/ai/message-utils"
 import { useCallback, useEffect, useRef, useState } from "react"
 
-interface ChatMessage {
+interface ChatPreviewMessage {
   id: string
   content: string
   role: "user" | "assistant"
@@ -13,7 +14,7 @@ interface ChatMessage {
 }
 
 interface UseChatPreviewReturn {
-  messages: ChatMessage[]
+  messages: ChatPreviewMessage[]
   isLoading: boolean
   error: string | null
   fetchPreview: (chatId: string) => Promise<void>
@@ -21,7 +22,7 @@ interface UseChatPreviewReturn {
 }
 
 export function useChatPreview(): UseChatPreviewReturn {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessages] = useState<ChatPreviewMessage[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -68,10 +69,10 @@ export function useChatPreview(): UseChatPreviewReturn {
               .slice(-5) // Get last 5 messages
               .map((msg) => ({
                 id: msg.id,
-                content: msg.content,
+                content: getMessageText(msg),
                 role: msg.role as "user" | "assistant",
                 created_at:
-                  msg.createdAt?.toISOString() || new Date().toISOString(),
+                  getMessageCreatedAt(msg)?.toISOString() || new Date().toISOString(),
               }))
             setMessages(cachedMessages)
           }
@@ -92,10 +93,10 @@ export function useChatPreview(): UseChatPreviewReturn {
               .slice(-5) // Get last 5 messages
               .map((msg) => ({
                 id: msg.id,
-                content: msg.content,
+                content: getMessageText(msg),
                 role: msg.role as "user" | "assistant",
                 created_at:
-                  msg.createdAt?.toISOString() || new Date().toISOString(),
+                  getMessageCreatedAt(msg)?.toISOString() || new Date().toISOString(),
               }))
             setMessages(freshMessages)
           }

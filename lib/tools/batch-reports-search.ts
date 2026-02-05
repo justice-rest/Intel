@@ -19,7 +19,7 @@ export const createBatchReportsSearchTool = (userId: string) =>
   tool({
     description:
       "Search your previously researched prospects from batch processing. Use this to find details about prospects you've already researched, including their RomyScore, capacity rating, net worth estimates, gift capacity, and philanthropic profiles. This is useful when discussing prospects by name or looking for prospects with specific characteristics.",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z
         .string()
         .describe(

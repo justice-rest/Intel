@@ -241,7 +241,7 @@ export const gleifSearchTool = tool({
     "Returns LEI (Legal Entity Identifier), entity status, jurisdiction, and registration details. " +
     "FREE API, no authentication required. Covers 2.5M+ global legal entities. " +
     "Use this to verify business existence and find corporate ownership data.",
-  parameters: gleifSearchParametersSchema,
+  inputSchema: gleifSearchParametersSchema,
   execute: async ({ query, country, limit = 10 }: GLEIFSearchParams): Promise<{
     success: boolean
     entities: Array<ReturnType<typeof formatLEIRecord>>
@@ -351,7 +351,7 @@ export const gleifLookupTool = tool({
     "Returns entity details PLUS direct parent and ultimate parent (who owns this company). " +
     "Essential for tracing corporate ownership chains globally. " +
     "FREE API, no authentication required.",
-  parameters: gleifLookupParametersSchema,
+  inputSchema: gleifLookupParametersSchema,
   execute: async ({ lei, includeParents = true }: GLEIFLookupParams): Promise<{
     success: boolean
     entity: ReturnType<typeof formatLEIRecord> | null

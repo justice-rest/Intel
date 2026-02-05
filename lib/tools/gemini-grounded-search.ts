@@ -43,7 +43,7 @@ Use this tool for:
 
 Returns real-time search results with source citations from Google's search index.
 Optimized for speed while maintaining accuracy.`,
-  parameters: z.object({
+  inputSchema: z.object({
     query: z
       .string()
       .describe(
@@ -107,7 +107,7 @@ This tool conducts MULTIPLE searches from different angles, cross-references sou
 and provides a comprehensive synthesis. Takes longer but delivers more thorough results.
 
 Best used for deep/ultra research modes where quality matters more than speed.`,
-  parameters: z.object({
+  inputSchema: z.object({
     query: z
       .string()
       .describe(

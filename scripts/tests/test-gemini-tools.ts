@@ -38,6 +38,42 @@ function loadEnvFile(filePath: string): void {
 
 loadEnvFile(resolve(process.cwd(), ".env.local"))
 
+type GeminiSearchResult = {
+  content: string
+  sources: Array<{ name: string; url: string }>
+  searchQueries?: string[]
+  durationMs?: number
+  model?: string
+  mode?: string
+  provider: string
+  isBeta: boolean
+  error?: string
+}
+
+function isAsyncIterable<T>(value: unknown): value is AsyncIterable<T> {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    Symbol.asyncIterator in value &&
+    typeof (value as AsyncIterable<T>)[Symbol.asyncIterator] === "function"
+  )
+}
+
+async function resolveToolResult<T>(value: T | AsyncIterable<T>): Promise<T> {
+  if (!isAsyncIterable<T>(value)) return value
+
+  let last: T | undefined
+  for await (const chunk of value) {
+    last = chunk
+  }
+
+  if (last === undefined) {
+    throw new Error("Tool returned an empty stream.")
+  }
+
+  return last
+}
+
 const colors = {
   reset: "\x1b[0m",
   bright: "\x1b[1m",
@@ -73,12 +109,18 @@ async function testGeminiFlash(): Promise<boolean> {
   const startTime = Date.now()
 
   try {
-    const result = await geminiGroundedSearchTool.execute(
+    const execute = geminiGroundedSearchTool.execute
+    if (typeof execute !== "function") {
+      throw new Error("geminiGroundedSearchTool.execute is not available.")
+    }
+
+    const rawResult = await execute(
       { query },
       { toolCallId: "test-flash", messages: [], abortSignal: undefined as any }
     )
 
     const durationMs = Date.now() - startTime
+    const result = (await resolveToolResult(rawResult)) as GeminiSearchResult
 
     if (result.error) {
       log(`  ❌ Error: ${result.error}`, "red")
@@ -117,12 +159,18 @@ async function testGeminiPro(): Promise<boolean> {
   const startTime = Date.now()
 
   try {
-    const result = await geminiUltraSearchTool.execute(
+    const execute = geminiUltraSearchTool.execute
+    if (typeof execute !== "function") {
+      throw new Error("geminiUltraSearchTool.execute is not available.")
+    }
+
+    const rawResult = await execute(
       { query, context },
       { toolCallId: "test-pro", messages: [], abortSignal: undefined as any }
     )
 
     const durationMs = Date.now() - startTime
+    const result = (await resolveToolResult(rawResult)) as GeminiSearchResult
 
     if (result.error) {
       log(`  ❌ Error: ${result.error}`, "red")

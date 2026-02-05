@@ -18,7 +18,7 @@ import { getCachedEmbedding, setCachedEmbedding } from "@/lib/memory/embedding-c
 export const createRagSearchTool = (userId: string) => tool({
   description:
     "Search the user's uploaded documents for relevant information. Use this when the user's question relates to their uploaded PDFs (annual reports, research papers, donor data, fundraising documents, etc.). This tool performs semantic search across all documents the user has uploaded.",
-  parameters: z.object({
+  inputSchema: z.object({
     query: z
       .string()
       .describe(

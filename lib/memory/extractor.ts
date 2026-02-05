@@ -228,7 +228,7 @@ export async function extractMemoriesAuto(
 ${conversationText}
 
 Return a JSON array of extracted memories (or empty array if none found).`,
-      maxTokens: 2000,
+      maxOutputTokens: 2000,
     })
 
     // Parse JSON response

@@ -48,7 +48,7 @@ Note: This is slower (10 seconds to 5 minutes) but provides the most thorough re
 Uses 2 credits (same as Deep Research mode).
 
 This is a beta feature available to Scale plan users only.`,
-  parameters: z.object({
+  inputSchema: z.object({
     query: z
       .string()
       .describe(
