@@ -1,5 +1,7 @@
 "use client"
 
+/* eslint-disable @next/next/no-img-element */
+
 import type { HTMLAttributes } from "react"
 
 interface RomyLogoProps extends HTMLAttributes<HTMLImageElement> {

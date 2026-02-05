@@ -22,10 +22,8 @@ let puppeteerCore: typeof import("puppeteer-core") | null = null
 async function loadPuppeteer() {
   if (!puppeteerCore || !chromium) {
     try {
-      const chromiumModule = "@sparticuz/chromium"
-      const puppeteerModule = "puppeteer-core"
-      chromium = await import(chromiumModule)
-      puppeteerCore = await import(puppeteerModule)
+      chromium = await import("@sparticuz/chromium")
+      puppeteerCore = await import("puppeteer-core")
     } catch (error) {
       throw new Error(
         `Failed to load puppeteer-core or @sparticuz/chromium: ${error instanceof Error ? error.message : String(error)}. ` +

@@ -14,10 +14,58 @@ import {
   detectColumnMapping,
   validateProspectData,
   MAX_PROSPECTS_PER_BATCH,
+  MAX_BATCH_FILE_SIZE,
   ALLOWED_BATCH_EXTENSIONS,
   parseFullName,
   combineNames,
 } from "./config"
+
+const FORBIDDEN_COLUMN_KEYS = new Set([
+  "__proto__",
+  "prototype",
+  "constructor",
+  "__defineGetter__",
+  "__defineSetter__",
+  "__lookupGetter__",
+  "__lookupSetter__",
+])
+
+function isForbiddenColumnKey(key: string): boolean {
+  return FORBIDDEN_COLUMN_KEYS.has(key.toLowerCase())
+}
+
+function sanitizeColumns(columns: string[]): { columns: string[]; removed: string[] } {
+  const safeColumns: string[] = []
+  const removed: string[] = []
+
+  for (const column of columns) {
+    const trimmed = String(column).trim()
+    if (!trimmed) continue
+    if (isForbiddenColumnKey(trimmed)) {
+      removed.push(trimmed)
+      continue
+    }
+    safeColumns.push(trimmed)
+  }
+
+  return { columns: safeColumns, removed }
+}
+
+function sanitizeRows(
+  rows: Record<string, string>[],
+  columns: string[]
+): Record<string, string>[] {
+  return rows
+    .map((row) => {
+      const sanitized: Record<string, string> = {}
+      columns.forEach((col) => {
+        const value = row[col]
+        sanitized[col] = value !== undefined && value !== null ? String(value) : ""
+      })
+      return sanitized
+    })
+    .filter((row) => Object.values(row).some((value) => value.length > 0))
+}
 
 // ============================================================================
 // FILE TYPE DETECTION
@@ -158,6 +206,19 @@ export async function parseProspectFile(
     }
   }
 
+  if (file.size > MAX_BATCH_FILE_SIZE) {
+    return {
+      success: false,
+      rows: [],
+      columns: [],
+      total_rows: 0,
+      errors: [
+        `File size exceeds ${(MAX_BATCH_FILE_SIZE / (1024 * 1024)).toFixed(0)}MB limit. Please upload a smaller file.`,
+      ],
+      suggested_mapping: {},
+    }
+  }
+
   try {
     // Read file content
     const content = await file.arrayBuffer()
@@ -180,6 +241,18 @@ export async function parseProspectFile(
       }
     }
 
+    const sanitized = sanitizeColumns(parsed.columns)
+    if (sanitized.removed.length > 0) {
+      errors.push(
+        `Removed ${sanitized.removed.length} column(s) with reserved names for security: ${sanitized.removed.join(", ")}`
+      )
+    }
+
+    parsed = {
+      rows: sanitizeRows(parsed.rows, sanitized.columns),
+      columns: sanitized.columns,
+    }
+
     // Check if we got any data
     if (parsed.rows.length === 0) {
       return {
@@ -187,7 +260,7 @@ export async function parseProspectFile(
         rows: [],
         columns: parsed.columns,
         total_rows: 0,
-        errors: ["File contains no data rows"],
+        errors: ["File contains no usable data rows"],
         suggested_mapping: {},
       }
     }

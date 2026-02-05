@@ -44,31 +44,7 @@ export function DriveFilePicker({ onFileSelect, isLoading: externalLoading, clas
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Check if user has Google Drive connected
-  useEffect(() => {
-    checkDriveConnection()
-  }, [])
-
-  const checkDriveConnection = async () => {
-    try {
-      const response = await fetch("/api/google-integrations")
-      if (response.ok) {
-        const data = await response.json()
-        // Check if connected AND has Drive scope
-        const hasConnection = data.connected && hasDriveScope(data.scopes || [])
-        setIsConnected(hasConnection)
-        if (hasConnection) {
-          fetchDriveFiles()
-        }
-      } else {
-        setIsConnected(false)
-      }
-    } catch {
-      setIsConnected(false)
-    }
-  }
-
-  const fetchDriveFiles = async () => {
+  const fetchDriveFiles = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
@@ -93,7 +69,31 @@ export function DriveFilePicker({ onFileSelect, isLoading: externalLoading, clas
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [])
+
+  const checkDriveConnection = useCallback(async () => {
+    try {
+      const response = await fetch("/api/google-integrations")
+      if (response.ok) {
+        const data = await response.json()
+        // Check if connected AND has Drive scope
+        const hasConnection = data.connected && hasDriveScope(data.scopes || [])
+        setIsConnected(hasConnection)
+        if (hasConnection) {
+          await fetchDriveFiles()
+        }
+      } else {
+        setIsConnected(false)
+      }
+    } catch {
+      setIsConnected(false)
+    }
+  }, [fetchDriveFiles])
+
+  // Check if user has Google Drive connected
+  useEffect(() => {
+    checkDriveConnection()
+  }, [checkDriveConnection])
 
   const handleConnect = () => {
     // Open settings modal to integrations tab (settings is a modal, not a page)

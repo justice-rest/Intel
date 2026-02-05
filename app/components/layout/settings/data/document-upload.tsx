@@ -41,7 +41,7 @@ export function DocumentUpload({
     e.stopPropagation()
   }, [])
 
-  const validateFile = (file: File): string | null => {
+  const validateFile = useCallback((file: File): string | null => {
     if (file.type !== "application/pdf") {
       return "Only PDF files are supported"
     }
@@ -49,7 +49,7 @@ export function DocumentUpload({
       return `File too large. Maximum size is ${maxFileSize / (1024 * 1024)}MB`
     }
     return null
-  }
+  }, [maxFileSize])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -69,7 +69,7 @@ export function DocumentUpload({
         }
       }
     },
-    [maxFileSize]
+    [validateFile]
   )
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

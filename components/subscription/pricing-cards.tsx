@@ -4,6 +4,7 @@ import { useCustomer, CheckoutDialog } from "autumn-js/react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useUser } from "@/lib/user-store/provider"
+import Image from "next/image"
 
 /**
  * Pricing Cards Component for Rōmy Subscriptions
@@ -148,7 +149,7 @@ export function PricingCards() {
                 )}
               >
                 <div className="relative h-6 w-6">
-                  <img
+                  <Image
                     src="/lock.svg"
                     alt="lock"
                     height={24}
@@ -212,22 +213,24 @@ export function PricingCards() {
           )}
         >
           <div className="absolute inset-0 z-0 h-full w-full overflow-hidden">
-            <img
+            <Image
               src="/pricing-gradient.png"
               alt=""
               className="absolute -right-0 -top-52 h-auto w-full"
               height={535}
               width={535}
-              loading="eager"
+              priority
             />
           </div>
 
-          <div className="absolute inset-x-0 -top-14 h-56 overflow-hidden">
+          <div className="absolute inset-x-0 -top-14 h-56 overflow-hidden relative">
             <div className="absolute inset-0 bg-white/10 mix-blend-overlay blur-[100px]" />
-            <img
+            <Image
               className="absolute inset-0 h-full w-full object-cover mix-blend-screen"
               src="/small-pixel.png"
               alt="background effect"
+              fill
+              sizes="100vw"
             />
           </div>
 
@@ -240,7 +243,7 @@ export function PricingCards() {
                 )}
               >
                 <div className="relative h-6 w-6">
-                  <img height={24} width={24} src="/zap.svg" alt="zap" />
+                  <Image height={24} width={24} src="/zap.svg" alt="zap" />
                 </div>
               </div>
 
@@ -302,7 +305,7 @@ export function PricingCards() {
                 )}
               >
                 <div className="relative h-6 w-6">
-                  <img
+                  <Image
                     height={40}
                     width={40}
                     src="/mail-pixel.svg"

@@ -96,7 +96,9 @@ export function SubscriptionProductCard({ features }: SubscriptionProductCardPro
         .eq("id", user.id)
         .single()
 
-      setBonusMessages((data as any)?.bonus_messages || 0)
+      const bonusMessagesValue =
+        (data as { bonus_messages?: number | null })?.bonus_messages ?? 0
+      setBonusMessages(bonusMessagesValue)
     }
 
     fetchBonusMessages()

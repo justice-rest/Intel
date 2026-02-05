@@ -12,7 +12,7 @@ import { useUser } from "@/lib/user-store/provider"
 import { cn } from "@/lib/utils"
 import { Message as MessageType } from "@ai-sdk/react"
 import { AnimatePresence, motion } from "motion/react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { MultiChatInput } from "./multi-chat-input"
 import { useMultiChat } from "./use-multi-chat"
 
@@ -28,6 +28,11 @@ type GroupedMessage = {
   onEdit: (model: string, id: string, newText: string) => void
   onReload: (model: string) => void
 }
+
+type MessageWithModel = MessageType & { model?: string }
+
+const getModelFromMessage = (message: MessageType): string | undefined =>
+  (message as MessageWithModel).model
 
 export function MultiChat() {
   const [prompt, setPrompt] = useState("")
@@ -53,8 +58,8 @@ export function MultiChat() {
 
   const modelsFromPersisted = useMemo(() => {
     return persistedMessages
-      .filter((msg) => (msg as any).model)
-      .map((msg) => (msg as any).model)
+      .filter((msg) => getModelFromMessage(msg))
+      .map((msg) => getModelFromMessage(msg) as string)
   }, [persistedMessages])
 
   const modelsFromLastGroup = useMemo(() => {
@@ -68,8 +73,9 @@ export function MultiChat() {
     for (let i = lastUserIndex + 1; i < persistedMessages.length; i++) {
       const msg = persistedMessages[i]
       if (msg.role === "user") break
-      if (msg.role === "assistant" && (msg as any).model) {
-        modelsInLastGroup.push((msg as any).model)
+      const modelId = msg.role === "assistant" ? getModelFromMessage(msg) : undefined
+      if (modelId) {
+        modelsInLastGroup.push(modelId)
       }
     }
     return modelsInLastGroup
@@ -142,7 +148,7 @@ export function MultiChat() {
           userMessage: group.userMessage,
           responses: group.assistantMessages.map((msg, index) => {
             const model =
-              (msg as any).model || selectedModelIds[index] || `model-${index}`
+              getModelFromMessage(msg) || selectedModelIds[index] || `model-${index}`
             const provider =
               models.find((m) => m.id === model)?.provider || "unknown"
 

@@ -414,6 +414,7 @@ export function BatchJobProgress({
   const [retryingItemId, setRetryingItemId] = useState<string | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
   const delayTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const autoStartCheckedRef = useRef(false)
 
   // Invalidate sidebar query when job status changes
   const invalidateSidebarQuery = useCallback(() => {
@@ -615,12 +616,15 @@ export function BatchJobProgress({
     }
   }, [])
 
-  // Auto-start if job was in processing state
+  // Auto-start if job was in processing state on mount
   useEffect(() => {
+    if (autoStartCheckedRef.current) return
+    autoStartCheckedRef.current = true
+
     if (job.status === "processing" && processingState === "running") {
       startProcessing()
     }
-  }, []) // Only on mount
+  }, [job.status, processingState, startProcessing])
 
   return (
     <div className="space-y-6">

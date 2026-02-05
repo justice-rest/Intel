@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -121,7 +121,7 @@ export function GoogleDriveBrowser({ onFilesImported }: GoogleDriveBrowserProps)
     staleTime: 30000, // Cache for 30 seconds
   })
 
-  const files: DriveFile[] = filesData?.files || []
+  const files: DriveFile[] = useMemo(() => filesData?.files || [], [filesData])
 
   // Toggle file selection
   const toggleFileSelection = useCallback((file: DriveFile) => {

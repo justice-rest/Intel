@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { signInWithGoogle } from "@/lib/api"
 import { createClient } from "@/lib/supabase/client"
 import { motion } from "motion/react"
+import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useMemo } from "react"
@@ -110,7 +111,7 @@ export default function LoginPage() {
                 onClick={handleSignInWithGoogle}
                 disabled={isLoading}
               >
-                <img
+                <Image
                   src="https://www.google.com/favicon.ico"
                   alt="Google logo"
                   width={20}

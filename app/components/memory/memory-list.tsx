@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react"
 import { useMemory } from "@/lib/memory-store"
+import type { MemorySearchResult, MemoryType, UserMemory } from "@/lib/memory/types"
 import { MemoryCard } from "./memory-card"
 import { MemoryForm } from "./memory-form"
 import { MemoryStats } from "./memory-stats"
@@ -14,7 +15,7 @@ export function MemoryList() {
   const { memories, stats, isLoading, searchMemories } = useMemory()
   const [showForm, setShowForm] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [semanticResults, setSemanticResults] = useState<any[]>([])
+  const [semanticResults, setSemanticResults] = useState<MemorySearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
 
   // Immediate local filtering for instant feedback
@@ -52,8 +53,26 @@ export function MemoryList() {
     return () => clearTimeout(timeoutId)
   }, [searchQuery, searchMemories])
 
+  const semanticResultsAsMemories = useMemo<UserMemory[]>(() => {
+    return semanticResults.map((memory) => {
+      const normalizedType: MemoryType =
+        memory.memory_type === "explicit" ? "explicit" : "auto"
+
+      return {
+        ...memory,
+        memory_type: normalizedType,
+        user_id: "",
+        embedding: "[]",
+        access_count: 0,
+        updated_at: memory.created_at,
+      }
+    })
+  }, [semanticResults])
+
   // Show semantic results if available, otherwise local filtered results
-  const displayedMemories = semanticResults.length > 0 ? semanticResults : localFilteredMemories
+  const displayedMemories = semanticResultsAsMemories.length > 0
+    ? semanticResultsAsMemories
+    : localFilteredMemories
 
   if (isLoading) {
     return (

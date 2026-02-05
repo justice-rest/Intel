@@ -25,7 +25,7 @@ export async function setCsrfCookie() {
   const token = generateCsrfToken()
   cookieStore.set("csrf_token", token, {
     httpOnly: false,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
   })

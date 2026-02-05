@@ -4,7 +4,6 @@ import React, { useState } from "react"
 import { useCustomer, CheckoutDialog } from "autumn-js/react"
 import { cn } from "@/lib/utils"
 import { useUser } from "@/lib/user-store/provider"
-import Link from "next/link"
 
 /**
  * Theme-aware MM Pricing Cards Component

@@ -60,7 +60,7 @@ export function ChatInput({
   files,
   onFileUpload,
   onFileRemove,
-  onSelectModel,
+  onSelectModel: _onSelectModel,
   selectedModel,
   isUserAuthenticated,
   stop,

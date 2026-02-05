@@ -123,7 +123,7 @@ export function CitationSources({
 
                       {/* Citations from this document */}
                       <div className="space-y-2">
-                        {docCitations.map((citation, index) => (
+                        {docCitations.map((citation) => (
                           <div
                             key={citation.chunkId}
                             className="bg-muted/50 rounded-md p-3 text-sm"
@@ -139,7 +139,7 @@ export function CitationSources({
                               </span>
                             </div>
                             <p className="text-muted-foreground line-clamp-3 text-xs leading-relaxed">
-                              "{citation.content}"
+                              &quot;{citation.content}&quot;
                             </p>
                           </div>
                         ))}

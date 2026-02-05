@@ -13,7 +13,6 @@ const baseConfig: NextConfig = withBundleAnalyzer({
   output: "standalone",
   experimental: {
     optimizePackageImports: ["@phosphor-icons/react"],
-    nodeMiddleware: true,
   },
   serverExternalPackages: [
     "shiki",
@@ -40,10 +39,6 @@ const baseConfig: NextConfig = withBundleAnalyzer({
       },
     ],
   },
-  eslint: {
-    // @todo: remove before going live
-    ignoreDuringBuilds: true,
-  },
   webpack: (config: Configuration, { isServer }: { isServer: boolean }) => {
     if (isServer) {
       // Externalize unpdf and its native dependencies for server-side
@@ -57,6 +52,13 @@ const baseConfig: NextConfig = withBundleAnalyzer({
         })
       }
     }
+    config.ignoreWarnings = [
+      ...(config.ignoreWarnings ?? []),
+      {
+        module: /@supabase\/realtime-js/,
+        message: /Critical dependency: the request of a dependency is an expression/,
+      },
+    ]
     return config
   },
 })

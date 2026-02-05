@@ -22,6 +22,7 @@ import { clearAllIndexedDBStores } from "@/lib/chat-store/persist"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { InstagramLogoIcon, LinkedinLogoIcon, SignOut } from "@phosphor-icons/react"
 import { toast } from "@/components/ui/toast"
+import Image from "next/image"
 import { useState, useEffect, useRef } from "react"
 import { useCustomer } from "autumn-js/react"
 import { AppInfoTrigger } from "./app-info/app-info-trigger"
@@ -227,7 +228,7 @@ export function UserMenu() {
                     {isPremiumTier ? (
                       <GoldVerifiedBadge className="h-4 w-4" />
                     ) : (
-                      <img
+                      <Image
                         src="/verified.png"
                         alt="Verified"
                         className="h-4 w-4"

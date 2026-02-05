@@ -189,7 +189,7 @@ export function GoogleIntegrationSection() {
   const hasRagAccess = activeProduct?.id?.toLowerCase().includes("scale") ?? false
 
   // Fetch RAG documents
-  const { data: ragDocsData, isLoading: isRagLoading } = useQuery({
+  const { data: ragDocsData } = useQuery({
     queryKey: ["rag-documents"],
     queryFn: async () => {
       const res = await fetch("/api/rag/documents")
@@ -317,7 +317,7 @@ export function GoogleIntegrationSection() {
   // ============ MEMORY INTEGRATION ============
 
   // Fetch memory stats
-  const { data: memoryData, isLoading: isMemoryLoading } = useQuery({
+  const { data: memoryData } = useQuery({
     queryKey: ["memory-stats"],
     queryFn: async () => {
       const [memoriesRes, statsRes] = await Promise.all([
@@ -500,32 +500,6 @@ export function GoogleIntegrationSection() {
         description: error instanceof Error ? error.message : "Failed to delete document",
       })
       setDeletingDocId(null)
-    },
-  })
-
-  // Connect mutation
-  const connectMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetchClient("/api/google-integrations/connect", {
-        method: "POST",
-        body: JSON.stringify({ scopes: "all" }),
-      })
-      if (!res.ok) {
-        const error = await res.json()
-        throw new Error(error.error || "Failed to initiate connection")
-      }
-      return res.json()
-    },
-    onSuccess: (data) => {
-      // Redirect to Google OAuth
-      window.location.href = data.authUrl
-    },
-    onError: (error) => {
-      toast({
-        title: "Connection Failed",
-        description:
-          error instanceof Error ? error.message : "Failed to connect to Google",
-      })
     },
   })
 

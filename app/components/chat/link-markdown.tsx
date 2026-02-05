@@ -5,6 +5,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card"
+import Image from "next/image"
 import { useEffect, useState, useMemo } from "react"
 
 interface LinkPreview {
@@ -84,7 +85,7 @@ export function LinkMarkdown({
           rel="noopener noreferrer"
           className="bg-muted text-muted-foreground hover:bg-muted-foreground/30 hover:text-primary inline-flex h-5 max-w-32 items-center gap-1 overflow-hidden rounded-full py-0 pr-2 pl-0.5 text-xs leading-none overflow-ellipsis whitespace-nowrap no-underline transition-colors duration-150"
         >
-          <img
+          <Image
             src={`https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(cleanedHref)}`}
             alt=""
             width={14}
@@ -104,7 +105,7 @@ export function LinkMarkdown({
           className="flex flex-col gap-2 p-3 no-underline"
         >
           <div className="flex items-center gap-2">
-            <img
+            <Image
               src={`https://www.google.com/s2/favicons?sz=64&domain_url=${encodeURIComponent(cleanedHref)}`}
               alt=""
               className="size-4 rounded-full"

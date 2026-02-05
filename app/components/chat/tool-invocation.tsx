@@ -2728,7 +2728,7 @@ function SingleToolCard({
           ) : (
             <div className="text-center py-4 border-border rounded-lg border bg-muted/20 p-4">
               <div className="text-muted-foreground text-sm mb-3">
-                No aircraft found registered to "{result.searchTerm}"
+                No aircraft found registered to &quot;{result.searchTerm}&quot;
               </div>
               <div className="text-muted-foreground text-xs space-y-1">
                 <div className="font-medium mb-2">Aircraft ownership indicates high net worth:</div>

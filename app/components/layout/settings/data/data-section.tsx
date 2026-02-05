@@ -53,7 +53,7 @@ export function DataSection() {
     } finally {
       setIsLoading(false)
     }
-  }, [hasUltraAccess, toast])
+  }, [hasUltraAccess])
 
   // Load documents on mount
   useEffect(() => {
@@ -89,7 +89,7 @@ export function DataSection() {
           try {
             const error = await response.json()
             errorMessage = error.error || errorMessage
-          } catch (parseError) {
+          } catch (_parseError) {
             // If JSON parsing fails, try to get text response
             const text = await response.text().catch(() => "")
             errorMessage = text || `Server error: ${response.status} ${response.statusText}`
@@ -100,9 +100,9 @@ export function DataSection() {
         // Parse success response defensively
         try {
           await response.json()
-        } catch (parseError) {
+        } catch (_parseError) {
           // If JSON parsing fails on success response, check if it's a timeout issue
-          console.error("Failed to parse upload response:", parseError)
+          console.error("Failed to parse upload response:", _parseError)
           throw new Error(
             "Upload may have timed out. Please check if the document appears in your list below. If not, try uploading a smaller file or try again later."
           )

@@ -11,7 +11,7 @@ import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { cn } from "@/lib/utils"
 import type { Message as MessageAISDK } from "@ai-sdk/react"
 import { ArrowClockwise, Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { getSources } from "./get-sources"
 import { getCitations } from "./get-citations"
 import { QuoteButton } from "./quote-button"
@@ -51,7 +51,7 @@ export function MessageAssistant({
   className,
   messageId,
   onQuote,
-  createdAt,
+  createdAt: _createdAt,
 }: MessageAssistantProps) {
   const { preferences } = useUserPreferences()
   const { chatId } = useChatSession()

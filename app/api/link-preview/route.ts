@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 
-export const runtime = "edge"
+export const runtime = "nodejs"
 
 /**
  * Fetch Open Graph metadata from a URL for link previews

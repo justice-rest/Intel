@@ -113,8 +113,11 @@ export function MemoryChart({ stats }: MemoryChartProps) {
                 axisLine={false}
                 tickMargin={8}
                 minTickGap={32}
-                tickFormatter={(value: any) => {
-                  const date = new Date(value)
+                tickFormatter={(value) => {
+                  const dateValue = typeof value === "number" || typeof value === "string"
+                    ? value
+                    : String(value)
+                  const date = new Date(dateValue)
                   return date.toLocaleDateString("en-US", {
                     month: "short",
                     day: "numeric",
@@ -125,8 +128,11 @@ export function MemoryChart({ stats }: MemoryChartProps) {
                 content={
                   <ChartTooltipContent
                     className="w-[150px]"
-                    labelFormatter={(value: any) => {
-                      return new Date(value).toLocaleDateString("en-US", {
+                    labelFormatter={(value) => {
+                      const dateValue = typeof value === "number" || typeof value === "string"
+                        ? value
+                        : String(value)
+                      return new Date(dateValue).toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                         year: "numeric",

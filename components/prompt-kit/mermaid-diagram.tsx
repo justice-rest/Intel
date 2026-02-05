@@ -84,7 +84,7 @@ export default function MermaidDiagram({ chart, className }: MermaidDiagramProps
 
   // While streaming or waiting for first render, show code preview
   // If we already have an SVG, keep showing it during re-renders (no flicker)
-  if (isAnimating || (!svg && !error)) {
+  if (isAnimating || isRendering || (!svg && !error)) {
     return (
       <div className={cn("my-4 rounded-xl border overflow-hidden", className)} data-streamdown="mermaid-block">
         <div className="flex h-9 items-center justify-between px-4 border-b bg-muted/50">

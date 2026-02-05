@@ -14,6 +14,20 @@ export interface Citation {
   chunkId: string
 }
 
+type RagSearchResultItem = {
+  document?: string
+  page?: number | null
+  content?: string
+  similarity?: number
+  documentId?: string
+  chunkId?: string
+}
+
+type RagSearchResult = {
+  success?: boolean
+  results?: RagSearchResultItem[]
+}
+
 export function getCitations(parts: MessageAISDK["parts"]): Citation[] {
   if (!parts || parts.length === 0) {
     return []
@@ -30,7 +44,7 @@ export function getCitations(parts: MessageAISDK["parts"]): Citation[] {
     ) {
       try {
         // The result is stored in the tool invocation result
-        const result = part.toolInvocation.result as any
+        const result = part.toolInvocation.result as RagSearchResult
 
         if (result?.success && Array.isArray(result?.results)) {
           for (const item of result.results) {

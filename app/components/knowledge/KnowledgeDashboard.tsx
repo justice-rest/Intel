@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "motion/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -99,8 +99,11 @@ export function KnowledgeDashboard() {
 
   const personasCount = personasData?.total || personasData?.personas?.length || 0
 
-  const profiles = profilesData || []
-  const activeProfile = profiles.find((p) => p.id === activeProfileId) || profiles[0] || null
+  const profiles = useMemo(() => profilesData ?? [], [profilesData])
+  const activeProfile = useMemo(
+    () => profiles.find((p) => p.id === activeProfileId) || profiles[0] || null,
+    [profiles, activeProfileId]
+  )
 
   // Set initial active profile
   useEffect(() => {
@@ -188,7 +191,7 @@ export function KnowledgeDashboard() {
         </span>
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-        Train Rōmy with your organization's voice, strategy, and facts.
+        Train Rōmy with your organization&apos;s voice, strategy, and facts.
       </p>
 
       {/* Main Card */}
@@ -999,7 +1002,7 @@ function StrategySection({ profileId }: { profileId: string }) {
       {/* Rules List */}
       {rules.length === 0 && !isAdding ? (
         <p className="text-xs text-gray-500 text-center py-2">
-          Add rules to guide Rōmy's fundraising approach.
+          Add rules to guide Rōmy&apos;s fundraising approach.
         </p>
       ) : (
         <div className="space-y-1.5 max-h-[200px] overflow-y-auto">

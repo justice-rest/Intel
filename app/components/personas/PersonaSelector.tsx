@@ -27,7 +27,6 @@ import {
   Briefcase,
   Check,
   ChevronDown,
-  X,
   Loader2,
   Sparkles,
 } from 'lucide-react'
@@ -57,7 +56,7 @@ interface PersonaSelectorProps {
 export function PersonaSelector({
   chatId,
   currentPersonaId,
-  currentPersonaName,
+  currentPersonaName: _currentPersonaName,
   onPersonaChange,
   disabled = false,
   className,

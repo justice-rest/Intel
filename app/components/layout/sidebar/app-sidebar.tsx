@@ -26,7 +26,7 @@ import {
 import { Pin } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useParams, usePathname, useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react"
 import { HistoryTrigger } from "../../history/history-trigger"
 import { UserMenu } from "../user-menu"
@@ -44,7 +44,6 @@ export function AppSidebar() {
   const { isActive: isSplitActive } = useSplitView()
   const { pendingDraftsCount, openDraftsModal } = useDrafts()
   const params = useParams<{ chatId: string }>()
-  const pathname = usePathname()
   const currentChatId = params.chatId
 
   const groupedChats = useMemo(() => {

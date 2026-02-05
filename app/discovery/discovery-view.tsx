@@ -1,5 +1,7 @@
 "use client"
 
+/* eslint-disable @next/next/no-img-element */
+
 /**
  * Discovery View Component
  *
@@ -20,7 +22,6 @@ import {
   Spinner,
   WarningCircle,
   CaretRight,
-  CaretDown,
   Check,
   X,
   Bank,
@@ -29,9 +30,7 @@ import {
   UserCircle,
   Users,
   Cpu,
-  Funnel,
   Plus,
-  User,
   Lightning,
   ArrowRight,
   Flask,

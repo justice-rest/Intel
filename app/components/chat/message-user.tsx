@@ -15,8 +15,6 @@ import {
   MessageContent,
 } from "@/components/prompt-kit/message"
 import { Button } from "@/components/ui/button"
-import { toast } from "@/components/ui/toast"
-import { isSupabaseEnabled } from "@/lib/supabase/config"
 import { cn } from "@/lib/utils"
 import { Message as MessageType } from "@ai-sdk/react"
 import {
@@ -27,20 +25,6 @@ import {
 } from "@phosphor-icons/react"
 import Image from "next/image"
 import React, { useEffect, useRef, useState } from "react"
-
-const getTextPreview = (url: string, fileName: string) => {
-  // If it's a data URL, extract base64
-  if (url.startsWith("data:")) {
-    const base64 = url.split(",")[1]
-    try {
-      return atob(base64).substring(0, 200) + "..."
-    } catch {
-      return "Text file: " + fileName
-    }
-  }
-  // For regular URLs, just show file name
-  return "Text file: " + fileName
-}
 
 const getFileIcon = (contentType: string) => {
   if (contentType === "application/pdf") {
@@ -92,7 +76,7 @@ export function MessageUser({
   onEdit,
   messageGroupId,
   isUserAuthenticated,
-  createdAt,
+  createdAt: _createdAt,
 }: MessageUserProps) {
   const [editInput, setEditInput] = useState(children)
   const [isEditing, setIsEditing] = useState(false)

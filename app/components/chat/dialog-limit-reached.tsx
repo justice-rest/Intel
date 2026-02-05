@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dialog"
 import { APP_NAME } from "@/lib/config"
 import Image from "next/image"
-import Link from "next/link"
 
 type DialogLimitReachedProps = {
   open: boolean

@@ -1,11 +1,8 @@
 "use client"
 
 import { useCustomer } from "autumn-js/react"
-import { TrendingUp } from "lucide-react"
-import Link from "next/link"
 import { useState, useEffect } from "react"
 import { SubscriptionProductCard } from "./subscription-product-card"
-import { useUser } from "@/lib/user-store/provider"
 
 /**
  * Subscription Section Component
@@ -15,7 +12,6 @@ import { useUser } from "@/lib/user-store/provider"
  */
 export function SubscriptionSection() {
   const { customer, refetch } = useCustomer()
-  const { user } = useUser()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [dataLoadedAt, setDataLoadedAt] = useState<number>(Date.now())
 
@@ -79,7 +75,6 @@ export function SubscriptionSection() {
 
   // Get scheduled plan info for notification
   const scheduledPlanName = scheduledProduct?.name
-  const scheduledPlanType = scheduledProduct?.id
   const hasMultipleScheduled = scheduledProducts.length > 1
 
   // For security: Always check product status directly from the customer object

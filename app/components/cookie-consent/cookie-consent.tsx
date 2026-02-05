@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import { gsap } from "gsap"
 import { MorphSVGPlugin } from "gsap/MorphSVGPlugin"
 import "./cookie-consent.css"

@@ -1,5 +1,7 @@
 "use client"
 
+/* eslint-disable @next/next/no-img-element */
+
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_PRIMARY_COLOR,

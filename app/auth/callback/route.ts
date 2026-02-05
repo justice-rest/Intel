@@ -47,8 +47,6 @@ export async function GET(request: Request) {
     )
   }
 
-  let isNewUser = false
-
   try {
     // Try to insert user only if not exists
     const { error: insertError } = await supabaseAdmin.from("users").insert({
@@ -65,8 +63,6 @@ export async function GET(request: Request) {
       console.error("Error inserting user:", insertError)
     } else if (!insertError) {
       // Successfully inserted new user
-      isNewUser = true
-
       // Schedule onboarding email sequence for new users
       // Extract first name from user metadata or email
       const firstName =

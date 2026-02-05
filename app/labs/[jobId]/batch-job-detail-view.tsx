@@ -1,5 +1,7 @@
 "use client"
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { useTransitionRouter } from "@/lib/transitions"

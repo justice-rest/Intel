@@ -72,8 +72,6 @@ import type {
   VoiceTone,
 } from '@/lib/personas'
 import {
-  SYSTEM_PROMPT_MODES,
-  PERSONA_ICONS,
   PERSONA_COLORS,
   MAX_NAME_LENGTH,
   MAX_DESCRIPTION_LENGTH,

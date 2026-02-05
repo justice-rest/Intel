@@ -67,6 +67,14 @@ export function MessagesProvider({
   // Get chats context to get chat title for notifications
   const { chats } = useChats()
 
+  const unreadContextRef = useRef(unreadContext)
+  const notificationsContextRef = useRef(notificationsContext)
+  const chatsRef = useRef(chats)
+
+  unreadContextRef.current = unreadContext
+  notificationsContextRef.current = notificationsContext
+  chatsRef.current = chats
+
   useEffect(() => {
     // Track if this is initial mount (not a chatId change during navigation)
     const isInitialMount = prevChatIdRef.current === undefined
@@ -112,8 +120,8 @@ export function MessagesProvider({
         // If fresh is empty but cache has data, keep showing cached messages
 
         // Mark chat as read when viewing (after messages are loaded)
-        if (chatId && unreadContext?.markChatRead) {
-          unreadContext.markChatRead(chatId)
+        if (chatId && unreadContextRef.current?.markChatRead) {
+          unreadContextRef.current.markChatRead(chatId)
         }
       } catch (error) {
         console.error("Failed to fetch messages:", error)
@@ -234,13 +242,13 @@ export function MessagesProvider({
             // Trigger notification for new message from collaborator
             // Only for user messages (role === "user") from other users
             if (
-              notificationsContext?.isEnabled &&
+              notificationsContextRef.current?.isEnabled &&
               newMessage.role === "user" &&
               newMessage.user_id !== null &&
               chatId
             ) {
-              const chat = chats.find((c) => c.id === chatId)
-              notificationsContext.showMessageNotification({
+              const chat = chatsRef.current.find((c) => c.id === chatId)
+              notificationsContextRef.current.showMessageNotification({
                 chatId,
                 chatTitle: chat?.title || "Chat",
                 senderName: "Collaborator", // We don't have the sender name here

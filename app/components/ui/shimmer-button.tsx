@@ -21,7 +21,7 @@ export function ShimmerButton({ children, className, ...props }: ShimmerButtonPr
         className
       )}
       style={{
-        // @ts-ignore - CSS custom properties
+        // @ts-expect-error - CSS custom properties
         "--glow-hue": "222deg",
         "--shadow-hue": "180deg",
         "--inset": "40px",

@@ -7,9 +7,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import { Microphone, SpinnerGap, Stop, Waveform } from "@phosphor-icons/react"
+import { SpinnerGap, Waveform } from "@phosphor-icons/react"
 import { useCallback, useEffect, useState } from "react"
-import { useVoiceRecording, type RecordingState } from "@/app/hooks/use-voice-recording"
+import { useVoiceRecording } from "@/app/hooks/use-voice-recording"
 import { useVoiceFeatures } from "@/app/hooks/use-voice-features"
 
 interface VoiceRecordButtonProps {

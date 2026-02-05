@@ -374,7 +374,7 @@ function ColorPickerPanel({ color, setColor, disabled }: ColorPickerPanelProps) 
         onChange={(e) => {
           const hue = e.target.valueAsNumber
           setColor((prev) => {
-            const { hex, ...rest } = { ...prev, h: hue }
+            const { hex: _hex, ...rest } = { ...prev, h: hue }
             const hex_formatted = hslToHex({ ...rest })
             return { ...rest, hex: hex_formatted }
           })

@@ -35,7 +35,7 @@ export type CodeBlockCodeProps = {
 function CodeBlockCode({
   code,
   language = "tsx",
-  theme = "github-light",
+  theme: _theme = "github-light",
   className,
   ...props
 }: CodeBlockCodeProps) {

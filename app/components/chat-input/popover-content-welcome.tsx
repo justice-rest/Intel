@@ -33,7 +33,7 @@ export function PopoverContentWelcome({
           Welcome{firstName ? `, ${firstName}` : ""}!
         </p>
         <p className="text-muted-foreground mb-5 text-base">
-          You're all set up. Ask me anything about prospect research, donor
+          You&apos;re all set up. Ask me anything about prospect research, donor
           screening, or fundraising strategy!
         </p>
         <Button

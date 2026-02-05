@@ -140,6 +140,95 @@ type ChatRequest = {
   editCutoffTimestamp?: string
 }
 
+const ALLOWED_ATTACHMENT_CONTENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+  "text/markdown",
+  "application/json",
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+])
+
+const ATTACHMENT_MIME_BY_EXTENSION: Record<string, string> = {
+  ".txt": "text/plain",
+  ".md": "text/markdown",
+  ".json": "application/json",
+  ".csv": "text/csv",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+const SUPABASE_STORAGE_PUBLIC_PREFIX = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? `${process.env.NEXT_PUBLIC_SUPABASE_URL.replace(/\/+$/, "")}/storage/v1/object/public/chat-attachments/`
+  : null
+
+function normalizeAttachmentContentType(attachment: Attachment): string | null {
+  if (attachment.contentType) return attachment.contentType
+  if (!attachment.name) return null
+  const dotIndex = attachment.name.lastIndexOf(".")
+  if (dotIndex === -1) return null
+  const ext = attachment.name.slice(dotIndex).toLowerCase()
+  return ATTACHMENT_MIME_BY_EXTENSION[ext] ?? null
+}
+
+function isAllowedAttachmentUrl(url: string): boolean {
+  if (!SUPABASE_STORAGE_PUBLIC_PREFIX) return false
+  return url.startsWith(SUPABASE_STORAGE_PUBLIC_PREFIX)
+}
+
+function sanitizeAttachments(
+  attachments: Attachment[] | undefined
+): Attachment[] | undefined {
+  if (!attachments || attachments.length === 0) return undefined
+
+  const filtered: Attachment[] = []
+
+  for (const attachment of attachments) {
+    if (!attachment || typeof attachment !== "object") continue
+    const normalizedContentType = normalizeAttachmentContentType(attachment)
+    if (!normalizedContentType || !ALLOWED_ATTACHMENT_CONTENT_TYPES.has(normalizedContentType)) {
+      console.warn("[Chat API] Dropping attachment with unsupported content type.")
+      continue
+    }
+    if (!attachment.url || !isAllowedAttachmentUrl(attachment.url)) {
+      console.warn("[Chat API] Dropping attachment with invalid storage URL.")
+      continue
+    }
+
+    filtered.push({
+      ...attachment,
+      contentType: normalizedContentType,
+    })
+  }
+
+  return filtered.length > 0 ? filtered : undefined
+}
+
+function sanitizeMessageAttachments(messages: MessageAISDK[]): MessageAISDK[] {
+  return messages.map((message) => {
+    const messageWithAttachments = message as MessageAISDK & {
+      experimental_attachments?: Attachment[]
+    }
+    if (!messageWithAttachments.experimental_attachments) return message
+
+    const sanitized = sanitizeAttachments(messageWithAttachments.experimental_attachments)
+    if (!sanitized) {
+      const { experimental_attachments: _unused, ...rest } = messageWithAttachments
+      return rest
+    }
+
+    return {
+      ...message,
+      experimental_attachments: sanitized,
+    }
+  })
+}
+
 // Map research modes to Grok model IDs (via OpenRouter)
 // Grok 4.1 Fast supports native tool calling with LinkUp web search
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
@@ -174,6 +263,8 @@ export async function POST(req: Request) {
         { status: 400 }
       )
     }
+
+    const safeMessages = sanitizeMessageAttachments(messages)
 
     // Normalize model ID for backwards compatibility (e.g., grok-4-fast → grok-4.1-fast)
     const normalizedModel = normalizeModelId(model)
@@ -436,7 +527,7 @@ export async function POST(req: Request) {
       })
     }
 
-    const userMessage = messages[messages.length - 1]
+    const userMessage = safeMessages[safeMessages.length - 1]
 
     // =========================================================================
     // SYSTEM PROMPT CONSTRUCTION
@@ -1110,7 +1201,7 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
 
     // Optimize message payload to prevent FUNCTION_PAYLOAD_TOO_LARGE errors
     // This limits message history, removes blob URLs, and truncates large tool results
-    const optimizedMessages = optimizeMessagePayload(messages)
+    const optimizedMessages = optimizeMessagePayload(safeMessages)
 
     // Clean messages based on model capabilities:
     // - Remove tool invocations if model doesn't support tools

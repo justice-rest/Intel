@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unescaped-entities */
 import { APP_DOMAIN } from "@/lib/config"
 import type { Metadata } from "next"
 import Link from "next/link"
@@ -834,3 +835,4 @@ export default function IntegrationDocs() {
     </>
   )
 }
+/* eslint-disable react/no-unescaped-entities */

@@ -7,7 +7,8 @@ export async function GET() {
   const cookieStore = await cookies()
   cookieStore.set("csrf_token", token, {
     httpOnly: false,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
     path: "/",
   })
 

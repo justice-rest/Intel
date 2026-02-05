@@ -225,6 +225,7 @@ export function ChatPreviewPanel({
         }
       )
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, messages.length, isLoading, error])
 
   // Immediately scroll to bottom when chatId changes or messages load
