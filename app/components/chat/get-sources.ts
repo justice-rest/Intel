@@ -1,24 +1,48 @@
 import type { ChatMessagePart } from "@/lib/ai/message-utils"
 import { getLegacyToolInvocationParts } from "@/lib/ai/message-utils"
+import type { SourceUIPart } from "@ai-sdk/ui-utils"
 
-export function getSources(parts: ChatMessagePart[] | undefined) {
+type SourceItem = SourceUIPart["source"]
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" ? (value as Record<string, unknown>) : null
+
+const asArray = <T>(value: unknown): T[] | null =>
+  Array.isArray(value) ? (value as T[]) : null
+
+const createUrlSource = (url: string, title?: string, id?: string): SourceItem => ({
+  sourceType: "url",
+  id: id || url,
+  url,
+  title: title ?? url,
+})
+
+const isDefined = <T>(value: T | null | undefined): value is T => value != null
+
+const normalizeSource = (value: unknown): SourceItem | null => {
+  const record = asRecord(value)
+  if (!record) return null
+  const url = typeof record.url === "string" ? record.url : undefined
+  if (!url) return null
+  const title = typeof record.title === "string" ? record.title : undefined
+  const id = typeof record.id === "string" ? record.id : undefined
+  return createUrlSource(url, title, id)
+}
+
+export function getSources(parts: ChatMessagePart[] | undefined): SourceItem[] {
   if (!parts || parts.length === 0) return []
 
   const directSources = parts
     .filter((part) => part && typeof part === "object" && "type" in part)
     .map((part) => {
       if (part.type === "source") {
-        return (part as { source: { id?: string; url: string; title?: string; text?: string } }).source
+        const source = (part as { source: { id?: string; url: string; title?: string } }).source
+        return createUrlSource(source.url, source.title || source.url, source.id)
       }
 
       if (part.type === "source-url") {
         const source = part as { sourceId: string; url: string; title?: string }
-        return {
-          id: source.sourceId,
-          url: source.url,
-          title: source.title || source.url,
-          text: "",
-        }
+        return createUrlSource(source.url, source.title || source.url, source.sourceId)
       }
 
       if (part.type === "source-document") {
@@ -26,390 +50,400 @@ export function getSources(parts: ChatMessagePart[] | undefined) {
           sourceId: string
           title: string
           filename?: string
+          mediaType?: string
           providerMetadata?: { url?: string }
         }
         const url = source.providerMetadata?.url
         if (!url) return null
-        return {
-          id: source.sourceId,
-          url,
-          title: source.title || source.filename || "Document",
-          text: "",
-        }
+        return createUrlSource(url, source.title || source.filename || "Document", source.sourceId)
       }
 
       return null
     })
-    .filter(Boolean)
+    .filter(isDefined)
 
   const toolSources = getLegacyToolInvocationParts(parts)
     .filter((part) => part.toolInvocation.state === "result")
-    .map((part) => {
-      const result = part.toolInvocation.result as any
+    .flatMap((part) => {
+      const result = part.toolInvocation.result
+      const resultRecord = asRecord(result)
 
-        // Handle LinkUp prospect research tool results
-        // Enhanced: Includes field attribution when available
-        if (
-          part.toolInvocation.toolName === "linkup_prospect_research" &&
-          result?.sources
-        ) {
-          return result.sources.map((source: {
-            name?: string
-            url: string
-            snippet?: string
-            fieldName?: string    // Which field this source supports
-            reasoning?: string    // AI reasoning for relevance
-          }) => ({
-            title: source.name || "Source",
-            url: source.url,
-            // Include field attribution in text if available (e.g., "[realEstate] Property records...")
-            text: source.fieldName
-              ? `[${source.fieldName}] ${source.snippet || source.reasoning || ""}`
-              : (source.snippet || ""),
-          }))
+      // Handle LinkUp prospect research tool results
+      // Enhanced: Includes field attribution when available
+      if (
+        part.toolInvocation.toolName === "linkup_prospect_research" &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{
+          name?: string
+          url: string
+          snippet?: string
+          fieldName?: string // Which field this source supports
+          reasoning?: string // AI reasoning for relevance
+        }>(resultRecord.sources)
+
+        if (!sources) return []
+
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Source")
+        )
+      }
+
+      // Handle You.com search tool results (matches Linkup format)
+      if (part.toolInvocation.toolName === "youSearch" && resultRecord?.sources) {
+        const sources = asArray<{ name?: string; url: string; snippet?: string }>(
+          resultRecord.sources
+        )
+        if (!sources) return []
+
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Untitled")
+        )
+      }
+
+      // Handle Grok search tool results
+      if (part.toolInvocation.toolName === "grokSearch" && resultRecord?.results) {
+        const results = asArray<{ title?: string; url: string; snippet?: string }>(
+          resultRecord.results
+        )
+        if (!results) return []
+
+        return results.map((item) =>
+          createUrlSource(item.url, item.title || "Untitled")
+        )
+      }
+
+      // Handle Tavily search tool results
+      if (part.toolInvocation.toolName === "tavilySearch" && resultRecord?.results) {
+        const results = asArray<{ title?: string; url: string; snippet?: string }>(
+          resultRecord.results
+        )
+        if (!results) return []
+
+        return results.map((item) =>
+          createUrlSource(item.url, item.title || "Untitled")
+        )
+      }
+
+      // Handle Firecrawl search tool results
+      if (part.toolInvocation.toolName === "firecrawlSearch" && resultRecord?.results) {
+        const results = asArray<{ title?: string; url: string; snippet?: string }>(
+          resultRecord.results
+        )
+        if (!results) return []
+
+        return results.map((item) =>
+          createUrlSource(item.url, item.title || "Untitled")
+        )
+      }
+
+      // Handle Jina DeepSearch tool results
+      if (part.toolInvocation.toolName === "jinaDeepSearch" && resultRecord?.sources) {
+        const sources = asArray<{ title?: string; url: string; snippet?: string }>(
+          resultRecord.sources
+        )
+        if (!sources) return []
+
+        return sources.map((item) =>
+          createUrlSource(item.url, item.title || "Untitled")
+        )
+      }
+
+      // Handle Brave Search (searchWebGeneral) tool results
+      if (part.toolInvocation.toolName === "searchWebGeneral" && resultRecord?.results) {
+        const results = asArray<{ title?: string; url: string; snippet?: string }>(
+          resultRecord.results
+        )
+        if (!results) return []
+
+        return results.map((item) =>
+          createUrlSource(item.url, item.title || "Untitled")
+        )
+      }
+
+      // Handle SEC EDGAR filings tool results
+      if (part.toolInvocation.toolName === "sec_edgar_filings" && resultRecord?.filings) {
+        const filings = asArray<{
+          url?: string | null
+          formType?: string
+          fiscalYear?: number
+          fiscalPeriod?: string
+        }>(resultRecord.filings)
+        const sources = (filings || [])
+          .filter((filing) => filing.url)
+          .map((filing) =>
+            createUrlSource(
+              filing.url as string,
+              `SEC ${filing.formType || "Filing"} - ${filing.fiscalPeriod || ""} ${filing.fiscalYear || ""}`.trim()
+            )
+          )
+        // Add link to SEC EDGAR search
+        const symbol = typeof resultRecord.symbol === "string" ? resultRecord.symbol : undefined
+        const cik = typeof resultRecord.cik === "string" ? resultRecord.cik : undefined
+        if (symbol) {
+          sources.push(
+            createUrlSource(
+              `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik || symbol}&type=10&dateb=&owner=include&count=40`,
+              `SEC EDGAR - ${symbol}`
+            )
+          )
         }
+        return sources
+      }
 
-        // Handle You.com search tool results (matches Linkup format)
-        if (
-          part.toolInvocation.toolName === "youSearch" &&
-          result?.sources
-        ) {
-          return result.sources.map((source: { name?: string; url: string; snippet?: string }) => ({
-            title: source.name || "Untitled",
-            url: source.url,
-            text: source.snippet || "",
-          }))
-        }
+      // Handle FEC contributions tool results
+      if (part.toolInvocation.toolName === "fec_contributions" && resultRecord?.sources) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Grok search tool results
-        if (
-          part.toolInvocation.toolName === "grokSearch" &&
-          result?.results
-        ) {
-          return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
-            title: r.title || "Untitled",
-            url: r.url,
-            text: r.snippet || "",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "FEC Record")
+        )
+      }
 
-        // Handle Tavily search tool results
-        if (
-          part.toolInvocation.toolName === "tavilySearch" &&
-          result?.results
-        ) {
-          return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
-            title: r.title || "Untitled",
-            url: r.url,
-            text: r.snippet || "",
-          }))
-        }
+      // Handle US Government Data tool results
+      if (part.toolInvocation.toolName === "us_gov_data" && resultRecord?.sources) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Firecrawl search tool results
-        if (
-          part.toolInvocation.toolName === "firecrawlSearch" &&
-          result?.results
-        ) {
-          return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
-            title: r.title || "Untitled",
-            url: r.url,
-            text: r.snippet || "",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Government Data")
+        )
+      }
 
-        // Handle Jina DeepSearch tool results
-        if (
-          part.toolInvocation.toolName === "jinaDeepSearch" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { title?: string; url: string; snippet?: string }) => ({
-            title: s.title || "Untitled",
-            url: s.url,
-            text: s.snippet || "",
-          }))
-        }
+      // Handle Property Valuation (AVM) tool results
+      if (part.toolInvocation.toolName === "property_valuation" && resultRecord?.sources) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Brave Search (searchWebGeneral) tool results
-        if (
-          part.toolInvocation.toolName === "searchWebGeneral" &&
-          result?.results
-        ) {
-          return result.results.map((r: { title?: string; url: string; snippet?: string }) => ({
-            title: r.title || "Untitled",
-            url: r.url,
-            text: r.snippet || "",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Property Data")
+        )
+      }
 
-        // Handle SEC EDGAR filings tool results
-        if (
-          part.toolInvocation.toolName === "sec_edgar_filings" &&
-          result?.filings
-        ) {
-          const sources = result.filings
-            .filter((f: { url?: string | null }) => f.url)
-            .map((f: { formType?: string; fiscalYear?: number; fiscalPeriod?: string; url: string }) => ({
-              title: `SEC ${f.formType || "Filing"} - ${f.fiscalPeriod || ""} ${f.fiscalYear || ""}`.trim(),
-              url: f.url,
-              text: `${f.formType || "SEC Filing"} for fiscal ${f.fiscalPeriod || ""} ${f.fiscalYear || ""}`,
-            }))
-          // Add link to SEC EDGAR search
-          if (result.symbol) {
-            sources.push({
-              title: `SEC EDGAR - ${result.symbol}`,
-              url: `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${result.cik || result.symbol}&type=10&dateb=&owner=include&count=40`,
-              text: `SEC EDGAR filings for ${result.symbol}`,
-            })
-          }
-          return sources
-        }
+      // Handle Business Registry Scraper tool results
+      if (
+        part.toolInvocation.toolName === "business_registry_scraper" &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string; snippet?: string }>(
+          resultRecord.sources
+        )
+        if (!sources) return []
 
-        // Handle FEC contributions tool results
-        if (
-          part.toolInvocation.toolName === "fec_contributions" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "FEC Record",
-            url: s.url,
-            text: `FEC contribution record`,
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Business Registry")
+        )
+      }
 
-        // Handle US Government Data tool results
-        if (
-          part.toolInvocation.toolName === "us_gov_data" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Government Data",
-            url: s.url,
-            text: `US Government data from ${result.dataSource || "federal API"}`,
-          }))
-        }
+      // Handle summarizeSources tool results
+      if (part.toolInvocation.toolName === "summarizeSources" && resultRecord?.result) {
+        const resultItems = asArray<{ citations?: unknown[] }>(resultRecord.result)
+        if (!resultItems) return []
+        return resultItems
+          .flatMap((item) => item.citations || [])
+          .map(normalizeSource)
+          .filter(isDefined)
+      }
 
-        // Handle Property Valuation (AVM) tool results
-        if (
-          part.toolInvocation.toolName === "property_valuation" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Property Data",
-            url: s.url,
-            text: `Property valuation source`,
-          }))
-        }
+      // Handle ProPublica Nonprofit tools
+      if (
+        (part.toolInvocation.toolName === "propublica_nonprofit_search" ||
+          part.toolInvocation.toolName === "propublica_nonprofit_details") &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Business Registry Scraper tool results
-        if (
-          part.toolInvocation.toolName === "business_registry_scraper" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string; snippet?: string }) => ({
-            title: s.name || "Business Registry",
-            url: s.url,
-            text: s.snippet || `Business registry data from ${result.sourcesSuccessful?.join(", ") || "registry"}`,
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "ProPublica Nonprofit")
+        )
+      }
 
-        // Handle summarizeSources tool results
-        if (
-          part.toolInvocation.toolName === "summarizeSources" &&
-          result?.result?.[0]?.citations
-        ) {
-          return result.result.flatMap((item: { citations?: unknown[] }) => item.citations || [])
-        }
+      // Handle SEC Insider tools
+      if (
+        (part.toolInvocation.toolName === "sec_insider_search" ||
+          part.toolInvocation.toolName === "sec_proxy_search") &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle ProPublica Nonprofit tools
-        if (
-          (part.toolInvocation.toolName === "propublica_nonprofit_search" ||
-           part.toolInvocation.toolName === "propublica_nonprofit_details") &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "ProPublica Nonprofit",
-            url: s.url,
-            text: "Nonprofit data from ProPublica",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "SEC EDGAR")
+        )
+      }
 
-        // Handle SEC Insider tools
-        if (
-          (part.toolInvocation.toolName === "sec_insider_search" ||
-           part.toolInvocation.toolName === "sec_proxy_search") &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "SEC EDGAR",
-            url: s.url,
-            text: "SEC filing data",
-          }))
-        }
+      // Handle Wikidata tools
+      if (
+        (part.toolInvocation.toolName === "wikidata_search" ||
+          part.toolInvocation.toolName === "wikidata_entity") &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Wikidata tools
-        if (
-          (part.toolInvocation.toolName === "wikidata_search" ||
-           part.toolInvocation.toolName === "wikidata_entity") &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Wikidata",
-            url: s.url,
-            text: "Biographical data from Wikidata",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Wikidata")
+        )
+      }
 
-        // Handle CourtListener tools
-        if (
-          (part.toolInvocation.toolName === "court_search" ||
-           part.toolInvocation.toolName === "judge_search") &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "CourtListener",
-            url: s.url,
-            text: "Federal court records",
-          }))
-        }
+      // Handle CourtListener tools
+      if (
+        (part.toolInvocation.toolName === "court_search" ||
+          part.toolInvocation.toolName === "judge_search") &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Household search
-        if (
-          part.toolInvocation.toolName === "household_search" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Household Data",
-            url: s.url,
-            text: "Household wealth assessment",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "CourtListener")
+        )
+      }
 
-        // Handle Business affiliation search
-        if (
-          part.toolInvocation.toolName === "business_affiliation_search" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Business Affiliation",
-            url: s.url,
-            text: "Corporate role data",
-          }))
-        }
+      // Handle Household search
+      if (part.toolInvocation.toolName === "household_search" && resultRecord?.sources) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Nonprofit affiliation search
-        if (
-          part.toolInvocation.toolName === "nonprofit_affiliation_search" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Nonprofit Affiliation",
-            url: s.url,
-            text: "Nonprofit connection data",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Household Data")
+        )
+      }
 
-        // Handle Nonprofit board search
-        if (
-          part.toolInvocation.toolName === "nonprofit_board_search" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Board Position",
-            url: s.url,
-            text: "Nonprofit board data",
-          }))
-        }
+      // Handle Business affiliation search
+      if (
+        part.toolInvocation.toolName === "business_affiliation_search" &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Giving history
-        if (
-          part.toolInvocation.toolName === "giving_history" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Giving History",
-            url: s.url,
-            text: "Donation records",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Business Affiliation")
+        )
+      }
 
-        // Handle Prospect scoring
-        if (
-          part.toolInvocation.toolName === "prospect_score" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Prospect Data",
-            url: s.url,
-            text: "Prospect research source",
-          }))
-        }
+      // Handle Nonprofit affiliation search
+      if (
+        part.toolInvocation.toolName === "nonprofit_affiliation_search" &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Prospect report
-        if (
-          part.toolInvocation.toolName === "prospect_report" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Research Report",
-            url: s.url,
-            text: "Prospect report source",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Nonprofit Affiliation")
+        )
+      }
 
-        // Handle Rental investment
-        if (
-          part.toolInvocation.toolName === "rental_investment" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Rental Data",
-            url: s.url,
-            text: "Rental valuation source",
-          }))
-        }
+      // Handle Nonprofit board search
+      if (
+        part.toolInvocation.toolName === "nonprofit_board_search" &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle Find business ownership
-        if (
-          part.toolInvocation.toolName === "find_business_ownership" &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "Ownership Data",
-            url: s.url,
-            text: "Business ownership source",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Board Position")
+        )
+      }
 
-        // Handle CRM tools
-        if (
-          (part.toolInvocation.toolName === "crm_search" ||
-           part.toolInvocation.toolName.startsWith("neon_crm_")) &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name?: string; url: string; title?: string }) => ({
-            title: s.name || s.title || "CRM Record",
-            url: s.url,
-            text: "CRM data",
-          }))
-        }
+      // Handle Giving history
+      if (part.toolInvocation.toolName === "giving_history" && resultRecord?.sources) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
 
-        // Handle GLEIF LEI tools
-        if (
-          (part.toolInvocation.toolName === "gleif_search" ||
-           part.toolInvocation.toolName === "gleif_lookup") &&
-          result?.sources
-        ) {
-          return result.sources.map((s: { name: string; url: string }) => ({
-            title: s.name || "GLEIF Record",
-            url: s.url,
-            text: "Global LEI data",
-          }))
-        }
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Giving History")
+        )
+      }
 
-      return Array.isArray(result) ? result.flat() : result
+      // Handle Prospect scoring
+      if (part.toolInvocation.toolName === "prospect_score" && resultRecord?.sources) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
+
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Prospect Data")
+        )
+      }
+
+      // Handle Prospect report
+      if (part.toolInvocation.toolName === "prospect_report" && resultRecord?.sources) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
+
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Research Report")
+        )
+      }
+
+      // Handle Rental investment
+      if (part.toolInvocation.toolName === "rental_investment" && resultRecord?.sources) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
+
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Rental Data")
+        )
+      }
+
+      // Handle Find business ownership
+      if (
+        part.toolInvocation.toolName === "find_business_ownership" &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
+
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "Ownership Data")
+        )
+      }
+
+      // Handle CRM tools
+      if (
+        (part.toolInvocation.toolName === "crm_search" ||
+          part.toolInvocation.toolName.startsWith("neon_crm_")) &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name?: string; url: string; title?: string }>(
+          resultRecord.sources
+        )
+        if (!sources) return []
+
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || source.title || "CRM Record")
+        )
+      }
+
+      // Handle GLEIF LEI tools
+      if (
+        (part.toolInvocation.toolName === "gleif_search" ||
+          part.toolInvocation.toolName === "gleif_lookup") &&
+        resultRecord?.sources
+      ) {
+        const sources = asArray<{ name: string; url: string }>(resultRecord.sources)
+        if (!sources) return []
+
+        return sources.map((source) =>
+          createUrlSource(source.url, source.name || "GLEIF Record")
+        )
+      }
+
+      if (Array.isArray(result)) {
+        return result
+          .flat()
+          .map(normalizeSource)
+          .filter(isDefined)
+      }
+
+      const normalized = normalizeSource(result)
+      return normalized ? [normalized] : []
     })
-    .filter(Boolean)
-    .flat()
 
   const sources = [...directSources, ...toolSources]
 

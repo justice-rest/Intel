@@ -8,43 +8,13 @@
  *   npx tsx scripts/tests/test-beta-tools.ts --gemini-only
  *
  * Requires:
- *   - LINKUP_API_KEY in .env.local (for LinkUp Ultra Research)
- *   - GOOGLE_AI_API_KEY in .env.local (for Gemini Grounded Search)
+ *   - LINKUP_API_KEY in .env.local or .vercel/.env.production.local (for LinkUp Ultra Research)
+ *   - GOOGLE_AI_API_KEY in .env.local or .vercel/.env.production.local (for Gemini Grounded Search)
  */
 
-import { readFileSync } from "fs"
-import { resolve } from "path"
+import { loadEnvFiles } from "./load-env"
 
-// Load environment variables from .env.local manually
-function loadEnvFile(filePath: string): void {
-  try {
-    const content = readFileSync(filePath, "utf-8")
-    for (const line of content.split("\n")) {
-      const trimmed = line.trim()
-      // Skip comments and empty lines
-      if (!trimmed || trimmed.startsWith("#")) continue
-      // Parse KEY=VALUE
-      const eqIndex = trimmed.indexOf("=")
-      if (eqIndex > 0) {
-        const key = trimmed.slice(0, eqIndex).trim()
-        let value = trimmed.slice(eqIndex + 1).trim()
-        // Remove quotes if present
-        if ((value.startsWith('"') && value.endsWith('"')) ||
-            (value.startsWith("'") && value.endsWith("'"))) {
-          value = value.slice(1, -1)
-        }
-        // Only set if not already defined
-        if (!process.env[key]) {
-          process.env[key] = value
-        }
-      }
-    }
-  } catch {
-    // Ignore if file doesn't exist
-  }
-}
-
-loadEnvFile(resolve(process.cwd(), ".env.local"))
+loadEnvFiles()
 
 // ANSI colors for output
 const colors = {

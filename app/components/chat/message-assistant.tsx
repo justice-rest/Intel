@@ -18,6 +18,7 @@ import { getCitations } from "./get-citations"
 import { QuoteButton } from "./quote-button"
 import { Reasoning } from "./reasoning"
 import { SearchImages } from "./search-images"
+import { extractImageSearchResults } from "./image-search-utils"
 import { SourcesList } from "./sources-list"
 import { CitationSources } from "./citation-sources"
 import { ToolInvocation } from "./tool-invocation"
@@ -70,16 +71,9 @@ export function MessageAssistant({
       .filter(
         (part) =>
           part.toolInvocation?.state === "result" &&
-          part.toolInvocation?.toolName === "imageSearch" &&
-          (part.toolInvocation?.result as any)?.content?.[0]?.type === "images"
+          part.toolInvocation?.toolName === "imageSearch"
       )
-      .flatMap((part) =>
-        part.toolInvocation?.state === "result" &&
-        part.toolInvocation?.toolName === "imageSearch" &&
-        (part.toolInvocation?.result as any)?.content?.[0]?.type === "images"
-          ? ((part.toolInvocation?.result as any)?.content?.[0]?.results ?? [])
-          : []
-      ) ?? []
+      .flatMap((part) => extractImageSearchResults(part.toolInvocation?.result)) ?? []
 
   const isQuoteEnabled = true
   const messageRef = useRef<HTMLDivElement>(null)

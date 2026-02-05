@@ -3,6 +3,7 @@
 import { getSources } from "@/app/components/chat/get-sources"
 import { Reasoning } from "@/app/components/chat/reasoning"
 import { SearchImages } from "@/app/components/chat/search-images"
+import { extractImageSearchResults } from "@/app/components/chat/image-search-utils"
 import { SourcesList } from "@/app/components/chat/sources-list"
 import { ToolInvocation } from "@/app/components/chat/tool-invocation"
 import type { Tables } from "@/app/types/database.types"
@@ -144,16 +145,9 @@ export default function Article({
                 ?.filter(
                   (part) =>
                     part.toolInvocation?.state === "result" &&
-                    part.toolInvocation?.toolName === "imageSearch" &&
-                    (part.toolInvocation?.result as any)?.content?.[0]?.type === "images"
+                    part.toolInvocation?.toolName === "imageSearch"
                 )
-                .flatMap((part) =>
-                  part.toolInvocation?.state === "result" &&
-                  part.toolInvocation?.toolName === "imageSearch" &&
-                  (part.toolInvocation?.result as any)?.content?.[0]?.type === "images"
-                    ? ((part.toolInvocation?.result as any)?.content?.[0]?.results ?? [])
-                    : []
-                ) ?? []
+                .flatMap((part) => extractImageSearchResults(part.toolInvocation?.result)) ?? []
 
             const contentText = getMessageText(messageAsChat)
             const contentNullOrEmpty = !contentText || contentText === ""

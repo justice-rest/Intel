@@ -92,7 +92,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
+    "@eslint/eslintrc": "^3.3.3",
     "@ianvs/prettier-plugin-sort-imports": "^4.4.1",
     "@next/bundle-analyzer": "^16.1.6",
     "@tailwindcss/postcss": "^4",
@@ -106,7 +106,8 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/webpack": "^5.28.5",
-    "eslint": "^9",
+    "baseline-browser-mapping": "^2.9.19",
+    "eslint": "^9.39.2",
     "eslint-config-next": "16.1.6",
     "prettier": "^3.5.1",
     "prettier-plugin-tailwindcss": "^0.6.11",
