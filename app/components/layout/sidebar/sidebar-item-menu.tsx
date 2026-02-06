@@ -195,6 +195,7 @@ export function SidebarItemMenu({
         setIsOpen={setIsChatKnowledgeOpen}
         chatId={chat.id}
         chatTitle={chat.title || "Untitled chat"}
+        currentKnowledgeProfileId={chat.knowledge_profile_id}
         onKnowledgeChange={() => refresh()}
       />
     </>
