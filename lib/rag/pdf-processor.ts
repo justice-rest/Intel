@@ -6,6 +6,8 @@
 import { extractText, getDocumentProxy } from "unpdf"
 import type { PDFProcessingResult } from "./types"
 
+const MIN_PRIMARY_EXTRACTION_CHARS = 200
+
 /**
  * Detect language from text (simple heuristic)
  * Returns ISO 639-1 language code
@@ -33,6 +35,95 @@ function countWords(text: string): number {
 }
 
 /**
+ * Normalize extracted text to avoid downstream DB/chunking issues.
+ */
+function normalizeText(text: string): string {
+  return text
+    .replace(/\u0000/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+/**
+ * Convert input to the Uint8Array shape expected by unpdf.
+ * Always returns a copy because unpdf/pdf.js may transfer and detach buffers internally.
+ */
+function toUint8Array(buffer: Buffer | Uint8Array): Uint8Array {
+  return new Uint8Array(buffer)
+}
+
+interface ExtractionAttempt {
+  method: "unpdf-extractText" | "pdfjs-page-text"
+  text: string
+  pageCount: number
+}
+
+/**
+ * Extract text via unpdf's high-level helper.
+ */
+async function extractWithUnpdf(uint8Buffer: Uint8Array): Promise<ExtractionAttempt> {
+  const result = await extractText(uint8Buffer, {
+    mergePages: true,
+  })
+
+  return {
+    method: "unpdf-extractText",
+    text: normalizeText(result.text || ""),
+    pageCount: result.totalPages || 1,
+  }
+}
+
+function textFromPageItems(items: unknown[]): string {
+  return items
+    .map((item) => {
+      if (
+        item &&
+        typeof item === "object" &&
+        "str" in item &&
+        typeof (item as { str?: unknown }).str === "string"
+      ) {
+        return (item as { str: string }).str
+      }
+      return ""
+    })
+    .join(" ")
+}
+
+/**
+ * Fallback extractor that reads each page's text content directly.
+ * This is more resilient for graphics-heavy PDFs where merge-level extraction can fail.
+ */
+async function extractWithPageTextFallback(uint8Buffer: Uint8Array): Promise<ExtractionAttempt> {
+  const pdf = await getDocumentProxy(uint8Buffer)
+  const pageCount = pdf.numPages || 1
+  const textPages: string[] = []
+
+  for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+    try {
+      const page = await pdf.getPage(pageNum)
+      const content = await page.getTextContent()
+      const pageText = normalizeText(textFromPageItems(content.items as unknown[]))
+      if (pageText) {
+        textPages.push(pageText)
+      }
+    } catch (error) {
+      console.warn(
+        `[PDF Processor] Failed to extract text from page ${pageNum}/${pageCount}:`,
+        error
+      )
+    }
+  }
+
+  return {
+    method: "pdfjs-page-text",
+    text: normalizeText(textPages.join("\n\n")),
+    pageCount,
+  }
+}
+
+/**
  * Extract text and metadata from PDF buffer
  *
  * Uses unpdf library which is optimized for serverless environments
@@ -47,33 +138,64 @@ export async function processPDF(
   console.log(`[PDF Processor] Starting PDF processing (unpdf), buffer size: ${buffer.length} bytes`)
 
   try {
-    // unpdf handles all DOM polyfills and worker configuration internally
-    // It's specifically designed for serverless environments
-    console.log("[PDF Processor] Extracting text with unpdf...")
+    // Keep an immutable source buffer because unpdf/pdf.js may detach transferred buffers.
+    const sourceBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer)
+    const attempts: ExtractionAttempt[] = []
+    let primaryError: unknown = null
+    let fallbackError: unknown = null
 
-    // unpdf requires Uint8Array, not Buffer
-    // Convert if needed (Buffer extends Uint8Array but unpdf checks instanceof)
-    const uint8Buffer = buffer instanceof Uint8Array && !(buffer instanceof Buffer)
-      ? buffer
-      : new Uint8Array(buffer)
+    // Primary extraction: fastest and works well for standard text PDFs.
+    console.log("[PDF Processor] Extracting text with unpdf (primary path)...")
+    try {
+      const primaryAttempt = await extractWithUnpdf(toUint8Array(sourceBuffer))
+      attempts.push(primaryAttempt)
+      console.log(
+        `[PDF Processor] Primary extraction complete (${primaryAttempt.text.length} chars, ${primaryAttempt.pageCount} pages)`
+      )
+    } catch (error) {
+      primaryError = error
+      console.warn("[PDF Processor] Primary extraction failed, trying fallback:", error)
+    }
 
-    const result = await extractText(uint8Buffer, {
-      mergePages: true, // Combine all pages into single text string
-    })
+    // Fallback extraction for graphics-heavy PDFs where merge extraction is fragile
+    const primaryTextLength = attempts[0]?.text.length || 0
+    const shouldRunFallback =
+      attempts.length === 0 || primaryTextLength < MIN_PRIMARY_EXTRACTION_CHARS
 
-    console.log(`[PDF Processor] Text extraction complete`)
+    if (shouldRunFallback) {
+      console.log("[PDF Processor] Running page-level fallback extraction...")
+      try {
+        const fallbackAttempt = await extractWithPageTextFallback(toUint8Array(sourceBuffer))
+        attempts.push(fallbackAttempt)
+        console.log(
+          `[PDF Processor] Fallback extraction complete (${fallbackAttempt.text.length} chars, ${fallbackAttempt.pageCount} pages)`
+        )
+      } catch (error) {
+        fallbackError = error
+        console.warn("[PDF Processor] Fallback extraction failed:", error)
+      }
+    }
 
-    // Extract text from result
-    const text = result.text
+    const selectedAttempt = attempts
+      .filter((attempt) => attempt.text.length > 0)
+      .sort((a, b) => b.text.length - a.text.length)[0]
 
-    if (!text || text.trim().length === 0) {
+    if (!selectedAttempt) {
+      const details: string[] = []
+      if (primaryError instanceof Error) details.push(`primary: ${primaryError.message}`)
+      if (fallbackError instanceof Error) details.push(`fallback: ${fallbackError.message}`)
+      const suffix = details.length > 0 ? ` (${details.join("; ")})` : ""
       throw new Error(
-        "No text content found in PDF. The file may be image-only or corrupted."
+        `No extractable text found in PDF. The file may be image-only or corrupted${suffix}`
       )
     }
 
-    // Get page count - unpdf provides this in the result
-    const pageCount = result.totalPages || 1
+    if (selectedAttempt.method === "pdfjs-page-text") {
+      console.log("[PDF Processor] Using fallback page-level extraction result")
+    }
+
+    const text = selectedAttempt.text
+    const pageCount = selectedAttempt.pageCount
 
     // Count words
     const wordCount = countWords(text)
@@ -135,9 +257,7 @@ export async function extractPageRange(
 
   try {
     // unpdf requires Uint8Array, not Buffer
-    const uint8Buffer = buffer instanceof Uint8Array && !(buffer instanceof Buffer)
-      ? buffer
-      : new Uint8Array(buffer)
+    const uint8Buffer = toUint8Array(buffer)
 
     // Get document proxy to work with individual pages
     const pdf = await getDocumentProxy(uint8Buffer)
@@ -157,14 +277,12 @@ export async function extractPageRange(
       const content = await page.getTextContent()
 
       // Combine text items from the page
-      const pageText = content.items
-        .map((item: any) => ("str" in item ? item.str : ""))
-        .join(" ")
+      const pageText = normalizeText(textFromPageItems(content.items as unknown[]))
 
       textPages.push(pageText)
     }
 
-    return textPages.join("\n\n")
+    return normalizeText(textPages.join("\n\n"))
   } catch (error) {
     console.error("[PDF Processor] Page range extraction failed:", error)
     throw new Error(

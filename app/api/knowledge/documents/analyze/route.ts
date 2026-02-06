@@ -24,6 +24,10 @@ import type { KnowledgeDocument, ProcessorAnalysisResults } from '@/lib/knowledg
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type KnowledgeClient = any
 
+// PDF + AI analysis can be long-running for large/graphics-heavy documents
+export const runtime = 'nodejs'
+export const maxDuration = 300
+
 interface AnalyzeRequest {
   document_id: string
 }
