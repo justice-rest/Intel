@@ -39,13 +39,14 @@ export async function getKnowledgePromptForUser(
     const supabase = await createClient()
     if (!supabase) return null
 
-    // Get active profile
+    // Get active global profile (exclude chat-scoped profiles)
     const { data: profile } = await (supabase as KnowledgeClient)
       .from('knowledge_profiles')
       .select('*')
       .eq('user_id', userId)
       .eq('status', 'active')
       .is('deleted_at', null)
+      .is('chat_scoped_to', null)
       .single()
 
     if (!profile) return null
@@ -176,6 +177,42 @@ export async function generateKnowledgePrompt(
     return generated
   } catch (error) {
     console.error('generateKnowledgePrompt error:', error)
+    return null
+  }
+}
+
+/**
+ * Get the knowledge prompt for a specific profile by ID.
+ * Used to generate prompt text for chat-scoped profiles.
+ */
+export async function getKnowledgePromptForProfile(
+  profileId: string
+): Promise<string | null> {
+  try {
+    const supabase = await createClient()
+    if (!supabase) return null
+
+    const { data: profile } = await (supabase as KnowledgeClient)
+      .from('knowledge_profiles')
+      .select('*')
+      .eq('id', profileId)
+      .is('deleted_at', null)
+      .single()
+
+    if (!profile) return null
+
+    // Use cached prompts if available
+    if (profile.voice_prompt || profile.strategy_prompt || profile.knowledge_prompt || profile.rules_prompt) {
+      return combinePromptSections(profile)
+    }
+
+    // Generate fresh prompts from elements
+    const generated = await generateKnowledgePrompt(profileId, profile.user_id)
+    if (!generated) return null
+
+    return formatGeneratedPrompt(generated)
+  } catch (error) {
+    console.error('getKnowledgePromptForProfile error:', error)
     return null
   }
 }
@@ -414,9 +451,10 @@ function generateExamplesSection(examples: KnowledgeExample[]): string {
 // ============================================================================
 
 /**
- * Combine cached prompt sections from a profile
+ * Combine cached prompt sections from a profile into a single string.
+ * Exported for use by chat-scoped knowledge merge logic.
  */
-function combinePromptSections(profile: KnowledgeProfile): string {
+export function combinePromptSections(profile: KnowledgeProfile): string {
   const sections: string[] = []
 
   if (profile.voice_prompt) {
@@ -496,9 +534,10 @@ function formatCategory(category: string): string {
 }
 
 /**
- * Truncate text to approximate token count
+ * Truncate text to approximate token count.
+ * Exported for use by chat-scoped knowledge merge logic.
  */
-function truncateToTokens(text: string, maxTokens: number): string {
+export function truncateToTokens(text: string, maxTokens: number): string {
   const maxChars = maxTokens * 4 // Rough estimate
   if (text.length <= maxChars) return text
   return text.slice(0, maxChars - 3) + '...'

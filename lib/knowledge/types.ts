@@ -101,6 +101,26 @@ export interface KnowledgeProfile {
   deleted_at: string | null
   created_at: string
   updated_at: string
+  /** When set, this profile is scoped to a single chat */
+  chat_scoped_to: string | null
+  /** How to combine with global profile: 'replace' or 'merge' */
+  merge_mode: KnowledgeMergeMode | null
+}
+
+/** Merge mode for chat-scoped knowledge profiles */
+export type KnowledgeMergeMode = 'replace' | 'merge'
+
+/** Response type for GET /api/chat-knowledge */
+export interface ChatKnowledgeConfig {
+  has_chat_scoped_profile: boolean
+  chat_scoped_profile: KnowledgeProfile | null
+  merge_mode: KnowledgeMergeMode | null
+  global_active_profile: KnowledgeProfile | null
+  estimated_tokens: {
+    chat_scoped: number
+    global: number
+    combined: number
+  }
 }
 
 /**

@@ -682,18 +682,71 @@ Use this context to personalize responses. Reference prior conversations natural
     }
 
     // Organizational knowledge injection
-    // Priority: Chat-level override > Persona's profile > User's active profile
+    // Priority: Chat-scoped profile (replace/merge) > Chat config (persona) > User's active profile
     let knowledgePrompt: string | null = null
 
-    // First check if we have knowledge from chat config (persona or chat-level override)
-    if (chatConfig?.knowledge_prompt) {
-      knowledgePrompt = chatConfig.knowledge_prompt
-      console.log(`[Chat] Using knowledge profile from chat config`)
-    } else if (isAuthenticated) {
-      // Fallback to user's active profile
+    if (isAuthenticated) {
       try {
-        const { getKnowledgePromptForUser } = await import('@/lib/knowledge')
-        knowledgePrompt = await getKnowledgePromptForUser(userId)
+        const knowledgeModule = await import('@/lib/knowledge')
+        const {
+          getChatScopedProfile,
+          combinePromptSections,
+          truncateToTokens,
+          getKnowledgePromptForUser,
+          TOKEN_BUDGET,
+          MERGE_TOKEN_BUDGET_SPLIT,
+          estimateTokens: estimateKnowledgeTokens,
+        } = knowledgeModule
+
+        // Check for chat-scoped knowledge profile first
+        const chatScopedProfile = await getChatScopedProfile(chatId, userId)
+
+        if (chatScopedProfile) {
+          const chatScopedPrompt = combinePromptSections(chatScopedProfile)
+
+          if (chatScopedProfile.merge_mode === 'merge') {
+            // Merge: combine chat-scoped + global profile
+            let globalPrompt: string | null = null
+            if (chatConfig?.knowledge_prompt) {
+              globalPrompt = chatConfig.knowledge_prompt
+            } else {
+              globalPrompt = await getKnowledgePromptForUser(userId)
+            }
+
+            if (globalPrompt && chatScopedPrompt) {
+              const combinedTokens =
+                estimateKnowledgeTokens(globalPrompt) + estimateKnowledgeTokens(chatScopedPrompt)
+
+              if (combinedTokens > TOKEN_BUDGET.total) {
+                // Truncate with 60/40 split favoring chat-scoped content
+                const chatBudget = Math.floor(
+                  TOKEN_BUDGET.total * MERGE_TOKEN_BUDGET_SPLIT.chat_scoped
+                )
+                const globalBudget = Math.floor(
+                  TOKEN_BUDGET.total * MERGE_TOKEN_BUDGET_SPLIT.global
+                )
+                const truncatedGlobal = truncateToTokens(globalPrompt, globalBudget)
+                const truncatedChat = truncateToTokens(chatScopedPrompt, chatBudget)
+                knowledgePrompt = `${truncatedGlobal}\n\n---\n\n[CHAT-SPECIFIC KNOWLEDGE]\n${truncatedChat}\n[/CHAT-SPECIFIC KNOWLEDGE]`
+              } else {
+                knowledgePrompt = `${globalPrompt}\n\n---\n\n[CHAT-SPECIFIC KNOWLEDGE]\n${chatScopedPrompt}\n[/CHAT-SPECIFIC KNOWLEDGE]`
+              }
+            } else {
+              // Only one side has content
+              knowledgePrompt = chatScopedPrompt || globalPrompt
+            }
+          } else {
+            // Replace mode: use only chat-scoped profile
+            knowledgePrompt = chatScopedPrompt || null
+          }
+        } else if (chatConfig?.knowledge_prompt) {
+          // Fallback to persona's knowledge profile
+          knowledgePrompt = chatConfig.knowledge_prompt
+          console.log(`[Chat] Using knowledge profile from chat config`)
+        } else {
+          // Fallback to user's active global profile
+          knowledgePrompt = await getKnowledgePromptForUser(userId)
+        }
       } catch (error) {
         console.error('Knowledge prompt retrieval failed:', error)
         // Non-blocking - continue without knowledge context

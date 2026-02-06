@@ -63,6 +63,15 @@ export const TOKEN_BUDGET: TokenBudget = {
 /** Warning threshold (percentage of total budget) */
 export const TOKEN_WARNING_THRESHOLD = 0.9 // 90%
 
+/** Default merge mode for chat-scoped profiles */
+export const DEFAULT_MERGE_MODE = 'replace' as const
+
+/** Token budget split when merging chat-scoped + global (must sum to 1.0) */
+export const MERGE_TOKEN_BUDGET_SPLIT = {
+  chat_scoped: 0.6,
+  global: 0.4,
+} as const
+
 // ============================================================================
 // EMBEDDING CONFIGURATION
 // ============================================================================

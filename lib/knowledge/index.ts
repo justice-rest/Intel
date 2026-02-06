@@ -15,7 +15,18 @@ export * from './config'
 export {
   getKnowledgePromptForUser,
   generateKnowledgePrompt,
+  getKnowledgePromptForProfile,
+  combinePromptSections,
+  truncateToTokens,
 } from './prompt-generator'
+
+// Chat-Scoped Knowledge
+export {
+  getChatScopedProfile,
+  createChatScopedProfile,
+  updateChatScopedProfile,
+  removeChatScopedProfile,
+} from './chat-scoped'
 
 // Document Processors
 export {

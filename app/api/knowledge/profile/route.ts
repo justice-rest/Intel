@@ -49,12 +49,13 @@ export async function GET() {
       )
     }
 
-    // Get profiles with counts
+    // Get profiles with counts (exclude chat-scoped profiles from global list)
     const { data: profiles, error } = await (supabase as KnowledgeClient)
       .from('knowledge_profiles')
       .select('*')
       .eq('user_id', user.id)
       .is('deleted_at', null)
+      .is('chat_scoped_to', null)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -165,12 +166,13 @@ export async function POST(req: Request) {
       )
     }
 
-    // Check profile limit
+    // Check profile limit (chat-scoped profiles don't count toward limit)
     const { count: existingCount } = await (supabase as KnowledgeClient)
       .from('knowledge_profiles')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .is('deleted_at', null)
+      .is('chat_scoped_to', null)
 
     if ((existingCount || 0) >= MAX_PROFILES_PER_USER) {
       return NextResponse.json(
