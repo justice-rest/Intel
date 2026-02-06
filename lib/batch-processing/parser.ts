@@ -3,8 +3,8 @@
  * Parses uploaded files and extracts prospect data
  */
 
+import ExcelJS from "exceljs"
 import Papa from "papaparse"
-import * as XLSX from "xlsx"
 import {
   ParsedFileResult,
   ColumnMapping,
@@ -129,36 +129,36 @@ async function parseExcel(
   content: ArrayBuffer
 ): Promise<{ rows: Record<string, string>[]; columns: string[] }> {
   try {
-    const workbook = XLSX.read(content, { type: "array" })
+    const workbook = new ExcelJS.Workbook()
+    await workbook.xlsx.load(content)
 
     // Get the first sheet
-    const firstSheetName = workbook.SheetNames[0]
-    if (!firstSheetName) {
+    const worksheet = workbook.worksheets[0]
+    if (!worksheet || worksheet.rowCount === 0) {
       throw new Error("Excel file has no sheets")
     }
 
-    const worksheet = workbook.Sheets[firstSheetName]
-
-    // Convert to JSON with headers
-    const jsonData = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, {
-      header: 1,
-      defval: "",
-      blankrows: false,
+    // Read all rows as arrays of values (ExcelJS rows are 1-indexed)
+    const allRows: unknown[][] = []
+    worksheet.eachRow({ includeEmpty: false }, (row) => {
+      allRows.push(
+        row.values
+          ? (Array.isArray(row.values) ? row.values.slice(1) : Object.values(row.values))
+          : []
+      )
     })
 
-    if (jsonData.length < 2) {
+    if (allRows.length < 2) {
       throw new Error("Excel file must have at least a header row and one data row")
     }
 
     // First row is headers
-    const firstRow = jsonData[0]
-    const columns = (Array.isArray(firstRow) ? firstRow : Object.values(firstRow)).map((h) => String(h).trim())
+    const columns = allRows[0].map((h) => String(h ?? "").trim())
 
     // Convert remaining rows to objects
     const rows: Record<string, string>[] = []
-    for (let i = 1; i < jsonData.length; i++) {
-      const rawRow = jsonData[i]
-      const rowData = Array.isArray(rawRow) ? rawRow : Object.values(rawRow)
+    for (let i = 1; i < allRows.length; i++) {
+      const rowData = allRows[i]
       const row: Record<string, string> = {}
 
       columns.forEach((col, index) => {

@@ -51,6 +51,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "dompurify": "^3.2.5",
+    "exceljs": "^4.4.0",
     "fast-xml-parser": "^5.3.3",
     "file-type": "^20.4.1",
     "gpt-tokenizer": "^3.4.0",
@@ -85,8 +86,7 @@
     "unpdf": "^1.4.0",
     "use-stick-to-bottom": "^1.1.1",
     "vaul": "^1.1.2",
-    "workflow": "^4.0.1-beta.39",
-    "xlsx": "^0.18.5"
+    "workflow": "^4.0.1-beta.39"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
@@ -115,6 +115,8 @@
   "overrides": {
     "devalue": "5.6.2",
     "jsondiffpatch": "0.7.3",
-    "lodash-es": "4.17.23"
+    "lodash-es": "4.17.23",
+    "path-to-regexp@>=4.0.0 <6.3.0": "6.3.0",
+    "undici@<=6.22.0": "6.23.0"
   }
 }
