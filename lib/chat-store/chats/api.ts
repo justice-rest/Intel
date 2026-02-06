@@ -319,8 +319,6 @@ export async function createNewChat(
       pinned: responseData.chat.pinned ?? false,
       pinned_at: responseData.chat.pinned_at ?? null,
       system_prompt: responseData.chat.system_prompt ?? null,
-      // Persona system columns
-      persona_id: responseData.chat.persona_id ?? null,
       knowledge_profile_id: responseData.chat.knowledge_profile_id ?? null,
       custom_system_prompt: responseData.chat.custom_system_prompt ?? null,
     }

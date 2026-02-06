@@ -11,13 +11,12 @@ import { useMessages } from "@/lib/chat-store/messages/provider"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { Chat } from "@/lib/chat-store/types"
 import { useNotificationsOptional } from "@/lib/notifications"
-import { Bell, BellSlash, Brain, DotsThree, FolderPlus, PencilSimple, Trash, UserCircle } from "@phosphor-icons/react"
+import { Bell, BellSlash, Brain, DotsThree, FolderPlus, PencilSimple, Trash } from "@phosphor-icons/react"
 import { Pin, PinOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { DialogDeleteChat } from "./dialog-delete-chat"
 import { DialogAddToProject } from "./dialog-add-to-project"
-import { DialogAssignPersona } from "./dialog-assign-persona"
 import { DialogChatKnowledge } from "./dialog-chat-knowledge"
 
 type SidebarItemMenuProps = {
@@ -33,7 +32,6 @@ export function SidebarItemMenu({
 }: SidebarItemMenuProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isAddToProjectOpen, setIsAddToProjectOpen] = useState(false)
-  const [isAssignPersonaOpen, setIsAssignPersonaOpen] = useState(false)
   const [isChatKnowledgeOpen, setIsChatKnowledgeOpen] = useState(false)
   const router = useRouter()
   const { deleteMessages } = useMessages()
@@ -106,17 +104,6 @@ export function SidebarItemMenu({
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              setIsAssignPersonaOpen(true)
-            }}
-          >
-            <UserCircle size={16} className="mr-2" />
-            Assign Persona
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
               setIsChatKnowledgeOpen(true)
             }}
           >
@@ -179,15 +166,6 @@ export function SidebarItemMenu({
         chatTitle={chat.title || "Untitled chat"}
         currentProjectId={chat.project_id}
         onProjectChange={() => refresh()}
-      />
-
-      <DialogAssignPersona
-        isOpen={isAssignPersonaOpen}
-        setIsOpen={setIsAssignPersonaOpen}
-        chatId={chat.id}
-        chatTitle={chat.title || "Untitled chat"}
-        currentPersonaId={chat.persona_id}
-        onPersonaChange={() => refresh()}
       />
 
       <DialogChatKnowledge

@@ -52,9 +52,7 @@ import type {
   StrategyCategory,
   FactCategory,
 } from "@/lib/knowledge/types"
-import type { PersonaWithProfile } from "@/lib/personas"
 import { GoogleIntegrationSection } from "@/app/components/layout/settings/integrations/google-section"
-import { UserCircle } from "@phosphor-icons/react"
 
 /**
  * KnowledgeDashboard
@@ -85,19 +83,6 @@ export function KnowledgeDashboard() {
       return data.profiles as ProfileWithCounts[]
     },
   })
-
-  // Fetch personas count
-  const { data: personasData } = useQuery({
-    queryKey: ["personas"],
-    queryFn: async () => {
-      const res = await fetchClient("/api/personas")
-      if (!res.ok) throw new Error("Failed to fetch personas")
-      const data = await res.json()
-      return data as { personas: PersonaWithProfile[]; total: number }
-    },
-  })
-
-  const personasCount = personasData?.total || personasData?.personas?.length || 0
 
   const profiles = useMemo(() => profilesData ?? [], [profilesData])
   const activeProfile = useMemo(
@@ -316,7 +301,7 @@ export function KnowledgeDashboard() {
             {/* Knowledge Sections Grid */}
             {activeProfile && (
               <div className="rounded-lg border border-gray-200 dark:border-[#333] bg-white dark:bg-[#1a1a1a] overflow-hidden">
-                <div className="grid grid-cols-2 sm:grid-cols-5">
+                <div className="grid grid-cols-2 sm:grid-cols-4">
                   {/* Documents */}
                   <SectionHeader
                     icon={FilePdf}
@@ -354,16 +339,6 @@ export function KnowledgeDashboard() {
                     count={activeProfile.fact_count}
                     expanded={expandedSection === "facts"}
                     onClick={() => toggleSection("facts")}
-                    className="border-r border-gray-200 dark:border-[#333]"
-                  />
-
-                  {/* Personas */}
-                  <SectionHeader
-                    icon={UserCircle}
-                    label="Personas"
-                    count={personasCount}
-                    expanded={expandedSection === "personas"}
-                    onClick={() => toggleSection("personas")}
                   />
                 </div>
 
@@ -390,9 +365,6 @@ export function KnowledgeDashboard() {
                         )}
                         {expandedSection === "facts" && (
                           <FactsSection profileId={activeProfile.id} />
-                        )}
-                        {expandedSection === "personas" && (
-                          <PersonasSection />
                         )}
                       </div>
                     </motion.div>
@@ -1209,236 +1181,3 @@ function FactsSection({ profileId }: { profileId: string }) {
   )
 }
 
-/**
- * Personas Section
- */
-function PersonasSection() {
-  const queryClient = useQueryClient()
-  const [isAdding, setIsAdding] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    system_prompt: "",
-  })
-
-  const { data: personasData, isLoading } = useQuery({
-    queryKey: ["personas"],
-    queryFn: async () => {
-      const res = await fetchClient("/api/personas")
-      if (!res.ok) throw new Error("Failed to fetch personas")
-      return (await res.json()) as { personas: PersonaWithProfile[]; total: number }
-    },
-  })
-
-  const personas = personasData?.personas || []
-
-  const createMutation = useMutation({
-    mutationFn: async () => {
-      const res = await fetchClient("/api/personas", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      })
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to create")
-      return res.json()
-    },
-    onSuccess: () => {
-      toast({ title: "Persona Created" })
-      queryClient.invalidateQueries({ queryKey: ["personas"] })
-      setIsAdding(false)
-      setFormData({ name: "", description: "", system_prompt: "" })
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to create persona" })
-    },
-  })
-
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      const res = await fetchClient(`/api/personas/${id}`, {
-        method: "PUT",
-        body: JSON.stringify(data),
-      })
-      if (!res.ok) throw new Error((await res.json()).error || "Failed to update")
-      return res.json()
-    },
-    onSuccess: () => {
-      toast({ title: "Persona Updated" })
-      queryClient.invalidateQueries({ queryKey: ["personas"] })
-      setEditingId(null)
-      setFormData({ name: "", description: "", system_prompt: "" })
-    },
-    onError: (error) => {
-      toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to update persona" })
-    },
-  })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const res = await fetchClient(`/api/personas/${id}`, { method: "DELETE" })
-      if (!res.ok) throw new Error("Delete failed")
-      return res.json()
-    },
-    onSuccess: () => {
-      toast({ title: "Persona Deleted" })
-      queryClient.invalidateQueries({ queryKey: ["personas"] })
-    },
-  })
-
-  const startEdit = (persona: PersonaWithProfile) => {
-    setEditingId(persona.id)
-    setFormData({
-      name: persona.name,
-      description: persona.description || "",
-      system_prompt: persona.system_prompt || "",
-    })
-    setIsAdding(false)
-  }
-
-  const cancelEdit = () => {
-    setEditingId(null)
-    setIsAdding(false)
-    setFormData({ name: "", description: "", system_prompt: "" })
-  }
-
-  if (isLoading) {
-    return <div className="flex justify-center py-4"><Loader2 className="size-5 animate-spin text-gray-400" /></div>
-  }
-
-  return (
-    <div className="space-y-3">
-      {/* Add/Edit Form */}
-      <AnimatePresence mode="wait">
-        {(isAdding || editingId) && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.15 }}
-            className="overflow-hidden"
-          >
-            <div className="p-3 rounded-lg bg-[#1a1a1a] border border-[#333] space-y-3">
-              <input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Persona name (e.g., Major Gifts Specialist)"
-                className="w-full bg-transparent text-sm text-white placeholder:text-gray-500 outline-none border-b border-[#444] pb-2 focus:border-indigo-400 transition-colors"
-                autoFocus
-              />
-              <input
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description (optional)"
-                className="w-full bg-transparent text-xs text-gray-300 placeholder:text-gray-500 outline-none border-b border-[#444] pb-2 focus:border-indigo-400 transition-colors"
-              />
-              <textarea
-                value={formData.system_prompt}
-                onChange={(e) => setFormData({ ...formData, system_prompt: e.target.value })}
-                placeholder="Custom instructions for this persona..."
-                rows={3}
-                className="w-full bg-transparent text-xs text-gray-300 placeholder:text-gray-500 outline-none border border-[#444] rounded p-2 focus:border-indigo-400 transition-colors resize-none"
-              />
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-[10px] text-gray-500">
-                  Personas define how Rōmy responds in chats
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    className="text-xs text-gray-400 hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (editingId) {
-                        updateMutation.mutate({ id: editingId, data: formData })
-                      } else {
-                        createMutation.mutate()
-                      }
-                    }}
-                    disabled={!formData.name.trim() || createMutation.isPending || updateMutation.isPending}
-                    className="px-3 py-1 text-xs font-medium rounded bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {(createMutation.isPending || updateMutation.isPending) ? (
-                      <Loader2 className="size-3 animate-spin" />
-                    ) : editingId ? "Save" : "Create"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-        {!isAdding && !editingId && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            type="button"
-            onClick={() => setIsAdding(true)}
-            className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors"
-          >
-            <Plus size={12} />
-            Create persona
-          </motion.button>
-        )}
-      </AnimatePresence>
-
-      {/* Personas List */}
-      {personas.length === 0 && !isAdding ? (
-        <p className="text-xs text-gray-500 text-center py-2">
-          Create personas to customize how Rōmy responds in different contexts.
-        </p>
-      ) : (
-        <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
-          {personas.map((persona) => (
-            <div
-              key={persona.id}
-              className="flex items-start gap-2 text-xs p-2 rounded hover:bg-[#252525] group"
-            >
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                style={{ backgroundColor: `${persona.color}20` }}
-              >
-                <span style={{ color: persona.color }}>
-                  <UserCircle size={14} weight="fill" />
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-gray-200">{persona.name}</span>
-                  {persona.is_default && (
-                    <span className="px-1 py-0.5 rounded bg-green-500/20 text-green-400 text-[9px] font-medium">
-                      DEFAULT
-                    </span>
-                  )}
-                </div>
-                {persona.description && (
-                  <p className="text-gray-500 truncate">{persona.description}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  type="button"
-                  onClick={() => startEdit(persona)}
-                  className="p-1 hover:bg-[#333] rounded transition-colors"
-                >
-                  <span className="text-gray-400 hover:text-indigo-400 text-[10px]">Edit</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteMutation.mutate(persona.id)}
-                  disabled={deleteMutation.isPending}
-                  className="p-1 hover:bg-[#333] rounded transition-colors"
-                >
-                  <Trash size={12} className="text-gray-500 hover:text-red-400" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}

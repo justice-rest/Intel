@@ -1,22 +1,16 @@
 /**
  * Chat Configuration API Route
  *
- * GET  /api/chat-config?chatId=xxx - Get chat configuration (persona, knowledge profile)
+ * GET  /api/chat-config?chatId=xxx - Get chat configuration (knowledge profile, custom prompt)
  * PUT  /api/chat-config - Update chat configuration
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import {
-  getEffectiveChatConfig,
-  assignPersonaToChat,
-  PERSONA_ERROR_MESSAGES,
-  PERSONA_SUCCESS_MESSAGES,
-} from '@/lib/personas'
+import { getChatConfig } from '@/lib/chat-config'
 
 interface UpdateChatConfigRequest {
   chat_id: string
-  persona_id?: string | null
   knowledge_profile_id?: string | null
   custom_system_prompt?: string | null
 }
@@ -43,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: PERSONA_ERROR_MESSAGES.UNAUTHORIZED },
+        { error: 'Authentication required' },
         { status: 401 }
       )
     }
@@ -69,13 +63,11 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify chat ownership
-    // Note: persona_id, knowledge_profile_id, custom_system_prompt are added by migration 027
-    // Using type assertion since generated types may not include these columns yet
     const { data: chat, error: chatError } = await supabase
       .from('chats')
-      .select('id, user_id, persona_id, knowledge_profile_id, custom_system_prompt')
+      .select('id, user_id, knowledge_profile_id, custom_system_prompt')
       .eq('id', chatId)
-      .single() as { data: { id: string; user_id: string; persona_id: string | null; knowledge_profile_id: string | null; custom_system_prompt: string | null } | null; error: Error | null }
+      .single() as { data: { id: string; user_id: string; knowledge_profile_id: string | null; custom_system_prompt: string | null } | null; error: Error | null }
 
     if (chatError || !chat) {
       return NextResponse.json(
@@ -86,20 +78,18 @@ export async function GET(req: NextRequest) {
 
     if (chat.user_id !== user.id) {
       return NextResponse.json(
-        { error: PERSONA_ERROR_MESSAGES.UNAUTHORIZED },
+        { error: 'Authentication required' },
         { status: 403 }
       )
     }
 
     // Get effective configuration
-    const config = await getEffectiveChatConfig(supabase, chatId, user.id)
+    const config = await getChatConfig(supabase, chatId, user.id)
 
     return NextResponse.json({
       chat_id: chatId,
       config,
-      // Also return raw chat settings for editing
       settings: {
-        persona_id: chat.persona_id,
         knowledge_profile_id: chat.knowledge_profile_id,
         custom_system_prompt: chat.custom_system_prompt,
       },
@@ -115,7 +105,7 @@ export async function GET(req: NextRequest) {
 
 /**
  * PUT /api/chat-config
- * Update chat configuration (persona, knowledge profile, custom prompt)
+ * Update chat configuration (knowledge profile, custom prompt)
  */
 export async function PUT(req: NextRequest) {
   try {
@@ -135,7 +125,7 @@ export async function PUT(req: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json(
-        { error: PERSONA_ERROR_MESSAGES.UNAUTHORIZED },
+        { error: 'Authentication required' },
         { status: 401 }
       )
     }
@@ -175,44 +165,13 @@ export async function PUT(req: NextRequest) {
 
     if (chat.user_id !== user.id) {
       return NextResponse.json(
-        { error: PERSONA_ERROR_MESSAGES.UNAUTHORIZED },
+        { error: 'Authentication required' },
         { status: 403 }
       )
     }
 
     // Build update object
     const updateData: Record<string, unknown> = {}
-
-    // Handle persona assignment
-    if (body.persona_id !== undefined) {
-      // If assigning a persona, verify it belongs to user
-      if (body.persona_id !== null) {
-        if (!uuidRegex.test(body.persona_id)) {
-          return NextResponse.json(
-            { error: 'Invalid persona_id format' },
-            { status: 400 }
-          )
-        }
-
-        // Note: personas table added by migration 027
-        // Using type assertion since generated types may not include this table yet
-        const { data: persona } = await (supabase as any)
-          .from('personas')
-          .select('id')
-          .eq('id', body.persona_id)
-          .eq('user_id', user.id)
-          .is('deleted_at', null)
-          .single()
-
-        if (!persona) {
-          return NextResponse.json(
-            { error: PERSONA_ERROR_MESSAGES.PERSONA_NOT_FOUND },
-            { status: 404 }
-          )
-        }
-      }
-      updateData.persona_id = body.persona_id
-    }
 
     // Handle knowledge profile assignment
     if (body.knowledge_profile_id !== undefined) {
@@ -225,8 +184,6 @@ export async function PUT(req: NextRequest) {
           )
         }
 
-        // Note: knowledge_profiles table added by migration 026
-        // Using type assertion since generated types may not include this table yet
         const { data: profile } = await (supabase as any)
           .from('knowledge_profiles')
           .select('id')
@@ -280,7 +237,7 @@ export async function PUT(req: NextRequest) {
     }
 
     // Get updated configuration
-    const config = await getEffectiveChatConfig(supabase, body.chat_id, user.id)
+    const config = await getChatConfig(supabase, body.chat_id, user.id)
 
     return NextResponse.json({
       message: 'Chat configuration updated',

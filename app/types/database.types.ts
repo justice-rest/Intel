@@ -101,8 +101,6 @@ export type Database = {
           pinned: boolean
           pinned_at: string | null
           system_prompt: string | null
-          // Persona system columns
-          persona_id: string | null
           knowledge_profile_id: string | null
           custom_system_prompt: string | null
         }
@@ -118,7 +116,6 @@ export type Database = {
           pinned?: boolean
           pinned_at?: string | null
           system_prompt?: string | null
-          persona_id?: string | null
           knowledge_profile_id?: string | null
           custom_system_prompt?: string | null
         }
@@ -134,7 +131,6 @@ export type Database = {
           pinned?: boolean
           pinned_at?: string | null
           system_prompt?: string | null
-          persona_id?: string | null
           knowledge_profile_id?: string | null
           custom_system_prompt?: string | null
         }

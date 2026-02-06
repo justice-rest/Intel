@@ -160,8 +160,6 @@ export function ChatsProvider({
       project_id: null,
       pinned: false,
       pinned_at: null,
-      // Persona system columns (null for new chats)
-      persona_id: null,
       knowledge_profile_id: null,
       custom_system_prompt: null,
     }
