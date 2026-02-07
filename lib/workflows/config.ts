@@ -27,7 +27,7 @@ const isProduction = process.env.NODE_ENV === "production"
  * Full rollout defaults:
  * - Workflows enabled everywhere (dev + production)
  * - All feature flags ON by default
- * - Local world in development, postgres in production
+ * - Local world in development, Vercel World in production
  * - 100% rollout for all users
  *
  * To disable, set environment variables:
@@ -36,7 +36,7 @@ const isProduction = process.env.NODE_ENV === "production"
  */
 const defaultConfig: WorkflowConfig = {
   enabled: true,
-  targetWorld: isDevelopment ? "local" : "postgres",
+  targetWorld: isDevelopment ? "local" : "vercel",
   featureFlags: {
     "durable-crm-sync": true,
     "durable-memory-extraction": true,

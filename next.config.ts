@@ -69,7 +69,7 @@ const nextConfig = withWorkflow(baseConfig, {
   workflows: {
     local: {
       // Use local workflow engine in development
-      // In production, workflows run on Vercel or Postgres World
+      // In production, workflows run on Vercel World (auto-detected)
     },
   },
 })
