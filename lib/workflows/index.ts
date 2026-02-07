@@ -103,12 +103,16 @@ export async function runDurableWorkflow<TParams, TResult>(
     try {
       // Dynamic import to handle environments where workflow/api isn't available
       const workflowApi = await import("workflow/api")
-      // Use the workflow API to start the workflow properly
-      // The start function returns a promise that resolves to a Run object
-      const run = await workflowApi.start(workflowFn as Parameters<typeof workflowApi.start>[0])
-      // For workflows with params, we need to call the run with params
-      // @ts-expect-error - workflow API has complex typing
-      result = typeof run === "function" ? await run(params) : run
+      // start(workflow, args, options?) — args is a tuple of the workflow function's parameters.
+      // Our workflows all take a single params object, so we wrap in [params].
+      // Returns a Run<TResult> handle; we don't await returnValue for fire-and-forget.
+      const run = await workflowApi.start(
+        workflowFn as Parameters<typeof workflowApi.start>[0],
+        [params] as Parameters<typeof workflowApi.start>[1]
+      )
+      // For fire-and-forget callers the run is already dispatched.
+      // Grab the return value so we can report success/failure in the result.
+      result = await run.returnValue as TResult
     } catch (importError: unknown) {
       // If workflow/api isn't available or start fails, fall back to direct call
       // But only if the error is about the module not being found
