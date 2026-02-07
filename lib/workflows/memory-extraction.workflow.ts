@@ -9,6 +9,7 @@
  * Unlike fire-and-forget, this ensures memories are eventually saved.
  */
 
+import { fetch } from "workflow"
 import { z } from "zod"
 
 // ============================================================================
@@ -177,6 +178,11 @@ export async function extractMemoriesWorkflow(
   params: MemoryExtractionParams
 ): Promise<MemoryExtractionResult> {
   "use workflow"
+
+  // Polyfill global fetch with workflow-aware step function.
+  // The Workflow DevKit sandboxes global fetch; AI SDK and embedding
+  // calls need it available via globalThis.
+  globalThis.fetch = fetch
 
   const startTime = Date.now()
 

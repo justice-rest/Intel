@@ -10,6 +10,7 @@
  * Supports: Bloomerang, Virtuous, Neon CRM, DonorPerfect
  */
 
+import { fetch } from "workflow"
 import { z } from "zod"
 import type { CRMProvider } from "@/lib/crm/types"
 
@@ -488,6 +489,10 @@ async function markSyncFailedStep(
  */
 export async function syncCRMData(params: CRMSyncParams): Promise<CRMSyncResult> {
   "use workflow"
+
+  // Polyfill global fetch with workflow-aware step function.
+  // CRM API adapters use fetch internally.
+  globalThis.fetch = fetch
 
   const startTime = Date.now()
 

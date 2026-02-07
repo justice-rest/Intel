@@ -22,6 +22,7 @@
  * - Sleep-based rate limiting between prospects
  */
 
+import { fetch } from "workflow"
 import { z } from "zod"
 
 // ============================================================================
@@ -276,6 +277,10 @@ export async function batchResearchWorkflow(
   params: BatchResearchParams
 ): Promise<BatchResearchResult> {
   "use workflow"
+
+  // Polyfill global fetch with workflow-aware step function.
+  // Research pipeline and AI SDK calls use fetch internally.
+  globalThis.fetch = fetch
 
   const startTime = Date.now()
 

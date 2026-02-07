@@ -38,7 +38,7 @@ const customerCache = new Map<string, CachedCustomer>()
 const CUSTOMER_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 // Timeout for Autumn API calls (prevents blocking)
-const AUTUMN_API_TIMEOUT = 150 // 150ms max
+const AUTUMN_API_TIMEOUT = 500 // 500ms max — 150ms was too aggressive for cold starts
 
 /**
  * Promise.race with timeout - returns fallback if API is slow
