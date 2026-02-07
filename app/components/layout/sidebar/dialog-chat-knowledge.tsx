@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { toast } from "@/components/ui/toast"
-import { Brain, Check } from "@phosphor-icons/react"
+import { Check, Sparkle } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Loader2 } from "lucide-react"
@@ -121,7 +121,7 @@ export function DialogChatKnowledge({
       <DialogContent className="sm:max-w-[400px] p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-5 pt-5 pb-4">
           <DialogTitle className="flex items-center gap-2.5 text-base font-semibold">
-            <Brain size={20} weight="fill" className="text-muted-foreground" />
+            <Sparkle size={20} weight="fill" className="text-muted-foreground" />
             Assign Knowledge
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground/80 mt-1.5 leading-relaxed">

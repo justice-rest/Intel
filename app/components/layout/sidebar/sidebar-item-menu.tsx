@@ -11,7 +11,7 @@ import { useMessages } from "@/lib/chat-store/messages/provider"
 import { useChatSession } from "@/lib/chat-store/session/provider"
 import { Chat } from "@/lib/chat-store/types"
 import { useNotificationsOptional } from "@/lib/notifications"
-import { Bell, BellSlash, Brain, DotsThree, FolderPlus, PencilSimple, Trash } from "@phosphor-icons/react"
+import { Bell, BellSlash, DotsThree, FolderPlus, PencilSimple, Sparkle, Trash } from "@phosphor-icons/react"
 import { Pin, PinOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -107,8 +107,8 @@ export function SidebarItemMenu({
               setIsChatKnowledgeOpen(true)
             }}
           >
-            <Brain size={16} className="mr-2" />
-            Chat Knowledge
+            <Sparkle size={16} className="mr-2" />
+            Knowledge
           </DropdownMenuItem>
           {notifications && (
             <DropdownMenuItem
