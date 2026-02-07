@@ -24,9 +24,25 @@ export async function POST(request: Request) {
 
     const { name } = await request.json()
 
+    const trimmedName = typeof name === "string" ? name.trim() : ""
+
+    if (!trimmedName) {
+      return NextResponse.json(
+        { error: "Project name is required" },
+        { status: 400 }
+      )
+    }
+
+    if (trimmedName.length > 100) {
+      return NextResponse.json(
+        { error: "Project name must be 100 characters or less" },
+        { status: 400 }
+      )
+    }
+
     const { data, error } = await supabase
       .from("projects")
-      .insert({ name, user_id: userId })
+      .insert({ name: trimmedName, user_id: userId })
       .select()
       .single()
 

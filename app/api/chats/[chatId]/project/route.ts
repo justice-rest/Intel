@@ -31,7 +31,7 @@ export async function PUT(
     const { projectId } = await request.json()
 
     // Verify the chat belongs to the user
-    const { data: chat, error: chatError } = await (supabase as any)
+    const { data: chat, error: chatError } = await supabase
       .from("chats")
       .select("user_id")
       .eq("id", chatId)
@@ -47,7 +47,7 @@ export async function PUT(
 
     // If projectId is provided, verify it belongs to the user
     if (projectId) {
-      const { data: project, error: projectError } = await (supabase as any)
+      const { data: project, error: projectError } = await supabase
         .from("projects")
         .select("user_id")
         .eq("id", projectId)
@@ -63,7 +63,7 @@ export async function PUT(
     }
 
     // Update the chat's project_id
-    const { error: updateError } = await (supabase as any)
+    const { error: updateError } = await supabase
       .from("chats")
       .update({ project_id: projectId || null })
       .eq("id", chatId)

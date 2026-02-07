@@ -11,8 +11,8 @@ export async function GET(
 
     if (!supabase) {
       return new Response(
-        JSON.stringify({ error: "Supabase not available in this deployment." }),
-        { status: 200 }
+        JSON.stringify({ error: "Database not available" }),
+        { status: 503 }
       )
     }
 
@@ -30,7 +30,20 @@ export async function GET(
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("Project GET error:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      })
+      // PGRST116 = "not found" from .single() when no rows match
+      if (error.code === "PGRST116") {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 })
+      }
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 500 }
+      )
     }
 
     if (!data) {
@@ -39,7 +52,7 @@ export async function GET(
 
     return NextResponse.json(data)
   } catch (err: unknown) {
-    console.error("Error in project endpoint:", err)
+    console.error("Project GET unhandled error:", err)
     return new Response(
       JSON.stringify({
         error: (err as Error).message || "Internal server error",
@@ -57,9 +70,18 @@ export async function PUT(
     const { projectId } = await params
     const { name } = await request.json()
 
-    if (!name?.trim()) {
+    const trimmedName = typeof name === "string" ? name.trim() : ""
+
+    if (!trimmedName) {
       return NextResponse.json(
         { error: "Project name is required" },
+        { status: 400 }
+      )
+    }
+
+    if (trimmedName.length > 100) {
+      return NextResponse.json(
+        { error: "Project name must be 100 characters or less" },
         { status: 400 }
       )
     }
@@ -68,8 +90,8 @@ export async function PUT(
 
     if (!supabase) {
       return new Response(
-        JSON.stringify({ error: "Supabase not available in this deployment." }),
-        { status: 200 }
+        JSON.stringify({ error: "Database not available" }),
+        { status: 503 }
       )
     }
 
@@ -81,14 +103,26 @@ export async function PUT(
 
     const { data, error } = await supabase
       .from("projects")
-      .update({ name: name.trim() })
+      .update({ name: trimmedName })
       .eq("id", projectId)
       .eq("user_id", authData.user.id)
       .select()
       .single()
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("Project PUT error:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      })
+      if (error.code === "PGRST116") {
+        return NextResponse.json({ error: "Project not found" }, { status: 404 })
+      }
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 500 }
+      )
     }
 
     if (!data) {
@@ -97,7 +131,7 @@ export async function PUT(
 
     return NextResponse.json(data)
   } catch (err: unknown) {
-    console.error("Error updating project:", err)
+    console.error("Project PUT unhandled error:", err)
     return new Response(
       JSON.stringify({
         error: (err as Error).message || "Internal server error",
@@ -117,8 +151,8 @@ export async function DELETE(
 
     if (!supabase) {
       return new Response(
-        JSON.stringify({ error: "Supabase not available in this deployment." }),
-        { status: 200 }
+        JSON.stringify({ error: "Database not available" }),
+        { status: 503 }
       )
     }
 
@@ -148,12 +182,21 @@ export async function DELETE(
       .eq("user_id", authData.user.id)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error("Project DELETE error:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      })
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ success: true })
   } catch (err: unknown) {
-    console.error("Error deleting project:", err)
+    console.error("Project DELETE unhandled error:", err)
     return new Response(
       JSON.stringify({
         error: (err as Error).message || "Internal server error",

@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { toast } from "@/components/ui/toast"
 import { fetchClient } from "@/lib/fetch"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { usePathname, useRouter } from "next/navigation"
@@ -57,6 +58,13 @@ export function DialogDeleteProject({
       if (pathname.startsWith(`/p/${project.id}`)) {
         router.push("/")
       }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete project",
+        status: "error",
+      })
     },
   })
 

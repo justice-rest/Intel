@@ -91,11 +91,13 @@ export function DialogAddToProject({
         toast({
           title: "Project created",
           description: `Created "${newProject.name}"`,
+          status: "success",
         })
       } else {
         toast({
           title: "Error",
           description: "Failed to create project",
+          status: "error",
         })
       }
     } catch (error) {
@@ -103,6 +105,7 @@ export function DialogAddToProject({
       toast({
         title: "Error",
         description: "Failed to create project",
+        status: "error",
       })
     } finally {
       setIsLoading(false)
@@ -119,23 +122,27 @@ export function DialogAddToProject({
 
       if (response.ok) {
         onProjectChange(selectedProjectId)
+        queryClient.invalidateQueries({ queryKey: ["projects"] })
         setIsOpen(false)
         if (selectedProjectId) {
           const project = projects.find((p) => p.id === selectedProjectId)
           toast({
             title: "Added to project",
             description: `Moved to "${project?.name}"`,
+            status: "success",
           })
         } else {
           toast({
             title: "Removed from project",
             description: "Chat is now in the main list",
+            status: "info",
           })
         }
       } else {
         toast({
           title: "Error",
           description: "Failed to update project",
+          status: "error",
         })
       }
     } catch (error) {
@@ -143,6 +150,7 @@ export function DialogAddToProject({
       toast({
         title: "Error",
         description: "Failed to update project",
+        status: "error",
       })
     } finally {
       setIsLoading(false)
