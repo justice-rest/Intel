@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { toast } from "@/components/ui/toast"
 import { fetchClient } from "@/lib/fetch"
 import { useSplitView } from "@/lib/split-view-store/provider"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
@@ -41,9 +42,6 @@ export function DialogCreateProject({
     mutationFn: async (name: string): Promise<CreateProjectData> => {
       const response = await fetchClient("/api/projects", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ name }),
       })
 
@@ -59,6 +57,12 @@ export function DialogCreateProject({
       router.push(`/p/${data.id}`)
       setProjectName("")
       setIsOpen(false)
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create project",
+      })
     },
   })
 

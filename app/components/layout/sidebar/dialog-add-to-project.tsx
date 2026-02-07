@@ -13,9 +13,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "@/components/ui/toast"
+import { fetchClient } from "@/lib/fetch"
 import { FolderSimple, Plus, Check } from "@phosphor-icons/react"
 import { cn } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useQueryClient } from "@tanstack/react-query"
 
 type Project = {
   id: string
@@ -45,6 +47,7 @@ export function DialogAddToProject({
   const [isLoading, setIsLoading] = useState(false)
   const [isCreatingNew, setIsCreatingNew] = useState(false)
   const [newProjectName, setNewProjectName] = useState("")
+  const queryClient = useQueryClient()
 
   // Fetch projects when dialog opens
   useEffect(() => {
@@ -73,9 +76,8 @@ export function DialogAddToProject({
 
     setIsLoading(true)
     try {
-      const response = await fetch("/api/projects", {
+      const response = await fetchClient("/api/projects", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newProjectName.trim() }),
       })
 
@@ -85,6 +87,7 @@ export function DialogAddToProject({
         setSelectedProjectId(newProject.id)
         setIsCreatingNew(false)
         setNewProjectName("")
+        queryClient.invalidateQueries({ queryKey: ["projects"] })
         toast({
           title: "Project created",
           description: `Created "${newProject.name}"`,
@@ -109,9 +112,8 @@ export function DialogAddToProject({
   const handleConfirm = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch(`/api/chats/${chatId}/project`, {
+      const response = await fetchClient(`/api/chats/${chatId}/project`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId: selectedProjectId }),
       })
 
