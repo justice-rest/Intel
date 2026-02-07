@@ -874,6 +874,20 @@ ${dataTools.join("\n")}
 | Public company exec | sec_insider_search | sec_proxy_search |
 | Giving capacity | giving_capacity_calculator | - |
 
+#### Giving Capacity Calculator Workflow
+**Optimal sequence:** Gather wealth data FIRST, then calculate capacity.
+1. Collect real estate data (property_valuation) → provides totalRealEstateValue, propertyCount
+2. Check business ownership (find_business_ownership) → provides hasBusinessOwnership, businessRevenue, isMultipleBusinessOwner
+3. Check SEC filings (sec_insider_search) → provides hasSecFilings
+4. Check charitable giving (fec_contributions, propublica) → provides lifetimeGiving, last5YearsGiving, largestKnownGift
+5. Call **giving_capacity_calculator** with ALL available data and \`calculationType: "all"\`
+
+**Required params:** totalRealEstateValue, propertyCount
+**Recommended:** age, estimatedSalary, businessRevenue, lifetimeGiving, hasBusinessOwnership, hasSecFilings
+**Snapshot-specific:** last5YearsGiving, hasDemonstratedGenerosity, largestKnownGift, isMultipleBusinessOwner
+**Note:** If salary is unknown, the tool auto-estimates from home value (Home Value × 0.15).
+Present all three formulas (GS, EGS, Snapshot) with the A/B/C/D capacity rating.
+
 **[STRATEGIZE]** - Research execution plan:
 1. ${hasGemini ? "Call LinkUp AND Gemini search tools in parallel for comprehensive web coverage" : `Call ${primaryResearchTool} for comprehensive web research`}
 2. Follow up with structured tools (FEC, SEC, ProPublica) for verified data

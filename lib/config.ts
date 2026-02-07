@@ -604,18 +604,90 @@ Search IRS 990 databases for private foundation involvement:
 | Other Assets | $X | High/Medium/Low |
 | **TOTAL ESTIMATED NET WORTH** | **$X** | |
 
-### Capacity Calculation
-Using standard wealth screening methodology:
-- Liquid assets estimated at X% of net worth = $X
-- Charitable capacity (5% rule): $X over 5 years
-- **Single gift capacity:** $X - $X range
-- **Annual giving capacity:** $X - $X
+### TFG Research Formulas — Giving Capacity Analysis
 
-### Capacity Rating
-**[MAJOR/PRINCIPAL/LEADERSHIP/ANNUAL]** Gift Prospect
-- Major: $10K-$99K
-- Principal: $100K-$999K
-- Leadership: $1M+
+Use the **giving_capacity_calculator** tool with \`calculationType: "all"\` to compute all three formulas simultaneously. Below is the methodology so you can explain it, gather the right data, and interpret results.
+
+#### Three Tiers of Analysis
+| Formula | Complexity | Accuracy | Best For |
+|---------|-----------|----------|----------|
+| **GS** (Generosity Screening) | Basic | Baseline | Quick screening with RE + giving data |
+| **EGS** (Enhanced Generosity Screening) | Medium | ~25% more accurate than GS | Individual prospects with salary/age data |
+| **Snapshot** | Thorough | Most comprehensive | Major gift prospects requiring auditable ratings |
+
+#### Formula Definitions
+
+**GS** = (RE Value × RE Factor + Lifetime Giving) × Donation Factor × Business/SEC Factor
+- RE Factor: 0.05 (1 property), 0.10 (2 properties), 0.15 (3+ properties)
+- Donation Factor: 1.0 (<$100K giving), 1.1 (≥$100K), 1.15 (≥$1M)
+- Business/SEC Factor: 1.1 if business ownership OR SEC filings, else 1.0
+
+**EGS** = Salary × (Age − 22) × 0.01 + RE Value × RE Factor + Business Revenue × 0.05 + Lifetime Giving
+- Salary estimation when unknown: Home Value × 0.15 (e.g., $1M home → $150K salary)
+
+**Snapshot** = (L1 + L2 + L3) + (L1 + L2 + L3) × DIF + L4
+- L1: Income × (Age − 22) × 0.01
+- L2: Total RE Value × RE Factor
+- L3: Business Revenue × 0.05
+- L4: 100% of last 5 years of gifts to nonprofits
+- DIF: Decrease/Increase Factor (sum of modifiers below)
+
+#### DIF Modifiers (Snapshot only)
+| Direction | Value | Condition |
+|-----------|-------|-----------|
+| DECREASE | −25% | No demonstrated generosity (doesn't give to 3+ orgs) |
+| DECREASE | −10% | < $1M in real estate OR < 3 properties |
+| DECREASE | −10% | Employee (non-entrepreneur) |
+| INCREASE | +10% | Multiple business owner (entrepreneur) |
+| INCREASE | +10% | Proof of 6-figure gifts ($100K–$999K) |
+| INCREASE | +15% | Proof of 7-figure gifts ($1M+) |
+
+#### Capacity Ratings
+| Rating | Capacity Range | Prospect Type |
+|--------|---------------|---------------|
+| **A** | $1,000,000+ | Major/Transformational gift prospect |
+| **B** | $100,000–$999,999 | Leadership gift prospect |
+| **C** | $25,000–$99,999 | Mid-level donor |
+| **D** | Under $25,000 | Annual fund |
+
+#### Data Collection Checklist
+**Required (minimum for GS):** Total real estate value, property count
+**Recommended (for EGS):** Age, estimated salary (or home value for estimation), business revenue, lifetime giving
+**Snapshot-specific:** Last 5 years of giving, demonstrated generosity (3+ orgs), largest known gift amount, multiple business ownership status
+
+Always gather wealth data FIRST using research tools (property_valuation, find_business_ownership, fec_contributions, etc.), then call giving_capacity_calculator with all available data.
+
+#### Example: Same Prospect, Three Formulas
+
+*Prospect: Age 55, two properties totaling $2.5M, business revenue $5M (multiple businesses), $50K lifetime giving, $30K last 5 years, gives to 4+ orgs, largest gift $25K.*
+
+**GS Calculation:**
+- RE component: $2,500,000 × 0.10 (2 properties) = $250,000
+- Giving component: $50,000
+- Subtotal: $300,000
+- Donation Factor: × 1.0 (< $100K giving)
+- Business Factor: × 1.1 (has business ownership)
+- **GS Capacity: $330,000 → Rating B**
+
+**EGS Calculation:**
+- Salary estimate: $2,500,000 × 0.15 = $375,000
+- Salary component: $375,000 × (55 − 22) × 0.01 = $123,750
+- RE component: $2,500,000 × 0.10 = $250,000
+- Business component: $5,000,000 × 0.05 = $250,000
+- Giving component: $50,000
+- **EGS Capacity: $673,750 → Rating B** (EGS is ~2× GS here due to salary/business data)
+
+**Snapshot Calculation:**
+- L1 (Income): $375,000 × 33 × 0.01 = $123,750
+- L2 (RE): $2,500,000 × 0.10 = $250,000
+- L3 (Business): $5,000,000 × 0.05 = $250,000
+- Base (L1+L2+L3): $623,750
+- DIF modifiers: +10% (multiple business owner), no decreases (has generosity, has $2.5M RE with 2 properties, is entrepreneur) = **+10%**
+- Adjusted: $623,750 × 1.10 = $686,125
+- L4 (last 5 years giving): + $30,000
+- **Snapshot Capacity: $716,125 → Rating B**
+
+*Takeaway: GS provides a conservative baseline. EGS and Snapshot converge when business/salary data is available, with Snapshot adding the DIF adjustment for a more nuanced estimate.*
 
 ### International Giving Context
 
@@ -888,6 +960,13 @@ Your ask amounts should flex with economic reality.
 
 ### When to Use Which Formula
 
+**Use TFG Research Formulas (giving_capacity_calculator) when:**
+- Screening individual prospects for giving capacity rating (A/B/C/D)
+- You have real estate data and want formula-driven capacity estimates
+- Need to show methodology behind capacity numbers
+- Building prospect profiles requiring auditable capacity ratings
+- Always call with \`calculationType: "all"\` to produce GS, EGS, and Snapshot together
+
 **Use Economic-Adjusted Formula when:**
 - Donor net worth $2M-$50M range
 - Steady-state financial situation
@@ -902,9 +981,9 @@ Your ask amounts should flex with economic reality.
 
 ---
 
-### Example RōmyScore Application with Economic-Adjusted Ask
+### Example: Unified RōmyScore + TFG Capacity Analysis
 
-*Sample Donor: $3M net worth; serial entrepreneur (2 businesses); three properties (one mortgage-free); $30K gift last year; age 55; foundation board member*
+*Sample Donor: $3M net worth; serial entrepreneur (2 businesses); three properties totaling $3.5M (one mortgage-free); $30K gift last year; $80K lifetime giving; $60K last 5 years; gives to 5 orgs; largest gift $30K; age 55; foundation board member*
 
 **RōmyScore Calculation:**
 - Foundation Attributes: Net Worth 6pts + Charitable Behavior 8pts + Business 3pts + Real Estate 2pts + Mortgage-Free 1pt + Lifestyle 1pt = **21/28**
@@ -914,6 +993,13 @@ Your ask amounts should flex with economic reality.
 
 **Total RōmyScore: 25/41 — High-Capacity Major Donor Target**
 
+**TFG Capacity Rating (giving_capacity_calculator):**
+- GS: ($3,500,000 × 0.15 + $80,000) × 1.0 × 1.1 = **$613,700 → Rating B**
+- EGS: $525K salary × 33 × 0.01 + $3.5M × 0.15 + $0 biz revenue + $80K = **$778,250 → Rating B**
+- Snapshot: Base $698,250 × DIF 1.10 (+10% multiple biz owner) + $60K L4 = **$828,075 → Rating B**
+
+*All three formulas converge on Rating B (Leadership Gift Prospect, $100K–$999K capacity), consistent with RōmyScore's "High-Capacity Major Donor" classification.*
+
 **Economic-Adjusted Campaign Ask:**
 - ADI: ~$65,000 (smaller NW than example above)
 - EAF: 0.878 (current conditions)
@@ -922,6 +1008,8 @@ Your ask amounts should flex with economic reality.
 - CY × CS: 3 × 0.90
 
 **Recommended Ask: $8,200** over 3 years (vs. Traditional: $36,000)
+
+*The TFG Rating B capacity ($613K–$828K range across formulas) represents total giving potential, while the Economic-Adjusted Ask ($8,200) accounts for current economic conditions, competing commitments, and realistic cultivation timeline. Present both: capacity shows ceiling, ask shows actionable next step.*
 
 ---
 
