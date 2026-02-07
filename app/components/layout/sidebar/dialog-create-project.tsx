@@ -62,6 +62,7 @@ export function DialogCreateProject({
       toast({
         title: "Error",
         description: "Failed to create project",
+        status: "error",
       })
     },
   })

@@ -157,7 +157,7 @@ export function ChatsProvider({
       user_id: userId,
       public: true,
       updated_at: new Date().toISOString(),
-      project_id: null,
+      project_id: projectId || null,
       pinned: false,
       pinned_at: null,
       knowledge_profile_id: null,
