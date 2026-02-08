@@ -101,7 +101,7 @@ export class MemoryManager {
 
     // Insert new memory
     const { data, error } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .insert({
         user_id: input.user_id,
         content: input.content,
@@ -148,7 +148,7 @@ export class MemoryManager {
   ): Promise<UserMemoryV2> {
     // Mark existing as not latest
     await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .update({ is_latest: false })
       .eq("id", existing.id)
 
@@ -157,7 +157,7 @@ export class MemoryManager {
       update.embedding || (await generateEmbedding(update.content))
 
     const { data, error } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .insert({
         user_id: existing.user_id,
         content: update.content,
@@ -220,7 +220,7 @@ export class MemoryManager {
   ): Promise<UserMemoryV2> {
     // Get current memory
     const { data: current, error: fetchError } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .select("*")
       .eq("id", memoryId)
       .single()
@@ -237,7 +237,7 @@ export class MemoryManager {
 
     // Update memory
     const { data, error } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .update({
         ...update,
         embedding: embedding || current.embedding,
@@ -267,7 +267,7 @@ export class MemoryManager {
     reason: string
   ): Promise<void> {
     const { data: current, error: fetchError } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .select("user_id")
       .eq("id", memoryId)
       .single()
@@ -277,7 +277,7 @@ export class MemoryManager {
     }
 
     const { error } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .update({
         is_forgotten: true,
         forget_reason: reason,
@@ -300,7 +300,7 @@ export class MemoryManager {
    */
   async deleteMemory(memoryId: string): Promise<void> {
     const { data: current, error: fetchError } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .select("user_id, root_memory_id")
       .eq("id", memoryId)
       .single()
@@ -320,7 +320,7 @@ export class MemoryManager {
 
     // Delete all versions
     await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .delete()
       .or(`id.eq.${rootId},root_memory_id.eq.${rootId}`)
 
@@ -347,7 +347,7 @@ export class MemoryManager {
 
     // Get user's active memories
     const { data: memories, error } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .select("*")
       .eq("user_id", userId)
       .eq("is_forgotten", false)
@@ -507,7 +507,7 @@ export class MemoryManager {
     const embedding = await generateEmbedding(candidate.suggestedContent)
 
     const { data: merged, error } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .insert({
         user_id: primary.user_id,
         content: candidate.suggestedContent,
@@ -540,7 +540,7 @@ export class MemoryManager {
 
     // Mark source memories as not latest
     await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .update({ is_latest: false })
       .in(
         "id",
@@ -580,7 +580,7 @@ export class MemoryManager {
 
     // Get user's memories
     const { data: memories, error } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .select("*")
       .eq("user_id", userId)
       .eq("is_forgotten", false)
@@ -605,7 +605,7 @@ export class MemoryManager {
     // Apply updates in batches
     for (const update of updates) {
       await this.supabase
-        .from("memories_v2")
+        .from("user_memories")
         .update({ memory_tier: update.tier, updated_at: new Date().toISOString() })
         .eq("id", update.id)
     }
@@ -721,7 +721,7 @@ export class MemoryManager {
    */
   async processExpiredMemories(userId: string): Promise<number> {
     const { data, error } = await this.supabase
-      .from("memories_v2")
+      .from("user_memories")
       .update({
         is_forgotten: true,
         forget_reason: "TTL expired",
@@ -758,20 +758,13 @@ export class MemoryManager {
     embedding: number[],
     threshold: number
   ): Promise<UserMemoryV2 | null> {
-    const { data, error } = await this.supabase.rpc("hybrid_search_memories", {
-      query_embedding: embedding,
-      query_text: "",
+    const { data, error } = await this.supabase.rpc("search_user_memories", {
+      query_embedding: JSON.stringify(embedding),
       match_user_id: userId,
       match_count: 1,
-      vector_weight: 1.0,
-      lexical_weight: 0.0,
-      rrf_k: 60,
-      filter_tiers: null,
-      filter_kinds: null,
-      filter_static_only: false,
-      filter_tags: null,
-      filter_min_importance: null,
-      filter_exclude_forgotten: true,
+      similarity_threshold: threshold,
+      memory_type_filter: null,
+      min_importance: 0,
     })
 
     if (error || !data || data.length === 0) {
@@ -779,18 +772,14 @@ export class MemoryManager {
     }
 
     const top = data[0]
-    if (top.vector_similarity >= threshold) {
-      // Fetch full memory
-      const { data: memory } = await this.supabase
-        .from("memories_v2")
-        .select("*")
-        .eq("id", top.id)
-        .single()
+    // Fetch full memory from V1 table
+    const { data: memory } = await this.supabase
+      .from("user_memories")
+      .select("*")
+      .eq("id", top.id)
+      .single()
 
-      return memory as UserMemoryV2 | null
-    }
-
-    return null
+    return memory as UserMemoryV2 | null
   }
 
   // ==========================================================================
@@ -802,8 +791,8 @@ export class MemoryManager {
    */
   async getStats(userId: string): Promise<MemoryStatsV2> {
     const { data, error } = await this.supabase.rpc(
-      "get_user_memory_stats_v2",
-      { target_user_id: userId }
+      "get_user_memory_stats",
+      { user_id_param: userId }
     )
 
     if (error) {

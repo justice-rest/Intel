@@ -226,25 +226,6 @@ async function gatherMemories(
   supabase: AnySupabaseClient,
   userId: string
 ): Promise<ExportMemory[]> {
-  // Try v2 memories first
-  const { data: memoriesV2 } = await supabase
-    .from('memories_v2')
-    .select('content, category, importance_score, memory_type, created_at, last_accessed_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-
-  if (memoriesV2 && memoriesV2.length > 0) {
-    return memoriesV2.map(mem => ({
-      content: mem.content || '',
-      category: mem.category,
-      importance: mem.importance_score || 0.5,
-      memoryType: (mem.memory_type === 'explicit' ? 'explicit' : 'automatic') as 'explicit' | 'automatic',
-      createdAt: mem.created_at || new Date().toISOString(),
-      lastAccessedAt: mem.last_accessed_at,
-    }))
-  }
-
-  // Fall back to v1 memories
   const { data: memoriesV1 } = await supabase
     .from('user_memories')
     .select('content, category, importance_score, memory_type, created_at, last_accessed_at')
