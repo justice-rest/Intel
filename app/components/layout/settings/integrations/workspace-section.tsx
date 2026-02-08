@@ -258,18 +258,27 @@ export function WorkspaceSection() {
   const { data: memoryData } = useQuery({
     queryKey: ["memory-stats"],
     queryFn: async () => {
-      const [memoriesRes, statsRes] = await Promise.all([
-        fetch("/api/memories"),
-        fetch("/api/memories/profile"),
-      ])
+      const memoriesRes = await fetch("/api/memories")
 
       const memories: UserMemory[] = memoriesRes.ok
         ? (await memoriesRes.json()).memories || []
         : []
 
-      const stats: MemoryStats = statsRes.ok
-        ? (await statsRes.json()).stats || { total_memories: 0, auto_memories: 0, explicit_memories: 0, avg_importance: 0, most_recent_memory: null }
-        : { total_memories: 0, auto_memories: 0, explicit_memories: 0, avg_importance: 0, most_recent_memory: null }
+      // Compute stats from the fetched memories list
+      const autoMemories = memories.filter((m: UserMemory) => m.memory_type === "auto")
+      const explicitMemories = memories.filter((m: UserMemory) => m.memory_type === "explicit")
+      const avgImportance = memories.length > 0
+        ? memories.reduce((sum: number, m: UserMemory) => sum + (m.importance_score || 0), 0) / memories.length
+        : 0
+      const mostRecent = memories.length > 0 ? memories[0]?.created_at : null
+
+      const stats: MemoryStats = {
+        total_memories: memories.length,
+        auto_memories: autoMemories.length,
+        explicit_memories: explicitMemories.length,
+        avg_importance: avgImportance,
+        most_recent_memory: mostRecent ?? null,
+      }
 
       return { memories, stats }
     },
