@@ -6,7 +6,6 @@ import {
   PaintBrushIcon,
   DatabaseIcon,
   HardDrives,
-  FileTextIcon,
 } from "@phosphor-icons/react"
 import type { Icon } from "@phosphor-icons/react"
 
@@ -49,9 +48,9 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     id: "settings-integrations",
     command: "/settings/integrations",
     label: "Integrations",
-    description: "CRMs, Google & Notion",
+    description: "CRMs & Notion",
     icon: LinkSimple,
-    keywords: ["integrations", "crm", "connect", "bloomerang", "neon", "virtuous", "google", "gmail", "drive", "notion"],
+    keywords: ["integrations", "crm", "connect", "bloomerang", "neon", "virtuous", "notion"],
   },
   {
     id: "settings-appearance",
@@ -76,14 +75,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: "AI memory settings",
     icon: HardDrives,
     keywords: ["memory", "ai", "remember", "context"],
-  },
-  {
-    id: "draft",
-    command: "/draft",
-    label: "Drafts",
-    description: "Open email drafts",
-    icon: FileTextIcon,
-    keywords: ["draft", "drafts", "email", "gmail"],
   },
 ]
 
