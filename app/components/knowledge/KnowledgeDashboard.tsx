@@ -42,6 +42,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { fetchClient } from "@/lib/fetch"
 import { toast } from "@/components/ui/toast"
 import { cn } from "@/lib/utils"
+import { WorkspaceSection } from "@/app/components/layout/settings/integrations"
 import type {
   ProfileWithCounts,
   KnowledgeDocument,
@@ -386,6 +387,11 @@ export function KnowledgeDashboard() {
       <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
         Knowledge shapes how Rōmy communicates and advises, distinct from RAG document search.
       </p>
+
+      {/* Workspace: Notion, RAG Documents, Memory */}
+      <div className="mt-8">
+        <WorkspaceSection />
+      </div>
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
