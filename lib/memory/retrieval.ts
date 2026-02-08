@@ -1,62 +1,58 @@
 /**
  * Memory Retrieval Module
  *
- * Handles semantic search and retrieval of user memories
- * Optimized for speed with embedding caching and timeouts
+ * Handles semantic search and retrieval of user memories.
+ *
+ * KEY FIX (2026-02-08): Removed the 200ms withTimeout wrapper that was
+ * silently killing every retrieval call. Embedding generation alone takes
+ * 300-500ms via OpenRouter, so the old timeout always fired first, returning
+ * empty results. Now we let the embedding call complete normally and only
+ * apply a 5-second safety net on the Supabase RPC call.
+ *
+ * Uses the canonical `embedding-cache.ts` generateEmbedding (reads API key
+ * from env) instead of `@/lib/rag/embeddings` (requires apiKey param).
  */
 
 import { createClient } from "@/lib/supabase/server"
-import { generateEmbedding } from "@/lib/rag/embeddings"
+import { generateEmbedding } from "./embedding-cache"
 import type { MemorySearchParams, MemorySearchResult, AutoInjectParams } from "./types"
 import {
   DEFAULT_SIMILARITY_THRESHOLD,
   AUTO_INJECT_MEMORY_COUNT,
   AUTO_INJECT_MIN_IMPORTANCE,
   MAX_SEARCH_RESULTS,
+  MEMORY_RETRIEVAL_TIMEOUT_MS,
 } from "./config"
 import { incrementMemoryAccess } from "./storage"
-import { getCachedEmbedding, setCachedEmbedding } from "./embedding-cache"
-
-// Timeout for memory operations (prevents blocking streaming)
-const MEMORY_OPERATION_TIMEOUT_MS = 200
 
 // ============================================================================
 // SEMANTIC SEARCH
 // ============================================================================
 
 /**
- * Search memories using semantic similarity
+ * Search memories using semantic similarity.
  *
- * @param params - Search parameters
- * @param apiKey - OpenRouter API key for embedding generation
- * @returns Array of matching memories with scores
+ * No longer requires an `apiKey` parameter — the embedding-cache module
+ * reads OPENROUTER_API_KEY from the environment.
  */
 export async function searchMemories(
-  params: MemorySearchParams,
-  apiKey: string
+  params: MemorySearchParams
 ): Promise<MemorySearchResult[]> {
   try {
     const supabase = await createClient()
     if (!supabase) {
-      console.error("Supabase not configured - cannot search memories")
+      console.error("[Memory] Supabase not configured — cannot search memories")
       return []
     }
 
-    // Check cache first for faster response
-    let embedding = getCachedEmbedding(params.query)
+    // Generate (or retrieve cached) embedding for the search query
+    const embedding = await generateEmbedding(params.query)
 
-    if (!embedding) {
-      // Generate embedding for search query
-      const result = await generateEmbedding(params.query, apiKey)
-      embedding = result.embedding
-      // Cache for future use
-      setCachedEmbedding(params.query, embedding)
-    }
-
-    // Convert embedding to JSON string for Supabase
+    // Convert embedding to JSON string for Supabase RPC
     const embeddingString = JSON.stringify(embedding)
 
     // Call Supabase function for vector similarity search
+    // Safety-net: abort if the DB call takes longer than MEMORY_RETRIEVAL_TIMEOUT_MS
     const { data, error } = await supabase.rpc("search_user_memories", {
       query_embedding: embeddingString,
       match_user_id: params.userId,
@@ -64,89 +60,59 @@ export async function searchMemories(
       similarity_threshold: params.similarityThreshold || DEFAULT_SIMILARITY_THRESHOLD,
       memory_type_filter: params.memoryType || null,
       min_importance: params.minImportance || 0,
-    })
+    }).abortSignal(AbortSignal.timeout(MEMORY_RETRIEVAL_TIMEOUT_MS))
 
     if (error) {
-      console.error("Error searching memories:", error)
+      console.error("[Memory] Error searching memories:", error)
       throw error
     }
 
     // Track access for retrieved memories (fire-and-forget)
     if (data && data.length > 0) {
-      Promise.all(data.map((m) => incrementMemoryAccess(m.id))).catch((err) =>
-        console.error("Failed to track memory access:", err)
+      Promise.all(data.map((m: MemorySearchResult) => incrementMemoryAccess(m.id))).catch((err) =>
+        console.error("[Memory] Failed to track memory access:", err)
       )
     }
 
     return (data || []) as MemorySearchResult[]
   } catch (error) {
-    console.error("Failed to search memories:", error)
+    console.error("[Memory] Failed to search memories:", error)
     return []
   }
 }
 
 /**
- * Promise.race with timeout - returns empty result if operation takes too long
- */
-async function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  fallback: T
-): Promise<T> {
-  const timeout = new Promise<T>((resolve) =>
-    setTimeout(() => resolve(fallback), timeoutMs)
-  )
-  return Promise.race([promise, timeout])
-}
-
-/**
- * Get relevant memories for auto-injection into conversation context
- * Combines current conversation context to find most relevant memories
+ * Get relevant memories for auto-injection into conversation context.
  *
- * OPTIMIZED: Uses timeout to prevent blocking streaming
- * If memory retrieval takes > 200ms, returns empty and continues without memories
- *
- * @param params - Auto-injection parameters
- * @param apiKey - OpenRouter API key
- * @returns Array of relevant memories
+ * No longer uses a 200ms timeout. The embedding call is allowed to
+ * complete (typically 300-500ms, cached thereafter), and a 5s safety
+ * net on the DB query prevents unbounded waits.
  */
 export async function getMemoriesForAutoInject(
-  params: AutoInjectParams,
-  apiKey: string
+  params: AutoInjectParams
 ): Promise<MemorySearchResult[]> {
   try {
-    // Use conversation context as search query
     const searchQuery = params.conversationContext
 
     if (!searchQuery || searchQuery.trim().length === 0) {
       return []
     }
 
-    // Wrap in timeout to prevent blocking streaming
-    // If memory retrieval is slow, we skip it rather than delay response
-    const memoriesPromise = searchMemories(
-      {
-        query: searchQuery,
-        userId: params.userId,
-        limit: params.count || AUTO_INJECT_MEMORY_COUNT,
-        similarityThreshold: DEFAULT_SIMILARITY_THRESHOLD,
-        minImportance: params.minImportance || AUTO_INJECT_MIN_IMPORTANCE,
-      },
-      apiKey
-    )
-
-    return await withTimeout(memoriesPromise, MEMORY_OPERATION_TIMEOUT_MS, [])
+    return await searchMemories({
+      query: searchQuery,
+      userId: params.userId,
+      limit: params.count || AUTO_INJECT_MEMORY_COUNT,
+      similarityThreshold: DEFAULT_SIMILARITY_THRESHOLD,
+      minImportance: params.minImportance || AUTO_INJECT_MIN_IMPORTANCE,
+    })
   } catch (error) {
-    console.error("Failed to get memories for auto-inject:", error)
+    console.error("[Memory] Failed to get memories for auto-inject:", error)
     return []
   }
 }
 
 /**
  * Format memories for injection into system prompt
- *
- * @param memories - Array of memory search results
- * @returns Formatted string to inject into prompt
  */
 export function formatMemoriesForPrompt(
   memories: MemorySearchResult[]
@@ -157,8 +123,8 @@ export function formatMemoriesForPrompt(
 
   const formattedMemories = memories
     .map((memory, index) => {
-      const metadata = memory.metadata as any
-      const category = metadata?.category || "general"
+      const metadata = memory.metadata as Record<string, unknown> | null
+      const category = (metadata?.category as string) || "general"
       return `${index + 1}. [${category.toUpperCase()}] ${memory.content}`
     })
     .join("\n")
@@ -179,54 +145,37 @@ Please use these memories to personalize your responses and maintain context acr
 // ============================================================================
 
 /**
- * Find duplicate or highly similar memories
- * Used to prevent storing redundant information
- *
- * @param content - Memory content to check
- * @param userId - User ID
- * @param apiKey - OpenRouter API key
- * @param similarityThreshold - Threshold for considering memories similar (default: 0.85)
- * @returns Array of similar memories
+ * Find duplicate or highly similar memories.
+ * Used to prevent storing redundant information.
  */
 export async function findSimilarMemories(
   content: string,
   userId: string,
-  apiKey: string,
   similarityThreshold: number = 0.85
 ): Promise<MemorySearchResult[]> {
   try {
-    return await searchMemories(
-      {
-        query: content,
-        userId,
-        limit: 5,
-        similarityThreshold,
-      },
-      apiKey
-    )
+    return await searchMemories({
+      query: content,
+      userId,
+      limit: 5,
+      similarityThreshold,
+    })
   } catch (error) {
-    console.error("Failed to find similar memories:", error)
+    console.error("[Memory] Failed to find similar memories:", error)
     return []
   }
 }
 
 /**
- * Check if memory already exists (to avoid duplicates)
- *
- * @param content - Memory content
- * @param userId - User ID
- * @param apiKey - OpenRouter API key
- * @returns True if similar memory exists
+ * Check if memory already exists (to avoid duplicates).
  */
 export async function memoryExists(
   content: string,
-  userId: string,
-  apiKey: string
+  userId: string
 ): Promise<boolean> {
   const similarMemories = await findSimilarMemories(
     content,
     userId,
-    apiKey,
     0.9 // High threshold for exact duplicates
   )
 
@@ -238,12 +187,8 @@ export async function memoryExists(
 // ============================================================================
 
 /**
- * Build conversation context string from recent messages
- * Used as search query for finding relevant memories
- *
- * @param messages - Array of recent conversation messages
- * @param maxLength - Maximum length of context string
- * @returns Context string
+ * Build conversation context string from recent messages.
+ * Used as search query for finding relevant memories.
  */
 export function buildConversationContext(
   messages: Array<{ role: string; content: string }>,
@@ -270,19 +215,14 @@ export function buildConversationContext(
 }
 
 /**
- * Extract key topics/entities from conversation context
- * Used for more targeted memory retrieval
- *
- * @param context - Conversation context
- * @returns Array of key topics
+ * Extract key topics/entities from conversation context.
+ * Used for more targeted memory retrieval.
  */
 export function extractKeyTopics(context: string): string[] {
   if (!context) return []
 
-  // Simple keyword extraction (could be enhanced with NLP)
   const topics: string[] = []
 
-  // Extract common entities (simple pattern matching)
   const patterns = [
     /my name is (\w+)/gi,
     /I(?:'m| am) (?:a |an )?(\w+)/gi,

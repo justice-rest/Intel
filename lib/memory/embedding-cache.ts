@@ -5,7 +5,7 @@
  * Uses LRU-style eviction with TTL expiration.
  */
 
-import { EMBEDDING_CACHE_TTL } from "./config"
+import { EMBEDDING_CACHE_TTL, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL } from "./config"
 
 interface CacheEntry {
   embedding: number[]
@@ -14,15 +14,27 @@ interface CacheEntry {
 
 // Simple in-memory cache with TTL
 const cache = new Map<string, CacheEntry>()
-const MAX_CACHE_SIZE = 100 // Limit cache size to prevent memory issues
+const MAX_CACHE_SIZE = 500 // Larger cache - each entry is ~6KB (1536 floats)
 
 /**
- * Generate a cache key from text content
- * Uses first 200 chars + length for uniqueness without storing full text
+ * djb2 hash - fast, collision-resistant for string keys.
+ * Hashes the *full* text so two inputs that share the first 200 chars
+ * but diverge later won't collide.
+ */
+function djb2Hash(str: string): number {
+  let hash = 5381
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0 // force 32-bit int
+  }
+  return hash >>> 0 // unsigned
+}
+
+/**
+ * Generate a collision-resistant cache key from text content.
  */
 function generateCacheKey(text: string): string {
-  const normalized = text.trim().toLowerCase().slice(0, 200)
-  return `${normalized.length}:${normalized}`
+  const normalized = text.trim().toLowerCase()
+  return `${normalized.length}:${djb2Hash(normalized)}`
 }
 
 /**
@@ -103,8 +115,9 @@ export async function generateEmbedding(text: string): Promise<number[]> {
         "X-Title": "Romy Memory System",
       },
       body: JSON.stringify({
-        model: "openai/text-embedding-3-small",
+        model: EMBEDDING_MODEL,
         input: text,
+        dimensions: EMBEDDING_DIMENSIONS, // Matryoshka truncation to 1536d
       }),
       signal: AbortSignal.timeout(30000),
     })

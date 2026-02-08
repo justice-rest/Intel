@@ -2,7 +2,7 @@
  * Memory System Main Module
  *
  * Central export point for all memory functionality.
- * Supports both V1 (legacy) and V2 (enterprise) systems.
+ * V1 is the active system; V2 modules are kept for future use.
  */
 
 // =============================================================================
@@ -16,7 +16,7 @@ export * from "./config"
 export * from "./types"
 
 // =============================================================================
-// V1 CORE MODULES (Legacy - maintained for backward compatibility)
+// V1 CORE MODULES
 // =============================================================================
 export {
   createMemory,
@@ -24,8 +24,9 @@ export {
   getMemoryStats,
   deleteMemory,
   updateMemory,
-  memoryExists,
+  memoryExists as memoryExistsInStorage,
   getMemoryById,
+  upsertMemory,
 } from "./storage"
 
 export {
@@ -33,6 +34,9 @@ export {
   getMemoriesForAutoInject,
   formatMemoriesForPrompt,
   buildConversationContext,
+  memoryExists,
+  findSimilarMemories,
+  extractKeyTopics,
 } from "./retrieval"
 
 export * from "./extractor"
@@ -40,7 +44,7 @@ export * from "./scorer"
 export * from "./embedding-cache"
 
 // =============================================================================
-// V2 ENTERPRISE MODULES
+// V2 ENTERPRISE MODULES (kept for future use)
 // =============================================================================
 
 // Hot Cache - In-memory LRU cache for <5ms retrieval
@@ -82,14 +86,14 @@ export {
   warmUserMemoryCache,
   warmUserMemoryCache as warmUpUserCache, // Alias for backward compatibility
   extractAndSaveMemories,
-  isV2Available,
   type ChatMemoryContext,
   type GetChatMemoriesParams,
   type ExtractAndSaveMemoriesParams,
 } from "./chat-integration"
 
 // =============================================================================
-// V1 CONVENIENCE EXPORTS (Legacy - maintained for backward compatibility)
+// V1 CONVENIENCE EXPORTS
 // =============================================================================
 export { isMemoryEnabled } from "./config"
-export { generateEmbedding, getCachedEmbedding, setCachedEmbedding } from "./embedding-cache"
+// Note: generateEmbedding, getCachedEmbedding, setCachedEmbedding are already
+// exported via `export * from "./embedding-cache"` above

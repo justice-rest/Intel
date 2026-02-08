@@ -12,7 +12,7 @@ import {
   isMemoryEnabled,
   calculateImportanceScore,
 } from "@/lib/memory"
-import { generateEmbedding } from "@/lib/rag/embeddings"
+import { generateEmbedding } from "@/lib/memory/embedding-cache"
 import type { CreateMemoryRequest, MemoryApiResponse } from "@/lib/memory/types"
 
 /**
@@ -117,17 +117,8 @@ export async function POST(req: Request) {
       )
     }
 
-    // Get API key for embedding generation
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: "Memory system not configured" },
-        { status: 503 }
-      )
-    }
-
-    // Generate embedding
-    const { embedding } = await generateEmbedding(body.content, apiKey)
+    // Generate embedding (embedding-cache reads API key from env)
+    const embedding = await generateEmbedding(body.content)
 
     // Calculate importance score
     const importanceScore =

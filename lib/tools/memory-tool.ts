@@ -49,9 +49,8 @@ export const createMemorySearchTool = (userId: string) =>
     }),
     execute: async ({ query, limit, minImportance }) => {
       try {
-        // Get OpenRouter API key from environment
-        const openrouterKey = process.env.OPENROUTER_API_KEY
-        if (!openrouterKey) {
+        // embedding-cache reads OPENROUTER_API_KEY from env — guard early
+        if (!process.env.OPENROUTER_API_KEY) {
           return {
             success: false,
             error: "Memory search is not configured (missing API key)",
@@ -60,16 +59,13 @@ export const createMemorySearchTool = (userId: string) =>
         }
 
         // Search memories using the bound userId
-        const results = await searchMemories(
-          {
-            query,
-            userId,
-            limit: Math.min(limit, 20), // Cap at 20
-            similarityThreshold: 0.5,
-            minImportance: minImportance,
-          },
-          openrouterKey
-        )
+        const results = await searchMemories({
+          query,
+          userId,
+          limit: Math.min(limit, 20), // Cap at 20
+          similarityThreshold: 0.5,
+          minImportance: minImportance,
+        })
 
         if (results.length === 0) {
           return {

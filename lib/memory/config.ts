@@ -47,8 +47,10 @@ export const AUTO_INJECT_MEMORY_COUNT = 5
 
 /**
  * Default similarity threshold for memory search (0-1)
+ * Lowered from 0.5 to 0.4 to retrieve more candidate memories;
+ * the scorer handles final ranking by importance × similarity.
  */
-export const DEFAULT_SIMILARITY_THRESHOLD = 0.5
+export const DEFAULT_SIMILARITY_THRESHOLD = 0.4
 
 /**
  * Minimum importance score for auto-injection (0-1)
@@ -91,16 +93,19 @@ export const EXPLICIT_MEMORY_PATTERNS = [
 // ============================================================================
 
 /**
- * Vector embedding dimensions
- * Using 1536 to match RAG system (OpenRouter embeddings)
+ * Vector embedding dimensions.
+ * Using 1536 via Matryoshka truncation (Qwen3-Embedding-8B native is 4096).
+ * This keeps the existing pgvector schema unchanged while benefiting
+ * from the higher-quality model (MTEB #1 at 70.58).
  */
 export const EMBEDDING_DIMENSIONS = 1536
 
 /**
- * Embedding model to use for memory vectors
- * Using same model as RAG for consistency
+ * Embedding model to use for memory AND RAG vectors.
+ * Qwen3-Embedding-8B: MTEB #1 (70.58), supports Matryoshka (32-4096d).
+ * ~$0.01/M tokens on OpenRouter via Nebius.
  */
-export const EMBEDDING_MODEL = "text-embedding-3-small"
+export const EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
 
 /**
  * Provider for embedding generation
@@ -155,3 +160,29 @@ export const MEMORY_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
  * How long to cache embeddings (milliseconds)
  */
 export const EMBEDDING_CACHE_TTL = 60 * 60 * 1000 // 1 hour
+
+// ============================================================================
+// OPERATION TIMEOUTS & THRESHOLDS
+// ============================================================================
+
+/**
+ * Safety-net timeout for memory retrieval (ms).
+ * Applied to the Supabase RPC call so a slow DB can't block streaming forever.
+ * NOTE: We intentionally do NOT add a timeout to embedding generation—
+ * those calls are fast enough (~300-500ms) and a premature timeout would
+ * cause memories to never be retrieved (the original bug).
+ */
+export const MEMORY_RETRIEVAL_TIMEOUT_MS = 5000
+
+/**
+ * Similarity threshold for treating two memories as "the same fact".
+ * Above this threshold the existing memory is *updated* instead of
+ * creating a duplicate (supermemory-inspired upsert pattern).
+ */
+export const UPSERT_SIMILARITY_THRESHOLD = 0.9
+
+/**
+ * Max characters of conversation text sent to the extraction LLM.
+ * Prevents token overflow on very long conversations.
+ */
+export const MAX_EXTRACTION_INPUT_CHARS = 4000

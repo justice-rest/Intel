@@ -1,42 +1,22 @@
 /**
  * Memory System Chat Integration
  *
- * Provides a unified interface for memory retrieval in the chat route.
- * Supports both V1 (legacy) and V2 (enterprise) memory systems with
- * automatic fallback and feature detection.
+ * Provides a unified interface for memory retrieval and extraction in the
+ * chat route. Simplified from the dual V1/V2 architecture to a single,
+ * rock-solid V1 path that actually works.
+ *
+ * KEY CHANGES (2026-02-08):
+ * - Removed V2 path entirely (the `memories_v2` table was never deployed,
+ *   so isV2Available() always returned false, adding dead-code complexity)
+ * - extractAndSaveMemories now passes existing user memories as context
+ *   to the extraction LLM, enabling contradiction detection & updates
+ * - Uses upsertMemory instead of createMemory for dedup-with-update
+ * - Structured logging with [Memory] prefix throughout
  */
 
-import type { SupabaseClient } from "@supabase/supabase-js"
-import type { MemoryProfile, MemorySearchResultV2, MemoryKind } from "./types"
+import type { MemorySearchResult } from "./types"
 import { isMemoryEnabled } from "./config"
-import { buildConversationContext } from "./retrieval"
-
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
-/**
- * Check if V2 memory system is available (database has memories_v2 table)
- */
-let v2Available: boolean | null = null
-
-export async function isV2Available(supabase: SupabaseClient): Promise<boolean> {
-  if (v2Available !== null) return v2Available
-
-  try {
-    // Try to query the V2 table
-    const { error } = await supabase
-      .from("memories_v2")
-      .select("id")
-      .limit(1)
-
-    v2Available = !error
-    return v2Available
-  } catch {
-    v2Available = false
-    return false
-  }
-}
+import { buildConversationContext, getMemoriesForAutoInject, formatMemoriesForPrompt } from "./retrieval"
 
 // ============================================================================
 // MAIN INTERFACE
@@ -45,18 +25,13 @@ export async function isV2Available(supabase: SupabaseClient): Promise<boolean> 
 export interface ChatMemoryContext {
   /** Formatted memory string for system prompt injection */
   formattedMemories: string | null
-  /** Memory profile (V2 only) */
-  profile?: MemoryProfile
   /** Raw memories retrieved */
-  memories: MemorySearchResultV2[]
+  memories: MemorySearchResult[]
   /** Which system was used */
-  systemUsed: "v1" | "v2" | "none"
+  systemUsed: "v1" | "none"
   /** Timing information */
   timing: {
     totalMs: number
-    embeddingMs?: number
-    searchMs?: number
-    formatMs?: number
   }
 }
 
@@ -69,21 +44,17 @@ export interface GetChatMemoriesParams {
   count?: number
   /** Minimum importance score */
   minImportance?: number
-  /** Force use of specific system version */
-  forceVersion?: "v1" | "v2"
 }
 
 /**
- * Get memories for chat context injection
- * Automatically uses V2 if available, falls back to V1
+ * Get memories for chat context injection.
+ * Directly uses V1 retrieval (which now works correctly without the 200ms timeout).
  */
 export async function getChatMemories(
-  supabase: SupabaseClient,
   params: GetChatMemoriesParams
 ): Promise<ChatMemoryContext> {
   const startTime = Date.now()
 
-  // Check if memory system is enabled
   if (!isMemoryEnabled()) {
     return {
       formattedMemories: null,
@@ -98,7 +69,6 @@ export async function getChatMemories(
     conversationMessages,
     count = 5,
     minImportance = 0.3,
-    forceVersion,
   } = params
 
   // Build conversation context from recent messages
@@ -112,72 +82,24 @@ export async function getChatMemories(
     }
   }
 
-  // Determine which system to use
-  const useV2 = forceVersion === "v2" || (forceVersion !== "v1" && await isV2Available(supabase))
-
-  if (useV2) {
-    return getChatMemoriesV2(supabase, userId, conversationContext, count, minImportance, startTime)
-  }
-
-  return getChatMemoriesV1(userId, conversationContext, count, minImportance, startTime)
-}
-
-// ============================================================================
-// V1 IMPLEMENTATION (Legacy)
-// ============================================================================
-
-async function getChatMemoriesV1(
-  userId: string,
-  conversationContext: string,
-  count: number,
-  minImportance: number,
-  startTime: number
-): Promise<ChatMemoryContext> {
   try {
-    const { getMemoriesForAutoInject, formatMemoriesForPrompt } = await import("./retrieval")
-
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
-      return {
-        formattedMemories: null,
-        memories: [],
-        systemUsed: "none",
-        timing: { totalMs: Date.now() - startTime },
-      }
-    }
-
-    const memories = await getMemoriesForAutoInject(
-      {
-        conversationContext,
-        userId,
-        count,
-        minImportance,
-      },
-      apiKey
-    )
+    const memories = await getMemoriesForAutoInject({
+      conversationContext,
+      userId,
+      count,
+      minImportance,
+    })
 
     const formattedMemories = memories.length > 0 ? formatMemoriesForPrompt(memories) : null
 
-    // Convert to V2 result format for consistency
-    const memoriesV2: MemorySearchResultV2[] = memories.map((m) => ({
-      id: m.id,
-      content: m.content,
-      memory_kind: (m.memory_type === "explicit" ? "profile" : "episodic") as MemoryKind,
-      memory_tier: "warm" as const,
-      is_static: false,
-      importance_score: m.importance_score,
-      created_at: m.created_at,
-      similarity_score: m.similarity,
-    }))
-
     return {
       formattedMemories,
-      memories: memoriesV2,
+      memories,
       systemUsed: "v1",
       timing: { totalMs: Date.now() - startTime },
     }
   } catch (error) {
-    console.error("[chat-integration] V1 memory retrieval failed:", error)
+    console.error("[Memory] Retrieval failed:", error)
     return {
       formattedMemories: null,
       memories: [],
@@ -188,161 +110,17 @@ async function getChatMemoriesV1(
 }
 
 // ============================================================================
-// V2 IMPLEMENTATION (Enterprise)
-// ============================================================================
-
-async function getChatMemoriesV2(
-  supabase: SupabaseClient,
-  userId: string,
-  conversationContext: string,
-  count: number,
-  minImportance: number,
-  startTime: number
-): Promise<ChatMemoryContext> {
-  try {
-    const { getMemoryProfile } = await import("./hybrid-search")
-    const { generateEmbedding } = await import("./embedding-cache")
-
-    // Generate embedding for conversation context
-    const embeddingStart = Date.now()
-    const queryEmbedding = await generateEmbedding(conversationContext)
-    const embeddingMs = Date.now() - embeddingStart
-
-    // Get memory profile (static + dynamic memories)
-    const searchStart = Date.now()
-    const profileResponse = await getMemoryProfile(supabase, {
-      userId,
-      query: conversationContext,
-      queryEmbedding,
-      staticLimit: Math.ceil(count / 2), // Half static, half dynamic
-      dynamicLimit: Math.ceil(count / 2),
-    })
-    const searchMs = Date.now() - searchStart
-
-    // Combine static and dynamic memories and convert to search result format
-    const allMemories: MemorySearchResultV2[] = [
-      ...profileResponse.profile.static.map((m) => ({
-        id: m.id,
-        content: m.content,
-        memory_kind: m.memory_kind,
-        memory_tier: m.memory_tier,
-        is_static: m.is_static,
-        importance_score: m.importance_score,
-        created_at: m.created_at,
-      })),
-      ...profileResponse.profile.dynamic.map((m) => ({
-        id: m.id,
-        content: m.content,
-        memory_kind: m.memory_kind,
-        memory_tier: m.memory_tier,
-        is_static: m.is_static,
-        importance_score: m.importance_score,
-        created_at: m.created_at,
-      })),
-    ]
-
-    // Filter by importance
-    const filteredMemories = allMemories.filter(
-      (m) => m.importance_score >= minImportance
-    )
-
-    // Format for prompt
-    const formatStart = Date.now()
-    const formattedMemories = filteredMemories.length > 0
-      ? formatMemoriesForPromptV2(filteredMemories)
-      : null
-    const formatMs = Date.now() - formatStart
-
-    return {
-      formattedMemories,
-      profile: profileResponse.profile,
-      memories: filteredMemories,
-      systemUsed: "v2",
-      timing: {
-        totalMs: Date.now() - startTime,
-        embeddingMs,
-        searchMs,
-        formatMs,
-      },
-    }
-  } catch (error) {
-    console.error("[chat-integration] V2 memory retrieval failed, falling back to V1:", error)
-    // Fallback to V1
-    return getChatMemoriesV1(userId, conversationContext, count, minImportance, startTime)
-  }
-}
-
-/**
- * Format memories for system prompt injection (V2 version)
- */
-function formatMemoriesForPromptV2(memories: MemorySearchResultV2[]): string {
-  const parts: string[] = ["## User Memories"]
-
-  const staticMemories = memories.filter((m) => m.is_static)
-  const dynamicMemories = memories.filter((m) => !m.is_static)
-
-  if (staticMemories.length > 0) {
-    parts.push("\n### Profile (Always Relevant)")
-    staticMemories.forEach((m) => {
-      parts.push(`- ${m.content}`)
-    })
-  }
-
-  if (dynamicMemories.length > 0) {
-    parts.push("\n### Contextual")
-    dynamicMemories.forEach((m) => {
-      parts.push(`- ${m.content}`)
-    })
-  }
-
-  return parts.join("\n")
-}
-
-// ============================================================================
-// CACHE WARMING
+// CACHE WARMING (stub for backward compatibility)
 // ============================================================================
 
 /**
- * Warm up user's memory cache for faster subsequent requests
- * Should be called when user starts a session
+ * No-op stub. Previously attempted to warm the V2 hot-cache,
+ * but V2 tables were never deployed. Kept for API compatibility.
  */
 export async function warmUserMemoryCache(
-  supabase: SupabaseClient,
-  userId: string
+  _userId: string
 ): Promise<{ success: boolean; timing: number }> {
-  const startTime = Date.now()
-
-  try {
-    if (!isMemoryEnabled()) {
-      return { success: false, timing: Date.now() - startTime }
-    }
-
-    const useV2 = await isV2Available(supabase)
-
-    if (useV2) {
-      const { getHotCache } = await import("./hot-cache")
-      const hotCache = getHotCache()
-
-      // Load user's top memories into hot cache
-      const { data } = await supabase
-        .from("memories_v2")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("is_forgotten", false)
-        .eq("is_latest", true)
-        .order("importance_score", { ascending: false })
-        .limit(20)
-
-      if (data && data.length > 0) {
-        await hotCache.loadUser(userId, data)
-      }
-    }
-
-    return { success: true, timing: Date.now() - startTime }
-  } catch (error) {
-    console.error("[chat-integration] Cache warming failed:", error)
-    return { success: false, timing: Date.now() - startTime }
-  }
+  return { success: true, timing: 0 }
 }
 
 // ============================================================================
@@ -358,11 +136,16 @@ export interface ExtractAndSaveMemoriesParams {
 }
 
 /**
- * Extract and save memories from conversation
- * Should be called after response is complete
+ * Extract and save memories from conversation.
+ * Called as a fire-and-forget after the response is streamed.
+ *
+ * Improvements over the inline route.ts implementation:
+ * - Fetches top 20 existing memories and passes them to the extraction LLM
+ *   so it can detect contradictions and mark updates
+ * - Uses upsertMemory for dedup-with-update instead of skip-on-duplicate
+ * - Structured [Memory] logging throughout
  */
 export async function extractAndSaveMemories(
-  supabase: SupabaseClient,
   params: ExtractAndSaveMemoriesParams
 ): Promise<{ extracted: number; saved: number }> {
   try {
@@ -371,35 +154,47 @@ export async function extractAndSaveMemories(
     }
 
     const { extractMemories, detectExplicitMemory } = await import("./extractor")
-    const { createMemory } = await import("./storage")
+    const { upsertMemory, getUserMemories } = await import("./storage")
     const { generateEmbedding } = await import("./embedding-cache")
 
     const apiKey = process.env.OPENROUTER_API_KEY
     if (!apiKey) {
+      console.warn("[Memory] No API key available — skipping extraction")
       return { extracted: 0, saved: 0 }
     }
 
     const { userId, userMessage, assistantResponse, chatId, messageId } = params
 
-    // Detect explicit memory request first
+    // Fetch existing memories so the extraction LLM can detect contradictions
+    let existingMemoryContents: string[] = []
+    try {
+      const existing = await getUserMemories(userId, 20)
+      existingMemoryContents = existing.map((m) => m.content)
+    } catch {
+      // Non-fatal: extraction still works without existing context
+    }
+
+    // Handle explicit "remember that..." commands (fast path)
     const explicitMemoryContent = detectExplicitMemory(userMessage)
     if (explicitMemoryContent) {
       const embedding = await generateEmbedding(explicitMemoryContent)
-      await createMemory({
+      const saved = await upsertMemory({
         user_id: userId,
         content: explicitMemoryContent,
         memory_type: "explicit",
-        importance_score: 0.9, // Explicit memories are high importance
+        importance_score: 0.9,
         metadata: {
           source_chat_id: chatId,
           source_message_id: messageId,
+          is_static: true,
         },
         embedding,
       })
-      return { extracted: 1, saved: 1 }
+      console.log(`[Memory] Explicit memory ${saved ? "saved" : "failed"}: "${explicitMemoryContent.substring(0, 60)}"`)
+      return { extracted: 1, saved: saved ? 1 : 0 }
     }
 
-    // Auto-extract from conversation
+    // Auto-extract from conversation with existing memory context
     const memories = await extractMemories(
       {
         messages: [
@@ -409,17 +204,40 @@ export async function extractAndSaveMemories(
         userId,
         chatId,
       },
-      apiKey
+      apiKey,
+      existingMemoryContents
+    )
+
+    if (memories.length === 0) {
+      console.log("[Memory] Extracted 0 memories — nothing to save")
+      return { extracted: 0, saved: 0 }
+    }
+
+    console.log(`[Memory] Extracted ${memories.length} memories — generating embeddings...`)
+
+    // Generate all embeddings in parallel (~300-500ms each, so parallel saves significant time)
+    const embeddingResults = await Promise.allSettled(
+      memories.map((m) => generateEmbedding(m.content))
     )
 
     let saved = 0
-    for (const memory of memories) {
+    for (let i = 0; i < memories.length; i++) {
+      const embeddingResult = embeddingResults[i]
+      if (embeddingResult.status === "rejected") {
+        console.error(`[Memory] Embedding failed for: "${memories[i].content.substring(0, 60)}..."`, embeddingResult.reason)
+        continue
+      }
+
+      const memory = memories[i]
+      const embedding = embeddingResult.value
+
       try {
-        const embedding = await generateEmbedding(memory.content)
-        const savedMemory = await createMemory({
+        // Use upsert: if a very similar memory exists, update it
+        // instead of creating a duplicate
+        const savedMemory = await upsertMemory({
           user_id: userId,
           content: memory.content,
-          memory_type: "auto",
+          memory_type: memory.tags?.includes("explicit") ? "explicit" : "auto",
           importance_score: memory.importance,
           metadata: {
             source_chat_id: chatId,
@@ -427,20 +245,26 @@ export async function extractAndSaveMemories(
             category: memory.category,
             tags: memory.tags,
             context: memory.context,
+            is_static: memory.is_static ?? false,
+            relationship: memory.relationship ?? "new",
           },
           embedding,
         })
+
         if (savedMemory) {
           saved++
+        } else {
+          console.error(`[Memory] Failed to persist: "${memory.content.substring(0, 60)}..."`)
         }
       } catch (error) {
-        console.error("[chat-integration] Failed to save memory:", error)
+        console.error("[Memory] Error saving individual memory:", error)
       }
     }
 
+    console.log(`[Memory] Saved ${saved}/${memories.length}`)
     return { extracted: memories.length, saved }
   } catch (error) {
-    console.error("[chat-integration] Memory extraction failed:", error)
+    console.error("[Memory] Extraction pipeline failed:", error)
     return { extracted: 0, saved: 0 }
   }
 }

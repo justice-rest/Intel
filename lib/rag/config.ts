@@ -30,10 +30,11 @@ export const RAG_SIMILARITY_THRESHOLD = 0.5 // Minimum cosine similarity (0-1) -
 // EMBEDDING MODEL CONFIGURATION
 // ============================================================================
 
-// Primary: Google Gemini Embedding 001 via OpenRouter
-export const RAG_EMBEDDING_MODEL = "google/gemini-embedding-001"
-export const RAG_EMBEDDING_DIMENSIONS_FULL = 3072 // Full Gemini dimensions
-export const RAG_EMBEDDING_DIMENSIONS = 1536 // Truncated to fit pgvector 2000 limit
+// Primary: Qwen3-Embedding-8B — MTEB #1 (70.58), Matryoshka 32-4096d
+// Consistent with memory system (lib/memory/config.ts)
+export const RAG_EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"
+export const RAG_EMBEDDING_DIMENSIONS_FULL = 4096 // Native Qwen3-Embedding-8B dimensions
+export const RAG_EMBEDDING_DIMENSIONS = 1536 // Matryoshka truncation to 1536d (matches pgvector schema)
 
 // Fallback: OpenAI text-embedding-3-large via OpenRouter
 export const RAG_EMBEDDING_MODEL_FALLBACK = "openai/text-embedding-3-large"

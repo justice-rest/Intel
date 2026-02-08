@@ -11,7 +11,7 @@ import {
   deleteMemory,
   isMemoryEnabled,
 } from "@/lib/memory"
-import { generateEmbedding } from "@/lib/rag/embeddings"
+import { generateEmbedding } from "@/lib/memory/embedding-cache"
 import type { UpdateMemory } from "@/lib/memory/types"
 
 type RouteContext = {
@@ -115,16 +115,9 @@ export async function PUT(req: Request, context: RouteContext) {
     const body = (await req.json()) as UpdateMemory
 
     // If content is being updated, regenerate embedding
+    // (embedding-cache reads API key from env)
     if (body.content) {
-      const apiKey = process.env.OPENROUTER_API_KEY
-      if (!apiKey) {
-        return NextResponse.json(
-          { success: false, error: "Memory system not configured" },
-          { status: 503 }
-        )
-      }
-
-      const { embedding } = await generateEmbedding(body.content, apiKey)
+      const embedding = await generateEmbedding(body.content)
       body.embedding = embedding
     }
 

@@ -103,27 +103,29 @@ async function extractMemoriesStep(
 async function checkDuplicateStep(
   content: string,
   userId: string,
-  apiKey: string
+  _apiKey: string
 ): Promise<{ exists: boolean }> {
   const { memoryExists } = await import("@/lib/memory/storage")
-  const exists = await memoryExists(content, userId, apiKey)
+  const exists = await memoryExists(content, userId)
   return { exists }
 }
 
 /**
  * Generate embedding for memory content
+ * Uses the canonical embedding-cache module (reads API key from env)
  */
 async function generateEmbeddingStep(
   content: string,
-  apiKey: string
+  _apiKey: string
 ): Promise<{ embedding: number[] }> {
-  const { generateEmbedding } = await import("@/lib/rag/embeddings")
-  const result = await generateEmbedding(content, apiKey)
-  return { embedding: result.embedding }
+  const { generateEmbedding } = await import("@/lib/memory/embedding-cache")
+  const embedding = await generateEmbedding(content)
+  return { embedding }
 }
 
 /**
- * Save a memory to the database
+ * Save a memory to the database using upsert logic.
+ * If a very similar memory exists, it will be updated instead of duplicated.
  */
 async function saveMemoryStep(params: {
   userId: string
@@ -133,9 +135,9 @@ async function saveMemoryStep(params: {
   metadata: Record<string, unknown>
   embedding: number[]
 }): Promise<{ saved: boolean }> {
-  const { createMemory } = await import("@/lib/memory/storage")
+  const { upsertMemory } = await import("@/lib/memory/storage")
 
-  const savedMemory = await createMemory({
+  const savedMemory = await upsertMemory({
     user_id: params.userId,
     content: params.content,
     memory_type: params.memoryType,

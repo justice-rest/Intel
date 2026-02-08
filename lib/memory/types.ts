@@ -30,6 +30,14 @@ export interface MemoryMetadata {
   context?: string
   /** Original full text before extraction (for explicit memories) */
   original_text?: string
+  /** Whether this is a stable identity/preference fact (supermemory pattern) */
+  is_static?: boolean
+  /** Relationship to existing memories: new, update (contradiction), or extend */
+  relationship?: "new" | "update" | "extend"
+  /** Number of sources that confirmed/updated this memory */
+  source_count?: number
+  /** Reason for last update (e.g. "upsert_similar") */
+  last_updated_reason?: string
 }
 
 /**
@@ -140,6 +148,10 @@ export interface ExtractedMemory {
   tags: string[]
   /** Context about extraction */
   context: string
+  /** Whether this is a stable identity/preference fact (supermemory pattern) */
+  is_static?: boolean
+  /** Relationship to existing memories: new, update (contradiction), or extend (additional info) */
+  relationship?: "new" | "update" | "extend"
 }
 
 /**

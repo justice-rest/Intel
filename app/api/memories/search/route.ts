@@ -49,27 +49,15 @@ export async function POST(req: Request) {
       )
     }
 
-    // Get API key for embedding generation
-    const apiKey = process.env.OPENROUTER_API_KEY
-    if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: "Memory system not configured" },
-        { status: 503 }
-      )
-    }
-
-    // Search memories
-    const results = await searchMemories(
-      {
-        query: body.query,
-        userId: user.id,
-        limit: body.limit || 10,
-        similarityThreshold: body.similarity_threshold || 0.5,
-        memoryType: body.memory_type,
-        minImportance: body.min_importance || 0,
-      },
-      apiKey
-    )
+    // Search memories (embedding-cache reads API key from env)
+    const results = await searchMemories({
+      query: body.query,
+      userId: user.id,
+      limit: body.limit || 10,
+      similarityThreshold: body.similarity_threshold || 0.5,
+      memoryType: body.memory_type,
+      minImportance: body.min_importance || 0,
+    })
 
     return NextResponse.json({
       success: true,

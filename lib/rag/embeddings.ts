@@ -103,6 +103,7 @@ export async function generateEmbedding(
         body: JSON.stringify({
           model,
           input: sanitizedText,
+          dimensions: RAG_EMBEDDING_DIMENSIONS, // Matryoshka truncation (server-side)
         }),
       })
 
@@ -120,7 +121,8 @@ export async function generateEmbedding(
         throw new Error("Invalid embedding response format from OpenRouter")
       }
 
-      // Truncate to target dimensions (for Gemini: 3072 → 1536)
+      // Apply client-side truncation as safety net
+      // (server should already return dimensions-truncated vector)
       const fullEmbedding = data.data[0].embedding
       const truncatedEmbedding = truncateEmbedding(
         fullEmbedding,
@@ -212,6 +214,7 @@ export async function generateEmbeddings(
         body: JSON.stringify({
           model,
           input: sanitizedTexts, // Send array for batch processing
+          dimensions: RAG_EMBEDDING_DIMENSIONS, // Matryoshka truncation (server-side)
         }),
       })
 

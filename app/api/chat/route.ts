@@ -325,21 +325,16 @@ export async function POST(req: Request) {
 
         try {
           const { getChatMemories, isMemoryEnabled } = await import("@/lib/memory")
-          const { createClient } = await import("@/lib/supabase/server")
 
           if (!isMemoryEnabled()) return null
 
-          // Use the unified V2 chat integration (auto-fallback to V1)
-          const supabaseClient = await createClient()
-          if (!supabaseClient) return null
-
-          const memoryContext = await getChatMemories(supabaseClient, {
+          const memoryContext = await getChatMemories({
             userId,
             conversationMessages: messages.slice(-3).map((m) => ({
               role: m.role,
               content: String(m.content),
             })),
-            count: 5, // V2 uses more memories with better relevance scoring
+            count: 5,
             minImportance: 0.4,
           })
 
@@ -1206,8 +1201,11 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
 
           // MEMORY EXTRACTION: Extract and save important facts
           // Runs as a background async operation — does NOT block the streaming response.
-          // Uses direct extraction (no Workflow DevKit sandbox, which lacks `require` support).
-          if (isAuthenticated) {
+          // Delegates to extractAndSaveMemories which handles:
+          // - Fetching existing memories for contradiction detection
+          // - Upsert logic (update similar memories instead of duplicating)
+          // - Structured logging with [Memory] prefix
+          if (isAuthenticated && supabase) {
             const textParts: string[] = []
             for (const msg of response.messages) {
               if (msg.role === "assistant" && Array.isArray(msg.content)) {
@@ -1219,72 +1217,19 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
               }
             }
             const responseText = textParts.join("\n\n")
-            const effectiveApiKey = apiKey || process.env.OPENROUTER_API_KEY || ""
 
-            // Fire-and-forget: extract and persist memories without blocking the response
+            // Fire-and-forget: extract and persist memories without blocking
             void (async () => {
               try {
-                const { extractMemories, createMemory, memoryExists, calculateImportanceScore, isMemoryEnabled } = await import("@/lib/memory")
-                const { generateEmbedding } = await import("@/lib/rag/embeddings")
-
-                if (!isMemoryEnabled()) return
-                if (!effectiveApiKey) {
-                  console.warn("[Memory] No API key available — skipping extraction")
-                  return
-                }
-
-                const conversationForExtraction = [
-                  { role: userMessage.role, content: String(userMessage.content) },
-                  { role: "assistant", content: responseText },
-                ]
-
-                const extractedMemories = await extractMemories(
-                  { messages: conversationForExtraction, userId, chatId },
-                  effectiveApiKey
-                )
-
-                if (extractedMemories.length === 0) return
-
-                console.log(`[Memory] Extracted ${extractedMemories.length} memories — saving...`)
-
-                let saved = 0
-                for (const memory of extractedMemories) {
-                  try {
-                    const exists = await memoryExists(memory.content, userId, effectiveApiKey)
-                    if (exists) continue
-
-                    const { embedding } = await generateEmbedding(memory.content, effectiveApiKey)
-
-                    const importanceScore = calculateImportanceScore(
-                      memory.content,
-                      memory.category,
-                      { tags: memory.tags, context: memory.context }
-                    )
-
-                    const savedMemory = await createMemory({
-                      user_id: userId,
-                      content: memory.content,
-                      memory_type: memory.tags?.includes("explicit") ? "explicit" : "auto",
-                      importance_score: importanceScore,
-                      metadata: {
-                        source_chat_id: chatId,
-                        category: memory.category,
-                        tags: memory.tags,
-                        context: memory.context,
-                      },
-                      embedding,
-                    })
-
-                    if (savedMemory) saved++
-                    else console.error(`[Memory] Failed to persist: "${memory.content.substring(0, 60)}..."`)
-                  } catch (memErr) {
-                    console.error("[Memory] Error saving memory:", memErr)
-                  }
-                }
-
-                console.log(`[Memory] Done — saved ${saved}/${extractedMemories.length}`)
+                const { extractAndSaveMemories } = await import("@/lib/memory")
+                await extractAndSaveMemories({
+                  userId,
+                  userMessage: String(userMessage.content),
+                  assistantResponse: responseText,
+                  chatId,
+                })
               } catch (error) {
-                console.error("[Memory] Extraction failed:", error)
+                console.error("[Memory] Extraction pipeline failed:", error)
               }
             })()
           }
