@@ -12,6 +12,8 @@ import {
   XIcon,
   LinkSimple,
   BookOpen,
+  DatabaseIcon,
+  HardDrives,
 } from "@phosphor-icons/react"
 import { useState, useEffect } from "react"
 import { SubscriptionSection } from "@/components/subscription/subscription-section"
@@ -23,9 +25,11 @@ import { AccountManagement } from "./general/account-management"
 import { BetaFeatures } from "./general/beta-features"
 import { UserProfile } from "./general/user-profile"
 import { IntegrationsSection } from "./integrations"
+import { DataSection } from "./data/data-section"
+import { MemoryList } from "@/app/components/memory"
 import { KnowledgeDashboard } from "@/app/components/knowledge"
 
-export type TabType = "general" | "appearance" | "subscription" | "crms" | "knowledge"
+export type TabType = "general" | "appearance" | "subscription" | "crms" | "data" | "memory" | "knowledge"
 
 type SettingsContentProps = {
   isDrawer?: boolean
@@ -108,6 +112,24 @@ export function SettingsContent({
                 )}
                 {isSupabaseEnabled && (
                   <TabsTrigger
+                    value="data"
+                    className="flex shrink-0 items-center gap-2"
+                  >
+                    <DatabaseIcon className="size-4" />
+                    <span>Data</span>
+                  </TabsTrigger>
+                )}
+                {isSupabaseEnabled && (
+                  <TabsTrigger
+                    value="memory"
+                    className="flex shrink-0 items-center gap-2"
+                  >
+                    <HardDrives className="size-4" />
+                    <span>Memory</span>
+                  </TabsTrigger>
+                )}
+                {isSupabaseEnabled && (
+                  <TabsTrigger
                     value="knowledge"
                     className="flex shrink-0 items-center gap-2"
                   >
@@ -138,6 +160,29 @@ export function SettingsContent({
 
             <TabsContent value="crms" className="space-y-6 px-6">
               {isSupabaseEnabled && <IntegrationsSection />}
+            </TabsContent>
+
+            <TabsContent value="data" className="space-y-6 px-6">
+              {isSupabaseEnabled && <DataSection />}
+            </TabsContent>
+
+            <TabsContent value="memory" className="space-y-6 px-6">
+              {isSupabaseEnabled && (
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      AI Memory
+                      <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
+                        BETA
+                      </span>
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Manage what the AI remembers about you across conversations.
+                    </p>
+                  </div>
+                  <MemoryList />
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="knowledge" className="space-y-6 px-6">
@@ -196,6 +241,30 @@ export function SettingsContent({
 
                 {isSupabaseEnabled && (
                   <TabsTrigger
+                    value="data"
+                    className="w-full justify-start rounded-md px-3 py-2 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <DatabaseIcon className="size-4" />
+                      <span>Data</span>
+                    </div>
+                  </TabsTrigger>
+                )}
+
+                {isSupabaseEnabled && (
+                  <TabsTrigger
+                    value="memory"
+                    className="w-full justify-start rounded-md px-3 py-2 text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <HardDrives className="size-4" />
+                      <span>Memory</span>
+                    </div>
+                  </TabsTrigger>
+                )}
+
+                {isSupabaseEnabled && (
+                  <TabsTrigger
                     value="knowledge"
                     className="w-full justify-start rounded-md px-3 py-2 text-left"
                   >
@@ -230,6 +299,29 @@ export function SettingsContent({
 
               <TabsContent value="crms" className="mt-0 space-y-6">
                 {isSupabaseEnabled && <IntegrationsSection />}
+              </TabsContent>
+
+              <TabsContent value="data" className="mt-0 space-y-6">
+                {isSupabaseEnabled && <DataSection />}
+              </TabsContent>
+
+              <TabsContent value="memory" className="mt-0 space-y-6">
+                {isSupabaseEnabled && (
+                  <div className="space-y-4">
+                    <div>
+                      <h2 className="text-lg font-semibold flex items-center gap-2">
+                        AI Memory
+                        <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">
+                          BETA
+                        </span>
+                      </h2>
+                      <p className="text-sm text-muted-foreground">
+                        Manage what the AI remembers about you across conversations.
+                      </p>
+                    </div>
+                    <MemoryList />
+                  </div>
+                )}
               </TabsContent>
 
               <TabsContent value="knowledge" className="mt-0 space-y-6">

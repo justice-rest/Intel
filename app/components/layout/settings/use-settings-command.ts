@@ -12,14 +12,10 @@ const VALID_TABS: TabType[] = [
   "appearance",
   "subscription",
   "crms",
+  "data",
+  "memory",
   "knowledge",
 ]
-
-// Redirect legacy tabs to their new locations
-const TAB_REDIRECTS: Record<string, TabType> = {
-  "memory": "knowledge",   // Memory is now in Workspace (Knowledge tab)
-  "data": "knowledge",     // RAG Documents is now in Workspace (Knowledge tab)
-}
 
 /**
  * Hook for handling /settings slash commands
@@ -28,8 +24,9 @@ const TAB_REDIRECTS: Record<string, TabType> = {
  * - /settings → Opens general tab
  * - /settings/subscription → Opens subscription tab
  * - /settings/crms → Opens CRMs tab (CRM connections)
- * - /settings/knowledge → Opens knowledge tab (Knowledge profiles, Workspace: Gmail, Drive, Notion, Documents, Memory)
- * - /settings/memory → Redirects to knowledge tab (Memory is in Workspace)
+ * - /settings/data → Opens data tab (RAG documents)
+ * - /settings/memory → Opens memory tab (AI memory)
+ * - /settings/knowledge → Opens knowledge tab (Knowledge profiles, connectors)
  */
 export function useSettingsCommand() {
   const processSettingsCommand = useCallback(
@@ -56,15 +53,10 @@ export function useSettingsCommand() {
 
       const [, tabParam, sectionParam] = commandMatch
 
-      // Resolve tab: check redirects first, then valid tabs, default to general
+      // Resolve tab: check valid tabs, default to general
       let tab: TabType = "general"
-      if (tabParam) {
-        // Check if this is a legacy tab that should redirect
-        if (TAB_REDIRECTS[tabParam]) {
-          tab = TAB_REDIRECTS[tabParam]
-        } else if (VALID_TABS.includes(tabParam as TabType)) {
-          tab = tabParam as TabType
-        }
+      if (tabParam && VALID_TABS.includes(tabParam as TabType)) {
+        tab = tabParam as TabType
       }
 
       // Dispatch the open-settings event with tab and section
