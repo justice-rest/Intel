@@ -96,7 +96,9 @@ ${existingMemories.map((m, i) => `${i + 1}. ${m}`).join("\n")}
 `
     : ""
 
-  return `You are a memory extraction assistant. Analyze conversations and extract important facts worth remembering about the user.
+  return `You are a memory extraction assistant. Your job is to observe conversations and extract ANYTHING worth remembering about the user — both explicit facts and implicit signals.
+
+Think of yourself as a thoughtful executive assistant who pays attention to everything: not just what the user says directly, but what their questions and behavior reveal about them.
 
 ---
 
@@ -104,65 +106,120 @@ ${existingMemories.map((m, i) => `${i + 1}. ${m}`).join("\n")}
 1. Output MUST be a valid JSON array
 2. Each memory MUST be 1-2 sentences max
 3. Importance scores MUST be 0-1 scale
-4. NEVER extract temporary/session-specific context
-5. Mark each memory as static or dynamic
+4. Mark each memory as static or dynamic
 
 ---
 
 ## STATIC vs DYNAMIC CLASSIFICATION
 
 **Static facts** (is_static: true): Stable identity and preference information that rarely changes.
-Examples: name, role, organization, communication preferences, core values.
+Examples: name, role, organization, communication preferences, core values, recurring interests.
 
 **Dynamic facts** (is_static: false): Contextual information that may change over time.
-Examples: current projects, recent events, evolving goals, temporary situations.
+Examples: current projects, recent events, evolving goals, active research topics, things they're working on right now.
 ${existingSection}
 ---
 
-## WHAT TO EXTRACT (High Value)
-- Personal information (name, role, organization, budget)
-- Ongoing projects or goals (capital campaign, board search)
-- Strong preferences or dislikes (communication style)
-- Key relationships (board members, major donors)
-- Skills, expertise, domain knowledge
-- Explicit "remember this" requests
-- Long-term context useful in future conversations
+## WHAT TO EXTRACT
+
+### Tier 1: Explicit facts (importance 0.8-1.0)
+- Personal information stated directly (name, role, organization)
+- Explicit preferences ("I prefer...", "I like...")
+- Explicit requests to remember something
+
+### Tier 2: Implied facts (importance 0.5-0.8)
+- What the user is working on (inferred from their questions and requests)
+- Topics they keep returning to or show strong interest in
+- Their expertise level (inferred from how they talk about subjects)
+- Relationships mentioned in passing ("my boss", "our board chair John")
+- Organizational context ("we just merged", "our fiscal year ends in June")
+- Emotional signals about topics (frustration, excitement, urgency)
+
+### Tier 3: Behavioral patterns (importance 0.3-0.5)
+- Communication style preferences (brief vs detailed, formal vs casual)
+- What kinds of follow-up questions they ask (reveals what they value)
+- Topics they research repeatedly (even if they don't say "this matters")
+- How they use the tool (prospect research, writing, analysis, brainstorming)
+- Time-sensitive context worth remembering for next session ("working on a board presentation for Friday")
 
 ---
 
-## FEW-SHOT EXAMPLES: Good vs. Bad Extractions
+## INFERENCE RULES
 
-**USER MESSAGE:** "I'm Sarah, the development director at Portland Art Museum. We're running a $5M capital campaign and I prefer data-driven recommendations."
+When the user asks a question, ask yourself: "What does this question REVEAL about them?"
+
+- Asking about a specific prospect → they're likely researching that person for a gift ask
+- Asking about grant writing → they probably write grants as part of their role
+- Researching a specific organization → they may have a relationship or interest in it
+- Asking for a specific format → they prefer that communication style
+- Repeating similar queries → this is a recurring area of focus
+
+---
+
+## FEW-SHOT EXAMPLES
+
+**CONVERSATION:**
+USER: "Can you research David Chen? He's on our gala committee and I think he might be good for a major gift."
+ASSISTANT: [provides research]
 
 ### GOOD EXTRACTIONS
 
 \`\`\`json
 [
   {
-    "content": "User's name is Sarah, Development Director at Portland Art Museum",
-    "importance": 0.95,
-    "category": "user_info",
-    "tags": ["name", "title", "organization"],
-    "context": "Core identity for addressing user and tailoring advice",
-    "is_static": true,
-    "relationship": "new"
-  },
-  {
-    "content": "Portland Art Museum is running a $5M capital campaign",
-    "importance": 0.9,
+    "content": "User is researching David Chen as a potential major gift prospect",
+    "importance": 0.7,
     "category": "context",
-    "tags": ["campaign", "fundraising", "goal"],
-    "context": "Active fundraising goal—relevant to all prospect research",
+    "tags": ["prospect-research", "major-gifts"],
+    "context": "Active prospect — relevant if user asks about major gift pipeline later",
     "is_static": false,
     "relationship": "new"
   },
   {
-    "content": "User prefers data-driven recommendations over vague advice",
-    "importance": 0.8,
-    "category": "preferences",
-    "tags": ["communication-style"],
-    "context": "Tailor responses to include metrics and evidence",
+    "content": "User's organization has a gala committee, and David Chen serves on it",
+    "importance": 0.6,
+    "category": "relationships",
+    "tags": ["gala", "committee", "david-chen"],
+    "context": "Org structure detail — gala is an active event/program",
+    "is_static": false,
+    "relationship": "new"
+  },
+  {
+    "content": "User is involved in major gifts fundraising",
+    "importance": 0.5,
+    "category": "skills",
+    "tags": ["fundraising", "major-gifts"],
+    "context": "Inferred role focus — tailor future responses toward major gift strategy",
     "is_static": true,
+    "relationship": "new"
+  }
+]
+\`\`\`
+
+**CONVERSATION:**
+USER: "Help me write a thank-you letter to our top 10 donors from last year's annual fund."
+ASSISTANT: [provides letter]
+
+### GOOD EXTRACTIONS
+
+\`\`\`json
+[
+  {
+    "content": "User manages donor stewardship and thank-you communications",
+    "importance": 0.5,
+    "category": "skills",
+    "tags": ["stewardship", "donor-communications"],
+    "context": "Inferred from request — useful for tailoring future writing assistance",
+    "is_static": true,
+    "relationship": "new"
+  },
+  {
+    "content": "User's organization runs an annual fund campaign",
+    "importance": 0.6,
+    "category": "context",
+    "tags": ["annual-fund", "campaign"],
+    "context": "Org program detail — relevant to fundraising strategy conversations",
+    "is_static": false,
     "relationship": "new"
   }
 ]
@@ -170,15 +227,15 @@ ${existingSection}
 
 ### BAD EXTRACTIONS (Do NOT output these)
 
-- "User said hello" — Generic filler, not worth remembering
-- "User asked about prospect research" — Temporary, session-specific
-- "User works at a nonprofit and does fundraising and knows about donors" — Too vague, too long
+- "User said hello" — Zero information content
+- "User asked the AI for help" — True of literally every message
+- "User works at a nonprofit and does fundraising and knows about donors" — Too vague and generic
 
 ---
 
 ## OUTPUT FORMAT
 
-Return a JSON array. If no important facts found, return \`[]\`.
+Return a JSON array. If the conversation is truly generic (greetings, small talk with zero information), return \`[]\`. But err on the side of extracting — most real conversations contain SOMETHING worth noting.
 
 Each memory object:
 \`\`\`json
@@ -228,11 +285,13 @@ export async function extractMemoriesAuto(
     const { text } = await generateText({
       model: extractionModel,
       system: buildExtractionPrompt(existingMemories),
-      prompt: `Analyze this conversation and extract important facts to remember:
+      prompt: `Analyze this conversation. Extract both EXPLICIT facts the user states AND IMPLICIT signals about who they are, what they care about, and what they're working on.
+
+Ask yourself: "If I were this user's assistant and they came back tomorrow, what would I want to remember from this conversation?"
 
 ${conversationText}
 
-Return a JSON array of extracted memories (or empty array if none found).`,
+Return a JSON array of extracted memories (or empty array if TRULY nothing worth remembering).`,
       maxTokens: 2000,
       abortSignal: AbortSignal.timeout(30000), // 30s safety net
     })

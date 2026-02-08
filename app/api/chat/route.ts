@@ -260,7 +260,7 @@ export async function POST(req: Request) {
     const normalizedModel = normalizeModelId(model)
 
     // Determine if we should inject memories (check early for parallel execution)
-    const shouldInjectMemory = isAuthenticated && messages.length >= 3
+    const shouldInjectMemory = isAuthenticated && messages.length >= 1
 
     /**
      * OPTIMIZATION: Parallelize ALL independent operations including memory retrieval
@@ -334,8 +334,8 @@ export async function POST(req: Request) {
               role: m.role,
               content: String(m.content),
             })),
-            count: 5,
-            minImportance: 0.4,
+            count: 7,
+            minImportance: 0.2,
           })
 
           if (memoryContext.formattedMemories) {
@@ -1227,6 +1227,10 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
                   userMessage: String(userMessage.content),
                   assistantResponse: responseText,
                   chatId,
+                  conversationHistory: messages.slice(-8).map((m) => ({
+                    role: m.role,
+                    content: String(m.content),
+                  })),
                 })
               } catch (error) {
                 console.error("[Memory] Extraction pipeline failed:", error)

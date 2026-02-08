@@ -67,9 +67,11 @@ export const MAX_SEARCH_RESULTS = 20
 // ============================================================================
 
 /**
- * Minimum importance score for auto-extracted memories
+ * Minimum importance score for auto-extracted memories.
+ * Lowered from 0.4 to 0.2 to allow implicit/inferred memories through.
+ * The extraction LLM assigns importance; we trust its judgment for anything above noise.
  */
-export const AUTO_EXTRACT_MIN_IMPORTANCE = 0.4
+export const AUTO_EXTRACT_MIN_IMPORTANCE = 0.2
 
 /**
  * Importance score for explicitly saved memories ("remember this")
@@ -183,6 +185,7 @@ export const UPSERT_SIMILARITY_THRESHOLD = 0.9
 
 /**
  * Max characters of conversation text sent to the extraction LLM.
- * Prevents token overflow on very long conversations.
+ * Increased from 4000 to 8000 to give the AI more context for
+ * inferring implicit facts and behavioral patterns.
  */
-export const MAX_EXTRACTION_INPUT_CHARS = 4000
+export const MAX_EXTRACTION_INPUT_CHARS = 8000

@@ -133,6 +133,8 @@ export interface ExtractAndSaveMemoriesParams {
   assistantResponse: string
   chatId: string
   messageId?: number
+  /** Recent conversation history for richer context extraction */
+  conversationHistory?: Array<{ role: string; content: string }>
 }
 
 /**
@@ -163,7 +165,7 @@ export async function extractAndSaveMemories(
       return { extracted: 0, saved: 0 }
     }
 
-    const { userId, userMessage, assistantResponse, chatId, messageId } = params
+    const { userId, userMessage, assistantResponse, chatId, messageId, conversationHistory } = params
 
     // Fetch existing memories so the extraction LLM can detect contradictions
     let existingMemoryContents: string[] = []
@@ -194,13 +196,24 @@ export async function extractAndSaveMemories(
       return { extracted: 1, saved: saved ? 1 : 0 }
     }
 
+    // Build richer message context: use conversation history if available,
+    // otherwise fall back to just the latest exchange. More context lets the
+    // extraction LLM infer implicit facts and behavioral patterns.
+    const extractionMessages = conversationHistory && conversationHistory.length > 0
+      ? [
+          ...conversationHistory.slice(-6), // up to 6 recent messages for context
+          { role: "user", content: userMessage },
+          { role: "assistant", content: assistantResponse },
+        ]
+      : [
+          { role: "user", content: userMessage },
+          { role: "assistant", content: assistantResponse },
+        ]
+
     // Auto-extract from conversation with existing memory context
     const memories = await extractMemories(
       {
-        messages: [
-          { role: "user", content: userMessage },
-          { role: "assistant", content: assistantResponse },
-        ],
+        messages: extractionMessages,
         userId,
         chatId,
       },
