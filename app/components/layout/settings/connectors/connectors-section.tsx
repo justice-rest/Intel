@@ -1,13 +1,12 @@
 "use client"
 
-import { GoogleIntegrationSection } from "../integrations/google-section"
 import { NotionIntegrationSection } from "./notion-section"
 
 /**
  * Connectors Section
  *
  * Cloud connectors for document indexing into the RAG system.
- * Includes: Google Workspace, Notion
+ * Includes: Notion
  */
 export function ConnectorsSection() {
   return (
@@ -25,13 +24,8 @@ export function ConnectorsSection() {
         </p>
       </div>
 
-      {/* Google Workspace */}
-      <div data-settings-section="google-workspace">
-        <GoogleIntegrationSection />
-      </div>
-
       {/* Notion */}
-      <div data-settings-section="notion" className="border-t pt-6">
+      <div data-settings-section="notion">
         <NotionIntegrationSection />
       </div>
     </div>

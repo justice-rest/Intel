@@ -19,7 +19,7 @@ import { MemoryProvider } from "@/lib/memory-store"
 import { UnreadProvider } from "@/lib/unread"
 import { NotificationsProvider } from "@/lib/notifications"
 import { TransitionProvider } from "@/lib/transitions"
-import { DraftsWrapper } from "@/app/components/drafts"
+
 import { CookieConsentWrapper } from "@/app/components/cookie-consent"
 import { ThemeProvider } from "next-themes"
 import Script from "next/script"
@@ -94,11 +94,9 @@ export default async function RootLayout({
                                   <SidebarProvider defaultOpen>
                                     <Toaster position="top-center" />
                                     <CookieConsentWrapper />
-                                    <DraftsWrapper>
-                                      <TransitionProvider>
+                                    <TransitionProvider>
                                         {children}
                                       </TransitionProvider>
-                                    </DraftsWrapper>
                                   </SidebarProvider>
                                 </ThemeProvider>
                               </TooltipProvider>

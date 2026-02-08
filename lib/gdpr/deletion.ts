@@ -147,39 +147,6 @@ async function cancelSubscriptionIfNeeded(userId: string): Promise<{
 }
 
 /**
- * Revoke Google OAuth tokens if connected
- */
-async function revokeGoogleOAuthIfNeeded(
-  supabaseAdmin: AnySupabaseClient,
-  userId: string
-): Promise<void> {
-  try {
-    // Check if user has Google OAuth tokens
-    const { data: tokens } = await supabaseAdmin
-      .from('google_oauth_tokens')
-      .select('id')
-      .eq('user_id', userId)
-      .single()
-
-    if (!tokens) {
-      return // No Google integration
-    }
-
-    // Try to revoke via the token manager
-    try {
-      const { revokeTokens, deleteTokens } = await import('@/lib/google/oauth/token-manager')
-      await revokeTokens(userId)
-      await deleteTokens(userId)
-    } catch {
-      // If revocation fails, the tokens will still be deleted with the user record
-      console.warn('Could not revoke Google OAuth tokens, they will be deleted with user')
-    }
-  } catch {
-    // Non-blocking - tokens will be deleted via CASCADE
-  }
-}
-
-/**
  * Execute complete account deletion
  * This is the main deletion function that orchestrates everything
  */
@@ -194,20 +161,17 @@ export async function executeAccountDeletion(
     // Step 1: Cancel subscription if needed
     await cancelSubscriptionIfNeeded(userId)
 
-    // Step 2: Revoke Google OAuth if connected
-    await revokeGoogleOAuthIfNeeded(supabaseAdmin, userId)
-
-    // Step 3: Delete storage bucket files (not auto-cascaded)
+    // Step 2: Delete storage bucket files (not auto-cascaded)
     const storageResults = await deleteUserStorageFiles(supabaseAdmin, userId)
     const storageErrors = storageResults.filter(r => !r.success)
     if (storageErrors.length > 0) {
       console.warn('Some storage cleanup errors (non-blocking):', storageErrors)
     }
 
-    // Step 4: Log deletion for audit (before deleting user)
+    // Step 3: Log deletion for audit (before deleting user)
     await logAccountDeletion(supabaseAdmin, userId, reason, deletedAt)
 
-    // Step 5: Sign out all sessions
+    // Step 4: Sign out all sessions
     try {
       await supabaseAdmin.auth.admin.signOut(userId, 'global')
     } catch (error) {
@@ -215,7 +179,7 @@ export async function executeAccountDeletion(
       // Non-blocking - continue with deletion
     }
 
-    // Step 6: Delete from users table (CASCADE handles all related tables)
+    // Step 5: Delete from users table (CASCADE handles all related tables)
     const { error: deleteUserError } = await supabaseAdmin
       .from('users')
       .delete()
@@ -231,7 +195,7 @@ export async function executeAccountDeletion(
       }
     }
 
-    // Step 7: Delete from auth.users (requires admin client)
+    // Step 6: Delete from auth.users (requires admin client)
     const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
     if (deleteAuthError) {
