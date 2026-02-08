@@ -78,11 +78,12 @@ export const EXPLICIT_MEMORY_IMPORTANCE = 0.9
  * Patterns to detect explicit memory commands
  */
 export const EXPLICIT_MEMORY_PATTERNS = [
-  /remember (?:that |this )?(.+)/i,
-  /(?:please )?save (?:to memory |this )(?:that |this )?(.+)/i,
-  /(?:don't |never )forget (?:that |this )?(.+)/i,
-  /keep in mind (?:that |this )?(.+)/i,
-  /note (?:that |this )?(.+)/i,
+  /remember (?:that |this[:;,. ]*)?(.+)/i,
+  /(?:please )?save (?:to memory |this[:;,. ]*)(?:that |this[:;,. ]*)?(.+)/i,
+  /(?:don't |never )forget (?:that |this[:;,. ]*)?(.+)/i,
+  /keep in mind (?:that |this[:;,. ]*)?(.+)/i,
+  /note (?:that |this[:;,. ]*)?(.+)/i,
+  /i (?:like|love|prefer|enjoy|hate|dislike) (.+)/i,
 ]
 
 // ============================================================================

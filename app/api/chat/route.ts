@@ -2,8 +2,6 @@ import { SYSTEM_PROMPT_DEFAULT, AI_MAX_OUTPUT_TOKENS } from "@/lib/config"
 import type { ChatConfig } from "@/lib/chat-config"
 import { getAllModels, normalizeModelId } from "@/lib/models"
 import { getProviderForModel } from "@/lib/openproviders/provider-map"
-import { isWorkflowEnabled, runDurableWorkflow } from "@/lib/workflows"
-import { extractMemoriesWorkflow } from "@/lib/workflows/memory-extraction.workflow"
 import { createListDocumentsTool } from "@/lib/tools/list-documents"
 import { createRagSearchTool } from "@/lib/tools/rag-search"
 import { createMemorySearchTool } from "@/lib/tools/memory-tool"
@@ -1206,12 +1204,10 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
             model: normalizedModel,
           })
 
-          // MEMORY EXTRACTION: Extract and save important facts (background operation)
-          // Feature Flag: `durable-memory-extraction`
-          // - When enabled: Uses Workflow DevKit for durable, resumable extraction
-          // - When disabled: Uses legacy fire-and-forget pattern (default)
+          // MEMORY EXTRACTION: Extract and save important facts
+          // Runs as a background async operation — does NOT block the streaming response.
+          // Uses direct extraction (no Workflow DevKit sandbox, which lacks `require` support).
           if (isAuthenticated) {
-            // Extract text from response messages (needed for both paths)
             const textParts: string[] = []
             for (const msg of response.messages) {
               if (msg.role === "assistant" && Array.isArray(msg.content)) {
@@ -1223,19 +1219,17 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
               }
             }
             const responseText = textParts.join("\n\n")
+            const effectiveApiKey = apiKey || process.env.OPENROUTER_API_KEY || ""
 
-            // Check if durable memory extraction is enabled
-            const useDurableMemory = isWorkflowEnabled("durable-memory-extraction", userId)
-
-            // Helper: legacy extraction (used as primary or fallback)
-            const runLegacyExtraction = async () => {
+            // Fire-and-forget: extract and persist memories without blocking the response
+            void (async () => {
               try {
-                console.log("[Memory] Starting legacy extraction for user:", userId)
                 const { extractMemories, createMemory, memoryExists, calculateImportanceScore, isMemoryEnabled } = await import("@/lib/memory")
                 const { generateEmbedding } = await import("@/lib/rag/embeddings")
 
-                if (!isMemoryEnabled()) {
-                  console.log("[Memory] Memory system is disabled")
+                if (!isMemoryEnabled()) return
+                if (!effectiveApiKey) {
+                  console.warn("[Memory] No API key available — skipping extraction")
                   return
                 }
 
@@ -1244,48 +1238,29 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
                   { role: "assistant", content: responseText },
                 ]
 
-                console.log("[Memory] Extracting memories from conversation...")
                 const extractedMemories = await extractMemories(
-                  {
-                    messages: conversationForExtraction,
-                    userId,
-                    chatId,
-                  },
-                  apiKey || process.env.OPENROUTER_API_KEY || ""
+                  { messages: conversationForExtraction, userId, chatId },
+                  effectiveApiKey
                 )
 
-                console.log(`[Memory] Found ${extractedMemories.length} potential memories to save`)
+                if (extractedMemories.length === 0) return
 
+                console.log(`[Memory] Extracted ${extractedMemories.length} memories — saving...`)
+
+                let saved = 0
                 for (const memory of extractedMemories) {
                   try {
-                    console.log(`[Memory] Checking if memory already exists: "${memory.content.substring(0, 50)}..."`)
-                    const exists = await memoryExists(
-                      memory.content,
-                      userId,
-                      apiKey || process.env.OPENROUTER_API_KEY || ""
-                    )
+                    const exists = await memoryExists(memory.content, userId, effectiveApiKey)
+                    if (exists) continue
 
-                    if (exists) {
-                      console.log(`[Memory] Skipping duplicate memory`)
-                      continue
-                    }
-
-                    console.log(`[Memory] Generating embedding...`)
-                    const { embedding } = await generateEmbedding(
-                      memory.content,
-                      apiKey || process.env.OPENROUTER_API_KEY || ""
-                    )
+                    const { embedding } = await generateEmbedding(memory.content, effectiveApiKey)
 
                     const importanceScore = calculateImportanceScore(
                       memory.content,
                       memory.category,
-                      {
-                        tags: memory.tags,
-                        context: memory.context,
-                      }
+                      { tags: memory.tags, context: memory.context }
                     )
 
-                    console.log(`[Memory] Saving with importance score: ${importanceScore}`)
                     const savedMemory = await createMemory({
                       user_id: userId,
                       content: memory.content,
@@ -1300,56 +1275,18 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
                       embedding,
                     })
 
-                    if (savedMemory) {
-                      console.log(`[Memory] Successfully saved: "${memory.content.substring(0, 50)}..." (importance: ${importanceScore})`)
-                    } else {
-                      console.error(`[Memory] Failed to save memory (returned null)`)
-                    }
+                    if (savedMemory) saved++
+                    else console.error(`[Memory] Failed to persist: "${memory.content.substring(0, 60)}..."`)
                   } catch (memErr) {
-                    console.error("[Memory] Error saving individual memory:", memErr)
+                    console.error("[Memory] Error saving memory:", memErr)
                   }
                 }
 
-                console.log(`[Memory] Extraction complete. Processed ${extractedMemories.length} memories.`)
+                console.log(`[Memory] Done — saved ${saved}/${extractedMemories.length}`)
               } catch (error) {
-                console.error("[Memory] Memory extraction failed:", error)
+                console.error("[Memory] Extraction failed:", error)
               }
-            }
-
-            if (useDurableMemory) {
-              // Durable workflow with fallback to legacy on failure
-              console.log("[Memory] Using durable workflow for user:", userId)
-              runDurableWorkflow(extractMemoriesWorkflow, {
-                userId,
-                chatId,
-                userMessage: String(userMessage.content),
-                assistantResponse: responseText,
-                messageId: savedMessage?.messageId,
-                apiKey: apiKey || undefined,
-              }).then((result) => {
-                // Check both outer success (workflow runtime) and inner success (extraction result)
-                const innerResult = result.data as { success?: boolean; saved?: number; extracted?: number; error?: string } | undefined
-                if (!result.success) {
-                  console.warn("[Memory] Durable workflow runtime failed, falling back to legacy:", result.error)
-                  return runLegacyExtraction()
-                }
-                if (innerResult && !innerResult.success) {
-                  console.warn("[Memory] Durable workflow extraction failed, falling back to legacy:", innerResult.error)
-                  return runLegacyExtraction()
-                }
-                console.log(`[Memory] Durable workflow succeeded: extracted=${innerResult?.extracted ?? 0}, saved=${innerResult?.saved ?? 0}`)
-              }).catch((error) => {
-                console.error("[Memory] Durable workflow error, falling back to legacy:", error)
-                runLegacyExtraction().catch((err) =>
-                  console.error("[Memory] Legacy fallback also failed:", err)
-                )
-              })
-            } else {
-              // Legacy path directly
-              runLegacyExtraction().catch((err) =>
-                console.error("[Memory] Background memory extraction failed:", err)
-              )
-            }
+            })()
           }
         }
       },
