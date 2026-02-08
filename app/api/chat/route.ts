@@ -1327,12 +1327,17 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
                 messageId: savedMessage?.messageId,
                 apiKey: apiKey || undefined,
               }).then((result) => {
+                // Check both outer success (workflow runtime) and inner success (extraction result)
+                const innerResult = result.data as { success?: boolean; saved?: number; extracted?: number; error?: string } | undefined
                 if (!result.success) {
-                  console.warn("[Memory] Durable workflow failed, falling back to legacy:", result.error)
+                  console.warn("[Memory] Durable workflow runtime failed, falling back to legacy:", result.error)
                   return runLegacyExtraction()
                 }
-                const data = result.data as { saved?: number; extracted?: number } | undefined
-                console.log(`[Memory] Durable workflow succeeded: extracted=${data?.extracted ?? 0}, saved=${data?.saved ?? 0}`)
+                if (innerResult && !innerResult.success) {
+                  console.warn("[Memory] Durable workflow extraction failed, falling back to legacy:", innerResult.error)
+                  return runLegacyExtraction()
+                }
+                console.log(`[Memory] Durable workflow succeeded: extracted=${innerResult?.extracted ?? 0}, saved=${innerResult?.saved ?? 0}`)
               }).catch((error) => {
                 console.error("[Memory] Durable workflow error, falling back to legacy:", error)
                 runLegacyExtraction().catch((err) =>
