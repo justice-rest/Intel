@@ -52,6 +52,7 @@ import type {
   StrategyCategory,
   FactCategory,
 } from "@/lib/knowledge/types"
+import { ConnectorsSection } from "@/app/components/layout/settings/connectors"
 
 /**
  * KnowledgeDashboard
@@ -386,6 +387,11 @@ export function KnowledgeDashboard() {
       <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-2">
         Knowledge shapes how Rōmy communicates and advises, distinct from RAG document search.
       </p>
+
+      {/* Cloud Connectors (Notion) */}
+      <div className="mt-8">
+        <ConnectorsSection />
+      </div>
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
