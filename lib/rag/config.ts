@@ -48,11 +48,19 @@ export const OPENROUTER_API_URL = "https://openrouter.ai/api/v1"
 
 export const RAG_ALLOWED_FILE_TYPES = [
   "application/pdf",
+  "text/html",
 ] as const
 
 export const RAG_ALLOWED_FILE_EXTENSIONS = [
   ".pdf",
 ] as const
+
+// ============================================================================
+// WEB CRAWL CONFIGURATION
+// Canonical values in lib/web-crawl/config.ts — re-exported here for convenience
+// ============================================================================
+
+export { CRAWL_MAX_PAGES as RAG_CRAWL_MAX_PAGES, CRAWL_MAX_DEPTH as RAG_CRAWL_MAX_DEPTH } from "@/lib/web-crawl/config"
 
 // ============================================================================
 // PROCESSING CONFIGURATION

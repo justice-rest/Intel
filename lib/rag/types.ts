@@ -19,6 +19,8 @@ export interface RAGDocument {
   error_message: string | null
   created_at: string
   processed_at: string | null
+  source_url: string | null
+  crawl_job_id: string | null
 }
 
 export interface RAGDocumentChunk {

@@ -265,8 +265,9 @@ export async function deleteDocument(documentId: string, userId: string) {
     throw new Error(`Failed to delete document: ${deleteError.message}`)
   }
 
-  // Delete file from storage
-  if (document.file_url) {
+  // Delete file from storage (skip for web-imported docs — they have no storage file)
+  const sourceUrl = (document as Record<string, unknown>).source_url
+  if (document.file_url && !sourceUrl) {
     try {
       // Extract path from URL
       const url = new URL(document.file_url)

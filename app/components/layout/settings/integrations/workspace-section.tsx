@@ -27,9 +27,12 @@ import {
   ArrowUpRight,
   FilePdf,
   CloudArrowUp,
+  Globe,
 } from "@phosphor-icons/react"
 import { motion, AnimatePresence } from "motion/react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { NotionPagePicker } from "../connectors/notion-page-picker"
+import { UrlImportForm } from "./url-import-form"
 import { useCustomer } from "autumn-js/react"
 import type { RAGDocument, RAGStorageUsage } from "@/lib/rag/types"
 import { formatBytes } from "@/lib/rag/config"
@@ -640,41 +643,56 @@ export function WorkspaceSection() {
                       </div>
                     </div>
 
-                    {/* Compact Upload Area */}
-                    <div
-                      onDragEnter={(e) => { e.preventDefault(); setRagIsDragging(true) }}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDragLeave={() => setRagIsDragging(false)}
-                      onDrop={handleRagDrop}
-                      onClick={() => ragFileInputRef.current?.click()}
-                      className={cn(
-                        "flex items-center justify-center gap-2 px-3 py-2.5 rounded border border-dashed cursor-pointer transition-colors",
-                        ragIsDragging
-                          ? "border-red-500 bg-red-50 dark:bg-red-900/10"
-                          : "border-gray-300 dark:border-[#444] hover:border-gray-400 dark:hover:border-[#555]"
-                      )}
-                    >
-                      <input
-                        ref={ragFileInputRef}
-                        type="file"
-                        accept="application/pdf"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          if (file) handleRagFileSelect(file)
-                          e.target.value = ""
-                        }}
-                        className="hidden"
-                        disabled={isRagUploading}
-                      />
-                      {isRagUploading ? (
-                        <Spinner size={14} className="animate-spin text-red-500" />
-                      ) : (
-                        <CloudArrowUp size={14} className="text-gray-400" />
-                      )}
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {isRagUploading ? "Uploading..." : "Drop PDF or click to upload"}
-                      </span>
-                    </div>
+                    {/* Upload / Import Tabs */}
+                    <Tabs defaultValue="upload" className="w-full">
+                      <TabsList className="w-full h-8 bg-gray-100 dark:bg-[#2a2a2a] p-0.5">
+                        <TabsTrigger value="upload" className="flex-1 h-7 text-[11px] data-[state=active]:bg-white dark:data-[state=active]:bg-[#1a1a1a]">
+                          Upload File
+                        </TabsTrigger>
+                        <TabsTrigger value="url" className="flex-1 h-7 text-[11px] data-[state=active]:bg-white dark:data-[state=active]:bg-[#1a1a1a]">
+                          Add Link
+                        </TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="upload" className="mt-2">
+                        <div
+                          onDragEnter={(e) => { e.preventDefault(); setRagIsDragging(true) }}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDragLeave={() => setRagIsDragging(false)}
+                          onDrop={handleRagDrop}
+                          onClick={() => ragFileInputRef.current?.click()}
+                          className={cn(
+                            "flex items-center justify-center gap-2 px-3 py-2.5 rounded border border-dashed cursor-pointer transition-colors",
+                            ragIsDragging
+                              ? "border-red-500 bg-red-50 dark:bg-red-900/10"
+                              : "border-gray-300 dark:border-[#444] hover:border-gray-400 dark:hover:border-[#555]"
+                          )}
+                        >
+                          <input
+                            ref={ragFileInputRef}
+                            type="file"
+                            accept="application/pdf"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleRagFileSelect(file)
+                              e.target.value = ""
+                            }}
+                            className="hidden"
+                            disabled={isRagUploading}
+                          />
+                          {isRagUploading ? (
+                            <Spinner size={14} className="animate-spin text-red-500" />
+                          ) : (
+                            <CloudArrowUp size={14} className="text-gray-400" />
+                          )}
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {isRagUploading ? "Uploading..." : "Drop PDF or click to upload"}
+                          </span>
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="url" className="mt-2">
+                        <UrlImportForm />
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 )}
               </div>
@@ -829,7 +847,11 @@ export function WorkspaceSection() {
                           key={doc.id}
                           className="flex items-center gap-2 text-xs p-2 rounded hover:bg-gray-50 dark:hover:bg-[#222] group"
                         >
-                          <FilePdf size={14} weight="fill" className="text-red-500 flex-shrink-0" />
+                          {doc.source_url ? (
+                            <Globe size={14} weight="bold" className="text-blue-500 flex-shrink-0" />
+                          ) : (
+                            <FilePdf size={14} weight="fill" className="text-red-500 flex-shrink-0" />
+                          )}
                           <span className="flex-1 min-w-0 truncate text-gray-700 dark:text-gray-300" title={doc.file_name}>
                             {doc.file_name}
                           </span>
