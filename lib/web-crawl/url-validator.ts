@@ -66,25 +66,38 @@ export async function validateUrl(rawUrl: string): Promise<{
 
   // Resolve DNS and check for private IPs
   // Store resolved IPs for DNS pinning (prevents rebinding)
+  // Try A records first, fall back to AAAA for IPv6-only hosts
+  let addresses: string[] = []
   try {
-    const addresses = await resolve(hostname)
-
-    for (const addr of addresses) {
-      if (isPrivateIp(addr)) {
-        return {
-          valid: false,
-          error: "URL resolves to a private IP address. Only public URLs are allowed.",
-        }
-      }
-    }
-
-    return { valid: true, url, resolvedIps: addresses }
+    addresses = await resolve(hostname)
   } catch {
-    return {
-      valid: false,
-      error: `Could not resolve hostname "${hostname}". Please check the URL.`,
+    // No A records — try AAAA
+  }
+  if (addresses.length === 0) {
+    try {
+      addresses = await resolve(hostname, "AAAA")
+    } catch {
+      // No AAAA records either
     }
   }
+
+  if (addresses.length === 0) {
+    return {
+      valid: false,
+      error: "Could not resolve hostname. Please check the URL.",
+    }
+  }
+
+  for (const addr of addresses) {
+    if (isPrivateIp(addr)) {
+      return {
+        valid: false,
+        error: "This URL cannot be accessed for security reasons.",
+      }
+    }
+  }
+
+  return { valid: true, url, resolvedIps: addresses }
 }
 
 /**

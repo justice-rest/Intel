@@ -721,7 +721,7 @@ export function toRAGChunkV2(
   chunk: SemanticChunk,
   documentId: string,
   userId: string
-): CreateRAGChunkV2 {
+): Omit<CreateRAGChunkV2, "embedding"> {
   // Generate content hash for deduplication
   const contentHash = simpleHash(chunk.content)
 

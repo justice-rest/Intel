@@ -9,7 +9,8 @@ import { createClient } from "@/lib/supabase/server"
 import { getCustomerData, normalizePlanId } from "@/lib/subscription/autumn-client"
 import { validateUrl, crawlSite, CRAWL_MAX_PAGES } from "@/lib/web-crawl"
 import type { CrawlProgress, CrawlPage } from "@/lib/web-crawl"
-import { chunkText, generateEmbeddingsInBatches, RAG_EMBEDDING_BATCH_SIZE } from "@/lib/rag"
+import { generateEmbeddingsInBatches, RAG_EMBEDDING_BATCH_SIZE } from "@/lib/rag"
+import { semanticChunk } from "@/lib/rag/semantic-chunker"
 import { RAG_DOCUMENT_LIMIT, RAG_DAILY_UPLOAD_LIMIT } from "@/lib/rag/config"
 
 export const runtime = "nodejs"
@@ -259,8 +260,12 @@ async function indexPage(
   apiKey: string,
   supabase: any
 ): Promise<string> {
-  // Derive a file name from the page title + URL
-  const fileName = page.title || new URL(page.url).pathname.slice(1) || "index"
+  // Derive a file name from the page title + URL, sanitized for storage
+  const rawTitle = page.title || new URL(page.url).pathname.slice(1) || "index"
+  const fileName = rawTitle
+    .replace(/[<>&"']/g, "")
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .slice(0, 255)
   const contentSize = Buffer.byteLength(page.content, "utf-8")
 
   // Create document record
@@ -292,8 +297,8 @@ async function indexPage(
   }
 
   try {
-    // Chunk the Markdown content
-    const chunks = chunkText(page.content, 0)
+    // Chunk the Markdown content using semantic chunker (structure-aware, sentence boundaries)
+    const chunks = await semanticChunk(page.content)
 
     if (chunks.length === 0) {
       await supabase
@@ -303,8 +308,8 @@ async function indexPage(
       throw new Error("No content to chunk")
     }
 
-    // Generate embeddings in batches
-    const chunkTexts = chunks.map((c) => c.content)
+    // Generate embeddings in batches — use contentWithContext for better retrieval
+    const chunkTexts = chunks.map((c) => c.contentWithContext)
     const embeddings = await generateEmbeddingsInBatches(
       chunkTexts,
       apiKey,
@@ -314,14 +319,14 @@ async function indexPage(
     // Insert chunks with embeddings
     const chunkRecords = chunks.map((chunk, index) => {
       // Sanitize content (remove null bytes and control chars)
-      const sanitizedContent = chunk.content
+      const sanitizedContent = chunk.contentWithContext
         .replace(/\u0000/g, "")
         .replace(/[\u0001-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, "")
 
       return {
         document_id: document.id,
         user_id: userId,
-        chunk_index: chunk.chunkIndex,
+        chunk_index: chunk.position,
         content: sanitizedContent,
         page_number: chunk.pageNumber,
         embedding: `[${embeddings[index].join(",")}]`,

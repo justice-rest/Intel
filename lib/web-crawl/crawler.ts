@@ -47,7 +47,14 @@ function createPinnedAgent(
           // Round-robin through validated IPs
           const ip = resolvedIps[ipIndex % resolvedIps.length]
           ipIndex++
-          callback(null, ip, ip.includes(":") ? 6 : 4)
+          const family = ip.includes(":") ? 6 : 4
+
+          // undici calls with {all: true} — must return array format
+          if (options && typeof options === "object" && (options as { all?: boolean }).all) {
+            callback(null, [{ address: ip, family }] as any)
+          } else {
+            callback(null, ip, family)
+          }
         } else {
           // For other hostnames (shouldn't happen in same-origin crawl), use real DNS
           dnsLookup(requestedHostname, options, callback)
@@ -308,9 +315,24 @@ export async function crawlSite(
         }
       } catch (error) {
         failedPages++
-        const errorMsg = error instanceof Error ? error.message : "Unknown error"
         // Don't log abort errors as failures during intentional cancellation
         if (signal?.aborted) break
+
+        let errorMsg: string
+        if (error instanceof Error) {
+          const cause = (error as any).cause
+          if (cause?.code === "ENOTFOUND") {
+            errorMsg = "Host not found"
+          } else if (cause?.code?.startsWith?.("CERT") || cause?.code === "ERR_TLS_CERT_ALTNAME_INVALID") {
+            errorMsg = "SSL certificate error"
+          } else if (error.message.includes("abort") || cause?.code === "UND_ERR_CONNECT_TIMEOUT") {
+            errorMsg = "Timed out"
+          } else {
+            errorMsg = cause?.message || error.message || "Fetch failed"
+          }
+        } else {
+          errorMsg = "Unknown error"
+        }
 
         onProgress({
           type: "page_error",
@@ -319,7 +341,7 @@ export async function crawlSite(
           pagesTotal: pages.length + queue.length,
           pagesSkipped: skippedPages,
           pagesFailed: failedPages,
-          error: errorMsg.includes("abort") ? "Timed out" : errorMsg,
+          error: errorMsg,
         })
       }
     }
