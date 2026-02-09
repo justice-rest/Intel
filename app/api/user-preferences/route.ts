@@ -40,6 +40,8 @@ export async function GET() {
           multi_model_enabled: false,
           hidden_models: [],
           beta_features_enabled: false,
+          avatar_style_index: 0,
+          avatar_color_index: 0,
         })
       }
 
@@ -51,7 +53,7 @@ export async function GET() {
     }
 
     // Type assertion needed until Supabase types are regenerated after migration
-    const prefs = data as typeof data & { beta_features_enabled?: boolean }
+    const prefs = data as typeof data & { beta_features_enabled?: boolean; avatar_style_index?: number; avatar_color_index?: number }
     return NextResponse.json({
       layout: prefs.layout,
       prompt_suggestions: prefs.prompt_suggestions,
@@ -60,6 +62,8 @@ export async function GET() {
       multi_model_enabled: prefs.multi_model_enabled,
       hidden_models: prefs.hidden_models || [],
       beta_features_enabled: prefs.beta_features_enabled || false,
+      avatar_style_index: prefs.avatar_style_index ?? 0,
+      avatar_color_index: prefs.avatar_color_index ?? 0,
     })
   } catch (error) {
     console.error("Error in user-preferences GET API:", error)
@@ -101,6 +105,8 @@ export async function PUT(request: NextRequest) {
       multi_model_enabled,
       hidden_models,
       beta_features_enabled,
+      avatar_style_index,
+      avatar_color_index,
     } = body
 
     // Validate the data types
@@ -114,6 +120,20 @@ export async function PUT(request: NextRequest) {
     if (hidden_models && !Array.isArray(hidden_models)) {
       return NextResponse.json(
         { error: "hidden_models must be an array" },
+        { status: 400 }
+      )
+    }
+
+    if (avatar_style_index !== undefined && (typeof avatar_style_index !== "number" || !Number.isInteger(avatar_style_index) || avatar_style_index < 0)) {
+      return NextResponse.json(
+        { error: "avatar_style_index must be a non-negative integer" },
+        { status: 400 }
+      )
+    }
+
+    if (avatar_color_index !== undefined && (typeof avatar_color_index !== "number" || !Number.isInteger(avatar_color_index) || avatar_color_index < 0)) {
+      return NextResponse.json(
+        { error: "avatar_color_index must be a non-negative integer" },
         { status: 400 }
       )
     }
@@ -132,6 +152,10 @@ export async function PUT(request: NextRequest) {
     if (hidden_models !== undefined) updateData.hidden_models = hidden_models
     if (beta_features_enabled !== undefined)
       updateData.beta_features_enabled = beta_features_enabled
+    if (avatar_style_index !== undefined)
+      updateData.avatar_style_index = avatar_style_index
+    if (avatar_color_index !== undefined)
+      updateData.avatar_color_index = avatar_color_index
 
     // Try to update first, then insert if doesn't exist
     const { data, error } = await supabase
@@ -157,7 +181,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Type assertion needed until Supabase types are regenerated after migration
-    const prefsData = data as typeof data & { beta_features_enabled?: boolean }
+    const prefsData = data as typeof data & { beta_features_enabled?: boolean; avatar_style_index?: number; avatar_color_index?: number }
     return NextResponse.json({
       success: true,
       layout: prefsData.layout,
@@ -167,6 +191,8 @@ export async function PUT(request: NextRequest) {
       multi_model_enabled: prefsData.multi_model_enabled,
       hidden_models: prefsData.hidden_models || [],
       beta_features_enabled: prefsData.beta_features_enabled || false,
+      avatar_style_index: prefsData.avatar_style_index ?? 0,
+      avatar_color_index: prefsData.avatar_color_index ?? 0,
     })
   } catch (error) {
     console.error("Error in user-preferences PUT API:", error)

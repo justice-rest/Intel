@@ -4,8 +4,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useUser } from "@/lib/user-store/provider"
+import { useUserPreferences } from "@/lib/user-preference-store/provider"
+import { useAvatarUrl } from "@/lib/utils/use-avatar-url"
+import { AVATAR_STYLES, AVATAR_STYLE_NAMES } from "@/lib/utils/avatar"
 import { User, Pencil, Check, X, SealCheck } from "@phosphor-icons/react"
-import { useState } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { toast } from "sonner"
 import { useCustomer } from "autumn-js/react"
 import { cn } from "@/lib/utils"
@@ -13,9 +16,48 @@ import { cn } from "@/lib/utils"
 export function UserProfile() {
   const { user, updateUser } = useUser()
   const { customer } = useCustomer()
+  const { cycleAvatarStyle, preferences } = useUserPreferences()
+  const avatarUrl = useAvatarUrl(user?.id)
   const [isEditing, setIsEditing] = useState(false)
   const [firstName, setFirstName] = useState(user?.first_name || "")
   const [isSaving, setIsSaving] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const lastTapRef = useRef(0)
+  const animationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clean up animation timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
+    }
+  }, [])
+
+  const triggerCycle = useCallback(() => {
+    // Compute the next style name before cycling (optimistic update changes state async)
+    const nextStyleIndex = ((preferences.avatarStyleIndex ?? 0) + 1) % AVATAR_STYLES.length
+    const nextStyleKey = AVATAR_STYLES[nextStyleIndex]
+    const nextStyleName = AVATAR_STYLE_NAMES[nextStyleKey]
+
+    cycleAvatarStyle()
+    setIsAnimating(true)
+    if (animationTimeoutRef.current) clearTimeout(animationTimeoutRef.current)
+    animationTimeoutRef.current = setTimeout(() => setIsAnimating(false), 300)
+
+    toast.success(`Avatar changed to ${nextStyleName}`)
+  }, [cycleAvatarStyle, preferences.avatarStyleIndex])
+
+  const handleAvatarTap = useCallback(() => {
+    const now = Date.now()
+    const elapsed = now - lastTapRef.current
+
+    if (elapsed > 0 && elapsed < 300) {
+      // Double-tap detected
+      lastTapRef.current = 0 // Reset to prevent triple-tap re-trigger
+      triggerCycle()
+    } else {
+      lastTapRef.current = now
+    }
+  }, [triggerCycle])
 
   if (!user) return null
 
@@ -73,10 +115,26 @@ export function UserProfile() {
         )}
       </div>
       <div className="flex items-center space-x-4">
-        <div className="bg-muted flex items-center justify-center overflow-hidden rounded-full">
-          {user.profile_image ? (
+        <div
+          className={cn(
+            "bg-muted flex items-center justify-center overflow-hidden rounded-full cursor-pointer select-none transition-transform duration-300",
+            isAnimating && "scale-110"
+          )}
+          onClick={handleAvatarTap}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              triggerCycle()
+            }
+          }}
+          aria-label="Change avatar style"
+          title="Double-tap to change avatar style"
+        >
+          {avatarUrl ? (
             <Avatar className="size-12">
-              <AvatarImage src={user.profile_image} className="object-cover" />
+              <AvatarImage src={avatarUrl} className="object-cover" />
               <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
             </Avatar>
           ) : (

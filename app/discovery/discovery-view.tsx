@@ -16,6 +16,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react"
 import Link from "next/link"
 import { useTransitionRouter } from "@/lib/transitions"
 import { cn } from "@/lib/utils"
+import { generateDiceBearAvatar } from "@/lib/utils/avatar"
 import {
   Binoculars,
   MagnifyingGlass,
@@ -218,15 +219,6 @@ function TemplateTile({
 // PROSPECT ITEM (Transfer-style row)
 // ============================================================================
 
-/**
- * Generate a DiceBear avatar URL using the "dylan" style
- * @param seed - Unique seed for consistent avatar generation (name or ID)
- */
-function getDiceBearAvatar(seed: string): string {
-  // Encode the seed to handle special characters
-  const encodedSeed = encodeURIComponent(seed)
-  return `https://api.dicebear.com/9.x/dylan/svg?seed=${encodedSeed}`
-}
 
 function ProspectItem({
   prospect,
@@ -245,7 +237,7 @@ function ProspectItem({
 
   // Use prospect ID or name as seed for unique avatar
   const avatarSeed = prospect.id || prospect.name
-  const avatarUrl = getDiceBearAvatar(avatarSeed)
+  const avatarUrl = generateDiceBearAvatar(avatarSeed)
 
   return (
     <motion.div

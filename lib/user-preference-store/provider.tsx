@@ -10,6 +10,7 @@ import {
   type LayoutType,
   type UserPreferences,
 } from "./utils"
+import { AVATAR_STYLES, AVATAR_COLORS } from "@/lib/utils/avatar"
 
 export {
   type LayoutType,
@@ -31,6 +32,7 @@ interface UserPreferencesContextType {
   setBetaFeaturesEnabled: (enabled: boolean) => void
   toggleModelVisibility: (modelId: string) => void
   isModelHidden: (modelId: string) => boolean
+  cycleAvatarStyle: () => void
   isLoading: boolean
 }
 
@@ -238,6 +240,20 @@ export function UserPreferencesProvider({
     return (preferences.hiddenModels || []).includes(modelId)
   }
 
+  const cycleAvatarStyle = () => {
+    const currentStyle = preferences.avatarStyleIndex ?? 0
+    const currentColor = preferences.avatarColorIndex ?? 0
+    const nextStyle = (currentStyle + 1) % AVATAR_STYLES.length
+    // Advance color when style wraps back to 0 — gives 10x10 = 100 unique combos
+    const nextColor = nextStyle === 0
+      ? (currentColor + 1) % AVATAR_COLORS.length
+      : currentColor
+    updatePreferences({
+      avatarStyleIndex: nextStyle,
+      avatarColorIndex: nextColor,
+    })
+  }
+
   return (
     <UserPreferencesContext.Provider
       value={{
@@ -249,6 +265,7 @@ export function UserPreferencesProvider({
         setBetaFeaturesEnabled,
         toggleModelVisibility,
         isModelHidden,
+        cycleAvatarStyle,
         isLoading,
       }}
     >

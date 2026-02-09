@@ -12,7 +12,7 @@ export async function fetchUserProfile(
 
   const { data, error } = await supabase
     .from("users")
-    .select("*")
+    .select("*, user_preferences(*)")
     .eq("id", id)
     .single()
 
@@ -24,8 +24,13 @@ export async function fetchUserProfile(
   // Don't return anonymous users
   if (data.anonymous) return null
 
+  // Read avatar indices from joined preferences (default 0 for backward compat)
+  const rawPrefs = data.user_preferences as Record<string, unknown> | null | undefined
+  const avatarStyleIndex = typeof rawPrefs?.avatar_style_index === "number" ? rawPrefs.avatar_style_index : 0
+  const avatarColorIndex = typeof rawPrefs?.avatar_color_index === "number" ? rawPrefs.avatar_color_index : 0
+
   // Always use DiceBear avatar instead of stored profile_image
-  const diceBearAvatar = generateDiceBearAvatar(id)
+  const diceBearAvatar = generateDiceBearAvatar(id, avatarStyleIndex, avatarColorIndex)
 
   return {
     ...data,
@@ -89,7 +94,8 @@ export function subscribeToUserUpdates(
       },
       (payload) => {
         const newData = payload.new as Partial<UserProfile>
-        // Always use DiceBear avatar instead of stored profile_image
+        // Use default avatar — realtime payloads don't include joined tables.
+        // The useAvatarUrl hook provides the preference-aware URL on the client.
         if (newData.id) {
           newData.profile_image = generateDiceBearAvatar(newData.id)
         }

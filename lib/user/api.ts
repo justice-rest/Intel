@@ -44,12 +44,17 @@ export async function getUserProfile(): Promise<UserProfile | null> {
   if (userProfileData?.anonymous) return null
 
   // Format user preferences if they exist
-  const formattedPreferences = userProfileData?.user_preferences
-    ? convertFromApiFormat(userProfileData.user_preferences)
+  const rawPrefs = userProfileData?.user_preferences as Record<string, unknown> | null | undefined
+  const formattedPreferences = rawPrefs
+    ? convertFromApiFormat(rawPrefs)
     : undefined
 
+  // Read avatar indices from preferences (default 0 for backward compat)
+  const avatarStyleIndex = typeof rawPrefs?.avatar_style_index === "number" ? rawPrefs.avatar_style_index : 0
+  const avatarColorIndex = typeof rawPrefs?.avatar_color_index === "number" ? rawPrefs.avatar_color_index : 0
+
   // Always use DiceBear avatar instead of Google/provider avatar
-  const diceBearAvatar = generateDiceBearAvatar(user.id)
+  const diceBearAvatar = generateDiceBearAvatar(user.id, avatarStyleIndex, avatarColorIndex)
 
   return {
     ...userProfileData,

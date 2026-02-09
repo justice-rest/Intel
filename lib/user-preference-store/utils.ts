@@ -8,6 +8,8 @@ export type UserPreferences = {
   multiModelEnabled: boolean
   hiddenModels: string[]
   betaFeaturesEnabled: boolean
+  avatarStyleIndex: number
+  avatarColorIndex: number
 }
 
 export const defaultPreferences: UserPreferences = {
@@ -18,6 +20,8 @@ export const defaultPreferences: UserPreferences = {
   multiModelEnabled: false,
   hiddenModels: [],
   betaFeaturesEnabled: false,
+  avatarStyleIndex: 0,
+  avatarColorIndex: 0,
 }
 
 /**
@@ -50,6 +54,8 @@ export function validatePreferences(prefs: unknown): UserPreferences {
     multiModelEnabled: typeof p.multiModelEnabled === "boolean" ? p.multiModelEnabled : defaultPreferences.multiModelEnabled,
     hiddenModels: Array.isArray(p.hiddenModels) ? p.hiddenModels.filter((id): id is string => typeof id === "string") : defaultPreferences.hiddenModels,
     betaFeaturesEnabled: typeof p.betaFeaturesEnabled === "boolean" ? p.betaFeaturesEnabled : defaultPreferences.betaFeaturesEnabled,
+    avatarStyleIndex: typeof p.avatarStyleIndex === "number" && Number.isInteger(p.avatarStyleIndex) && p.avatarStyleIndex >= 0 ? p.avatarStyleIndex : defaultPreferences.avatarStyleIndex,
+    avatarColorIndex: typeof p.avatarColorIndex === "number" && Number.isInteger(p.avatarColorIndex) && p.avatarColorIndex >= 0 ? p.avatarColorIndex : defaultPreferences.avatarColorIndex,
   }
 }
 
@@ -63,6 +69,8 @@ export function convertFromApiFormat(apiData: Record<string, unknown>): UserPref
     multiModelEnabled: typeof apiData.multi_model_enabled === "boolean" ? apiData.multi_model_enabled : false,
     hiddenModels: Array.isArray(apiData.hidden_models) ? (apiData.hidden_models as string[]) : [],
     betaFeaturesEnabled: typeof apiData.beta_features_enabled === "boolean" ? apiData.beta_features_enabled : false,
+    avatarStyleIndex: typeof apiData.avatar_style_index === "number" && Number.isInteger(apiData.avatar_style_index) && apiData.avatar_style_index >= 0 ? apiData.avatar_style_index : 0,
+    avatarColorIndex: typeof apiData.avatar_color_index === "number" && Number.isInteger(apiData.avatar_color_index) && apiData.avatar_color_index >= 0 ? apiData.avatar_color_index : 0,
   }
 }
 
@@ -81,5 +89,9 @@ export function convertToApiFormat(preferences: Partial<UserPreferences>): Recor
     apiData.hidden_models = preferences.hiddenModels
   if (preferences.betaFeaturesEnabled !== undefined)
     apiData.beta_features_enabled = preferences.betaFeaturesEnabled
+  if (preferences.avatarStyleIndex !== undefined)
+    apiData.avatar_style_index = preferences.avatarStyleIndex
+  if (preferences.avatarColorIndex !== undefined)
+    apiData.avatar_color_index = preferences.avatarColorIndex
   return apiData
 }

@@ -16,6 +16,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useUser } from "@/lib/user-store/provider"
+import { useAvatarUrl } from "@/lib/utils/use-avatar-url"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useMessages } from "@/lib/chat-store/messages/provider"
 import { clearAllIndexedDBStores } from "@/lib/chat-store/persist"
@@ -32,6 +33,7 @@ import type { TabType } from "./settings/settings-content"
 
 export function UserMenu() {
   const { user, updateUser, signOut } = useUser()
+  const avatarUrl = useAvatarUrl(user?.id)
   const { resetChats } = useChats()
   const { resetMessages } = useMessages()
   const { customer } = useCustomer()
@@ -198,7 +200,7 @@ export function UserMenu() {
         <TooltipTrigger asChild>
           <DropdownMenuTrigger>
             <Avatar className="bg-background hover:bg-muted">
-              <AvatarImage src={user?.profile_image ?? undefined} />
+              <AvatarImage src={avatarUrl ?? user?.profile_image ?? undefined} />
               <AvatarFallback>{displayName?.charAt(0)}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
