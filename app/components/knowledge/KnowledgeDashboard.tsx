@@ -346,29 +346,44 @@ export function KnowledgeDashboard() {
                 </div>
 
                 {/* Expanded Content */}
-                <AnimatePresence mode="wait">
+                <AnimatePresence initial={false}>
                   {expandedSection && (
                     <motion.div
-                      key={expandedSection}
+                      key="expanded-wrapper"
+                      layout
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+                      transition={{
+                        height: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+                        opacity: { duration: 0.2 },
+                        layout: { duration: 0.25, ease: [0.4, 0, 0.2, 1] },
+                      }}
                       className="overflow-hidden border-t border-gray-200 dark:border-[#333]"
                     >
                       <div className="p-4">
-                        {expandedSection === "documents" && (
-                          <DocumentsSection profileId={activeProfile.id} />
-                        )}
-                        {expandedSection === "voice" && (
-                          <VoiceSection profileId={activeProfile.id} />
-                        )}
-                        {expandedSection === "strategy" && (
-                          <StrategySection profileId={activeProfile.id} />
-                        )}
-                        {expandedSection === "facts" && (
-                          <FactsSection profileId={activeProfile.id} />
-                        )}
+                        <AnimatePresence mode="wait" initial={false}>
+                          <motion.div
+                            key={expandedSection}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.15, ease: "easeInOut" }}
+                          >
+                            {expandedSection === "documents" && (
+                              <DocumentsSection profileId={activeProfile.id} />
+                            )}
+                            {expandedSection === "voice" && (
+                              <VoiceSection profileId={activeProfile.id} />
+                            )}
+                            {expandedSection === "strategy" && (
+                              <StrategySection profileId={activeProfile.id} />
+                            )}
+                            {expandedSection === "facts" && (
+                              <FactsSection profileId={activeProfile.id} />
+                            )}
+                          </motion.div>
+                        </AnimatePresence>
                       </div>
                     </motion.div>
                   )}
@@ -450,7 +465,7 @@ function SectionHeader({
       type="button"
       onClick={onClick}
       className={cn(
-        "p-3 flex flex-col items-center justify-center text-center transition-colors",
+        "p-3 flex flex-col items-center justify-center text-center transition-all duration-200",
         expanded
           ? "bg-gray-100 dark:bg-[#2a2a2a]"
           : "hover:bg-gray-50 dark:hover:bg-[#252525]",
