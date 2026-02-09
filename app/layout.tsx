@@ -22,6 +22,7 @@ import { TransitionProvider } from "@/lib/transitions"
 
 import { CookieConsentWrapper } from "@/app/components/cookie-consent"
 import { ThemeProvider } from "next-themes"
+import { cookies } from "next/headers"
 import Script from "next/script"
 import { Suspense } from "react"
 import { LayoutClient } from "./layout-client"
@@ -50,6 +51,11 @@ export default async function RootLayout({
   const isDev = process.env.NODE_ENV === "development"
   const isOfficialDeployment = process.env.ROMY_OFFICIAL === "true"
   const userProfile = await getUserProfile()
+
+  // Read sidebar cookie server-side so state persists across page loads
+  const cookieStore = await cookies()
+  const sidebarCookie = cookieStore.get("sidebar_state")?.value
+  const sidebarDefaultOpen = sidebarCookie !== "false"
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -91,7 +97,7 @@ export default async function RootLayout({
                                   enableSystem
                                   disableTransitionOnChange
                                 >
-                                  <SidebarProvider defaultOpen>
+                                  <SidebarProvider defaultOpen={sidebarDefaultOpen}>
                                     <Toaster position="top-center" />
                                     <CookieConsentWrapper />
                                     <TransitionProvider>

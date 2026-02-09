@@ -26,6 +26,7 @@ import * as React from "react"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
+const SIDEBAR_STORAGE_KEY = "sidebar_state"
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -70,7 +71,23 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen)
+  // defaultOpen comes from the server (cookie read in layout.tsx).
+  // localStorage is a client-side fallback for when cookies aren't available.
+  const [_open, _setOpen] = React.useState(() => {
+    if (openProp !== undefined) return openProp
+    // On client, check localStorage as a fallback (cookie is the primary, read server-side)
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem(SIDEBAR_STORAGE_KEY)
+        if (stored === "true" || stored === "false") {
+          return stored === "true"
+        }
+      } catch {
+        // localStorage blocked or unavailable (e.g. Safari private mode)
+      }
+    }
+    return defaultOpen
+  })
   const open = openProp ?? _open
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -81,8 +98,10 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // This sets the cookie to keep the sidebar state.
+      // Persist to cookie (read server-side on next page load)
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      // Also persist to localStorage as a client-side fallback
+      try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState)) } catch {}
     },
     [setOpenProp, open]
   )

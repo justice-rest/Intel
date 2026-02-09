@@ -164,7 +164,7 @@ export function UserPreferencesProvider({
   // Mutation for updating preferences
   const mutation = useMutation({
     mutationFn: async (update: Partial<UserPreferences>) => {
-      const updated = { ...preferences, ...update }
+      const updated = validatePreferences({ ...preferences, ...update })
 
       if (!isAuthenticated) {
         saveToLocalStorage(updated)
@@ -172,7 +172,10 @@ export function UserPreferencesProvider({
       }
 
       try {
-        return await updateUserPreferences(update)
+        const result = await updateUserPreferences(update)
+        // Always sync to localStorage for offline resilience
+        saveToLocalStorage(result)
+        return result
       } catch (error) {
         console.error(
           "Failed to update user preferences in database, falling back to localStorage:",
@@ -187,7 +190,9 @@ export function UserPreferencesProvider({
       await queryClient.cancelQueries({ queryKey })
 
       const previous = queryClient.getQueryData<UserPreferences>(queryKey)
-      const optimistic = { ...previous, ...update }
+      // Validate to ensure ALL fields are present even if previous is undefined
+      // (prevents layout/sidebar from briefly disappearing during optimistic update)
+      const optimistic = validatePreferences({ ...previous, ...update })
       queryClient.setQueryData(queryKey, optimistic)
 
       return { previous }
