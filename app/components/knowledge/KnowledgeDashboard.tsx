@@ -36,8 +36,11 @@ import {
   Lightning,
   Upload,
   Sparkle,
+  Globe,
 } from "@phosphor-icons/react"
 import { Loader2 } from "lucide-react"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { KnowledgeUrlImportForm } from "./KnowledgeUrlImportForm"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { fetchClient } from "@/lib/fetch"
 import { toast } from "@/components/ui/toast"
@@ -545,6 +548,7 @@ function DocumentsSection({ profileId }: { profileId: string }) {
   }, [uploadMutation])
 
   const getFileIcon = (type: string) => {
+    if (type === "text/html") return Globe
     if (type.includes("pdf")) return FilePdf
     if (type.includes("word") || type.includes("docx")) return FileDoc
     return FileText
@@ -563,34 +567,51 @@ function DocumentsSection({ profileId }: { profileId: string }) {
 
   return (
     <div className="space-y-3">
-      {/* Upload Area - Compact */}
-      <div
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files) }}
-        onClick={() => fileInputRef.current?.click()}
-        className={cn(
-          "flex items-center justify-center gap-2 px-4 py-3 rounded border-2 border-dashed cursor-pointer transition-colors",
-          isDragging ? "border-purple-500 bg-purple-50 dark:bg-purple-900/10" : "border-gray-200 dark:border-[#444] hover:border-gray-300 dark:hover:border-[#555]"
-        )}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.docx,.doc,.txt,.md"
-          multiple
-          onChange={(e) => handleFiles(e.target.files)}
-          className="hidden"
-        />
-        {uploadMutation.isPending ? (
-          <Loader2 className="size-4 animate-spin text-purple-500" />
-        ) : (
-          <Upload size={16} className="text-gray-400" />
-        )}
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          {uploadMutation.isPending ? "Uploading..." : "Drop files or click to upload"}
-        </span>
-      </div>
+      {/* Upload / Import Tabs */}
+      <Tabs defaultValue="upload" className="w-full">
+        <TabsList className="h-8 w-full bg-gray-100 dark:bg-[#2a2a2a] p-0.5">
+          <TabsTrigger value="upload" className="flex-1 h-7 text-[11px] gap-1 data-[state=active]:bg-white dark:data-[state=active]:bg-[#1a1a1a]">
+            <Upload size={12} />
+            Upload File
+          </TabsTrigger>
+          <TabsTrigger value="link" className="flex-1 h-7 text-[11px] gap-1 data-[state=active]:bg-white dark:data-[state=active]:bg-[#1a1a1a]">
+            <Globe size={12} />
+            Add Link
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="upload" className="mt-2">
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => { e.preventDefault(); setIsDragging(false); handleFiles(e.dataTransfer.files) }}
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "flex items-center justify-center gap-2 px-4 py-3 rounded border-2 border-dashed cursor-pointer transition-colors",
+              isDragging ? "border-purple-500 bg-purple-50 dark:bg-purple-900/10" : "border-gray-200 dark:border-[#444] hover:border-gray-300 dark:hover:border-[#555]"
+            )}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc,.txt,.md"
+              multiple
+              onChange={(e) => handleFiles(e.target.files)}
+              className="hidden"
+            />
+            {uploadMutation.isPending ? (
+              <Loader2 className="size-4 animate-spin text-purple-500" />
+            ) : (
+              <Upload size={16} className="text-gray-400" />
+            )}
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {uploadMutation.isPending ? "Uploading..." : "Drop files or click to upload"}
+            </span>
+          </div>
+        </TabsContent>
+        <TabsContent value="link" className="mt-2">
+          <KnowledgeUrlImportForm profileId={profileId} />
+        </TabsContent>
+      </Tabs>
 
       {/* Document List */}
       {documents.length === 0 ? (

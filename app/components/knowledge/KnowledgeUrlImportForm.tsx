@@ -19,10 +19,15 @@ interface ImportedPage {
   url: string
   title: string
   status: "processing" | "ready" | "error"
+  documentId?: string
   error?: string
 }
 
-export function UrlImportForm() {
+interface KnowledgeUrlImportFormProps {
+  profileId: string
+}
+
+export function KnowledgeUrlImportForm({ profileId }: KnowledgeUrlImportFormProps) {
   const queryClient = useQueryClient()
   const [url, setUrl] = useState("")
   const [isImporting, setIsImporting] = useState(false)
@@ -30,6 +35,28 @@ export function UrlImportForm() {
   const [importedPages, setImportedPages] = useState<ImportedPage[]>([])
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  const triggerAnalysis = useCallback(async (documentId: string) => {
+    try {
+      // Fire-and-forget: trigger analysis for each imported document
+      fetch("/api/knowledge/documents/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ document_id: documentId }),
+      }).then(() => {
+        // Invalidate queries after analysis completes
+        queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
+        queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
+        queryClient.invalidateQueries({ queryKey: ["knowledge-voice", profileId] })
+        queryClient.invalidateQueries({ queryKey: ["knowledge-strategy", profileId] })
+        queryClient.invalidateQueries({ queryKey: ["knowledge-facts", profileId] })
+      }).catch(() => {
+        // Analysis failure is non-fatal; user can retry via the UI
+      })
+    } catch {
+      // Swallow errors — analysis can be retried manually
+    }
+  }, [queryClient, profileId])
 
   const handleImport = useCallback(async () => {
     let trimmed = url.trim()
@@ -41,7 +68,7 @@ export function UrlImportForm() {
       setUrl(trimmed)
     }
 
-    // Basic client-side validation
+    // Client-side URL validation
     try {
       const parsed = new URL(trimmed)
       if (!["http:", "https:"].includes(parsed.protocol)) {
@@ -62,10 +89,10 @@ export function UrlImportForm() {
     abortRef.current = controller
 
     try {
-      const response = await fetch("/api/rag/import-url", {
+      const response = await fetch("/api/knowledge/documents/import-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: trimmed }),
+        body: JSON.stringify({ url: trimmed, profile_id: profileId }),
         signal: controller.signal,
       })
 
@@ -96,15 +123,20 @@ export function UrlImportForm() {
             if (event.url) {
               setImportedPages((prev) =>
                 prev.map((p) =>
-                  p.url === event.url ? { ...p, status: "ready" } : p
+                  p.url === event.url
+                    ? { ...p, status: "ready", documentId: event.documentId }
+                    : p
                 )
               )
+              // Auto-trigger analysis for this document
+              if (event.documentId) {
+                triggerAnalysis(event.documentId)
+              }
             }
             break
 
           case "page_error":
             if (event.url) {
-              // Update existing page or add new error entry
               setImportedPages((prev) => {
                 const existing = prev.find((p) => p.url === event.url)
                 if (existing) {
@@ -127,9 +159,10 @@ export function UrlImportForm() {
             if (indexed > 0) {
               toast({
                 title: "Import Complete",
-                description: `${indexed} page${indexed !== 1 ? "s" : ""} imported successfully.`,
+                description: `${indexed} page${indexed !== 1 ? "s" : ""} imported. Analysis starting...`,
               })
-              queryClient.invalidateQueries({ queryKey: ["rag-documents"] })
+              queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
+              queryClient.invalidateQueries({ queryKey: ["knowledge-profiles"] })
             } else {
               setError("No pages could be imported from this URL.")
             }
@@ -147,8 +180,7 @@ export function UrlImportForm() {
           title: "Import Cancelled",
           description: "URL import was cancelled.",
         })
-        // Refresh to show any partially imported pages
-        queryClient.invalidateQueries({ queryKey: ["rag-documents"] })
+        queryClient.invalidateQueries({ queryKey: ["knowledge-documents", profileId] })
       } else {
         const msg = err instanceof Error ? err.message : "Failed to import URL"
         setError(msg)
@@ -158,7 +190,7 @@ export function UrlImportForm() {
       setIsImporting(false)
       abortRef.current = null
     }
-  }, [url, queryClient])
+  }, [url, profileId, queryClient, triggerAnalysis])
 
   const handleCancel = useCallback(() => {
     abortRef.current?.abort()
@@ -256,16 +288,14 @@ export function UrlImportForm() {
       {isImporting && progress && (
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
-            <span>
-              Importing from {hostname}...
-            </span>
+            <span>Importing from {hostname}...</span>
             <span>
               {progress.pagesProcessed}/{progress.pagesTotal} pages
             </span>
           </div>
           <div className="w-full h-1.5 bg-gray-200 dark:bg-[#333] rounded-full overflow-hidden">
             <div
-              className="h-full bg-black dark:bg-white rounded-full transition-all duration-300"
+              className="h-full bg-purple-500 rounded-full transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -294,7 +324,7 @@ export function UrlImportForm() {
                     ? "text-gray-400 dark:text-gray-500"
                     : "text-gray-600 dark:text-gray-400"
                 )}
-                title={page.error ? `${page.title} — ${page.error}` : page.title}
+                title={page.error ? `${page.title} - ${page.error}` : page.title}
               >
                 {page.title}
               </span>
@@ -311,7 +341,7 @@ export function UrlImportForm() {
       {/* Help text */}
       {!isImporting && importedPages.length === 0 && (
         <p className="text-[10px] text-gray-400 dark:text-gray-500">
-          Crawls up to 25 pages (depth 3). Each page becomes a searchable document.
+          Crawls up to 25 pages. Each page is analyzed for voice, strategy, and facts.
         </p>
       )}
     </div>

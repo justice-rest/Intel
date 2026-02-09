@@ -161,7 +161,7 @@ export async function POST(request: Request) {
     console.log("[RAG Upload] Starting PDF processing...")
     let pdfData
     try {
-      pdfData = await processPDF(buffer)
+      pdfData = await processPDF(buffer, process.env.OPENROUTER_API_KEY)
       console.log("[RAG Upload] PDF processing completed successfully")
     } catch (error) {
       // Update document status to failed

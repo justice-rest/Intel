@@ -28,6 +28,8 @@ type KnowledgeClient = any
 export const runtime = 'nodejs'
 export const maxDuration = 300
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 interface AnalyzeRequest {
   document_id: string
 }
@@ -59,9 +61,9 @@ export async function POST(req: Request) {
 
     const body = (await req.json()) as AnalyzeRequest
 
-    if (!body.document_id) {
+    if (!body.document_id || !UUID_REGEX.test(body.document_id)) {
       return NextResponse.json(
-        { success: false, error: 'document_id is required' },
+        { success: false, error: 'Valid document_id is required' },
         { status: 400 }
       )
     }
@@ -99,53 +101,58 @@ export async function POST(req: Request) {
       .eq('id', doc.id)
 
     try {
-      // Step 1: Download file from storage using authenticated method
-      // Extract the file path from the stored URL
-      // URL format: https://xxx.supabase.co/storage/v1/object/public/knowledge-documents/{path}
-      const fileUrl = doc.file_url
-      const pathMatch = fileUrl.match(/knowledge-documents\/(.+)$/)
-      if (!pathMatch) {
-        throw new Error('Invalid file URL format')
-      }
-      const filePath = pathMatch[1]
-
-      // Use Supabase storage download (handles auth automatically)
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('knowledge-documents')
-        .download(filePath)
-
-      if (downloadError || !fileData) {
-        throw new Error(`Failed to download file: ${downloadError?.message || 'No data returned'}`)
-      }
-
-      const buffer = Buffer.from(await fileData.arrayBuffer())
-
-      // Step 2: Extract text based on file type
+      // Step 1: Get text content
+      // For URL imports, raw_text is pre-populated by the import-url route.
+      // For file uploads, raw_text is null until after analysis, so we download from storage.
       let extractedText = ''
       let pageCount: number | undefined
       let wordCount: number | undefined
 
-      if (doc.file_type === 'application/pdf') {
-        if (!isValidPDF(buffer)) {
-          throw new Error('Invalid PDF file')
-        }
-        const result = await processPDF(buffer)
-        extractedText = result.text
-        pageCount = result.pageCount
-        wordCount = result.wordCount
-      } else if (isSupportedOfficeFormat(doc.file_type)) {
-        const result = await processOfficeDocument(buffer, doc.file_type, doc.file_name)
-        extractedText = result.text
-        wordCount = result.wordCount
-      } else if (
-        doc.file_type === 'text/plain' ||
-        doc.file_type === 'text/markdown' ||
-        doc.file_type.startsWith('text/')
-      ) {
-        extractedText = buffer.toString('utf-8')
-        wordCount = extractedText.split(/\s+/).filter((w) => w.length > 0).length
+      if (doc.raw_text && doc.raw_text.trim().length >= 50) {
+        // URL import path: raw_text already populated
+        extractedText = doc.raw_text
+        wordCount = doc.word_count ?? extractedText.split(/\s+/).filter((w: string) => w.length > 0).length
       } else {
-        throw new Error(`Unsupported file type: ${doc.file_type}`)
+        // File upload path: download from Supabase storage
+        const fileUrl = doc.file_url
+        const pathMatch = fileUrl.match(/knowledge-documents\/(.+)$/)
+        if (!pathMatch) {
+          throw new Error('Invalid file URL format')
+        }
+        const filePath = pathMatch[1]
+
+        const { data: fileData, error: downloadError } = await supabase.storage
+          .from('knowledge-documents')
+          .download(filePath)
+
+        if (downloadError || !fileData) {
+          throw new Error(`Failed to download file: ${downloadError?.message || 'No data returned'}`)
+        }
+
+        const buffer = Buffer.from(await fileData.arrayBuffer())
+
+        if (doc.file_type === 'application/pdf') {
+          if (!isValidPDF(buffer)) {
+            throw new Error('Invalid PDF file')
+          }
+          const result = await processPDF(buffer, process.env.OPENROUTER_API_KEY)
+          extractedText = result.text
+          pageCount = result.pageCount
+          wordCount = result.wordCount
+        } else if (isSupportedOfficeFormat(doc.file_type)) {
+          const result = await processOfficeDocument(buffer, doc.file_type, doc.file_name)
+          extractedText = result.text
+          wordCount = result.wordCount
+        } else if (
+          doc.file_type === 'text/plain' ||
+          doc.file_type === 'text/markdown' ||
+          doc.file_type.startsWith('text/')
+        ) {
+          extractedText = buffer.toString('utf-8')
+          wordCount = extractedText.split(/\s+/).filter((w) => w.length > 0).length
+        } else {
+          throw new Error(`Unsupported file type: ${doc.file_type}`)
+        }
       }
 
       if (!extractedText || extractedText.trim().length < 50) {

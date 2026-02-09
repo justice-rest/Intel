@@ -3,10 +3,16 @@
  * Extracts text and metadata from PDF files using unpdf (serverless-optimized)
  */
 
-import { extractText, getDocumentProxy } from "unpdf"
+import { extractText, getDocumentProxy, renderPageAsImage } from "unpdf"
 import type { PDFProcessingResult } from "./types"
 
 const MIN_PRIMARY_EXTRACTION_CHARS = 200
+
+/** Max pages to OCR (cost/latency guard) */
+const MAX_OCR_PAGES = 10
+
+/** Scale for OCR rendering (1.5x = ~144 DPI, good quality vs size tradeoff) */
+const OCR_RENDER_SCALE = 1.5
 
 /**
  * Detect language from text (simple heuristic)
@@ -55,7 +61,7 @@ function toUint8Array(buffer: Buffer | Uint8Array): Uint8Array {
 }
 
 interface ExtractionAttempt {
-  method: "unpdf-extractText" | "pdfjs-page-text"
+  method: "unpdf-extractText" | "pdfjs-page-text" | "vision-ocr"
   text: string
   pageCount: number
 }
@@ -124,16 +130,118 @@ async function extractWithPageTextFallback(uint8Buffer: Uint8Array): Promise<Ext
 }
 
 /**
+ * OCR fallback: render PDF pages as images and use a vision model to extract text.
+ * Only triggered when text-layer extraction yields < MIN_PRIMARY_EXTRACTION_CHARS.
+ *
+ * Uses unpdf's `renderPageAsImage` (which internally uses @napi-rs/canvas)
+ * and sends page images to a vision model via OpenRouter.
+ *
+ * @param uint8Buffer - PDF as Uint8Array
+ * @param pageCount - Total pages in the PDF
+ * @param apiKey - OpenRouter API key
+ * @returns Extracted text, or empty string on failure
+ */
+async function extractWithVisionOCR(
+  uint8Buffer: Uint8Array,
+  pageCount: number,
+  apiKey: string
+): Promise<ExtractionAttempt> {
+  const pagesToOcr = Math.min(pageCount, MAX_OCR_PAGES)
+  console.log(`[PDF Processor] OCR: rendering ${pagesToOcr} pages as images...`)
+
+  const canvasImport = () => import("@napi-rs/canvas")
+
+  // Render pages as data URLs
+  const imageUrls: string[] = []
+  for (let pageNum = 1; pageNum <= pagesToOcr; pageNum++) {
+    try {
+      const dataUrl = await renderPageAsImage(uint8Buffer, pageNum, {
+        canvasImport,
+        scale: OCR_RENDER_SCALE,
+        toDataURL: true,
+      })
+      // Skip if image is too large (>4MB base64 ≈ 3MB raw — API limit guard)
+      if (dataUrl.length > 4 * 1024 * 1024) {
+        console.warn(`[PDF Processor] OCR: page ${pageNum} image too large (${(dataUrl.length / 1024 / 1024).toFixed(1)}MB), skipping`)
+        continue
+      }
+      imageUrls.push(dataUrl)
+    } catch (error) {
+      console.warn(`[PDF Processor] OCR: failed to render page ${pageNum}:`, error)
+    }
+  }
+
+  if (imageUrls.length === 0) {
+    console.warn("[PDF Processor] OCR: no pages could be rendered")
+    return { method: "vision-ocr", text: "", pageCount }
+  }
+
+  console.log(`[PDF Processor] OCR: sending ${imageUrls.length} page images to vision model...`)
+
+  // Build content array: one image_url per page + extraction prompt
+  const content: Array<{ type: string; text?: string; image_url?: { url: string } }> = []
+
+  for (let i = 0; i < imageUrls.length; i++) {
+    content.push({
+      type: "image_url",
+      image_url: { url: imageUrls[i] },
+    })
+  }
+
+  content.push({
+    type: "text",
+    text: `Extract ALL text from these ${imageUrls.length} PDF page image(s). Preserve the original structure including headings, paragraphs, lists, and tables. Output only the extracted text, no commentary. If a page contains charts or diagrams, describe their data content.`,
+  })
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://getromy.app",
+        "X-Title": "Romy PDF OCR",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        messages: [{ role: "user", content }],
+        max_tokens: 16000,
+        temperature: 0,
+      }),
+      signal: AbortSignal.timeout(120_000), // 2 minute timeout
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "")
+      console.error(`[PDF Processor] OCR: vision API returned ${response.status}: ${errorText}`)
+      return { method: "vision-ocr", text: "", pageCount }
+    }
+
+    const data = await response.json()
+    const extractedText = normalizeText(data?.choices?.[0]?.message?.content || "")
+
+    console.log(`[PDF Processor] OCR: extracted ${extractedText.length} chars via vision model`)
+
+    return { method: "vision-ocr", text: extractedText, pageCount }
+  } catch (error) {
+    console.error("[PDF Processor] OCR: vision API call failed:", error)
+    return { method: "vision-ocr", text: "", pageCount }
+  }
+}
+
+/**
  * Extract text and metadata from PDF buffer
  *
  * Uses unpdf library which is optimized for serverless environments
  * and handles DOM polyfills internally.
  *
  * @param buffer - PDF file as Buffer or Uint8Array
+ * @param apiKey - Optional OpenRouter API key for OCR fallback on image-heavy PDFs
  * @returns Extracted text, page count, word count, and detected language
  */
 export async function processPDF(
-  buffer: Buffer | Uint8Array
+  buffer: Buffer | Uint8Array,
+  apiKey?: string
 ): Promise<PDFProcessingResult> {
   console.log(`[PDF Processor] Starting PDF processing (unpdf), buffer size: ${buffer.length} bytes`)
 
@@ -176,9 +284,29 @@ export async function processPDF(
       }
     }
 
-    const selectedAttempt = attempts
+    // Select best text-layer extraction result
+    let selectedAttempt = attempts
       .filter((attempt) => attempt.text.length > 0)
       .sort((a, b) => b.text.length - a.text.length)[0]
+
+    // OCR fallback: if text-layer extraction yielded too little text AND we have an API key
+    const bestTextLength = selectedAttempt?.text.length || 0
+    if (bestTextLength < MIN_PRIMARY_EXTRACTION_CHARS && apiKey) {
+      const pageCount = selectedAttempt?.pageCount || attempts[0]?.pageCount || 1
+      console.log(
+        `[PDF Processor] Text extraction yielded only ${bestTextLength} chars — triggering vision OCR fallback`
+      )
+      try {
+        const ocrAttempt = await extractWithVisionOCR(toUint8Array(sourceBuffer), pageCount, apiKey)
+        if (ocrAttempt.text.length > bestTextLength) {
+          attempts.push(ocrAttempt)
+          selectedAttempt = ocrAttempt
+          console.log(`[PDF Processor] OCR produced ${ocrAttempt.text.length} chars — using OCR result`)
+        }
+      } catch (error) {
+        console.warn("[PDF Processor] Vision OCR fallback failed:", error)
+      }
+    }
 
     if (!selectedAttempt) {
       const details: string[] = []
@@ -192,6 +320,8 @@ export async function processPDF(
 
     if (selectedAttempt.method === "pdfjs-page-text") {
       console.log("[PDF Processor] Using fallback page-level extraction result")
+    } else if (selectedAttempt.method === "vision-ocr") {
+      console.log("[PDF Processor] Using vision OCR extraction result")
     }
 
     const text = selectedAttempt.text
