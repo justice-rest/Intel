@@ -7,14 +7,12 @@
 
 export const AVATAR_STYLES = [
   "dylan",
-  "avataaars",
-  "pixel-art",
-  "bottts",
-  "fun-emoji",
+  "glass",
+  "big-smile",
+  "big-ears",
   "lorelei",
-  "notionists",
-  "adventurer",
-  "micah",
+  "lorelei-neutral",
+  "notionists-neutral",
   "open-peeps",
 ] as const
 
@@ -37,14 +35,12 @@ export type AvatarColor = (typeof AVATAR_COLORS)[number]
 /** Human-readable display names for each avatar style */
 export const AVATAR_STYLE_NAMES: Record<AvatarStyle, string> = {
   "dylan": "Dylan",
-  "avataaars": "Avataaars",
-  "pixel-art": "Pixel Art",
-  "bottts": "Bottts",
-  "fun-emoji": "Fun Emoji",
+  "glass": "Glass",
+  "big-smile": "Big Smile",
+  "big-ears": "Big Ears",
   "lorelei": "Lorelei",
-  "notionists": "Notionists",
-  "adventurer": "Adventurer",
-  "micah": "Micah",
+  "lorelei-neutral": "Lorelei Neutral",
+  "notionists-neutral": "Notionists Neutral",
   "open-peeps": "Open Peeps",
 }
 
