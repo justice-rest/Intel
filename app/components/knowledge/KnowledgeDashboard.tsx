@@ -629,7 +629,7 @@ function DocumentsSection({ profileId }: { profileId: string }) {
                 className="flex items-center gap-2 text-xs p-2 rounded hover:bg-accent group"
               >
                 <FileIcon size={14} className="text-gray-400 flex-shrink-0" weight="fill" />
-                <span className="flex-1 min-w-0 truncate text-foreground">
+                <span className="flex-1 min-w-0 truncate text-black dark:text-white">
                   {doc.file_name}
                 </span>
                 <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium flex-shrink-0", statusConfig.className)}>
@@ -773,7 +773,7 @@ function VoiceSection({ profileId }: { profileId: string }) {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder={elementType === "word_avoidance" ? "Word to avoid..." : elementType === "word_preference" ? "Word to prefer..." : "e.g., warm and professional"}
-                className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none border-b border-border pb-2 focus:border-purple-500 transition-colors"
+                className="w-full bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none border-b border-border pb-2 focus:border-purple-500 transition-colors"
                 autoFocus
               />
               <div className="flex items-center justify-between pt-1">
@@ -784,7 +784,7 @@ function VoiceSection({ profileId }: { profileId: string }) {
                   <button
                     type="button"
                     onClick={() => { setIsAdding(false); setValue("") }}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-xs text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                   >
                     Cancel
                   </button>
@@ -806,7 +806,7 @@ function VoiceSection({ profileId }: { profileId: string }) {
             animate={{ opacity: 1 }}
             type="button"
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
           >
             <Plus size={12} />
             Add voice element
@@ -826,7 +826,7 @@ function VoiceSection({ profileId }: { profileId: string }) {
               <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-600 dark:text-purple-400 text-[10px] font-medium flex-shrink-0">
                 {typeLabels[el.element_type]}
               </span>
-              <span className="flex-1 min-w-0 truncate text-foreground">{el.value}</span>
+              <span className="flex-1 min-w-0 truncate text-black dark:text-white">{el.value}</span>
               <button
                 type="button"
                 onClick={() => deleteMutation.mutate(el.id)}
@@ -951,7 +951,7 @@ function StrategySection({ profileId }: { profileId: string }) {
                 value={rule}
                 onChange={(e) => setRule(e.target.value)}
                 placeholder="Describe the strategy rule..."
-                className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none border-b border-border pb-2 focus:border-foreground/50 transition-colors"
+                className="w-full bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none border-b border-border pb-2 focus:border-foreground/50 transition-colors"
                 autoFocus
               />
               <div className="flex items-center justify-between pt-1">
@@ -962,7 +962,7 @@ function StrategySection({ profileId }: { profileId: string }) {
                   <button
                     type="button"
                     onClick={() => { setIsAdding(false); setRule("") }}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-xs text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                   >
                     Cancel
                   </button>
@@ -984,7 +984,7 @@ function StrategySection({ profileId }: { profileId: string }) {
             animate={{ opacity: 1 }}
             type="button"
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
           >
             <Plus size={12} />
             Add strategy rule
@@ -1004,7 +1004,7 @@ function StrategySection({ profileId }: { profileId: string }) {
               <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-600 dark:text-blue-400 text-[10px] font-medium flex-shrink-0 mt-0.5">
                 {categoryLabels[r.category]}
               </span>
-              <span className="flex-1 min-w-0 text-foreground leading-relaxed">{r.rule}</span>
+              <span className="flex-1 min-w-0 text-black dark:text-white leading-relaxed">{r.rule}</span>
               <button
                 type="button"
                 onClick={() => deleteMutation.mutate(r.id)}
@@ -1133,7 +1133,7 @@ function FactsSection({ profileId }: { profileId: string }) {
                 value={fact}
                 onChange={(e) => setFact(e.target.value)}
                 placeholder="Enter an organizational fact..."
-                className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none border-b border-border pb-2 focus:border-amber-500 transition-colors"
+                className="w-full bg-transparent text-sm text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 outline-none border-b border-border pb-2 focus:border-amber-500 transition-colors"
                 autoFocus
               />
               <div className="flex items-center justify-between pt-1">
@@ -1144,7 +1144,7 @@ function FactsSection({ profileId }: { profileId: string }) {
                   <button
                     type="button"
                     onClick={() => { setIsAdding(false); setFact("") }}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    className="text-xs text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
                   >
                     Cancel
                   </button>
@@ -1166,7 +1166,7 @@ function FactsSection({ profileId }: { profileId: string }) {
             animate={{ opacity: 1 }}
             type="button"
             onClick={() => setIsAdding(true)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
           >
             <Plus size={12} />
             Add fact
@@ -1186,7 +1186,7 @@ function FactsSection({ profileId }: { profileId: string }) {
               <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-medium flex-shrink-0 mt-0.5">
                 {categoryLabels[f.category]}
               </span>
-              <span className="flex-1 min-w-0 text-foreground leading-relaxed">{f.fact}</span>
+              <span className="flex-1 min-w-0 text-black dark:text-white leading-relaxed">{f.fact}</span>
               <button
                 type="button"
                 onClick={() => deleteMutation.mutate(f.id)}
