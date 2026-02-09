@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getKnowledgePromptForProfile } from '@/lib/knowledge/prompt-generator'
 
 export interface ChatConfig {
   knowledge_prompt: string | null
@@ -15,6 +16,10 @@ export interface ChatConfig {
 /**
  * Get chat configuration (knowledge profile + custom system prompt).
  * Bypasses the persona system entirely.
+ *
+ * When a knowledge profile is assigned to a chat, it is used regardless
+ * of its global activation status — the per-chat assignment is an explicit
+ * override that takes precedence over the global active profile.
  */
 export async function getChatConfig(
   supabase: SupabaseClient,
@@ -34,15 +39,11 @@ export async function getChatConfig(
   let knowledgePrompt: string | null = null
 
   if (chat.knowledge_profile_id) {
-    const { data: profile } = await supabase
-      .from('knowledge_profiles')
-      .select('knowledge_prompt')
-      .eq('id', chat.knowledge_profile_id)
-      .eq('status', 'active')
-      .is('deleted_at', null)
-      .single()
-
-    knowledgePrompt = profile?.knowledge_prompt || null
+    // Use getKnowledgePromptForProfile which:
+    // 1. Does NOT filter by status — per-chat assignment works regardless of global activation
+    // 2. Selects ALL prompt columns (voice, strategy, knowledge, rules)
+    // 3. Combines all sections via combinePromptSections() for the full prompt
+    knowledgePrompt = await getKnowledgePromptForProfile(chat.knowledge_profile_id)
   }
 
   return {
