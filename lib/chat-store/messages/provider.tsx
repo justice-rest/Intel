@@ -5,7 +5,6 @@ import { useChatSession } from "@/lib/chat-store/session/provider"
 import { useStandaloneChatSession } from "@/lib/chat-store/session/standalone-provider"
 import { createClient } from "@/lib/supabase/client"
 import { isSupabaseEnabled } from "@/lib/supabase/config"
-import { useUnreadOptional } from "@/lib/unread"
 import { useNotificationsOptional } from "@/lib/notifications"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import type { Message as MessageAISDK } from "ai"
@@ -58,20 +57,15 @@ export function MessagesProvider({
       ? chatIdOverride
       : standaloneSession.chatId ?? urlSession.chatId
 
-  // Get unread context to mark chat as read when viewing
-  const unreadContext = useUnreadOptional()
-
   // Get notifications context to show notifications for new messages
   const notificationsContext = useNotificationsOptional()
 
   // Get chats context to get chat title for notifications
   const { chats } = useChats()
 
-  const unreadContextRef = useRef(unreadContext)
   const notificationsContextRef = useRef(notificationsContext)
   const chatsRef = useRef(chats)
 
-  unreadContextRef.current = unreadContext
   notificationsContextRef.current = notificationsContext
   chatsRef.current = chats
 
@@ -119,10 +113,6 @@ export function MessagesProvider({
         }
         // If fresh is empty but cache has data, keep showing cached messages
 
-        // Mark chat as read when viewing (after messages are loaded)
-        if (chatId && unreadContextRef.current?.markChatRead) {
-          unreadContextRef.current.markChatRead(chatId)
-        }
       } catch (error) {
         console.error("Failed to fetch messages:", error)
       } finally {
