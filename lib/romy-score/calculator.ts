@@ -19,7 +19,7 @@ import {
 
 /**
  * Raw data points used for scoring
- * These come from various tools (property_valuation, opencorporates, etc.)
+ * These come from various tools (linkup_prospect_research, sec_insider_search, etc.)
  */
 export interface RomyScoreDataPoints {
   // Property indicators

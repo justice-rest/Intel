@@ -253,19 +253,6 @@ export type MemoryKind = "episodic" | "semantic" | "procedural" | "profile"
 /** Memory relation type */
 export type MemoryRelationType = "updates" | "extends" | "derives" | "conflicts"
 
-/** Entity type for knowledge graph */
-export type EntityType = "person" | "organization" | "foundation"
-
-/** Relation type for knowledge graph */
-export type RelationType =
-  | "works_at"
-  | "board_member"
-  | "donated_to"
-  | "owns"
-  | "founded"
-  | "affiliated_with"
-  | "related_to"
-
 /** Chunk type for RAG */
 export type ChunkType = "paragraph" | "table" | "header" | "list" | "code" | "image"
 
@@ -505,77 +492,6 @@ export interface RerankResponse {
 }
 
 // ============================================================================
-// V2 KNOWLEDGE GRAPH TYPES
-// ============================================================================
-
-/** Knowledge graph entity type */
-export type KGEntityType = "person" | "organization" | "foundation" | "company" | "location" | "concept" | "event"
-
-/** Knowledge graph entity (database row) */
-export interface KGEntity {
-  id: string
-  user_id: string
-  entity_type: KGEntityType
-  canonical_name: string
-  display_name: string
-  aliases: string[]
-  description: string | null
-  embedding: number[] | string | null
-  embedding_model: string | null
-  metadata: Record<string, unknown> | null
-  created_at: string
-  updated_at: string
-}
-
-/** Create knowledge graph entity */
-export interface CreateKGEntity {
-  user_id: string
-  entity_type: KGEntityType
-  canonical_name: string
-  display_name: string
-  aliases?: string[]
-  description?: string | null
-  embedding?: number[]
-  embedding_model?: string
-  metadata?: Record<string, unknown>
-}
-
-/** Knowledge graph relation (database row) */
-export interface KGRelation {
-  id: string
-  source_entity_id: string
-  target_entity_id: string
-  relation_type: string
-  strength: number
-  source_memory_id: string | null
-  metadata: Record<string, unknown> | null
-  valid_from: string | null
-  valid_until: string | null
-  created_at: string
-}
-
-/** Create knowledge graph relation */
-export interface CreateKGRelation {
-  source_entity_id: string
-  target_entity_id: string
-  relation_type: string
-  strength?: number
-  source_memory_id?: string | null
-  metadata?: Record<string, unknown>
-  valid_from?: string | null
-  valid_until?: string | null
-}
-
-/** Knowledge graph traversal result */
-export interface KGTraversalResult {
-  entity_id: string
-  entity_type: KGEntityType
-  entity_name: string
-  relation_path: string[]
-  depth: number
-}
-
-// ============================================================================
 // V2 MEMORY MANAGER TYPES
 // ============================================================================
 
@@ -675,6 +591,4 @@ export interface MemoryStatsV2 {
   oldest_memory: string | null
   forgotten_count: number
   expiring_soon_count: number
-  entity_count: number
-  relation_count: number
 }

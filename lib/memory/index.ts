@@ -72,19 +72,9 @@ export {
   getMemoryManager,
 } from "./memory-manager"
 
-// Knowledge Graph - Entity & relation extraction
-export {
-  extractFromText,
-  KnowledgeGraphManager,
-  getKGManager,
-  formatEntitiesForContext,
-} from "./kg-extractor"
-
 // Chat Integration - Unified interface for chat route
 export {
   getChatMemories,
-  warmUserMemoryCache,
-  warmUserMemoryCache as warmUpUserCache, // Alias for backward compatibility
   extractAndSaveMemories,
   type ChatMemoryContext,
   type GetChatMemoriesParams,

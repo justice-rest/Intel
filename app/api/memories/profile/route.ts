@@ -16,7 +16,6 @@ import {
   getMemoryProfile,
   isMemoryEnabled,
   generateEmbedding,
-  warmUserMemoryCache,
 } from "@/lib/memory"
 import type { MemoryKind } from "@/lib/memory/types"
 
@@ -39,8 +38,6 @@ interface ProfileRequest {
   searchLimit?: number
   /** Similarity threshold for search */
   searchThreshold?: number
-  /** Enable cache warming for user */
-  warmCache?: boolean
 }
 
 interface ProfileResponse {
@@ -66,7 +63,6 @@ interface ProfileResponse {
     staticMs?: number
     dynamicMs?: number
     searchMs?: number
-    cacheWarmMs?: number
   }
   /** Formatted context ready for prompt injection */
   formattedContext?: string
@@ -130,13 +126,6 @@ export async function POST(req: Request): Promise<NextResponse<ProfileResponse |
 
     const timing: ProfileResponse["timing"] = {
       totalMs: 0,
-    }
-
-    // Optionally warm the cache
-    if (body.warmCache) {
-      const cacheStart = Date.now()
-      await warmUserMemoryCache(user.id)
-      timing.cacheWarmMs = Date.now() - cacheStart
     }
 
     // Get memory profile
@@ -246,7 +235,6 @@ export async function GET(req: Request): Promise<NextResponse> {
     q: searchParams.get("q") || undefined,
     staticLimit: parseInt(searchParams.get("staticLimit") || "10"),
     dynamicLimit: parseInt(searchParams.get("dynamicLimit") || "5"),
-    warmCache: searchParams.get("warmCache") === "true",
   }
 
   // Create a synthetic request
@@ -382,12 +370,9 @@ export async function PUT(req: Request): Promise<NextResponse> {
       )
     }
 
-    // Warm the cache
-    await warmUserMemoryCache(user.id)
-
     return NextResponse.json({
       success: true,
-      message: "Cache warmed successfully",
+      message: "Operation completed",
       timing: {
         totalMs: Date.now() - startTime,
       },

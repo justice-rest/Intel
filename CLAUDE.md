@@ -207,7 +207,7 @@ docker build -t romy .                            # Build production image
   - `/supabase` - Supabase client configuration
   - `/memory` - AI memory system (extraction, retrieval, storage, embedding cache)
   - `/knowledge` - Knowledge profiles, facts, strategies, voice configs, chat-scoped knowledge
-  - `/tools` - 25+ AI tools (prospect research, SEC, FEC, CRM, capacity calculator, etc.)
+  - `/tools` - 22 AI tools (prospect research, SEC, FEC, CRM, capacity calculator, etc.)
   - `/batch-processing` - Bulk prospect research with checkpoints, dead letter, idempotency
   - `/batch-reports` - Report generation, storage, semantic search
   - `/rag` - RAG document management, chunking, vector search
@@ -278,7 +278,6 @@ All providers use:
 - `projects` - Project organization
 - `chat_attachments` - File metadata
 - `feedback` - User feedback
-- `onboarding_data` - User onboarding responses
 
 **Memory & Knowledge Tables**:
 - `user_memories` - AI memory with pgvector embeddings (1536 dimensions)
@@ -286,7 +285,6 @@ All providers use:
 - `knowledge_facts`, `knowledge_strategies`, `knowledge_examples` - Knowledge components
 - `knowledge_voice_configs` - Voice/tone configuration
 - `knowledge_documents` - Uploaded knowledge documents
-- `kg_entities`, `kg_relationships` - Knowledge graph
 
 **Batch & Research Tables**:
 - `batch_jobs`, `batch_items` - Batch prospect research jobs
@@ -309,7 +307,7 @@ All providers use:
 
 **Storage Buckets**: `chat-attachments`, `avatars`
 
-See migrations directory (`/migrations/*.sql`) for full SQL schema with RLS policies (45+ migration files).
+See migrations directory (`/supabase/migrations/*.sql`) for full SQL schema with RLS policies (20 migration files).
 
 ### File Uploads
 **File**: `/lib/file-handling.ts`
@@ -425,7 +423,7 @@ For production, configure a custom SMTP provider:
 | `/api/memories` | GET/POST | Memory CRUD |
 | `/api/memories/[id]` | GET/PUT/DELETE | Individual memory operations |
 | `/api/memories/search` | POST | Semantic memory search |
-| `/api/memories/profile` | GET/POST/PUT | Memory profile management |
+| `/api/memories/profile` | GET/POST/PUT | Memory profile management (excluded from tsconfig, dead code) |
 | `/api/knowledge/profile` | GET/POST | Knowledge profile CRUD |
 | `/api/knowledge/profile/[id]` | GET/PUT/DELETE | Individual knowledge profile |
 | `/api/knowledge/facts` | GET/POST/PUT/DELETE | Knowledge facts |
@@ -433,10 +431,6 @@ For production, configure a custom SMTP provider:
 | `/api/knowledge/examples` | GET/POST/PUT/DELETE | Knowledge examples |
 | `/api/knowledge/voice` | GET/POST/PUT/DELETE | Voice/tone configuration |
 | `/api/knowledge/documents` | GET/POST | Knowledge documents |
-| `/api/kg` | GET/DELETE | Knowledge graph management |
-| `/api/kg/entities` | GET/POST | Knowledge graph entities |
-| `/api/kg/extract` | POST/PUT | Entity extraction |
-| `/api/kg/traverse` | GET/POST | Graph traversal |
 
 **RAG (Document Search):**
 
@@ -615,11 +609,10 @@ User sends message
   → Track access patterns
 ```
 
-**Memory Management UI** (`/app/components/memory/`):
+**Memory Management UI**:
 - Settings → Memory tab shows all user memories
 - Features: search, add, edit, delete memories
-- Components: MemoryList, MemoryCard, MemoryForm, MemoryStats
-- State: MemoryProvider with React Query caching
+- State: MemoryProvider (in `/lib/memory-store/provider.tsx`) with React Query caching
 
 **Configuration** (`/lib/memory/config.ts`):
 - `MAX_MEMORIES_PER_USER`: 1000 memories per user
@@ -634,8 +627,7 @@ User sends message
 - `/lib/memory/` - Core memory system (extraction, storage, retrieval, scoring, embedding-cache, hybrid-search)
 - `/lib/tools/memory-tool.ts` - AI tool for searching memories
 - `/app/api/chat/route.ts` - Integration point (parallel memory retrieval in Promise.all)
-- `/app/api/memories/` - REST API endpoints for memory CRUD (including search, profile, timeline)
-- `/migrations/005_add_memory_system.sql` - Database schema
+- `/app/api/memories/` - REST API endpoints for memory CRUD (including search)
 
 ### Web Search Integration
 **LinkUp-Powered Prospect Research** with grounded citations:
@@ -695,7 +687,7 @@ User toggles search button
 - Filter by award type: contracts, grants, loans, IDVs, direct payments, or all
 - 30-second timeout, graceful error handling
 - Returns formatted `rawContent` for AI analysis + `sources` for UI display
-- **NOT for individual donor research** - use Yahoo Finance, FEC, SEC Edgar, ProPublica, or Wikidata for individuals
+- **NOT for individual donor research** - use FEC, SEC EDGAR, ProPublica, or LinkUp prospect research for individuals
 
 **Usage Examples**:
 ```typescript
@@ -795,15 +787,6 @@ crm_search({ query: "John Smith", provider: "all", limit: 10 })
 - `/app/api/crm-integrations/` - CRM API routes (connect, sync, delete)
 - `/app/components/layout/settings/integrations/` - Settings UI
 
-**Direct API Tools (Optional)**:
-For admin/system use, set environment variables to enable direct Neon CRM API tools:
-```bash
-NEON_CRM_ORG_ID=your_org_id
-NEON_CRM_API_KEY=your_api_key
-```
-
-This enables `neon_crm_search_accounts`, `neon_crm_get_account`, and `neon_crm_search_donations` tools.
-
 ### Giving Capacity Calculator (TFG Research Formulas)
 **Calculate prospect giving capacity** using industry-standard TFG Research Formulas:
 
@@ -816,7 +799,7 @@ This enables `neon_crm_search_accounts`, `neon_crm_get_account`, and `neon_crm_s
 **Tool**: `giving_capacity_calculator` (`/lib/tools/giving-capacity-calculator.ts`)
 
 **When to Use**:
-- AFTER gathering wealth data from `property_valuation`, `find_business_ownership`, `fec_contributions`
+- AFTER gathering wealth data from `linkup_prospect_research`, `fec_contributions`, and other research tools
 - To calculate final giving capacity rating (A/B/C/D)
 - To get detailed breakdown of capacity components
 
@@ -869,14 +852,14 @@ Where:
 ```typescript
 // After gathering data from other tools
 giving_capacity_calculator({
-  totalRealEstateValue: 2500000,  // From property_valuation
+  totalRealEstateValue: 2500000,  // From linkup_prospect_research
   propertyCount: 2,
   estimatedSalary: 375000,        // From home value: $2.5M × 0.15 = $375K
   age: 55,
   lifetimeGiving: 50000,          // Client provides
-  last5YearsGiving: 30000,        // From giving_history
-  hasBusinessOwnership: true,     // From find_business_ownership
-  businessRevenue: 5000000,       // From business_revenue_estimator
+  last5YearsGiving: 30000,        // From research data
+  hasBusinessOwnership: true,     // From linkup_prospect_research
+  businessRevenue: 5000000,       // From linkup_prospect_research
   isMultipleBusinessOwner: true,
   hasSecFilings: false,
   hasDemonstratedGenerosity: true,
@@ -899,7 +882,7 @@ giving_capacity_calculator({
 
 **Key Files**:
 - `/lib/tools/giving-capacity-calculator.ts` - Tool implementation
-- `/app/api/chat/route.ts` - Tool registration (line 962-969)
+- `/app/api/chat/route.ts` - Tool registration
 
 ## Environment Variables
 
@@ -934,11 +917,6 @@ DATA_GOV_API_KEY=               # Higher rate limits for gov APIs (free at api.d
 
 # Voice Input
 GROQ_API_KEY=                   # Speech-to-Text via Whisper (free at console.groq.com)
-
-# CRM Integration (admin/system-level - users add via Settings UI instead)
-NEON_CRM_ORG_ID=                # Neon CRM Organization ID (optional)
-NEON_CRM_API_KEY=               # Neon CRM API key (optional)
-NEON_CRM_TRIAL=false            # Set to "true" for trial instances
 
 # Notion Integration
 NOTION_CLIENT_ID=               # Notion OAuth Client ID
@@ -1028,10 +1006,10 @@ npm run build -- --analyze
 
 ## Additional Resources
 
-- See `DOCS.md` for developer documentation (setup, architecture, integrations)
+- See `docs/DOCS.md` for developer documentation (setup, architecture, integrations)
 - See `README.md` for feature overview
-- See `DATA_SOURCES.md` for comprehensive list of all data sources and tools
+- See `docs/DATA_SOURCES.md` for comprehensive list of all data sources and tools
 - Model definitions: `/lib/models/data/openrouter.ts`
-- API route handlers: `/app/api/**/route.ts` (43+ route directories)
+- API route handlers: `/app/api/**/route.ts` (42 route directories)
 - Type definitions: `/app/types/*` and `/lib/*/types.ts`
-- Migration files: `/migrations/*.sql` (45+ migration files)
+- Migration files: `/supabase/migrations/*.sql` (20 migration files)

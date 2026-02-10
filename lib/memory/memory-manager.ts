@@ -822,8 +822,6 @@ export class MemoryManager {
         oldest_memory: null,
         forgotten_count: 0,
         expiring_soon_count: 0,
-        entity_count: 0,
-        relation_count: 0,
       }
     }
 

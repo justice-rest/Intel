@@ -8,14 +8,17 @@
 
 ## Features
 
-- Multi-model support via OpenRouter (GPT-4, Claude, Gemini, and more)
+- AI-powered prospect research with 22 data tools (SEC, FEC, ProPublica, USAspending, and more)
+- Multi-model support via OpenRouter (Grok, and more)
 - Bring your own API key (BYOK) support
-- File uploads
+- File uploads with RAG document search
+- AI memory system (remembers context across conversations)
+- Batch prospect research with report generation
+- CRM integrations (Bloomerang, Virtuous, Neon CRM, DonorPerfect)
+- Giving capacity calculator (TFG Research formulas)
 - Clean, responsive UI with light/dark themes
 - Built with Tailwind CSS, shadcn/ui, and prompt-kit
-- Open-source and self-hostable
-- Customizable: user system prompt, multiple layout options
-- Full MCP support (wip)
+- Self-hostable
 
 ## Quick Start
 
@@ -29,7 +32,7 @@ npm run dev
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ibelick/romy)
 
-To unlock features like auth, file uploads, see [INSTALL.md](./INSTALL.md).
+To unlock features like auth, file uploads, see [DOCS.md](./docs/DOCS.md).
 
 ## Built with
 

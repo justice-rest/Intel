@@ -244,7 +244,6 @@ Find all businesses owned or led by "${name}"${context ? ` (Context: ${context})
 ## SCOPE
 Search these authoritative business sources:
 - LinkedIn profiles and company pages
-- OpenCorporates - corporate registrations
 - State Secretary of State business filings${state ? ` (especially ${state})` : ""}
 - Bloomberg executive profiles
 - Crunchbase and PitchBook for startups/investments

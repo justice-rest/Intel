@@ -19,11 +19,10 @@ Built with Next.js 15, powered by Grok via OpenRouter, with BYOK (Bring Your Own
 7. [Web Search (Linkup)](#web-search-linkup)
 8. [Subscriptions (Autumn)](#subscriptions-autumn)
 9. [Analytics (PostHog)](#analytics-posthog)
-10. [Onboarding System](#onboarding-system)
-11. [API Routes Reference](#api-routes-reference)
-12. [Development Commands](#development-commands)
-13. [Common Pitfalls](#common-pitfalls)
-14. [Troubleshooting](#troubleshooting)
+10. [API Routes Reference](#api-routes-reference)
+11. [Development Commands](#development-commands)
+12. [Common Pitfalls](#common-pitfalls)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -88,7 +87,7 @@ NEXT_PUBLIC_VERCEL_URL=
 # Automated (recommended)
 npm run migrate
 
-# Manual: Copy migrations/001_initial_schema.sql to Supabase SQL Editor
+# Manual: Run SQL from supabase/migrations/ in Supabase SQL Editor
 ```
 
 ### Core Tables
@@ -101,7 +100,6 @@ npm run migrate
 | `user_keys` | Encrypted BYOK API keys |
 | `user_preferences` | UI settings (layout, hidden_models) |
 | `user_memories` | AI memory with vector embeddings |
-| `onboarding_data` | User onboarding responses |
 | `projects` | Chat organization |
 | `chat_attachments` | File upload metadata |
 | `feedback` | User feedback |
@@ -128,7 +126,6 @@ npm run migrate
 /app                    # Next.js 15 app router
   /api                  # Backend API endpoints
   /components           # App-specific components
-  /onboarding          # Onboarding flow
 /components            # Shared UI components (shadcn/ui)
 /lib                   # Core business logic
   /chat-store          # Chat state (Context + IndexedDB + Supabase)
@@ -139,7 +136,7 @@ npm run migrate
   /subscription        # Autumn billing
   /supabase            # Database client
   /tools               # AI tools (search, memory, RAG)
-/migrations            # SQL migrations
+/supabase/migrations   # SQL migrations (managed by Supabase CLI)
 ```
 
 ### Hybrid Architecture
@@ -262,19 +259,7 @@ Linkup provides pre-synthesized answers with source citations, preventing AI fro
 
 ### Linkup Search Tool
 
-```typescript
-// /lib/tools/linkup-search.ts
-const linkupSearchTool = tool({
-  description: "Search the web for current information",
-  parameters: z.object({
-    query: z.string(),
-    depth: z.enum(["standard", "deep"]).optional(),
-  }),
-  execute: async ({ query, depth }) => {
-    // Returns pre-synthesized answer with sources
-  },
-})
-```
+The primary tool is `linkup_prospect_research` which executes 5 parallel targeted queries covering real estate, business ownership, philanthropy, securities, and biography.
 
 ### Configuration
 
@@ -379,56 +364,6 @@ const showNewFeature = useIsFeatureEnabled('new_feature')
 
 ---
 
-## Onboarding System
-
-Typeform-like onboarding for new users.
-
-### Questions (10 total)
-
-1. First name
-2. Nonprofit name
-3. Location
-4. Sector (Education, Health, etc.)
-5. Annual budget
-6. Donor count
-7. Is fundraising primary responsibility?
-8. Prior tools used
-9. Purpose/goals
-10. Custom AI agent name
-
-### Flow
-
-```
-New user signs in
-  → Auth callback checks onboarding_completed
-  → Redirects to /onboarding
-  → User completes 10 questions
-  → Data saved to onboarding_data table
-  → users.onboarding_completed = true
-  → Redirect to home
-```
-
-### Using Onboarding Data
-
-```typescript
-const { data } = await supabase
-  .from("onboarding_data")
-  .select("*")
-  .eq("user_id", userId)
-  .single()
-
-// Enhance system prompt
-const context = `
-User: ${data.first_name}
-Organization: ${data.nonprofit_name} (${data.nonprofit_sector})
-Location: ${data.nonprofit_location}
-Budget: ${data.annual_budget}
-Goals: ${data.purpose}
-`
-```
-
----
-
 ## API Routes Reference
 
 | Route | Method | Purpose |
@@ -446,7 +381,6 @@ Goals: ${data.purpose}
 | `/api/create-guest` | POST | Create anonymous user |
 | `/api/memories` | GET/POST | Memory CRUD |
 | `/api/memories/:id` | PUT/DELETE | Memory operations |
-| `/api/onboarding` | GET/POST | Onboarding data |
 | `/api/autumn/[...all]` | ALL | Autumn billing proxy |
 
 ---
@@ -491,9 +425,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # E
 
 7. **Encryption key must be 32 bytes** - Base64-encoded.
 
-8. **Memory retrieval has 200ms timeout** - Returns empty if slow.
-
-9. **Autumn uses `expired` not `canceled`** for cancelled subscriptions.
+8. **Autumn uses `expired` not `canceled`** for cancelled subscriptions.
 
 ---
 
@@ -515,7 +447,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"  # E
 
 - Verify `OPENROUTER_API_KEY` is set (for embeddings)
 - Check pgvector extension is enabled
-- Run migration `006_add_memory_system.sql`
+- Run `supabase db push` or check `supabase/migrations/` for memory schema
 
 ### Subscription Issues
 
@@ -546,6 +478,6 @@ Apache License 2.0
 
 ## Support
 
-- GitHub Issues: [Report bugs or request features](https://github.com/anthropics/claude-code/issues)
+- GitHub Issues: [Report bugs or request features](https://github.com/ibelick/romy/issues)
 - Autumn Docs: [docs.useautumn.com](https://docs.useautumn.com)
 - PostHog Docs: [posthog.com/docs](https://posthog.com/docs)

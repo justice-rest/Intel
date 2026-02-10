@@ -113,15 +113,6 @@ export async function getChatMemories(
 // CACHE WARMING (stub for backward compatibility)
 // ============================================================================
 
-/**
- * No-op stub. Previously attempted to warm the V2 hot-cache,
- * but V2 tables were never deployed. Kept for API compatibility.
- */
-export async function warmUserMemoryCache(
-  _userId: string
-): Promise<{ success: boolean; timing: number }> {
-  return { success: true, timing: 0 }
-}
 
 // ============================================================================
 // MEMORY EXTRACTION (Post-Response)

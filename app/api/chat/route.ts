@@ -24,25 +24,9 @@ import {
   shouldEnableLinkUpTools,
 } from "@/lib/tools/linkup-prospect-research"
 import {
-  rentalInvestmentTool,
-  shouldEnableRentalInvestmentTool,
-} from "@/lib/tools/rental-investment-tool"
-import {
   courtSearchTool,
-  judgeSearchTool,
   shouldEnableCourtListenerTools,
 } from "@/lib/tools/courtlistener"
-import {
-  gleifSearchTool,
-  gleifLookupTool,
-  shouldEnableGleifTools,
-} from "@/lib/tools/gleif-lei"
-import {
-  neonCRMSearchAccountsTool,
-  neonCRMGetAccountTool,
-  neonCRMSearchDonationsTool,
-  shouldEnableNeonCRMTools,
-} from "@/lib/tools/neon-crm"
 import {
   stateContractsTool,
   shouldEnableStateContractsTool,
@@ -51,18 +35,6 @@ import {
   npiRegistryTool,
   shouldEnableNPIRegistryTool,
 } from "@/lib/tools/npi-registry"
-import {
-  usptoSearchTool,
-  shouldEnableUSPTOSearchTool,
-} from "@/lib/tools/uspto-search"
-import {
-  nycPropertySalesTool,
-  shouldEnableNYCPropertySalesTool,
-} from "@/lib/tools/nyc-property-sales"
-import {
-  acrisDeedsTool,
-  shouldEnableACRISDeedsTool,
-} from "@/lib/tools/nyc-acris-deeds"
 import {
   cmsOpenPaymentsTool,
   shouldEnableCMSOpenPaymentsTool,
@@ -734,13 +706,9 @@ Call search_memory FIRST before external research to avoid duplicating work.
           dataTools.push("gemini_ultra_search [BETA] (deep research via Gemini 3 Pro - comprehensive multi-angle investigation)")
         }
       }
-      if (shouldEnableRentalInvestmentTool()) dataTools.push("rental_investment (rental analysis: monthly rent estimate, GRM, cap rate, cash-on-cash return, cash flow)")
-      if (shouldEnableGleifTools()) dataTools.push("gleif_search / gleif_lookup (Global LEI database - 2.5M+ entities, corporate ownership chains)")
-      if (shouldEnableNeonCRMTools()) dataTools.push("neon_crm_* (Neon CRM integration: search accounts/donors, get donor details, search donations - requires API key)")
-      if (shouldEnableCourtListenerTools()) dataTools.push("court_search / judge_search (federal court records, opinions, dockets, judge profiles)")
+      if (shouldEnableCourtListenerTools()) dataTools.push("court_search (federal court records, opinions, dockets)")
       if (shouldEnableStateContractsTool()) dataTools.push("state_contracts (state government contracts - CA, NY, TX, FL, IL, OH, CO, MA)")
       if (shouldEnableNPIRegistryTool()) dataTools.push("npi_registry (CMS NPI Registry - healthcare providers - income by specialty)")
-      if (shouldEnableUSPTOSearchTool()) dataTools.push("uspto_search (USPTO patents/trademarks - inventors, assignees - IP wealth indicator)")
 
       if (dataTools.length > 0) {
         // Determine primary research tool based on mode
@@ -810,8 +778,8 @@ ${dataTools.join("\n")}
 
 #### Giving Capacity Calculator Workflow
 **Optimal sequence:** Gather wealth data FIRST, then calculate capacity.
-1. Collect real estate data (property_valuation) → provides totalRealEstateValue, propertyCount
-2. Check business ownership (find_business_ownership) → provides hasBusinessOwnership, businessRevenue, isMultipleBusinessOwner
+1. Collect real estate data (linkup_prospect_research) → provides totalRealEstateValue, propertyCount
+2. Check business ownership (linkup_prospect_research) → provides hasBusinessOwnership, businessRevenue, isMultipleBusinessOwner
 3. Check SEC filings (sec_insider_search) → provides hasSecFilings
 4. Check charitable giving (fec_contributions, propublica) → provides lifetimeGiving, last5YearsGiving, largestKnownGift
 5. Call **giving_capacity_calculator** with ALL available data and \`calculationType: "all"\`
@@ -944,36 +912,11 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
             ),
           }
         : {}),
-      // Add Rental Investment tool for rental valuation and investment analysis
-      // Requires property value from property_valuation - returns rent estimate, cap rate, cash flow
-      ...(enableSearch && shouldEnableRentalInvestmentTool()
-        ? {
-            rental_investment: rentalInvestmentTool,
-          }
-        : {}),
-      // Add CourtListener tools for court records and judge information
+      // Add CourtListener tool for court records
       // FREE API - no key required (5,000 requests/hour)
       ...(enableSearch && shouldEnableCourtListenerTools()
         ? {
             court_search: courtSearchTool,
-            judge_search: judgeSearchTool,
-          }
-        : {}),
-      // Add GLEIF LEI Tools - Global Legal Entity Identifier database
-      // FREE API - 2.5M+ entities with corporate ownership chains
-      ...(enableSearch && shouldEnableGleifTools()
-        ? {
-            gleif_search: gleifSearchTool,
-            gleif_lookup: gleifLookupTool,
-          }
-        : {}),
-      // Add Neon CRM tools for nonprofit donor management
-      // Requires NEON_CRM_ORG_ID and NEON_CRM_API_KEY
-      ...(enableSearch && shouldEnableNeonCRMTools()
-        ? {
-            neon_crm_search_accounts: neonCRMSearchAccountsTool,
-            neon_crm_get_account: neonCRMGetAccountTool,
-            neon_crm_search_donations: neonCRMSearchDonationsTool,
           }
         : {}),
       // Add State Contracts Search - State/local government contracts
@@ -988,27 +931,6 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       ...(enableSearch && shouldEnableNPIRegistryTool()
         ? {
             npi_registry: npiRegistryTool,
-          }
-        : {}),
-      // Add USPTO Search Tool - Patent and trademark search
-      // Search by inventor or assignee - IP wealth indicator
-      ...(enableSearch && shouldEnableUSPTOSearchTool()
-        ? {
-            uspto_search: usptoSearchTool,
-          }
-        : {}),
-      // Add NYC Property Sales Tool - Actual transaction prices
-      // NYC DOF Rolling Sales data - real prices, not estimates
-      ...(enableSearch && shouldEnableNYCPropertySalesTool()
-        ? {
-            nyc_property_sales: nycPropertySalesTool,
-          }
-        : {}),
-      // Add NYC ACRIS Deeds Tool - Property ownership records
-      // NYC deed transfers, mortgages since 1966
-      ...(enableSearch && shouldEnableACRISDeedsTool()
-        ? {
-            nyc_acris_deeds: acrisDeedsTool,
           }
         : {}),
       // Add CMS Open Payments Tool - Sunshine Act physician payments

@@ -1,12 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
-/v0
-/v1
-/MM
-/Zero
-/Intel-6f9036e86e9d1dff0274847a98a90b1329834727
-/gemini-chatbot
 /node_modules
 /.pnp
 .pnp.*
@@ -18,6 +12,7 @@
 
 # testing
 /coverage
+/test-screenshots
 
 # next.js
 /.next/
@@ -59,19 +54,7 @@ bun.lock
 
 /.cursor
 
-# chaterface directory
-/chaterface
-zola/
-hcaptcha-challenger/
-openai-fm/
-models.dev/
-pure-css-book-loader/
-dashboard-ui/
-dark-uibank-dashboard-concept/
-
-# External repos / WIP
-supermemory/
-bublr/
+# chaterface directo
 
 # V2 Enterprise Memory System - NOW PRODUCTION READY
 supabase/.temp/

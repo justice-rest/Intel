@@ -692,7 +692,7 @@ export const givingCapacityCalculatorTool = tool({
     "For more accurate results, provide: age (for EGS/Snapshot), salary (or will estimate from home value), " +
     "business revenue, and giving history. " +
     "Returns capacity rating (A-D), dollar capacity, and detailed breakdown showing how each component contributes. " +
-    "Use this AFTER gathering wealth data from property_valuation, find_business_ownership, fec_contributions, etc.",
+    "Use this AFTER gathering wealth data from linkup_prospect_research, fec_contributions, sec_insider_search, etc.",
 
   parameters: givingCapacitySchema,
 

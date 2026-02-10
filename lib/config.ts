@@ -201,16 +201,11 @@ You have access to specialized research tools for prospect research and wealth s
 - **propublica_nonprofit_search** - Search 1.8M+ nonprofits by name, state, or NTEE category. Use to find foundation EINs, research charitable organizations, or identify nonprofits a prospect may be affiliated with.
 - **propublica_nonprofit_details** - Get Form 990 financial data: revenue, expenses, assets, liabilities, officer compensation percentages. Use after finding an EIN to get full financial history. CRITICAL for researching foundation giving capacity.
 
-**OpenCorporates Tools** (When OPENCORPORATES_API_KEY Configured):
-- **opencorporates_company_search** - Search companies across 140+ jurisdictions worldwide. Use for business ownership research and corporate due diligence. Common US jurisdiction codes: us_de (Delaware), us_ca (California), us_ny (New York).
-- **opencorporates_officer_search** - Find company officers and directors by name. ESSENTIAL for finding board memberships and corporate roles—reveals a prospect's business affiliations and directorships.
-- **opencorporates_company_details** - Get full company details with officers list. Use after finding a company to get complete officer roster.
-
 **When to Use These Tools:**
-1. **Researching a prospect's business interests** → Use OpenCorporates to find companies they own/direct, then linkup_prospect_research for public company data
+1. **Researching a prospect's business interests** → Use linkup_prospect_research for business ownership and public company data
 2. **Finding philanthropic history** → Use ProPublica to search for foundations they're affiliated with and get 990 financial data
 3. **Checking stock holdings** → Use sec_insider_search to verify insider status and SEC filings
-4. **Finding board memberships** → Use OpenCorporates officer search to find all their corporate/nonprofit board positions
+4. **Finding board memberships** → Use sec_proxy_search for public companies, ProPublica for nonprofit boards
 5. **Validating wealth indicators** → Cross-reference via linkup_prospect_research: property records + business ownership + foundation assets
 
 **LINKUP PROSPECT RESEARCH - YOUR PRIMARY RESEARCH TOOL:**
@@ -655,7 +650,7 @@ Use the **giving_capacity_calculator** tool with \`calculationType: "all"\` to c
 **Recommended (for EGS):** Age, estimated salary (or home value for estimation), business revenue, lifetime giving
 **Snapshot-specific:** Last 5 years of giving, demonstrated generosity (3+ orgs), largest known gift amount, multiple business ownership status
 
-Always gather wealth data FIRST using research tools (property_valuation, find_business_ownership, fec_contributions, etc.), then call giving_capacity_calculator with all available data.
+Always gather wealth data FIRST using research tools (linkup_prospect_research, fec_contributions, sec_insider_search, etc.), then call giving_capacity_calculator with all available data.
 
 #### Example: Same Prospect, Three Formulas
 
@@ -1531,20 +1526,3 @@ export const MAX_MESSAGE_CONTENT_SIZE = 100000
  */
 export const AI_MAX_OUTPUT_TOKENS = 32000
 
-// ============================================================================
-// RAG (Retrieval-Augmented Generation) CONFIGURATION
-// ============================================================================
-// RAG features are Ultra plan exclusive
-
-export const RAG_DOCUMENT_LIMIT = 50 // Max documents per user
-export const RAG_STORAGE_LIMIT = 500 * 1024 * 1024 // 500MB total storage per user
-export const RAG_DAILY_UPLOAD_LIMIT = 10 // Max uploads per day
-export const RAG_MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB per file
-
-// Chunking parameters
-export const RAG_CHUNK_SIZE = 500 // Tokens per chunk
-export const RAG_CHUNK_OVERLAP = 75 // Token overlap between chunks
-
-// Search parameters
-export const RAG_MAX_RESULTS = 5 // Number of chunks to return per search
-export const RAG_SIMILARITY_THRESHOLD = 0.7 // Minimum cosine similarity (0-1)
