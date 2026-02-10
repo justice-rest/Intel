@@ -5,6 +5,7 @@
  * Uses LRU-style eviction with TTL expiration.
  */
 
+import { createHash } from "crypto"
 import { EMBEDDING_CACHE_TTL, EMBEDDING_DIMENSIONS, EMBEDDING_MODEL } from "./config"
 
 interface CacheEntry {
@@ -17,24 +18,13 @@ const cache = new Map<string, CacheEntry>()
 const MAX_CACHE_SIZE = 500 // Larger cache - each entry is ~6KB (1536 floats)
 
 /**
- * djb2 hash - fast, collision-resistant for string keys.
- * Hashes the *full* text so two inputs that share the first 200 chars
- * but diverge later won't collide.
- */
-function djb2Hash(str: string): number {
-  let hash = 5381
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0 // force 32-bit int
-  }
-  return hash >>> 0 // unsigned
-}
-
-/**
  * Generate a collision-resistant cache key from text content.
+ * Uses SHA-256 (truncated to 16 hex chars) for strong collision resistance.
  */
 function generateCacheKey(text: string): string {
   const normalized = text.trim().toLowerCase()
-  return `${normalized.length}:${djb2Hash(normalized)}`
+  const hash = createHash("sha256").update(normalized).digest("hex").substring(0, 16)
+  return `${normalized.length}:${hash}`
 }
 
 /**

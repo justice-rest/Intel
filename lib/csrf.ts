@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "crypto"
+import { createHash, randomBytes, timingSafeEqual } from "crypto"
 import { cookies } from "next/headers"
 
 const CSRF_SECRET = process.env.CSRF_SECRET!
@@ -17,7 +17,8 @@ export function validateCsrfToken(fullToken: string): boolean {
   const expected = createHash("sha256")
     .update(`${raw}${CSRF_SECRET}`)
     .digest("hex")
-  return expected === token
+  if (expected.length !== token.length) return false
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(token))
 }
 
 export async function setCsrfCookie() {

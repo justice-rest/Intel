@@ -234,13 +234,29 @@ export async function POST(req: Request) {
       chatId,
       userId,
       model: requestedModel,
-      isAuthenticated,
+      isAuthenticated: _clientIsAuthenticated,
       systemPrompt,
       enableSearch,
       researchMode,
       message_group_id,
       editCutoffTimestamp,
     } = (await req.json()) as ChatRequest
+
+    // SECURITY: Derive isAuthenticated server-side from Supabase session
+    // Never trust client-supplied auth status
+    let isAuthenticated: boolean
+    try {
+      const { createClient: createAuthClient } = await import("@/lib/supabase/server")
+      const authClient = await createAuthClient()
+      if (authClient) {
+        const { data: { user: authUser } } = await authClient.auth.getUser()
+        isAuthenticated = !!authUser
+      } else {
+        isAuthenticated = false
+      }
+    } catch {
+      isAuthenticated = false
+    }
 
     // When research mode is active, override the model with Perplexity's research models
     const model = researchMode
@@ -313,7 +329,9 @@ export async function POST(req: Request) {
             .single()
 
           // Priority: first_name (from welcome popup) > display_name (from OAuth)
-          return data?.first_name || data?.display_name || null
+          // Sanitize: strip newlines (prevent new prompt sections) and control chars, limit length
+          const rawName = data?.first_name || data?.display_name || null
+          return rawName ? rawName.replace(/[\n\r\t\x00-\x1f]/g, "").substring(0, 50).trim() || null : null
         } catch (error) {
           console.error("Failed to fetch user name:", error)
           return null

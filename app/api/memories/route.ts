@@ -12,6 +12,7 @@ import {
   isMemoryEnabled,
   calculateImportanceScore,
 } from "@/lib/memory"
+import { MAX_MEMORY_CONTENT_LENGTH } from "@/lib/memory/config"
 import { generateEmbedding } from "@/lib/memory/embedding-cache"
 import type { CreateMemoryRequest, MemoryApiResponse } from "@/lib/memory/types"
 
@@ -113,6 +114,13 @@ export async function POST(req: Request) {
     if (!body.content || body.content.trim().length === 0) {
       return NextResponse.json(
         { success: false, error: "Memory content is required" },
+        { status: 400 }
+      )
+    }
+
+    if (body.content.length > MAX_MEMORY_CONTENT_LENGTH) {
+      return NextResponse.json(
+        { success: false, error: `Memory content must be ${MAX_MEMORY_CONTENT_LENGTH} characters or less` },
         { status: 400 }
       )
     }

@@ -683,6 +683,12 @@ export async function pruneMemories(
 
     const idsToKeep = memoriesToKeep.map((m) => m.id)
 
+    // Validate all IDs are valid UUIDs to prevent filter injection
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (idsToKeep.some((id) => !uuidRegex.test(id))) {
+      throw new Error("Invalid memory ID detected during pruning")
+    }
+
     // Delete all memories except the ones to keep
     const { data, error } = await supabase
       .from("user_memories")

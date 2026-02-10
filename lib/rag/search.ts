@@ -335,12 +335,20 @@ export async function searchDocuments(userId: string, query: string) {
     throw new Error("Database not configured")
   }
 
+  // Sanitize query to prevent PostgREST filter injection
+  // Dots are safe in ilike values (literal chars), but commas/parens can break out of the filter
+  const sanitizedQuery = query
+    .trim()
+    .replace(/[%_\\]/g, "\\$&")
+    .replace(/[,;()[\]{}]/g, "")
+    .substring(0, 100)
+
   const { data, error } = await supabase
     .from("rag_documents")
     .select("*")
     .eq("user_id", userId)
     .or(
-      `file_name.ilike.%${query}%,tags.cs.{${query}}`
+      `file_name.ilike.%${sanitizedQuery}%,tags.cs.{${sanitizedQuery}}`
     )
     .order("created_at", { ascending: false })
 

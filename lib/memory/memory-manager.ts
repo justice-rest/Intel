@@ -312,6 +312,11 @@ export class MemoryManager {
     // Delete all versions if this is the root
     const rootId = current.root_memory_id || memoryId
 
+    // Validate UUID to prevent PostgREST filter injection
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rootId)) {
+      throw new Error("Invalid memory ID")
+    }
+
     // Delete relations first
     await this.supabase
       .from("memory_relations")

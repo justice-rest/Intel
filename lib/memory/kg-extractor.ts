@@ -540,6 +540,11 @@ export class KnowledgeGraphManager {
    * Delete an entity and its relations
    */
   async deleteEntity(entityId: string): Promise<void> {
+    // Validate UUID to prevent PostgREST filter injection
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(entityId)) {
+      throw new Error("Invalid entity ID")
+    }
+
     // Delete relations first
     await this.supabase
       .from("kg_relations")
