@@ -216,8 +216,10 @@ The memory system enables personalized, context-aware conversations.
 // /lib/memory/config.ts
 MAX_MEMORIES_PER_USER = 1000
 AUTO_INJECT_MEMORY_COUNT = 5
-DEFAULT_SIMILARITY_THRESHOLD = 0.5
+DEFAULT_SIMILARITY_THRESHOLD = 0.4  // Lowered to retrieve more candidates; scorer handles ranking
 EXPLICIT_MEMORY_IMPORTANCE = 0.9
+EMBEDDING_MODEL = "qwen/qwen3-embedding-8b"  // MTEB #1, 1536d via Matryoshka
+MEMORY_RETRIEVAL_TIMEOUT_MS = 5000  // Safety net on Supabase RPC only
 ```
 
 ### Memory Categories
@@ -235,11 +237,11 @@ EXPLICIT_MEMORY_IMPORTANCE = 0.9
 
 ```
 User sends message
-  → Retrieve relevant memories (semantic search, 200ms timeout)
-  → Inject top 5 memories into system prompt
+  → Retrieve relevant memories (semantic search, parallel with other setup)
+  → Inject top 7 memories into system prompt
   → AI generates response
   → Extract new facts from conversation (background)
-  → Save to database with embeddings
+  → Upsert to database with embeddings (updates if cosine > 0.9)
 ```
 
 ### API Endpoints

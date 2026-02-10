@@ -177,6 +177,14 @@ npm run start            # Start production server
 npm run lint             # Run ESLint
 npm run type-check       # TypeScript type checking without emit
 
+# Testing
+npm run test             # Run vitest tests
+npm run test:watch       # Run vitest in watch mode
+
+# Database Migrations
+npm run migrate          # Run migrations via script
+npm run migrate:manual   # Instructions for manual SQL migration
+
 # Environment Setup
 cp .env.example .env.local    # Copy environment template
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"  # Generate CSRF_SECRET
@@ -191,12 +199,28 @@ docker build -t romy .                            # Build production image
 ### Directory Structure
 - `/app` - Next.js 15 app router (pages, API routes, auth flows)
 - `/app/api` - Backend API endpoints for chat streaming, models, preferences, etc.
-- `/lib` - Core business logic (27+ subdirectories)
+- `/lib` - Core business logic (50+ subdirectories)
   - `/chat-store` - Chat and message state management (Context + IndexedDB + Supabase)
   - `/model-store`, `/user-store`, `/user-preference-store` - State providers
-  - `/models` - Model definitions per provider (OpenAI, Claude, etc.)
+  - `/models` - Model definitions (all via OpenRouter, single file: `/lib/models/data/openrouter.ts`)
   - `/openproviders` - AI provider abstraction layer
   - `/supabase` - Supabase client configuration
+  - `/memory` - AI memory system (extraction, retrieval, storage, embedding cache)
+  - `/knowledge` - Knowledge profiles, facts, strategies, voice configs, chat-scoped knowledge
+  - `/tools` - 25+ AI tools (prospect research, SEC, FEC, CRM, capacity calculator, etc.)
+  - `/batch-processing` - Bulk prospect research with checkpoints, dead letter, idempotency
+  - `/batch-reports` - Report generation, storage, semantic search
+  - `/rag` - RAG document management, chunking, vector search
+  - `/crm` - CRM integrations (Bloomerang, Virtuous, Neon CRM, DonorPerfect)
+  - `/subscription` - Autumn billing integration
+  - `/discovery` - Prospect discovery/finding
+  - `/prospect-pdf`, `/prospect-report` - PDF report generation
+  - `/romy-score` - Proprietary prospect scoring with caching
+  - `/gdpr`, `/consent` - Data deletion, export, consent logging
+  - `/workflows` - Batch research, CRM sync, memory extraction workflows
+  - `/notion` - Notion page import for RAG
+  - `/web-crawl` - URL import and web crawling
+  - `/truencoa` - Address validation (TrueNCOA)
 - `/components` - Shared UI components (shadcn/ui + Radix)
 - `/utils` - Global utilities
 
@@ -236,28 +260,56 @@ All providers use:
 - Uses OpenRouter for model access
 
 **Streaming Flow**: `/app/api/chat/route.ts`
-1. Validate user, chat, model
-2. Check rate limits (`checkUsageByModel`)
-3. Log user message to Supabase
-4. Delete newer messages if editing (via `editCutoffTimestamp`)
-5. Call `streamText()` from Vercel AI SDK
-6. `onFinish` callback saves assistant response with parts (text, tool invocations, reasoning)
+1. Validate user and check rate limits (`validateAndTrackUsage`)
+2. Parallel: fetch models, system prompt, API key, user name, memories, batch reports, CRM check, chat config
+3. Build system prompt with memory context, knowledge profile, CRM guidance, batch reports
+4. Increment message count before streaming (race condition prevention)
+5. Call `streamText()` from Vercel AI SDK with tools
+6. `onFinish` callback saves assistant response, extracts memories (background)
 7. Return `toDataStreamResponse()` for streaming
 
 ### Database Schema (Supabase)
-**Tables**:
+**Core Tables**:
 - `users` - Profile, message counts, daily limits, premium status, system_prompt
 - `chats` - Chat metadata (title, model, created_at, pinned, system_prompt)
 - `messages` - Content, role, experimental_attachments (JSONB), parts (JSONB), message_group_id, model
 - `user_keys` - Encrypted API keys (BYOK feature)
-- `user_preferences` - Layout, prompt_suggestions, show_tool_invocations, hidden_models
+- `user_preferences` - Layout, prompt_suggestions, show_tool_invocations, hidden_models, beta_features_enabled
 - `projects` - Project organization
 - `chat_attachments` - File metadata
 - `feedback` - User feedback
+- `onboarding_data` - User onboarding responses
+
+**Memory & Knowledge Tables**:
+- `user_memories` - AI memory with pgvector embeddings (1536 dimensions)
+- `knowledge_profiles` - Knowledge profiles for organizations
+- `knowledge_facts`, `knowledge_strategies`, `knowledge_examples` - Knowledge components
+- `knowledge_voice_configs` - Voice/tone configuration
+- `knowledge_documents` - Uploaded knowledge documents
+- `kg_entities`, `kg_relationships` - Knowledge graph
+
+**Batch & Research Tables**:
+- `batch_jobs`, `batch_items` - Batch prospect research jobs
+- `batch_reports`, `batch_report_embeddings` - Generated reports with vectors
+- `romy_score_cache` - Cached prospect scores
+- `prospect_data_cache` - Cached prospect data
+
+**RAG Tables**:
+- `rag_documents`, `rag_document_chunks` - Document storage and vector chunks
+
+**CRM Tables**:
+- `crm_integrations` - CRM connection config per user
+- `crm_constituents`, `crm_donations` - Synced CRM data
+
+**Other Tables**:
+- `message_notes` - Message annotations
+- `quiz_*` - Quiz/rewards system
+- `pdf_branding` - Custom PDF branding
+- `discovery_*` - Prospect discovery
 
 **Storage Buckets**: `chat-attachments`, `avatars`
 
-See `INSTALL.md` for full SQL schema with RLS policies.
+See migrations directory (`/migrations/*.sql`) for full SQL schema with RLS policies (45+ migration files).
 
 ### File Uploads
 **File**: `/lib/file-handling.ts`
@@ -270,10 +322,11 @@ See `INSTALL.md` for full SQL schema with RLS policies.
 
 ### Rate Limiting
 **File**: `/lib/usage.ts`, `/lib/config.ts`
-- Unauthenticated: 5 messages/day (only `gpt-4.1-nano`)
-- Authenticated: 1000 messages/day
-- Pro models: 500 calls total per user
-- File uploads: 5/day
+- Unauthenticated: 5 messages/day (`NON_AUTH_DAILY_MESSAGE_LIMIT`, guest model: Grok 4.1 Fast via OpenRouter)
+- Authenticated: 1000 messages/day (`AUTH_DAILY_MESSAGE_LIMIT`)
+- Pro models: 500 calls total per user (`DAILY_LIMIT_PRO_MODELS`)
+- File uploads: 5/day (`DAILY_FILE_UPLOAD_LIMIT`)
+- Subscription-based limits via Autumn (Growth/Scale plans)
 - Tracking via `users.daily_message_count` with daily reset at UTC midnight
 
 ### Security Features
@@ -331,20 +384,107 @@ For production, configure a custom SMTP provider:
 
 ## Key API Routes
 
+**Core Chat & Auth:**
+
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/api/chat` | POST | Stream AI responses via Vercel AI SDK |
 | `/api/create-chat` | POST | Create new chat with optimistic updates |
-| `/api/models` | GET | Get available models with access flags |
-| `/api/models` | POST | Refresh model cache |
+| `/api/create-guest` | POST | Create anonymous user |
+| `/api/csrf` | GET | Get CSRF token |
+| `/api/health` | GET | Health check endpoint |
+
+**Models & Settings:**
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/models` | GET/POST | Get available models / Refresh model cache |
 | `/api/user-preferences` | GET/PUT | User settings (synced to DB + localStorage) |
-| `/api/user-preferences/favorite-models` | PUT | Save favorite models |
+| `/api/user-preferences/favorite-models` | GET/POST | Favorite models |
 | `/api/user-key-status` | GET | Check which providers have user keys |
 | `/api/user-keys` | POST/DELETE | Manage encrypted BYOK keys |
+| `/api/user-plan` | GET | Get user subscription plan info |
+
+**Chat Management:**
+
+| Route | Method | Purpose |
+|-------|--------|---------|
 | `/api/toggle-chat-pin` | POST | Pin/unpin chat |
 | `/api/update-chat-model` | POST | Change chat's default model |
-| `/api/csrf` | GET | Get CSRF token |
-| `/api/create-guest` | POST | Create anonymous user |
+| `/api/update-chat-instructions` | POST | Update chat-level instructions |
+| `/api/chat-config` | GET/PUT | Chat configuration (knowledge profile, system prompt) |
+| `/api/chat-knowledge` | GET/POST | Chat-scoped knowledge profiles |
+| `/api/message-notes` | GET/POST/DELETE | Message annotations |
+| `/api/share/[chatId]` | GET | Share chat publicly |
+| `/api/share-email` | POST | Share chat via email |
+
+**Memory & Knowledge:**
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/memories` | GET/POST | Memory CRUD |
+| `/api/memories/[id]` | GET/PUT/DELETE | Individual memory operations |
+| `/api/memories/search` | POST | Semantic memory search |
+| `/api/memories/profile` | GET/POST/PUT | Memory profile management |
+| `/api/knowledge/profile` | GET/POST | Knowledge profile CRUD |
+| `/api/knowledge/profile/[id]` | GET/PUT/DELETE | Individual knowledge profile |
+| `/api/knowledge/facts` | GET/POST/PUT/DELETE | Knowledge facts |
+| `/api/knowledge/strategy` | GET/POST/PUT/DELETE | Knowledge strategies |
+| `/api/knowledge/examples` | GET/POST/PUT/DELETE | Knowledge examples |
+| `/api/knowledge/voice` | GET/POST/PUT/DELETE | Voice/tone configuration |
+| `/api/knowledge/documents` | GET/POST | Knowledge documents |
+| `/api/kg` | GET/DELETE | Knowledge graph management |
+| `/api/kg/entities` | GET/POST | Knowledge graph entities |
+| `/api/kg/extract` | POST/PUT | Entity extraction |
+| `/api/kg/traverse` | GET/POST | Graph traversal |
+
+**RAG (Document Search):**
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/rag/upload` | POST | Upload document for RAG |
+| `/api/rag/documents` | GET/DELETE/PATCH | Manage RAG documents |
+| `/api/rag/search` | POST | Semantic search across documents |
+| `/api/rag/import-url` | POST | Import URL content for RAG |
+
+**Batch Processing:**
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/batch-prospects` | POST/GET | Create/list batch research jobs |
+| `/api/batch-prospects/[jobId]` | GET/PATCH/DELETE | Manage individual batch job |
+| `/api/batch-prospects/[jobId]/process` | POST | Process batch job |
+| `/api/batch-prospects/[jobId]/export` | GET | Export batch results |
+| `/api/batch-reports` | GET | Batch report management |
+
+**CRM Integrations:**
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/crm-integrations` | GET/POST | List/connect CRM integrations |
+| `/api/crm-integrations/[provider]` | GET/DELETE | Get/disconnect specific CRM |
+| `/api/crm-integrations/[provider]/sync` | GET/POST | Sync CRM data |
+| `/api/crm-integrations/[provider]/validate` | POST | Validate CRM credentials |
+
+**Other Features:**
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/subscription/plan` | GET | Subscription plan info |
+| `/api/export-pdf` | POST | Export chat as PDF |
+| `/api/prospect-pdf` | POST/GET | Generate prospect research PDF |
+| `/api/pdf-branding` | GET/PUT | Custom PDF branding |
+| `/api/speech-to-text` | POST | Voice input (Groq Whisper) |
+| `/api/discovery` | POST/GET | Prospect discovery |
+| `/api/notion-integration` | GET/DELETE | Notion integration management |
+| `/api/quiz` | GET/POST | Quiz and rewards |
+| `/api/consent` | GET/POST | GDPR consent management |
+| `/api/user/account` | GET/DELETE | Account management/deletion |
+| `/api/user/export` | POST | GDPR data export |
+| `/api/truencoa/validate` | POST | Address validation |
+| `/api/rate-limits` | GET | Rate limit info |
+| `/api/link-preview` | GET | URL link preview |
+| `/api/providers` | POST | Provider configuration |
 
 ## Important Implementation Patterns
 
@@ -438,10 +578,12 @@ const { track, identify, isAvailable } = useAnalytics()
 - Stores user preferences, personal details, and context
 - Two types: explicit ("remember that...") and automatic
 - Features:
-  - **Pattern detection**: Recognizes memory commands
-  - **AI-powered extraction**: Uses GPT-4o-mini to identify facts
-  - **Category classification**: Organizes into user_info, preferences, context, etc.
-  - **Importance scoring**: Ranks memories by relevance (0-1 scale)
+  - **Pattern detection**: Recognizes memory commands (configurable patterns in `/lib/memory/config.ts`)
+  - **AI-powered extraction**: Uses the current chat model to identify facts
+  - **Category classification**: Organizes into user_info, preferences, context, relationships, skills, history, facts
+  - **Importance scoring**: Ranks memories by relevance (0-1 scale), min threshold 0.2 for auto-extract
+  - **Contradiction detection**: Extraction LLM receives existing memories, marks relationship as new/update/extend
+  - **Upsert logic**: Updates existing memory if cosine similarity > 0.9 instead of duplicating
 
 **2. Hybrid Memory Retrieval** (`/lib/memory/retrieval.ts`)
 - Auto-injection: Retrieves relevant memories and injects into system prompt
@@ -481,16 +623,19 @@ User sends message
 
 **Configuration** (`/lib/memory/config.ts`):
 - `MAX_MEMORIES_PER_USER`: 1000 memories per user
-- `AUTO_INJECT_MEMORY_COUNT`: 5 memories injected per request
-- `DEFAULT_SIMILARITY_THRESHOLD`: 0.5 (0-1 scale)
+- `AUTO_INJECT_MEMORY_COUNT`: 5 memories injected per request (7 in chat route)
+- `DEFAULT_SIMILARITY_THRESHOLD`: 0.4 (0-1 scale, lowered from 0.5 to retrieve more candidates)
 - `EXPLICIT_MEMORY_IMPORTANCE`: 0.9 for user-requested memories
+- `UPSERT_SIMILARITY_THRESHOLD`: 0.9 (above this, update instead of duplicate)
+- `EMBEDDING_MODEL`: `qwen/qwen3-embedding-8b` (MTEB #1, 1536d via Matryoshka)
+- `MEMORY_RETRIEVAL_TIMEOUT_MS`: 5000 (safety net on Supabase RPC only)
 
 **Key Files**:
-- `/lib/memory/` - Core memory system (extraction, storage, retrieval, scoring)
+- `/lib/memory/` - Core memory system (extraction, storage, retrieval, scoring, embedding-cache, hybrid-search)
 - `/lib/tools/memory-tool.ts` - AI tool for searching memories
-- `/app/api/chat/route.ts` - Integration point (lines 119-151, 229-310)
-- `/app/api/memories/` - REST API endpoints for memory CRUD
-- `/migrations/006_add_memory_system.sql` - Database schema
+- `/app/api/chat/route.ts` - Integration point (parallel memory retrieval in Promise.all)
+- `/app/api/memories/` - REST API endpoints for memory CRUD (including search, profile, timeline)
+- `/migrations/005_add_memory_system.sql` - Database schema
 
 ### Web Search Integration
 **LinkUp-Powered Prospect Research** with grounded citations:
@@ -608,7 +753,7 @@ usaspending_awards({ query: "Microsoft", awardType: "all" })
 - `/lib/tools/sec-insider.ts` - Both insider and proxy search tools
 - `/app/api/chat/route.ts` - Tool registration
 
-### CRM Integrations (Bloomerang, Virtuous, Neon CRM)
+### CRM Integrations (Bloomerang, Virtuous, Neon CRM, DonorPerfect)
 **Nonprofit donor CRM integrations** - User-level credentials via Settings UI:
 
 | CRM | Setup Location | Data Synced |
@@ -616,6 +761,7 @@ usaspending_awards({ query: "Microsoft", awardType: "all" })
 | Bloomerang | Settings → Integrations | Constituents, Transactions |
 | Virtuous | Settings → Integrations | Contacts, Gifts |
 | Neon CRM | Settings → Integrations | Accounts, Donations |
+| DonorPerfect | Settings → Integrations | Donors, Gifts |
 
 **User Setup Flow**:
 1. Go to **Settings → Integrations**
@@ -757,47 +903,62 @@ giving_capacity_calculator({
 
 ## Environment Variables
 
-Required for full functionality:
+Required for full functionality (see `.env.example` for complete list):
 ```bash
-# Supabase (optional - app works without it)
+# ===========================================
+# REQUIRED
+# ===========================================
+
+# Security
+CSRF_SECRET=                    # 32-byte hex (use crypto.randomBytes)
+ENCRYPTION_KEY=                 # 32-byte base64 (for BYOK)
+
+# AI Model API Key
+OPENROUTER_API_KEY=             # Required - powers Grok 4.1 Fast model and embeddings
+
+# ===========================================
+# OPTIONAL - Full Features
+# ===========================================
+
+# Supabase (for auth, storage, persistence - app works without it)
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE=
 
-# Security (required)
-CSRF_SECRET=                    # 32-byte hex (use crypto.randomBytes)
-ENCRYPTION_KEY=                 # 32-byte base64 (for BYOK)
+# Web Search & Research
+LINKUP_API_KEY=                 # LinkUp prospect research (standard $0.005/search, deep $0.02/search)
+GOOGLE_AI_API_KEY=              # Gemini Grounded Search (beta, Scale plan only)
+FEC_API_KEY=                    # FEC political contributions (free at api.data.gov/signup)
+DATA_GOV_API_KEY=               # Higher rate limits for gov APIs (free at api.data.gov/signup)
+# USAspending, SEC EDGAR, ProPublica - no API key required (FREE)
 
-# AI Model API Key (required)
-OPENROUTER_API_KEY=             # Required for Grok 4.1 Fast model
+# Voice Input
+GROQ_API_KEY=                   # Speech-to-Text via Whisper (free at console.groq.com)
 
-# LinkUp Search API (required for prospect research)
-# Get your API key at https://linkup.so
-# Powers all web research (chat, batch, deep research)
-# Standard mode: $0.005/search, Deep mode: $0.02/search
-LINKUP_API_KEY=                 # Required - LinkUp is enabled by default when set
-
-# USAspending API (no API key required - FREE)
-# Federal contracts, grants, loans data - works without a key
-
-# Neon CRM (optional - for admin/system-level direct API access)
-# NOTE: Users should add credentials via Settings → Integrations instead
-# These env vars enable direct API tools (neon_crm_search_accounts, etc.)
-# Get credentials: Settings > Organization Profile (Org ID), Settings > User Management (API Key)
-NEON_CRM_ORG_ID=                # Your Neon CRM Organization ID (optional)
-NEON_CRM_API_KEY=               # API key from user with API Access enabled (optional)
+# CRM Integration (admin/system-level - users add via Settings UI instead)
+NEON_CRM_ORG_ID=                # Neon CRM Organization ID (optional)
+NEON_CRM_API_KEY=               # Neon CRM API key (optional)
 NEON_CRM_TRIAL=false            # Set to "true" for trial instances
 
-# PostHog Analytics (optional - for product analytics)
-# Get your API key at https://posthog.com
-NEXT_PUBLIC_POSTHOG_KEY=        # Optional - enables analytics tracking
-NEXT_PUBLIC_POSTHOG_HOST=       # Optional - defaults to https://us.i.posthog.com
-NEXT_PUBLIC_POSTHOG_ENABLE_RECORDINGS=false  # Optional - enable session recordings
+# Notion Integration
+NOTION_CLIENT_ID=               # Notion OAuth Client ID
+NOTION_CLIENT_SECRET=           # Notion OAuth Client Secret
 
-# Production Configuration (optional)
+# Subscriptions
+AUTUMN_SECRET_KEY=              # Autumn billing (am_sk_test_... or am_sk_live_...)
+
+# CAPTCHA Solving (for web crawl)
+ROBOFLOW_API_KEY=               # Roboflow object detection for CAPTCHA solving
+
+# Analytics
+NEXT_PUBLIC_POSTHOG_KEY=        # PostHog analytics tracking (optional)
+NEXT_PUBLIC_POSTHOG_HOST=       # Defaults to https://us.i.posthog.com
+NEXT_PUBLIC_POSTHOG_ENABLE_RECORDINGS=false
+
+# Production
 NEXT_PUBLIC_VERCEL_URL=         # Your production domain
 
-# Development Tools (optional)
+# Development
 ANALYZE=false                   # Set to true to analyze bundle size
 ```
 
@@ -824,19 +985,21 @@ Remove Supabase env vars from `.env.local`:
 - Useful for testing offline functionality
 
 ### Working with the AI SDK
-Streaming uses Vercel AI SDK (`ai` package):
-- `streamText()` for chat responses
-- `useChat()` hook in components for streaming state
-- `Message` type from `ai` package (not custom type)
+Streaming uses Vercel AI SDK v4 (`ai@4.x`, `@ai-sdk/react@1.x`):
+- `streamText()` for chat responses (server-side, from `ai` package)
+- `useChat()` hook from `@ai-sdk/react` in components for streaming state
+- Returns `{ messages, input, handleSubmit, reload, stop, setMessages, setInput, append, status }`
+- `Message` type imported from `@ai-sdk/react` on client, `Message` from `ai` on server
 - Tool invocations stored in `message.parts` array
+- `toDataStreamResponse()` for streaming responses to client
 
 ### Rate Limit Testing
 Adjust limits in `/lib/config.ts`:
 ```typescript
-export const DAILY_MESSAGE_LIMIT = 1000        // Authenticated users
-export const GUEST_DAILY_MESSAGE_LIMIT = 5    // Guest users
+export const AUTH_DAILY_MESSAGE_LIMIT = 1000         // Authenticated users
+export const NON_AUTH_DAILY_MESSAGE_LIMIT = 5        // Guest users
 export const DAILY_FILE_UPLOAD_LIMIT = 5
-export const PRO_MODEL_LIMIT = 500            // Lifetime for pro models
+export const DAILY_LIMIT_PRO_MODELS = 500            // Lifetime for pro models
 ```
 
 ## Common Pitfalls
@@ -865,8 +1028,10 @@ npm run build -- --analyze
 
 ## Additional Resources
 
-- See `INSTALL.md` for complete setup instructions
+- See `DOCS.md` for developer documentation (setup, architecture, integrations)
 - See `README.md` for feature overview
-- Model definitions: `/lib/models/data/*.ts`
-- API route handlers: `/app/api/**/route.ts`
+- See `DATA_SOURCES.md` for comprehensive list of all data sources and tools
+- Model definitions: `/lib/models/data/openrouter.ts`
+- API route handlers: `/app/api/**/route.ts` (43+ route directories)
 - Type definitions: `/app/types/*` and `/lib/*/types.ts`
+- Migration files: `/migrations/*.sql` (45+ migration files)
