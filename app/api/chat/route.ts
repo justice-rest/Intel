@@ -1093,29 +1093,6 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     // This prevents "Bad Request" errors for models like Perplexity that only accept text
     const cleanedMessages = cleanMessagesForTools(optimizedMessages, modelSupportsTools, modelSupportsVision)
 
-    // Debug logging for model configuration
-    console.log("[Chat API] Request config:", {
-      model: normalizedModel,
-      modelSupportsTools,
-      modelSupportsVision,
-      hasTools,
-      enableSearch,
-      messageCount: cleanedMessages.length,
-      hasApiKey: !!apiKey,
-      hasEnvKey: !!process.env.OPENROUTER_API_KEY,
-    })
-
-    // Log message structure for debugging
-    console.log("[Chat API] Messages being sent:")
-    cleanedMessages.forEach((msg, i) => {
-      const msgAny = msg as any
-      const contentEmpty = !msg.content || (typeof msg.content === "string" && !msg.content.trim()) || (Array.isArray(msg.content) && msg.content.length === 0)
-      console.log(`[Chat API]   [${i}] role: ${msg.role}, contentType: ${typeof msg.content}, isEmpty: ${contentEmpty}, hasAttachments: ${!!msgAny.experimental_attachments}`)
-      if (Array.isArray(msg.content)) {
-        console.log(`[Chat API]       content parts: ${(msg.content as any[]).map((p: any) => `${p.type || 'unknown'}(${p.text ? 'has text' : 'no text'})`).join(', ')}`)
-      }
-    })
-
     // SAFETY NET: Final check for empty content (xAI/Grok requires non-empty content in every message)
     // This should never trigger if cleanMessagesForTools is working correctly, but prevents API errors
     const finalMessages = cleanedMessages.map((msg) => {
@@ -1199,13 +1176,6 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
       },
 
       onFinish: async ({ response, text, finishReason, usage }) => {
-        // Log completion details for debugging stuck issues
-        console.log("[Chat API] Stream finished:", {
-          finishReason,
-          textLength: text?.length ?? 0,
-          messageCount: response.messages?.length ?? 0,
-          usage,
-        })
         if (supabase) {
           // Store assistant message and get the message ID
           const savedMessage = await storeAssistantMessage({

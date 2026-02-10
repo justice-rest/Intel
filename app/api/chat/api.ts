@@ -65,13 +65,21 @@ async function checkAndUseBonusCredits(
     return { hasBonus: false, usedBonus: false }
   }
 
-  // Deduct 1 bonus credit
-  await supabase
+  // Deduct 1 bonus credit using optimistic concurrency control
+  // The .eq("bonus_messages", currentBonus) guard ensures another concurrent
+  // request hasn't already modified the balance between our read and write
+  const { data: updated } = await supabase
     .from("users")
     .update({ bonus_messages: currentBonus - 1 } as any)
     .eq("id", userId)
+    .eq("bonus_messages", currentBonus)
+    .select("bonus_messages")
+    .maybeSingle()
 
-  console.log(`[Bonus Credits] Used 1 bonus credit for user ${userId}. Remaining: ${currentBonus - 1}`)
+  if (!updated) {
+    // Concurrent modification detected — balance changed between read and write
+    return { hasBonus: false, usedBonus: false }
+  }
 
   return { hasBonus: true, usedBonus: true }
 }
