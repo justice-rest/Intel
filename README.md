@@ -4,7 +4,7 @@
 
 **Rōmy** helps small nonprofits find new major donors at a fraction of the cost of existing solutions.
 
-![Rōmy cover](./public/cover_romy.jpg)
+![Rōmy cover](./public/cover_zola.jpg)
 
 ## Features
 
@@ -16,6 +16,9 @@
 - Batch prospect research with report generation
 - CRM integrations (Bloomerang, Virtuous, Neon CRM, DonorPerfect)
 - Giving capacity calculator (TFG Research formulas)
+- Knowledge profiles for organization-specific context
+- Voice input via Groq Whisper
+- GDPR-compliant data export and deletion
 - Clean, responsive UI with light/dark themes
 - Built with Tailwind CSS, shadcn/ui, and prompt-kit
 - Self-hostable
@@ -32,7 +35,7 @@ npm run dev
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/ibelick/romy)
 
-To unlock features like auth, file uploads, see [DOCS.md](./docs/DOCS.md).
+To unlock features like auth, file uploads, see [DOCS.md](./docs/DOCS.md). For the full list of data sources, see [DATA_SOURCES.md](./docs/DATA_SOURCES.md).
 
 ## Built with
 

@@ -2,7 +2,7 @@
 
 **Rōmy** helps small nonprofits find new major donors at a fraction of the cost of existing solutions.
 
-Built with Next.js 15, powered by Grok via OpenRouter, with BYOK (Bring Your Own Key) support, file uploads, AI memory, web search, and subscriptions via Autumn.
+Built with Next.js 15, powered by Grok 4.1 Fast via OpenRouter, with BYOK (Bring Your Own Key) support, file uploads, AI memory, 22 research tools, RAG document search, and subscriptions via Autumn.
 
 **Live:** [intel.getromy.app](https://intel.getromy.app)
 
@@ -16,13 +16,15 @@ Built with Next.js 15, powered by Grok via OpenRouter, with BYOK (Bring Your Own
 4. [Architecture Overview](#architecture-overview)
 5. [AI Provider Integration](#ai-provider-integration)
 6. [AI Memory System](#ai-memory-system)
-7. [Web Search (Linkup)](#web-search-linkup)
-8. [Subscriptions (Autumn)](#subscriptions-autumn)
-9. [Analytics (PostHog)](#analytics-posthog)
-10. [API Routes Reference](#api-routes-reference)
-11. [Development Commands](#development-commands)
-12. [Common Pitfalls](#common-pitfalls)
-13. [Troubleshooting](#troubleshooting)
+7. [RAG Document Search](#rag-document-search)
+8. [Research Tools](#research-tools)
+9. [Web Search (Linkup)](#web-search-linkup)
+10. [Subscriptions (Autumn)](#subscriptions-autumn)
+11. [Analytics (PostHog)](#analytics-posthog)
+12. [API Routes Reference](#api-routes-reference)
+13. [Development Commands](#development-commands)
+14. [Common Pitfalls](#common-pitfalls)
+15. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -52,29 +54,46 @@ CSRF_SECRET=                    # 32-byte hex: node -e "console.log(require('cry
 ENCRYPTION_KEY=                 # 32-byte base64: node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
 # AI Provider
-OPENROUTER_API_KEY=             # Required - powers Grok model
+OPENROUTER_API_KEY=             # Required - powers Grok 4.1 Fast model and embeddings
 
 # ===========================================
 # OPTIONAL - Full Features
 # ===========================================
 
-# Supabase (for auth, storage, persistence)
+# Supabase (for auth, storage, persistence - app works without it)
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE=
 
-# Web Search
-LINKUP_API_KEY=                 # For enhanced web search (free at app.linkup.so)
+# Web Search & Research
+LINKUP_API_KEY=                 # LinkUp prospect research ($0.005-$0.02/search)
+FEC_API_KEY=                    # FEC political contributions (free at api.data.gov/signup)
+DATA_GOV_API_KEY=               # Higher rate limits for gov APIs (free at api.data.gov/signup)
+GOOGLE_AI_API_KEY=              # Gemini Grounded Search (beta, Scale plan only)
+
+# Voice Input
+GROQ_API_KEY=                   # Speech-to-Text via Whisper (free at console.groq.com)
+
+# Notion Integration
+NOTION_CLIENT_ID=               # Notion OAuth Client ID
+NOTION_CLIENT_SECRET=           # Notion OAuth Client Secret
 
 # Subscriptions
 AUTUMN_SECRET_KEY=              # For billing (am_sk_test_... or am_sk_live_...)
 
+# CAPTCHA Solving (for web crawl)
+ROBOFLOW_API_KEY=               # Roboflow object detection for CAPTCHA solving
+
 # Analytics
 NEXT_PUBLIC_POSTHOG_KEY=
 NEXT_PUBLIC_POSTHOG_HOST=       # Defaults to https://us.i.posthog.com
+NEXT_PUBLIC_POSTHOG_ENABLE_RECORDINGS=false
 
 # Production
-NEXT_PUBLIC_VERCEL_URL=
+NEXT_PUBLIC_VERCEL_URL=         # Your production domain
+
+# Development
+ANALYZE=false                   # Set to true to analyze bundle size
 ```
 
 ---
@@ -95,14 +114,29 @@ npm run migrate
 | Table | Purpose |
 |-------|---------|
 | `users` | Profile, message counts, daily limits, system_prompt |
-| `chats` | Chat metadata (title, model, pinned) |
-| `messages` | Content, role, attachments, parts |
+| `chats` | Chat metadata (title, model, pinned, system_prompt) |
+| `messages` | Content, role, attachments (JSONB), parts (JSONB), model |
 | `user_keys` | Encrypted BYOK API keys |
-| `user_preferences` | UI settings (layout, hidden_models) |
-| `user_memories` | AI memory with vector embeddings |
-| `projects` | Chat organization |
+| `user_preferences` | UI settings (layout, hidden_models, beta_features_enabled) |
+| `user_memories` | AI memory with pgvector embeddings (1536 dimensions) |
+| `projects` | Chat/project organization |
 | `chat_attachments` | File upload metadata |
 | `feedback` | User feedback |
+| `knowledge_profiles` | Knowledge profiles for organizations |
+| `knowledge_facts` | Knowledge facts, strategies, examples |
+| `knowledge_voice_configs` | Voice/tone configuration |
+| `knowledge_documents` | Uploaded knowledge documents |
+| `batch_jobs` | Batch prospect research jobs |
+| `batch_items` | Individual items within batch jobs |
+| `batch_reports` | Generated prospect reports |
+| `batch_report_embeddings` | Report vector embeddings for search |
+| `rag_documents` | Uploaded RAG documents |
+| `rag_document_chunks` | Document chunks with vector embeddings |
+| `crm_integrations` | CRM connection config per user |
+| `crm_constituents` | Synced CRM constituent data |
+| `crm_donations` | Synced CRM donation data |
+| `romy_score_cache` | Cached prospect scores |
+| `message_notes` | Message annotations |
 
 ### Post-Migration Steps
 
@@ -124,19 +158,30 @@ npm run migrate
 
 ```
 /app                    # Next.js 15 app router
-  /api                  # Backend API endpoints
-  /components           # App-specific components
-/components            # Shared UI components (shadcn/ui)
-/lib                   # Core business logic
+  /api                  # Backend API endpoints (41 route directories)
+  /components           # App-specific components (chat, history, knowledge, layout, etc.)
+/components            # Shared UI components (shadcn/ui, prompt-kit, motion-primitives)
+/lib                   # Core business logic (50+ subdirectories)
+  /batch-processing    # Bulk prospect research with checkpoints, dead letter, idempotency
+  /batch-reports       # Report generation, storage, semantic search
   /chat-store          # Chat state (Context + IndexedDB + Supabase)
-  /memory              # AI memory system
-  /models              # AI model definitions
-  /openproviders       # Provider abstraction
-  /posthog             # Analytics
-  /subscription        # Autumn billing
-  /supabase            # Database client
-  /tools               # AI tools (search, memory, RAG)
-/supabase/migrations   # SQL migrations (managed by Supabase CLI)
+  /crm                 # CRM integrations (Bloomerang, Virtuous, Neon CRM, DonorPerfect)
+  /discovery           # Prospect discovery/finding
+  /gdpr, /consent      # Data deletion, export, consent logging
+  /knowledge           # Knowledge profiles, facts, strategies, voice configs
+  /memory              # AI memory system (extraction, retrieval, storage, embedding cache)
+  /memory-store        # Memory state provider (React Context)
+  /models              # AI model definitions (all via OpenRouter)
+  /openproviders       # AI provider abstraction layer
+  /posthog             # Analytics integration
+  /rag                 # RAG document management, chunking, vector search
+  /romy-score          # Proprietary prospect scoring with caching
+  /subscription        # Autumn billing integration
+  /supabase            # Database client configuration
+  /tools               # 22 AI tools (research, SEC, FEC, CRM, capacity calculator, etc.)
+  /web-crawl           # URL import and web crawling
+  /workflows           # Batch research, CRM sync, memory extraction workflows
+/supabase/migrations   # SQL migrations (20 migration files)
 ```
 
 ### Hybrid Architecture
@@ -165,10 +210,12 @@ Uses **React Context + React Query**:
 
 ### Default Model
 
-Rōmy uses **Grok** via OpenRouter as the default AI model. This provides:
+Rōmy uses **Grok 4.1 Fast** via OpenRouter as the default AI model. This provides:
 - Fast, intelligent responses
-- Web search capabilities
-- Tool invocations
+- Native web search capabilities (including X/Twitter)
+- Tool invocations for all 22 research tools
+
+A thinking variant (**Grok 4.1 Fast Thinking**) is used for deep research mode.
 
 ### BYOK (Bring Your Own Key)
 
@@ -247,9 +294,70 @@ User sends message
 |----------|--------|---------|
 | `/api/memories` | GET | List all memories |
 | `/api/memories` | POST | Create memory |
-| `/api/memories/:id` | PUT | Update memory |
-| `/api/memories/:id` | DELETE | Delete memory |
+| `/api/memories/:id` | GET/PUT/DELETE | Individual memory operations |
 | `/api/memories/search` | POST | Semantic search |
+| `/api/memories/timeline` | GET | Memory timeline view |
+| `/api/memories/profile` | GET/POST/PUT | Memory profile management |
+
+---
+
+## RAG Document Search
+
+RAG (Retrieval-Augmented Generation) allows users to upload documents and search them semantically during conversations.
+
+### Features
+
+- **Document Upload**: PDF, text, CSV, Excel, Word documents
+- **Semantic Chunking**: Structure-aware chunking with sentence boundary preservation (384 target tokens)
+- **Auto-Injection**: Top 3 relevant chunks (similarity > 0.65) injected into system prompt
+- **Tool Access**: AI can explicitly call `rag_search` and `list_documents` tools
+- **Vector Search**: Uses same embedding model as memory system (`qwen/qwen3-embedding-8b`, 1536d)
+
+### Key Files
+
+- `/lib/rag/` - Core RAG system (chunker, semantic-chunker, search, embeddings, config)
+- `/lib/rag/pdf-processor.ts` - PDF text extraction
+- `/lib/rag/office-processor.ts` - Office document processing
+- `/app/api/rag/` - REST API endpoints (upload, documents, search, import-url, download)
+
+### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/rag/upload` | POST | Upload document for RAG |
+| `/api/rag/documents` | GET/DELETE/PATCH | Manage RAG documents |
+| `/api/rag/search` | POST | Semantic search across documents |
+| `/api/rag/import-url` | POST | Import URL content for RAG |
+| `/api/rag/download/:id` | GET | Download original document |
+
+---
+
+## Research Tools
+
+Romy integrates 22 AI tools for prospect research. See [DATA_SOURCES.md](./DATA_SOURCES.md) for the full list with competitive comparisons.
+
+### Tool Categories
+
+| Category | Tools | API Keys Required |
+|----------|-------|-------------------|
+| Web Search | `linkup_prospect_research`, `linkup_ultra_research`, `gemini_grounded_search`, `gemini_ultra_search` | LINKUP_API_KEY, GOOGLE_AI_API_KEY |
+| Securities | `sec_edgar_filings`, `sec_insider_search`, `sec_proxy_search` | None (free) |
+| Political | `fec_contributions`, `federal_lobbying` | FEC_API_KEY (free) |
+| Government | `usaspending_awards`, `state_contracts` | None (free) |
+| Nonprofit | `propublica_nonprofit_search`, `propublica_nonprofit_details` | None (free) |
+| Healthcare | `npi_registry`, `cms_open_payments` | None (free) |
+| Legal | `court_search` | None (free) |
+| CRM | `crm_search` | User configures in Settings |
+| Analysis | `giving_capacity_calculator` | None |
+| Memory/RAG | `search_memory`, `search_prospects`, `rag_search`, `list_documents` | None |
+
+### Tool Activation
+
+Tools are conditionally enabled based on:
+- **Search toggle**: Most research tools require user to enable search in the chat UI
+- **Authentication**: Memory, RAG, and prospect search require authenticated user
+- **CRM connection**: `crm_search` requires user to have connected a CRM
+- **Beta features**: Gemini and ultra-research tools require beta features enabled + Scale plan
 
 ---
 
@@ -366,22 +474,119 @@ const showNewFeature = useIsFeatureEnabled('new_feature')
 
 ## API Routes Reference
 
+### Core Chat & Auth
+
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/chat` | POST | Stream AI responses |
-| `/api/create-chat` | POST | Create new chat |
-| `/api/models` | GET | Get available models |
-| `/api/user-preferences` | GET/PUT | User settings |
-| `/api/user-preferences/favorite-models` | PUT | Save favorites |
-| `/api/user-key-status` | GET | Check BYOK keys |
-| `/api/user-keys` | POST/DELETE | Manage API keys |
-| `/api/toggle-chat-pin` | POST | Pin/unpin chat |
-| `/api/update-chat-model` | POST | Change chat model |
-| `/api/csrf` | GET | Get CSRF token |
+| `/api/chat` | POST | Stream AI responses via Vercel AI SDK |
+| `/api/create-chat` | POST | Create new chat with optimistic updates |
 | `/api/create-guest` | POST | Create anonymous user |
+| `/api/csrf` | GET | Get CSRF token |
+| `/api/health` | GET | Health check endpoint |
+
+### Models & Settings
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/models` | GET/POST | Get available models / Refresh model cache |
+| `/api/user-preferences` | GET/PUT | User settings (synced to DB + localStorage) |
+| `/api/user-preferences/favorite-models` | GET/POST | Favorite models |
+| `/api/user-key-status` | GET | Check which providers have user keys |
+| `/api/user-keys` | POST/DELETE | Manage encrypted BYOK keys |
+| `/api/user-plan` | GET | Get user subscription plan info |
+| `/api/voice-features` | GET | Check voice feature availability (STT) |
+
+### Chat Management
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/toggle-chat-pin` | POST | Pin/unpin chat |
+| `/api/update-chat-model` | POST | Change chat's default model |
+| `/api/update-chat-instructions` | POST | Update chat-level instructions |
+| `/api/chat-config` | GET/PUT | Chat configuration (knowledge profile, system prompt) |
+| `/api/chat-knowledge` | GET/POST | Chat-scoped knowledge profiles |
+| `/api/chats/:chatId/project` | POST | Assign chat to project |
+| `/api/chats/:chatId/publish` | POST | Publish chat |
+| `/api/message-notes` | GET/POST/DELETE | Message annotations |
+| `/api/share/:chatId` | GET | Share chat publicly |
+| `/api/share-email` | POST | Share chat via email |
+| `/api/projects` | GET/POST | Project management |
+| `/api/projects/:projectId` | GET/PUT/DELETE | Individual project operations |
+
+### Memory & Knowledge
+
+| Route | Method | Purpose |
+|-------|--------|---------|
 | `/api/memories` | GET/POST | Memory CRUD |
-| `/api/memories/:id` | PUT/DELETE | Memory operations |
+| `/api/memories/:id` | GET/PUT/DELETE | Individual memory operations |
+| `/api/memories/search` | POST | Semantic memory search |
+| `/api/memories/timeline` | GET | Memory timeline view |
+| `/api/memories/profile` | GET/POST/PUT | Memory profile management |
+| `/api/knowledge/profile` | GET/POST | Knowledge profile CRUD |
+| `/api/knowledge/profile/:id` | GET/PUT/DELETE | Individual knowledge profile |
+| `/api/knowledge/facts` | GET/POST/PUT/DELETE | Knowledge facts |
+| `/api/knowledge/strategy` | GET/POST/PUT/DELETE | Knowledge strategies |
+| `/api/knowledge/examples` | GET/POST/PUT/DELETE | Knowledge examples |
+| `/api/knowledge/voice` | GET/POST/PUT/DELETE | Voice/tone configuration |
+| `/api/knowledge/documents` | GET/POST | Knowledge documents |
+| `/api/knowledge/documents/:id` | GET/PUT/DELETE | Individual knowledge document |
+| `/api/knowledge/documents/analyze` | POST | Analyze knowledge document |
+| `/api/knowledge/documents/import-url` | POST | Import URL as knowledge document |
+
+### RAG (Document Search)
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/rag/upload` | POST | Upload document for RAG |
+| `/api/rag/documents` | GET/DELETE/PATCH | Manage RAG documents |
+| `/api/rag/search` | POST | Semantic search across documents |
+| `/api/rag/import-url` | POST | Import URL content for RAG |
+| `/api/rag/download/:id` | GET | Download original document |
+
+### Batch Processing
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/batch-prospects` | POST/GET | Create/list batch research jobs |
+| `/api/batch-prospects/limits` | GET | Check batch processing limits |
+| `/api/batch-prospects/preflight` | POST | Pre-flight validation for batch job |
+| `/api/batch-prospects/enrich` | POST | Enrich batch data |
+| `/api/batch-prospects/:jobId` | GET/PATCH/DELETE | Manage individual batch job |
+| `/api/batch-prospects/:jobId/process` | POST | Process batch job |
+| `/api/batch-prospects/:jobId/process-batch` | POST | Process batch in bulk |
+| `/api/batch-prospects/:jobId/export` | GET | Export batch results |
+| `/api/batch-prospects/:jobId/enrich-stream` | POST | Stream enrichment results |
+| `/api/batch-prospects/:jobId/items/:itemId/retry` | POST | Retry failed batch item |
+| `/api/batch-reports` | GET | Batch report management |
+
+### CRM Integrations
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/crm-integrations` | GET/POST | List/connect CRM integrations |
+| `/api/crm-integrations/:provider` | GET/DELETE | Get/disconnect specific CRM |
+| `/api/crm-integrations/:provider/sync` | GET/POST | Sync CRM data |
+| `/api/crm-integrations/:provider/validate` | POST | Validate CRM credentials |
+
+### Other Features
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/subscription/plan` | GET | Subscription plan info |
 | `/api/autumn/[...all]` | ALL | Autumn billing proxy |
+| `/api/export-pdf` | POST | Export chat as PDF |
+| `/api/prospect-pdf` | POST/GET | Generate prospect research PDF |
+| `/api/pdf-branding` | GET/PUT | Custom PDF branding |
+| `/api/speech-to-text` | POST | Voice input (Groq Whisper) |
+| `/api/discovery` | POST/GET | Prospect discovery |
+| `/api/notion-integration` | GET/DELETE | Notion integration management |
+| `/api/quiz` | GET/POST | Quiz and rewards |
+| `/api/consent` | GET/POST | GDPR consent management |
+| `/api/user/account` | GET/DELETE | Account management/deletion |
+| `/api/user/export` | POST | GDPR data export |
+| `/api/truencoa/validate` | POST | Address validation |
+| `/api/rate-limits` | GET | Rate limit info |
+| `/api/link-preview` | GET | URL link preview |
 
 ---
 
@@ -389,18 +594,22 @@ const showNewFeature = useIsFeatureEnabled('new_feature')
 
 ```bash
 # Development
-npm run dev              # Start with Turbopack
+npm run dev              # Start dev server with Turbopack
 npm run build            # Production build
 npm run start            # Production server
 npm run lint             # ESLint
-npm run type-check       # TypeScript check
+npm run type-check       # TypeScript type checking without emit
+
+# Testing
+npm run test             # Run vitest tests
+npm run test:watch       # Run vitest in watch mode
 
 # Database
-npm run migrate          # Run migrations
+npm run migrate          # Run migrations via supabase db push
 npm run migrate:manual   # Get manual instructions
 
 # Docker
-docker build -t romy .                            # Build image
+docker build -t romy .   # Build production image
 
 # Generate secrets
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"     # CSRF_SECRET

@@ -402,6 +402,7 @@ For production, configure a custom SMTP provider:
 | `/api/user-key-status` | GET | Check which providers have user keys |
 | `/api/user-keys` | POST/DELETE | Manage encrypted BYOK keys |
 | `/api/user-plan` | GET | Get user subscription plan info |
+| `/api/voice-features` | GET | Check voice feature availability (STT) |
 
 **Chat Management:**
 
@@ -412,9 +413,13 @@ For production, configure a custom SMTP provider:
 | `/api/update-chat-instructions` | POST | Update chat-level instructions |
 | `/api/chat-config` | GET/PUT | Chat configuration (knowledge profile, system prompt) |
 | `/api/chat-knowledge` | GET/POST | Chat-scoped knowledge profiles |
+| `/api/chats/[chatId]/project` | POST | Assign chat to project |
+| `/api/chats/[chatId]/publish` | POST | Publish chat |
 | `/api/message-notes` | GET/POST/DELETE | Message annotations |
 | `/api/share/[chatId]` | GET | Share chat publicly |
 | `/api/share-email` | POST | Share chat via email |
+| `/api/projects` | GET/POST | Project management |
+| `/api/projects/[projectId]` | GET/PUT/DELETE | Individual project operations |
 
 **Memory & Knowledge:**
 
@@ -423,7 +428,8 @@ For production, configure a custom SMTP provider:
 | `/api/memories` | GET/POST | Memory CRUD |
 | `/api/memories/[id]` | GET/PUT/DELETE | Individual memory operations |
 | `/api/memories/search` | POST | Semantic memory search |
-| `/api/memories/profile` | GET/POST/PUT | Memory profile management (excluded from tsconfig, dead code) |
+| `/api/memories/timeline` | GET | Memory timeline view |
+| `/api/memories/profile` | GET/POST/PUT | Memory profile management |
 | `/api/knowledge/profile` | GET/POST | Knowledge profile CRUD |
 | `/api/knowledge/profile/[id]` | GET/PUT/DELETE | Individual knowledge profile |
 | `/api/knowledge/facts` | GET/POST/PUT/DELETE | Knowledge facts |
@@ -431,6 +437,9 @@ For production, configure a custom SMTP provider:
 | `/api/knowledge/examples` | GET/POST/PUT/DELETE | Knowledge examples |
 | `/api/knowledge/voice` | GET/POST/PUT/DELETE | Voice/tone configuration |
 | `/api/knowledge/documents` | GET/POST | Knowledge documents |
+| `/api/knowledge/documents/[id]` | GET/PUT/DELETE | Individual knowledge document |
+| `/api/knowledge/documents/analyze` | POST | Analyze knowledge document |
+| `/api/knowledge/documents/import-url` | POST | Import URL as knowledge document |
 
 **RAG (Document Search):**
 
@@ -440,15 +449,22 @@ For production, configure a custom SMTP provider:
 | `/api/rag/documents` | GET/DELETE/PATCH | Manage RAG documents |
 | `/api/rag/search` | POST | Semantic search across documents |
 | `/api/rag/import-url` | POST | Import URL content for RAG |
+| `/api/rag/download/[id]` | GET | Download original document |
 
 **Batch Processing:**
 
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/api/batch-prospects` | POST/GET | Create/list batch research jobs |
+| `/api/batch-prospects/limits` | GET | Check batch processing limits |
+| `/api/batch-prospects/preflight` | POST | Pre-flight validation for batch job |
+| `/api/batch-prospects/enrich` | POST | Enrich batch data |
 | `/api/batch-prospects/[jobId]` | GET/PATCH/DELETE | Manage individual batch job |
 | `/api/batch-prospects/[jobId]/process` | POST | Process batch job |
+| `/api/batch-prospects/[jobId]/process-batch` | POST | Process batch in bulk |
 | `/api/batch-prospects/[jobId]/export` | GET | Export batch results |
+| `/api/batch-prospects/[jobId]/enrich-stream` | POST | Stream enrichment results |
+| `/api/batch-prospects/[jobId]/items/[itemId]/retry` | POST | Retry failed batch item |
 | `/api/batch-reports` | GET | Batch report management |
 
 **CRM Integrations:**
@@ -465,6 +481,7 @@ For production, configure a custom SMTP provider:
 | Route | Method | Purpose |
 |-------|--------|---------|
 | `/api/subscription/plan` | GET | Subscription plan info |
+| `/api/autumn/[...all]` | ALL | Autumn billing proxy |
 | `/api/export-pdf` | POST | Export chat as PDF |
 | `/api/prospect-pdf` | POST/GET | Generate prospect research PDF |
 | `/api/pdf-branding` | GET/PUT | Custom PDF branding |
@@ -478,7 +495,6 @@ For production, configure a custom SMTP provider:
 | `/api/truencoa/validate` | POST | Address validation |
 | `/api/rate-limits` | GET | Rate limit info |
 | `/api/link-preview` | GET | URL link preview |
-| `/api/providers` | POST | Provider configuration |
 
 ## Important Implementation Patterns
 
@@ -1010,6 +1026,6 @@ npm run build -- --analyze
 - See `README.md` for feature overview
 - See `docs/DATA_SOURCES.md` for comprehensive list of all data sources and tools
 - Model definitions: `/lib/models/data/openrouter.ts`
-- API route handlers: `/app/api/**/route.ts` (42 route directories)
+- API route handlers: `/app/api/**/route.ts` (41 route directories)
 - Type definitions: `/app/types/*` and `/lib/*/types.ts`
 - Migration files: `/supabase/migrations/*.sql` (20 migration files)
