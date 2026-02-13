@@ -278,39 +278,65 @@ export async function getUserMemories(
   limit?: number,
   offset?: number
 ): Promise<UserMemory[]> {
-  try {
-    const supabase = await createClient()
-    if (!supabase) {
-      console.error("Supabase not configured")
-      return []
+  // Retry once on transient fetch failures (serverless cold-start DNS issues,
+  // Supabase connection resets). The "TypeError: fetch failed" from Supabase's
+  // internal HTTP client is transient and typically succeeds on retry.
+  const MAX_ATTEMPTS = 2
+  let lastError: unknown = null
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const supabase = await createClient()
+      if (!supabase) {
+        console.error("[Memory] Supabase not configured")
+        return []
+      }
+
+      let query = supabase
+        .from("user_memories")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+
+      if (limit) {
+        query = query.limit(limit)
+      }
+
+      if (offset) {
+        query = query.range(offset, offset + (limit || 50) - 1)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        // Retry on transient fetch failures (connection reset, DNS timeout)
+        const msg = error.message?.toLowerCase() || ""
+        if (attempt < MAX_ATTEMPTS && (msg.includes("fetch failed") || msg.includes("econnreset") || msg.includes("timeout"))) {
+          console.warn(`[Memory] Transient error fetching memories (attempt ${attempt}/${MAX_ATTEMPTS}):`, error.message)
+          lastError = error
+          await new Promise((r) => setTimeout(r, 1000)) // 1s backoff
+          continue
+        }
+        console.error("[Memory] Error fetching user memories:", error)
+        throw error
+      }
+
+      return (data || []) as UserMemory[]
+    } catch (error) {
+      lastError = error
+      // Retry on transient network errors
+      const msg = error instanceof Error ? error.message.toLowerCase() : ""
+      if (attempt < MAX_ATTEMPTS && (msg.includes("fetch failed") || msg.includes("econnreset") || msg.includes("timeout"))) {
+        console.warn(`[Memory] Transient error fetching memories (attempt ${attempt}/${MAX_ATTEMPTS}):`, msg)
+        await new Promise((r) => setTimeout(r, 1000))
+        continue
+      }
+      break
     }
-
-    let query = supabase
-      .from("user_memories")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-
-    if (limit) {
-      query = query.limit(limit)
-    }
-
-    if (offset) {
-      query = query.range(offset, offset + (limit || 50) - 1)
-    }
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error("Error fetching user memories:", error)
-      throw error
-    }
-
-    return (data || []) as UserMemory[]
-  } catch (error) {
-    console.error("Failed to fetch user memories:", error)
-    return []
   }
+
+  console.error("[Memory] Failed to fetch user memories after retries:", lastError)
+  return []
 }
 
 /**

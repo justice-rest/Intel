@@ -12,14 +12,22 @@ export const CRAWL_MAX_PAGE_SIZE = 1 * 1024 * 1024 // 1MB per page
 export const CRAWL_MIN_CONTENT_LENGTH = 100 // chars - skip low-value pages
 
 // Timeouts
-export const CRAWL_FETCH_TIMEOUT = 10_000 // 10s per page
+export const CRAWL_FETCH_TIMEOUT = 15_000 // 15s per page (increased from 10s — CDN/WAF challenge pages need more time)
 export const CRAWL_OVERALL_TIMEOUT = 180_000 // 3 minutes total
 
 // Throttling
 export const CRAWL_DOMAIN_THROTTLE = 1_000 // 1s between requests to same domain
 
-// User-Agent
-export const CRAWL_USER_AGENT = "RomyBot/1.0 (+https://getromy.app)"
+// User-Agent for page fetching — browser-like to avoid WAF/CDN blocks.
+// Sites like Cloudflare serve empty or challenge pages to bot UAs,
+// causing content extraction to fail with "Too little content".
+// We still identify as RomyBot in robots.txt checks (see CRAWL_ROBOTS_USER_AGENT).
+export const CRAWL_USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+
+// User-Agent for robots.txt identification — identifies us as a bot
+// so site owners can specifically allow/block our crawler.
+export const CRAWL_ROBOTS_USER_AGENT = "RomyBot/1.0 (+https://getromy.app)"
 
 // SSRF Prevention - Private/reserved IP ranges
 // Covers: RFC 1918, RFC 6598, loopback, link-local, cloud metadata, benchmarking, reserved
