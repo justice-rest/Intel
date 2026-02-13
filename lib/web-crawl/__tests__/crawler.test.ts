@@ -162,7 +162,13 @@ describe("error message mapping", () => {
 // =============================================================================
 
 describe("discoverLinks (via crawlSite behavior)", () => {
-  // Since discoverLinks is a module-private function, we test its logic directly
+  // Since discoverLinks is a module-private function, we test its logic directly.
+  // Must mirror the real implementation including www-normalization in isSameOrigin.
+  function isSameOrigin(url: URL, rootUrl: URL): boolean {
+    const stripWww = (h: string) => h.replace(/^www\./, "")
+    return stripWww(url.hostname) === stripWww(rootUrl.hostname)
+  }
+
   function discoverLinks(html: string, pageUrl: string, rootUrl: URL): string[] {
     const links: string[] = []
     const NON_HTML_EXTENSIONS = new Set([
@@ -183,7 +189,7 @@ describe("discoverLinks (via crawlSite behavior)", () => {
 
       try {
         const resolved = new URL(href, pageUrl)
-        if (resolved.hostname !== rootUrl.hostname) continue
+        if (!isSameOrigin(resolved, rootUrl)) continue
         const ext = resolved.pathname.split(".").pop()?.toLowerCase()
         if (ext && NON_HTML_EXTENSIONS.has(ext)) continue
         links.push(resolved.href)
@@ -227,6 +233,46 @@ describe("discoverLinks (via crawlSite behavior)", () => {
     const html = `<a href="../other">Other</a>`
     const links = discoverLinks(html, "https://example.com/docs/page", new URL("https://example.com"))
     expect(links).toContain("https://example.com/other")
+  })
+
+  it("finds links when site redirected from non-www to www (effective origin)", () => {
+    // Simulates: user entered goodestdogs.com, server redirected to www.goodestdogs.com
+    // After redirect, effectiveOrigin becomes www.goodestdogs.com
+    // Links on the page point to www.goodestdogs.com
+    const html = `
+      <a href="https://www.goodestdogs.com/about">About</a>
+      <a href="https://www.goodestdogs.com/services">Services</a>
+      <a href="/contact">Contact</a>
+    `
+    // effectiveOrigin is the final URL after redirect
+    const effectiveOrigin = new URL("https://www.goodestdogs.com")
+    const links = discoverLinks(html, "https://www.goodestdogs.com/", effectiveOrigin)
+    expect(links).toHaveLength(3)
+    expect(links).toContain("https://www.goodestdogs.com/about")
+    expect(links).toContain("https://www.goodestdogs.com/services")
+    expect(links).toContain("https://www.goodestdogs.com/contact")
+  })
+
+  it("finds www links even when rootUrl has no www (www normalization)", () => {
+    // Simulates: rootUrl is example.com but page has www.example.com links
+    // isSameOrigin with www normalization should treat these as same origin
+    const html = `
+      <a href="https://www.example.com/about">About</a>
+      <a href="https://example.com/contact">Contact</a>
+    `
+    const links = discoverLinks(html, "https://example.com/", new URL("https://example.com"))
+    expect(links).toHaveLength(2)
+    expect(links).toContain("https://www.example.com/about")
+    expect(links).toContain("https://example.com/contact")
+  })
+
+  it("still blocks true cross-origin links with www normalization", () => {
+    const html = `
+      <a href="https://www.other.com/page">External with www</a>
+      <a href="https://blog.example.com/post">Subdomain</a>
+    `
+    const links = discoverLinks(html, "https://example.com/", new URL("https://example.com"))
+    expect(links).toHaveLength(0)
   })
 })
 

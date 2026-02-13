@@ -189,6 +189,30 @@ describe("isSameOrigin", () => {
     const b = new URL("https://example.com/page")
     expect(isSameOrigin(a, b)).toBe(false)
   })
+
+  it("treats www.example.com and example.com as same origin", () => {
+    const a = new URL("https://www.example.com/about")
+    const b = new URL("https://example.com")
+    expect(isSameOrigin(a, b)).toBe(true)
+  })
+
+  it("treats example.com and www.example.com as same origin (reverse)", () => {
+    const a = new URL("https://example.com/about")
+    const b = new URL("https://www.example.com")
+    expect(isSameOrigin(a, b)).toBe(true)
+  })
+
+  it("treats www.example.com and www.example.com as same origin", () => {
+    const a = new URL("https://www.example.com/page1")
+    const b = new URL("https://www.example.com/page2")
+    expect(isSameOrigin(a, b)).toBe(true)
+  })
+
+  it("returns false for non-www subdomain even with www normalization", () => {
+    const a = new URL("https://blog.example.com/page")
+    const b = new URL("https://www.example.com")
+    expect(isSameOrigin(a, b)).toBe(false)
+  })
 })
 
 // =============================================================================

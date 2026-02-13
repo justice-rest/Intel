@@ -153,10 +153,15 @@ function isPrivateIp(ip: string): boolean {
 }
 
 /**
- * Check if a URL is same-origin as the root URL
+ * Check if a URL is same-origin as the root URL.
+ * Normalizes the www. prefix so that example.com and www.example.com
+ * are treated as the same origin — the most common redirect pattern on the web.
+ * Without this, a site that redirects example.com → www.example.com would
+ * have ALL its links filtered out, causing the crawler to stop at the homepage.
  */
 export function isSameOrigin(url: URL, rootUrl: URL): boolean {
-  return url.hostname === rootUrl.hostname
+  const stripWww = (h: string) => h.replace(/^www\./, "")
+  return stripWww(url.hostname) === stripWww(rootUrl.hostname)
 }
 
 /**
