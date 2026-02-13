@@ -15,7 +15,7 @@ import {
   CRAWL_ALLOWED_PROTOCOLS,
   SSRF_BLOCKED_HOSTNAMES,
   SSRF_BLOCKED_IP_RANGES,
-  CRAWL_USER_AGENT,
+  CRAWL_ROBOTS_USER_AGENT,
   CRAWL_FETCH_TIMEOUT,
 } from "./config"
 
@@ -193,7 +193,7 @@ export async function checkRobotsTxt(
 
   try {
     const response = await fetch(robotsUrl, {
-      headers: { "User-Agent": CRAWL_USER_AGENT },
+      headers: { "User-Agent": CRAWL_ROBOTS_USER_AGENT },
       signal: AbortSignal.timeout(CRAWL_FETCH_TIMEOUT),
       redirect: "manual", // Prevent SSRF via redirect to internal resources
     })

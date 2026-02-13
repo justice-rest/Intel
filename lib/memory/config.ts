@@ -189,3 +189,13 @@ export const UPSERT_SIMILARITY_THRESHOLD = 0.9
  * inferring implicit facts and behavioral patterns.
  */
 export const MAX_EXTRACTION_INPUT_CHARS = 8000
+
+/**
+ * Timeout for the AI extraction LLM call (ms).
+ * Increased from 30s to 45s to handle:
+ * - Large prompts with up to 20 existing memories for contradiction detection
+ * - Conversation input up to 8000 chars
+ * - OpenRouter routing latency under load
+ * Still safe for fire-and-forget context (Vercel function timeout is 300s).
+ */
+export const EXTRACTION_TIMEOUT_MS = 45_000

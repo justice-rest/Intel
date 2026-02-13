@@ -168,7 +168,10 @@ export async function crawlSite(
         const fetchOptions: Record<string, unknown> = {
           headers: {
             "User-Agent": userAgent,
-            Accept: "text/html,application/xhtml+xml",
+            Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
           },
           signal: fetchSignal,
           redirect: "follow",

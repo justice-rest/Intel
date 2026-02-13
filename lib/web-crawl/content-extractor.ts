@@ -1,6 +1,11 @@
 /**
  * Content Extraction Pipeline
  * HTML → JSDOM → Readability → Turndown → clean Markdown
+ *
+ * Improvements:
+ * - Preserves image alt text as content (helps image-heavy sites)
+ * - Uses meta description as supplementary content when body text is thin
+ * - Better resilience for homepage-style pages with minimal article content
  */
 
 import { JSDOM } from "jsdom"
@@ -15,8 +20,34 @@ const turndown = new TurndownService({
   bulletListMarker: "-",
 })
 
-// Remove images, scripts, iframes from Markdown output
-turndown.remove(["img", "script", "style", "iframe", "noscript"])
+// Remove scripts, iframes, styles from Markdown output
+turndown.remove(["script", "style", "iframe", "noscript"])
+
+// Preserve image alt text instead of dropping images entirely.
+// Many sites (nonprofits, portfolios, homepages) convey meaning through
+// alt text that would otherwise be lost, causing "Too little content" skips.
+turndown.addRule("imageAltText", {
+  filter: "img",
+  replacement(_content, node) {
+    const el = node as HTMLElement
+    const alt = el.getAttribute("alt")?.trim()
+    return alt ? ` ${alt} ` : ""
+  },
+})
+
+/**
+ * Extract meta description or og:description from a document.
+ * These often contain a useful site summary, especially for homepages
+ * and image-heavy pages where body content is thin after extraction.
+ */
+function extractMetaDescription(doc: Document): string {
+  const metaDesc =
+    doc.querySelector('meta[name="description"]')?.getAttribute("content")?.trim() ||
+    doc.querySelector('meta[property="og:description"]')?.getAttribute("content")?.trim() ||
+    ""
+  // Cap at reasonable length and sanitize
+  return metaDesc.substring(0, 500)
+}
 
 /**
  * Extract clean Markdown content from raw HTML
@@ -33,6 +64,9 @@ export function extractContent(
   // runScripts: undefined = don't execute any scripts (safe default, explicit for clarity)
   const dom = new JSDOM(html, { url, runScripts: undefined })
   const doc = dom.window.document
+
+  // Extract meta description early (before DOM modifications)
+  const metaDescription = extractMetaDescription(doc)
 
   // Try Readability first (Firefox Reader View engine)
   let articleHtml: string | null = null
@@ -64,7 +98,15 @@ export function extractContent(
   }
 
   // Convert HTML to Markdown
-  const markdown = turndown.turndown(articleHtml).trim()
+  let markdown = turndown.turndown(articleHtml).trim()
+
+  // If body content is thin, supplement with meta description.
+  // This rescues homepage-style pages that rely on images/navigation but
+  // have a good meta description (e.g., nonprofit homepages, portfolios).
+  if (markdown.length < CRAWL_MIN_CONTENT_LENGTH && metaDescription) {
+    markdown = metaDescription + (markdown ? "\n\n" + markdown : "")
+    markdown = markdown.trim()
+  }
 
   // Skip low-value pages (login forms, error pages, etc.)
   if (markdown.length < CRAWL_MIN_CONTENT_LENGTH) {

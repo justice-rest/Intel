@@ -20,6 +20,7 @@ import {
   AUTO_EXTRACT_MIN_IMPORTANCE,
   MEMORY_CATEGORIES,
   MAX_EXTRACTION_INPUT_CHARS,
+  EXTRACTION_TIMEOUT_MS,
 } from "./config"
 import type { MemoryCategory } from "./config"
 
@@ -293,7 +294,7 @@ ${conversationText}
 
 Return a JSON array of extracted memories (or empty array if TRULY nothing worth remembering).`,
       maxTokens: 2000,
-      abortSignal: AbortSignal.timeout(30000), // 30s safety net
+      abortSignal: AbortSignal.timeout(EXTRACTION_TIMEOUT_MS), // 45s safety net (configurable)
     })
 
     // Parse JSON response
