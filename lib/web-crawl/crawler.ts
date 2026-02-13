@@ -97,6 +97,13 @@ export async function crawlSite(
   let skippedPages = 0
   let failedPages = 0
 
+  // Effective origin for link discovery — updated after root URL redirect.
+  // Example: user enters goodestdogs.com, server redirects to www.goodestdogs.com,
+  // we use www.goodestdogs.com as the effective origin for same-origin checks.
+  // isSameOrigin already normalizes www., but this also handles non-www redirects
+  // (e.g., old-domain.com → new-domain.com) for the root URL only.
+  let effectiveOrigin = rootUrl
+
   // Queue: [url, depth]
   const queue: Array<[string, number]> = []
   const rootNormalized = normalizeUrl(rootUrl.href)
@@ -202,6 +209,14 @@ export async function crawlSite(
             })
             continue
           }
+
+          // Update effective origin on root URL redirect so discovered links
+          // match the final hostname (e.g., goodestdogs.com → www.goodestdogs.com).
+          if (pages.length === 0 && depth === 0) {
+            try {
+              effectiveOrigin = new URL(response.url)
+            } catch { /* keep original rootUrl */ }
+          }
         }
 
         if (!response.ok) {
@@ -306,7 +321,7 @@ export async function crawlSite(
 
         // Discover links for next level (only if we haven't hit max depth)
         if (depth < maxDepth) {
-          const links = discoverLinks(html, response.url, rootUrl)
+          const links = discoverLinks(html, response.url, effectiveOrigin)
           for (const link of links) {
             if (pages.length + queue.length >= maxPages) break
             const normalized = normalizeUrl(link)
