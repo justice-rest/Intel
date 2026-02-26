@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
 import { MODEL_DEFAULT, APP_DOMAIN } from "@/lib/config"
-import { CaretLeft, ArrowUpRight } from "@phosphor-icons/react"
+import { CaretLeft, ArrowUpRight, EnvelopeSimple } from "@phosphor-icons/react"
 import Link from "next/link"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
@@ -38,6 +38,8 @@ export default function EmailAuthPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false)
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false)
   const router = useRouter()
 
   const supabase = createClient()
@@ -113,7 +115,17 @@ export default function EmailAuthPage() {
           password,
         })
 
-        if (error) throw error
+        if (error) {
+          // Detect email-not-confirmed errors from Supabase and show a helpful message
+          const msg = error.message?.toLowerCase() ?? ""
+          if (msg.includes("email not confirmed") || msg.includes("email_not_confirmed")) {
+            setNeedsEmailConfirmation(true)
+            throw new Error(
+              "Your email address has not been confirmed yet. Please check your inbox (and spam folder) for the confirmation link, or click the button below to resend it."
+            )
+          }
+          throw error
+        }
 
         const user = data.user
 
@@ -147,14 +159,49 @@ export default function EmailAuthPage() {
           }
         }
 
-        // Redirect to home (welcome popup will show if needed)
-        router.push("/")
+        // Full page reload to ensure the server-side layout re-renders
+        // and getUserProfile() picks up the newly authenticated session.
+        // Using router.push("/") would only do a client-side navigation,
+        // leaving the UserProvider initialized with null (stale state).
+        window.location.href = "/"
       }
     } catch (err: unknown) {
       console.error("Auth error:", err)
       setError((err as Error).message || "An unexpected error occurred.")
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  async function handleResendConfirmation() {
+    if (!supabase || !email) return
+
+    setIsResendingConfirmation(true)
+    setError(null)
+    setSuccess(null)
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: `${getAuthRedirectUrl()}/auth/callback`,
+        },
+      })
+
+      if (error) throw error
+
+      setSuccess(
+        "Confirmation email resent! Please check your inbox (and spam folder) and click the link to verify your account."
+      )
+      setNeedsEmailConfirmation(false)
+    } catch (err: unknown) {
+      console.error("Resend confirmation error:", err)
+      setError(
+        (err as Error).message || "Failed to resend confirmation email. Please try again later."
+      )
+    } finally {
+      setIsResendingConfirmation(false)
     }
   }
 
@@ -202,7 +249,18 @@ export default function EmailAuthPage() {
                   animate={{ opacity: 1, scale: 1 }}
                   className="bg-destructive/10 text-destructive rounded-lg p-4 text-sm mb-6 border border-destructive/20"
                 >
-                  {error}
+                  <p>{error}</p>
+                  {needsEmailConfirmation && (
+                    <button
+                      type="button"
+                      onClick={handleResendConfirmation}
+                      disabled={isResendingConfirmation}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-destructive/10 px-3 py-1.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
+                    >
+                      <EnvelopeSimple className="size-4" weight="bold" />
+                      {isResendingConfirmation ? "Sending..." : "Resend confirmation email"}
+                    </button>
+                  )}
                 </motion.div>
               )}
 
@@ -309,6 +367,7 @@ export default function EmailAuthPage() {
                         setShowResetPassword(false)
                         setError(null)
                         setSuccess(null)
+                        setNeedsEmailConfirmation(false)
                       }}
                       className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer"
                     >
@@ -323,6 +382,7 @@ export default function EmailAuthPage() {
                         setIsSignUp(!isSignUp)
                         setError(null)
                         setSuccess(null)
+                        setNeedsEmailConfirmation(false)
                       }}
                       className="text-muted-foreground hover:text-foreground text-sm transition-colors cursor-pointer"
                     >
