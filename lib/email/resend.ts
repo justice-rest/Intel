@@ -20,19 +20,21 @@ function getResendClient(): Resend | null {
 
 // Default sender - update this to your verified domain
 const DEFAULT_FROM = "Rōmy <romy@updates.getromy.app>"
+const DEFAULT_REPLY_TO = "howard@getromy.app"
 
 export interface SendEmailOptions {
   to: string | string[]
   subject: string
   html: string
   from?: string
+  replyTo?: string | string[]
 }
 
 /**
  * Send an email via Resend
  */
 export async function sendEmail(options: SendEmailOptions) {
-  const { to, subject, html, from = DEFAULT_FROM } = options
+  const { to, subject, html, from = DEFAULT_FROM, replyTo = DEFAULT_REPLY_TO } = options
 
   const client = getResendClient()
   if (!client) {
@@ -44,6 +46,7 @@ export async function sendEmail(options: SendEmailOptions) {
     const { data, error } = await client.emails.send({
       from,
       to: Array.isArray(to) ? to : [to],
+      replyTo,
       subject,
       html,
     })

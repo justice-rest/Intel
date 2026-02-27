@@ -173,7 +173,7 @@ export function getDataExportEmailHtml(data: DataExportEmailData): string {
                     </table>
 
                     <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0">
-                      Questions about your data? Reply to this email.
+                      Questions about your data? Reply to email (howard@getromy.app).
                     </p>`
 
   return getEmailWrapper(content)
