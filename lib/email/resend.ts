@@ -46,7 +46,7 @@ export async function sendEmail(options: SendEmailOptions) {
     const { data, error } = await client.emails.send({
       from,
       to: Array.isArray(to) ? to : [to],
-      replyTo: Array.isArray(replyTo) ? replyTo : [replyTo],
+      replyTo,
       subject,
       html,
     })
