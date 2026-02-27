@@ -191,7 +191,7 @@ export function getBatchCompleteEmailHtml(data: BatchCompleteEmailData): string 
                     </table>
 
                     <p style="font-size:13px;line-height:20px;color:#9ca3af;margin:0">
-                      Questions? Reply to this email — we read every message.
+                      Questions? Reply to email (howard@getromy.app) — we read every message.
                     </p>`
 
   return getEmailWrapper(content)
