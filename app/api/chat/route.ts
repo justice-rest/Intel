@@ -1015,8 +1015,11 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     // This prevents "Bad Request" errors for models like Perplexity that only accept text
     const cleanedMessages = cleanMessagesForTools(optimizedMessages, modelSupportsTools, modelSupportsVision)
 
-    // SAFETY NET: Final check for empty content (xAI/Grok requires non-empty content in every message)
-    // This should never trigger if cleanMessagesForTools is working correctly, but prevents API errors
+    // SAFETY NET: Final check for empty content AND empty parts
+    // The AI SDK's convertToCoreMessages uses `parts` (when present) instead of `content`.
+    // If `parts` only contains non-content types (step-start, source), the SDK produces
+    // an empty content array, which xAI/Grok rejects with "Each message must have at least
+    // one content element." We must sanitize BOTH content and parts.
     const finalMessages = cleanedMessages.map((msg) => {
       // Check if content is effectively empty
       const isEmpty = !msg.content ||
@@ -1026,14 +1029,67 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
           !msg.content.some((p: any) => (p.type === "text" && p.text?.trim()) || (p.type && p.type !== "text"))
         ))
 
+      let fixedMsg = msg
+
       if (isEmpty) {
         console.warn(`[Chat API] WARNING: Empty content detected in message ${msg.id}, role: ${msg.role}. Adding placeholder.`)
-        return {
+        fixedMsg = {
           ...msg,
           content: msg.role === "assistant" ? "[Assistant response]" : "[User message]",
         }
       }
-      return msg
+
+      // Critical: Check if `parts` would produce empty content in convertToCoreMessages.
+      // The SDK only processes text, file, reasoning, and tool-invocation parts.
+      // If parts exists but has NONE of these content-producing types (e.g., only
+      // step-start or source parts), delete parts so the SDK falls back to `content`.
+      const msgParts = (fixedMsg as any).parts
+      if (Array.isArray(msgParts) && msgParts.length > 0) {
+        const CONTENT_PRODUCING_TYPES = new Set(["text", "tool-invocation", "file", "reasoning"])
+        const hasContentProducingPart = msgParts.some((p: any) =>
+          p && typeof p === "object" && p.type && CONTENT_PRODUCING_TYPES.has(p.type)
+        )
+
+        if (!hasContentProducingPart) {
+          console.warn(`[Chat API] WARNING: Message ${fixedMsg.id} (role: ${fixedMsg.role}) has parts with no content-producing types (found: ${msgParts.map((p: any) => p?.type).join(", ")}). Removing parts to prevent empty content in API request.`)
+          const { parts: _stripped, ...msgWithoutParts } = fixedMsg as any
+          fixedMsg = msgWithoutParts
+
+          // Also ensure content is non-empty since we stripped parts
+          if (!fixedMsg.content || (typeof fixedMsg.content === "string" && !fixedMsg.content.trim())) {
+            fixedMsg = {
+              ...fixedMsg,
+              content: fixedMsg.role === "assistant" ? "[Assistant response]" : "[User message]",
+            }
+          }
+        }
+
+        // Also check for text parts with empty text - these produce content elements
+        // with empty text which some providers may reject
+        if (hasContentProducingPart) {
+          const hasOnlyEmptyText = msgParts.every((p: any) => {
+            if (!p || typeof p !== "object" || !p.type) return true
+            if (!CONTENT_PRODUCING_TYPES.has(p.type)) return true // non-content types are OK to ignore
+            // Only text parts - check if text is actually empty
+            if (p.type === "text") return !p.text || !p.text.trim()
+            return false // tool-invocation, file, reasoning are valid
+          })
+
+          if (hasOnlyEmptyText) {
+            console.warn(`[Chat API] WARNING: Message ${fixedMsg.id} (role: ${fixedMsg.role}) has parts with only empty text. Removing parts to prevent empty content.`)
+            const { parts: _stripped, ...msgWithoutParts } = fixedMsg as any
+            fixedMsg = msgWithoutParts
+            if (!fixedMsg.content || (typeof fixedMsg.content === "string" && !fixedMsg.content.trim())) {
+              fixedMsg = {
+                ...fixedMsg,
+                content: fixedMsg.role === "assistant" ? "[Assistant response]" : "[User message]",
+              }
+            }
+          }
+        }
+      }
+
+      return fixedMsg
     })
 
     // =========================================================================

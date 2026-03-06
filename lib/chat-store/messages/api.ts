@@ -30,6 +30,42 @@ function extractContentFromParts(parts: unknown[] | null): string {
 }
 
 /**
+ * Part types that produce content in AI SDK's convertToCoreMessages.
+ * If a message's parts array contains NONE of these types, the SDK will
+ * produce an empty content array, causing "Bad Request" errors with
+ * providers like xAI/Grok that require non-empty content in every message.
+ */
+const CONTENT_PRODUCING_PART_TYPES = new Set(["text", "tool-invocation", "file", "reasoning"])
+
+/**
+ * Sanitize parts array to prevent empty content in AI SDK conversion.
+ * Returns undefined if parts would produce empty content, so the SDK
+ * falls back to using the `content` field instead.
+ */
+function sanitizeParts(parts: unknown[] | null): MessageAISDK["parts"] | undefined {
+  if (!parts || !Array.isArray(parts) || parts.length === 0) return undefined
+
+  const hasContentPart = parts.some((p: any) =>
+    p && typeof p === "object" && p.type && CONTENT_PRODUCING_PART_TYPES.has(p.type)
+  )
+
+  if (!hasContentPart) return undefined
+
+  // Also check: if only content-producing parts are text parts with empty text,
+  // the SDK would produce content elements with empty text
+  const hasNonEmptyContentPart = parts.some((p: any) => {
+    if (!p || typeof p !== "object" || !p.type) return false
+    if (!CONTENT_PRODUCING_PART_TYPES.has(p.type)) return false
+    if (p.type === "text") return p.text && p.text.trim()
+    return true // tool-invocation, file, reasoning are valid
+  })
+
+  if (!hasNonEmptyContentPart) return undefined
+
+  return parts as MessageAISDK["parts"]
+}
+
+/**
  * Get effective content, preferring content field but falling back to parts
  * This ensures messages always have non-empty content for xAI/Grok
  */
@@ -87,7 +123,7 @@ export async function getMessagesFromDb(
     ),
     createdAt: new Date((message.created_at as string) || ""),
     experimental_attachments: message.experimental_attachments as MessageAISDK["experimental_attachments"],
-    parts: (message.parts as MessageAISDK["parts"]) || undefined,
+    parts: sanitizeParts(message.parts as unknown[] | null),
     message_group_id: message.message_group_id as string | undefined,
     model: message.model as string | undefined,
     user_id: message.user_id as string | undefined,
@@ -131,7 +167,7 @@ export async function getLastMessagesFromDb(
       message.role as string
     ),
     createdAt: new Date(message.created_at || ""),
-    parts: (message?.parts as MessageAISDK["parts"]) || undefined,
+    parts: sanitizeParts(message?.parts as unknown[] | null),
     message_group_id: message.message_group_id,
     model: message.model,
     user_id: message.user_id as string | undefined,
