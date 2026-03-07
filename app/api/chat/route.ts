@@ -1015,9 +1015,13 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
     // This prevents "Bad Request" errors for models like Perplexity that only accept text
     const cleanedMessages = cleanMessagesForTools(optimizedMessages, modelSupportsTools, modelSupportsVision)
 
-    // SAFETY NET: Final check for empty content (xAI/Grok requires non-empty content in every message)
-    // This should never trigger if cleanMessagesForTools is working correctly, but prevents API errors
+    // SAFETY NET: Final check for empty content AND empty parts
+    // xAI/Grok requires non-empty content in every message.
+    // AI SDK v4 uses `parts` (when present) instead of `content` to build provider payloads.
+    // Both fields must be sanitized to prevent "Each message must have at least one content element" errors.
     const finalMessages = cleanedMessages.map((msg) => {
+      const msgAny = msg as any
+
       // Check if content is effectively empty
       const isEmpty = !msg.content ||
         (typeof msg.content === "string" && !msg.content.trim()) ||
@@ -1026,14 +1030,31 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
           !msg.content.some((p: any) => (p.type === "text" && p.text?.trim()) || (p.type && p.type !== "text"))
         ))
 
+      // Check if parts exists but has no text content
+      // This is the critical check: AI SDK v4 prioritizes parts over content
+      const hasPartsWithoutText = Array.isArray(msgAny.parts) &&
+        msgAny.parts.length > 0 &&
+        !msgAny.parts.some((p: any) => p && p.type === "text" && typeof p.text === "string" && p.text.trim())
+
+      let fixed = msg
+
       if (isEmpty) {
+        const placeholder = msg.role === "assistant" ? "[Assistant response]" : "[User message]"
         console.warn(`[Chat API] WARNING: Empty content detected in message ${msg.id}, role: ${msg.role}. Adding placeholder.`)
-        return {
-          ...msg,
-          content: msg.role === "assistant" ? "[Assistant response]" : "[User message]",
-        }
+        fixed = { ...fixed, content: placeholder }
       }
-      return msg
+
+      if (hasPartsWithoutText) {
+        // Add a text part to ensure the provider receives non-empty content
+        const placeholder = msg.role === "assistant" ? "[Assistant used tools]" : "[User message]"
+        console.warn(`[Chat API] WARNING: Parts without text in message ${msg.id}, role: ${msg.role}. Adding text part.`)
+        fixed = {
+          ...fixed,
+          parts: [{ type: "text", text: placeholder }, ...msgAny.parts],
+        } as any
+      }
+
+      return fixed
     })
 
     // =========================================================================

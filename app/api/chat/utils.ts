@@ -1,10 +1,55 @@
 import { Message as MessageAISDK } from "ai"
 
 /**
+ * Check if a message's `parts` array has at least one text part with non-empty content.
+ * AI SDK v4 uses `parts` (when present) instead of `content` to build the provider payload.
+ * If parts exists with only tool-call/tool-result entries and no text, providers like xAI
+ * will reject the message with "Each message must have at least one content element."
+ */
+function partsHasText(parts: unknown[]): boolean {
+  return parts.some((part: any) => {
+    if (part && typeof part === "object" && part.type === "text") {
+      return typeof part.text === "string" && part.text.trim() !== ""
+    }
+    return false
+  })
+}
+
+/**
+ * Sanitize the `parts` field on a message to ensure providers receive non-empty content.
+ * AI SDK v4 prioritizes `parts` over `content` when converting messages for providers.
+ * If `parts` has only tool-related entries (no text), xAI/Grok rejects with 400.
+ *
+ * Strategy: If parts exists but has no text content, add a placeholder text part
+ * so the provider always receives at least one content element.
+ */
+function sanitizeMessageParts(message: MessageAISDK): MessageAISDK {
+  const msg = message as any
+  if (!msg.parts || !Array.isArray(msg.parts) || msg.parts.length === 0) {
+    return message
+  }
+
+  // If parts already has a non-empty text part, no fix needed
+  if (partsHasText(msg.parts)) {
+    return message
+  }
+
+  // Parts exists but has no text content (only tool-call, tool-result, step-start, etc.)
+  // Add a placeholder text part so the provider receives non-empty content
+  const placeholder = message.role === "assistant" ? "[Assistant used tools]" : "[User message]"
+  return {
+    ...message,
+    parts: [{ type: "text", text: placeholder }, ...msg.parts],
+  } as MessageAISDK
+}
+
+/**
  * Clean messages for models based on their capabilities.
  * - Removes tool invocations when model doesn't support tools
  * - Removes attachments when model doesn't support vision/files
- * This prevents "Bad Request" errors when using models like Perplexity.
+ * - Ensures every message has non-empty content (xAI/Grok requirement)
+ * - Sanitizes `parts` field which AI SDK v4 uses instead of `content` when present
+ * This prevents "Bad Request" errors from providers like xAI.
  */
 export function cleanMessagesForTools(
   messages: MessageAISDK[],
@@ -53,21 +98,25 @@ export function cleanMessagesForTools(
   }
 
   // Always sanitize messages to ensure no empty content (xAI/Grok requires non-empty)
+  // Also sanitize `parts` field which AI SDK v4 prioritizes over `content`
   const sanitizedMessages = messages.map((message) => {
-    if (isEmptyContent(message.content)) {
+    // First: sanitize parts (AI SDK v4 uses parts over content when present)
+    let sanitized = sanitizeMessageParts(message)
+
+    if (isEmptyContent(sanitized.content)) {
       // For arrays with empty text, try to extract any meaningful content first
-      if (Array.isArray(message.content)) {
-        const extractedText = extractTextFromArray(message.content)
+      if (Array.isArray(sanitized.content)) {
+        const extractedText = extractTextFromArray(sanitized.content)
         if (extractedText) {
-          return { ...message, content: extractedText }
+          return { ...sanitized, content: extractedText }
         }
       }
       return {
-        ...message,
-        content: message.role === "assistant" ? "[Assistant response]" : "[User message]",
+        ...sanitized,
+        content: sanitized.role === "assistant" ? "[Assistant response]" : "[User message]",
       }
     }
-    return message
+    return sanitized
   })
 
   // If model supports everything, return sanitized messages
