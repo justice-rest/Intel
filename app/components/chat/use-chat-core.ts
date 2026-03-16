@@ -78,7 +78,7 @@ export function useChatCore({
   const prompt = searchParams.get("prompt")
 
   // Chats operations
-  const { updateTitle } = useChats()
+  const { updateTitle, refresh: refreshChats } = useChats()
 
   // Handle errors directly in onError callback
   const handleError = useCallback(
@@ -151,6 +151,13 @@ export function useChatCore({
         // Dispatch event to trigger subscription credit refresh
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("message-sent"))
+        }
+
+        // Refresh sidebar title after auto-title generation completes server-side
+        // Only for first user message (server generates a concise title asynchronously)
+        const userMsgCount = messages.filter(msg => msg.role === "user").length
+        if (userMsgCount <= 1 && effectiveChatId) {
+          setTimeout(() => refreshChats(), 3000)
         }
       } catch (error) {
         console.error("Message ID reconciliation failed: ", error)

@@ -33,12 +33,22 @@ type ArticleProps = {
   messages: MessageType[]
 }
 
+/** Truncate overly long titles for display (e.g. old chats that used the full message as title) */
+function formatDisplayTitle(title: string): string {
+  if (title.length <= 80) return title
+  // Find a natural break point (sentence end, comma, or word boundary)
+  const truncated = title.substring(0, 80)
+  const lastSpace = truncated.lastIndexOf(" ")
+  return (lastSpace > 40 ? truncated.substring(0, lastSpace) : truncated) + "..."
+}
+
 export default function Article({
   date,
   title,
   subtitle,
   messages,
 }: ArticleProps) {
+  const displayTitle = formatDisplayTitle(title)
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [exportingId, setExportingId] = useState<number | null>(null)
   const [authHref, setAuthHref] = useState("/auth")
@@ -82,7 +92,7 @@ export default function Article({
       })
 
       await exportToPdf(content, {
-        title,
+        title: displayTitle,
         date: formattedDate,
         logoSrc: "/BrandmarkRōmy.png",
       })
@@ -111,7 +121,7 @@ export default function Article({
         </div>
 
         <h1 className="mb-4 text-center text-2xl font-medium leading-snug tracking-tight md:text-3xl">
-          {title}
+          {displayTitle}
         </h1>
 
         <p className="text-muted-foreground mb-10 text-center text-sm">{subtitle}</p>
