@@ -4,13 +4,19 @@ import {
   MessageActions,
   MessageContent,
 } from "@/components/prompt-kit/message"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useChats } from "@/lib/chat-store/chats/provider"
 import { useChatSession } from "@/lib/chat-store/session/provider"
-import { exportToPdf } from "@/lib/pdf-export"
+import { exportToMarkdown, exportToPdf } from "@/lib/pdf-export"
 import { useUserPreferences } from "@/lib/user-preference-store/provider"
 import { cn } from "@/lib/utils"
 import type { Message as MessageAISDK } from "@ai-sdk/react"
-import { ArrowClockwise, Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
+import { ArrowClockwise, Check, Copy, DownloadSimple, FilePdf, FileText, SpinnerGap } from "@phosphor-icons/react"
 import { useCallback, useRef, useState } from "react"
 import { getSources } from "./get-sources"
 import { getCitations } from "./get-citations"
@@ -97,26 +103,38 @@ export function MessageAssistant({
     }
   }, [selectionInfo, onQuote, clearSelection])
 
+  const getExportMeta = () => {
+    const chat = chatId ? getChatById(chatId) : null
+    const title = chat?.title || "Rōmy Response"
+    const formattedDate = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+    return { title, formattedDate }
+  }
+
   const handleExportPdf = async () => {
     if (!children) return
-
     setIsExporting(true)
     try {
-      const chat = chatId ? getChatById(chatId) : null
-      const title = chat?.title || "Rōmy Response"
-      const formattedDate = new Date().toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-
-      // Use server-side PDF export for all content (high-quality Puppeteer rendering)
-      await exportToPdf(children, {
-        title,
-        date: formattedDate,
-      })
+      const { title, formattedDate } = getExportMeta()
+      await exportToPdf(children, { title, date: formattedDate })
     } catch (error) {
       console.error("Failed to export PDF:", error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleExportMarkdown = async () => {
+    if (!children) return
+    setIsExporting(true)
+    try {
+      const { title, formattedDate } = getExportMeta()
+      await exportToMarkdown(children, { title, date: formattedDate })
+    } catch (error) {
+      console.error("Failed to export Markdown:", error)
     } finally {
       setIsExporting(false)
     }
@@ -196,24 +214,37 @@ export function MessageAssistant({
                 )}
               </button>
             </MessageAction>
-            <MessageAction
-              tooltip={isExporting ? "Exporting..." : "Export PDF"}
-              side="bottom"
-            >
-              <button
-                className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
-                aria-label="Export PDF"
-                onClick={handleExportPdf}
-                type="button"
-                disabled={isExporting}
+            <DropdownMenu>
+              <MessageAction
+                tooltip={isExporting ? "Exporting..." : "Download"}
+                side="bottom"
               >
-                {isExporting ? (
-                  <SpinnerGap className="size-4 animate-spin" />
-                ) : (
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
+                    aria-label="Download"
+                    type="button"
+                    disabled={isExporting}
+                  >
+                    {isExporting ? (
+                      <SpinnerGap className="size-4 animate-spin" />
+                    ) : (
+                      <DownloadSimple className="size-4" />
+                    )}
+                  </button>
+                </DropdownMenuTrigger>
+              </MessageAction>
+              <DropdownMenuContent align="start" side="bottom">
+                <DropdownMenuItem onClick={handleExportPdf}>
                   <FilePdf className="size-4" />
-                )}
-              </button>
-            </MessageAction>
+                  Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportMarkdown}>
+                  <FileText className="size-4" />
+                  Download Markdown
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <MessageAction tooltip="Notes" side="bottom">
               <NotesTrigger messageId={messageId} />
             </MessageAction>

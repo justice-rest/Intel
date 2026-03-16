@@ -12,14 +12,20 @@ import {
   MessageActions,
   MessageContent,
 } from "@/components/prompt-kit/message"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { APP_NAME } from "@/lib/config"
-import { exportToPdf } from "@/lib/pdf-export"
+import { exportToMarkdown, exportToPdf } from "@/lib/pdf-export"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
 import type { Message as MessageAISDK } from "@ai-sdk/react"
 import { ArrowUpRight } from "@phosphor-icons/react/dist/ssr"
-import { Check, Copy, FilePdf, SpinnerGap } from "@phosphor-icons/react"
+import { Check, Copy, DownloadSimple, FilePdf, FileText, SpinnerGap } from "@phosphor-icons/react"
 import Link from "next/link"
 import React, { useEffect, useState } from "react"
 import { Header } from "./header"
@@ -82,22 +88,37 @@ export default function Article({
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  const getFormattedDate = () =>
+    new Date(date).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })
+
   const handleExportPdf = async (messageId: number, content: string) => {
     setExportingId(messageId)
     try {
-      const formattedDate = new Date(date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })
-
       await exportToPdf(content, {
         title: displayTitle,
-        date: formattedDate,
+        date: getFormattedDate(),
         logoSrc: "/BrandmarkRōmy.png",
       })
     } catch (error) {
       console.error("Failed to export PDF:", error)
+    } finally {
+      setExportingId(null)
+    }
+  }
+
+  const handleExportMarkdown = async (messageId: number, content: string) => {
+    setExportingId(messageId)
+    try {
+      await exportToMarkdown(content, {
+        title: displayTitle,
+        date: getFormattedDate(),
+      })
+    } catch (error) {
+      console.error("Failed to export Markdown:", error)
     } finally {
       setExportingId(null)
     }
@@ -264,24 +285,37 @@ export default function Article({
                             )}
                           </button>
                         </MessageAction>
-                        <MessageAction
-                          tooltip={exportingId === message.id ? "Exporting..." : "Export PDF"}
-                          side="bottom"
-                        >
-                          <button
-                            className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
-                            aria-label="Export PDF"
-                            onClick={() => handleExportPdf(message.id, message.content!)}
-                            type="button"
-                            disabled={exportingId === message.id}
+                        <DropdownMenu>
+                          <MessageAction
+                            tooltip={exportingId === message.id ? "Exporting..." : "Download"}
+                            side="bottom"
                           >
-                            {exportingId === message.id ? (
-                              <SpinnerGap className="size-4 animate-spin" />
-                            ) : (
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="hover:bg-accent/60 text-muted-foreground hover:text-foreground flex size-7.5 items-center justify-center rounded-full bg-transparent transition disabled:opacity-50"
+                                aria-label="Download"
+                                type="button"
+                                disabled={exportingId === message.id}
+                              >
+                                {exportingId === message.id ? (
+                                  <SpinnerGap className="size-4 animate-spin" />
+                                ) : (
+                                  <DownloadSimple className="size-4" />
+                                )}
+                              </button>
+                            </DropdownMenuTrigger>
+                          </MessageAction>
+                          <DropdownMenuContent align="start" side="bottom">
+                            <DropdownMenuItem onClick={() => handleExportPdf(message.id, message.content!)}>
                               <FilePdf className="size-4" />
-                            )}
-                          </button>
-                        </MessageAction>
+                              Download PDF
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleExportMarkdown(message.id, message.content!)}>
+                              <FileText className="size-4" />
+                              Download Markdown
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </MessageActions>
                     )}
                   </div>
