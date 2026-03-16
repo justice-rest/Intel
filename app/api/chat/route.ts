@@ -1130,6 +1130,31 @@ Use BOTH: insider search confirms filings, proxy shows full board composition.
             model: normalizedModel,
           })
 
+          // AUTO TITLE GENERATION: Generate a concise title for the first message
+          // Only runs when this is the very first user message in the chat
+          const userMessageCount = safeMessages.filter(m => m.role === "user").length
+          if (userMessageCount === 1 && supabase) {
+            void (async () => {
+              try {
+                const { generateChatTitle } = await import("@/lib/chat-title/generate")
+                const title = await generateChatTitle(String(userMessage.content))
+                if (title) {
+                  const { error } = await supabase
+                    .from("chats")
+                    .update({ title, updated_at: new Date().toISOString() })
+                    .eq("id", chatId)
+                  if (error) {
+                    console.error("[Chat Title] DB update failed:", error)
+                  } else {
+                    console.log(`[Chat Title] Generated: "${title}"`)
+                  }
+                }
+              } catch (error) {
+                console.error("[Chat Title] Generation pipeline failed:", error)
+              }
+            })()
+          }
+
           // MEMORY EXTRACTION: Extract and save important facts
           // Runs as a background async operation — does NOT block the streaming response.
           // Delegates to extractAndSaveMemories which handles:

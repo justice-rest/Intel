@@ -33,12 +33,22 @@ type ArticleProps = {
   messages: MessageType[]
 }
 
+/** Truncate overly long titles for display (e.g. old chats that used the full message as title) */
+function formatDisplayTitle(title: string): string {
+  if (title.length <= 80) return title
+  // Find a natural break point (sentence end, comma, or word boundary)
+  const truncated = title.substring(0, 80)
+  const lastSpace = truncated.lastIndexOf(" ")
+  return (lastSpace > 40 ? truncated.substring(0, lastSpace) : truncated) + "..."
+}
+
 export default function Article({
   date,
   title,
   subtitle,
   messages,
 }: ArticleProps) {
+  const displayTitle = formatDisplayTitle(title)
   const [copiedId, setCopiedId] = useState<number | null>(null)
   const [exportingId, setExportingId] = useState<number | null>(null)
   const [authHref, setAuthHref] = useState("/auth")
@@ -82,7 +92,7 @@ export default function Article({
       })
 
       await exportToPdf(content, {
-        title,
+        title: displayTitle,
         date: formattedDate,
         logoSrc: "/BrandmarkRōmy.png",
       })
@@ -96,8 +106,8 @@ export default function Article({
   return (
     <>
       <Header />
-      <div className="mx-auto max-w-3xl px-4 py-12 md:py-24">
-        <div className="mb-8 flex items-center justify-center gap-2 text-sm font-medium">
+      <div className="mx-auto max-w-2xl px-4 py-12 md:py-20">
+        <div className="mb-6 flex items-center justify-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           <time
             dateTime={new Date(date).toISOString().split("T")[0]}
             className="text-foreground"
@@ -110,11 +120,11 @@ export default function Article({
           </time>
         </div>
 
-        <h1 className="mb-4 text-center text-4xl font-medium tracking-tight md:text-5xl">
-          {title}
+        <h1 className="mb-4 text-center text-2xl font-medium leading-snug tracking-tight md:text-3xl">
+          {displayTitle}
         </h1>
 
-        <p className="text-foreground mb-8 text-center text-lg">{subtitle}</p>
+        <p className="text-muted-foreground mb-10 text-center text-sm">{subtitle}</p>
 
         <div className="fixed bottom-6 left-0 z-50 flex w-full justify-center">
           <Link href={authHref}>
@@ -129,7 +139,7 @@ export default function Article({
             </Button>
           </Link>
         </div>
-        <div className="mt-20 w-full">
+        <div className="mt-12 w-full space-y-2">
           {messages.map((message) => {
             const parts = message?.parts as MessageAISDK["parts"]
             const sources = getSources(parts)
@@ -160,10 +170,10 @@ export default function Article({
             const contentNullOrEmpty = !message.content || message.content === ""
 
             return (
-              <div key={message.id} className="mb-8">
+              <div key={message.id} className="mb-6">
                 <Message
                   className={cn(
-                    "group mb-4 flex flex-col gap-0",
+                    "group mb-2 flex flex-col gap-0",
                     message.role === "assistant" && "w-full items-start",
                     message.role === "user" && "w-full items-end"
                   )}
@@ -171,7 +181,7 @@ export default function Article({
                   <div className={cn(
                     "flex flex-col gap-2 overflow-hidden",
                     message.role === "assistant" && "min-w-full max-w-full",
-                    message.role === "user" && "max-w-[85%]"
+                    message.role === "user" && "max-w-[80%]"
                   )}>
                     {/* Render reasoning for assistant messages */}
                     {message.role === "assistant" && reasoningParts && reasoningParts.reasoning && (
@@ -199,10 +209,10 @@ export default function Article({
                         markdown={true}
                         className={cn(
                           message.role === "user" &&
-                            "bg-[var(--color-blue-600)] text-white prose prose-p:my-0 w-fit max-w-full rounded-3xl px-5 py-2",
+                            "bg-[var(--color-blue-600)] text-white prose prose-sm prose-p:my-0 w-fit max-w-full rounded-3xl px-4 py-2.5 text-[15px] leading-relaxed",
                           message.role === "assistant" &&
-                            "prose dark:prose-invert w-full min-w-full bg-transparent",
-                          "prose-h1:scroll-m-20 prose-h1:text-2xl prose-h1:font-semibold prose-h2:mt-8 prose-h2:scroll-m-20 prose-h2:text-xl prose-h2:mb-3 prose-h2:font-medium prose-h3:scroll-m-20 prose-h3:text-base prose-h3:font-medium prose-h4:scroll-m-20 prose-h5:scroll-m-20 prose-h6:scroll-m-20 prose-strong:font-medium prose-table:block prose-table:overflow-y-auto"
+                            "prose prose-sm dark:prose-invert w-full min-w-full bg-transparent text-[15px] leading-relaxed",
+                          "prose-h1:scroll-m-20 prose-h1:text-xl prose-h1:font-semibold prose-h2:mt-6 prose-h2:scroll-m-20 prose-h2:text-lg prose-h2:mb-2 prose-h2:font-medium prose-h3:scroll-m-20 prose-h3:text-base prose-h3:font-medium prose-h4:scroll-m-20 prose-h5:scroll-m-20 prose-h6:scroll-m-20 prose-strong:font-medium prose-table:block prose-table:overflow-y-auto prose-p:my-2"
                         )}
                         {...(message.role === "user" && {
                           components: {

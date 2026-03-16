@@ -38,7 +38,11 @@ export async function generateMetadata({
     .eq("public", true)
     .single()
 
-  const title = chat?.title || "Chat"
+  const rawTitle = chat?.title || "Chat"
+  // Truncate long titles for metadata (old chats used full message as title)
+  const title = rawTitle.length > 80
+    ? rawTitle.substring(0, rawTitle.lastIndexOf(" ", 80) > 40 ? rawTitle.lastIndexOf(" ", 80) : 80) + "..."
+    : rawTitle
   const description = "A chat in Rōmy"
 
   return {
