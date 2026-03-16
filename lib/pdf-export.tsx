@@ -1,13 +1,12 @@
 "use client"
 
 /**
- * PDF Export Client
+ * Export Client
  *
- * Exports markdown content to high-quality PDFs using server-side Puppeteer.
- * Sends content to /api/export-pdf which renders HTML with proper typography,
- * spacing, and page breaks, then converts to PDF using Chrome's rendering engine.
+ * Exports markdown content to high-quality PDFs using server-side Puppeteer,
+ * or downloads the raw markdown as a .md file.
  *
- * Benefits over client-side react-pdf/renderer:
+ * PDF benefits over client-side react-pdf/renderer:
  * - Professional typography with Inter font
  * - Proper page breaks (no word splitting)
  * - Consistent spacing and margins
@@ -15,10 +14,60 @@
  * - Background colors and gradients render correctly
  */
 
-type ExportToPdfOptions = {
+type ExportOptions = {
   title: string
   date: string
   logoSrc?: string // Kept for backward compatibility but handled server-side
+}
+
+/** Truncate overly long titles (matches share page display logic) */
+function formatExportTitle(title: string): string {
+  if (title.length <= 80) return title
+  const truncated = title.substring(0, 80)
+  const lastSpace = truncated.lastIndexOf(" ")
+  return (lastSpace > 40 ? truncated.substring(0, lastSpace) : truncated) + "..."
+}
+
+/**
+ * Generate a sanitized filename base from a title
+ */
+function sanitizeFilename(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .substring(0, 50)
+}
+
+/**
+ * Export markdown content as a .md file download
+ *
+ * @param content - Markdown content to export
+ * @param options - Export options including title and date
+ */
+export async function exportToMarkdown(
+  content: string,
+  options: ExportOptions
+): Promise<void> {
+  const { title, date } = options
+  const displayTitle = formatExportTitle(title)
+
+  // Build the markdown file with a header
+  const markdownContent = `# ${displayTitle}\n\n*${date}*\n\n---\n\n${content}\n`
+
+  const blob = new Blob([markdownContent], { type: "text/markdown;charset=utf-8" })
+  const sanitizedTitle = sanitizeFilename(title)
+  const dateStr = new Date().toISOString().split("T")[0]
+  const filename = `romy-${sanitizedTitle}-${dateStr}.md`
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 /**
@@ -33,9 +82,10 @@ type ExportToPdfOptions = {
  */
 export async function exportToPdf(
   content: string,
-  options: ExportToPdfOptions
+  options: ExportOptions
 ): Promise<void> {
-  const { title, date } = options
+  const { title: rawTitle, date } = options
+  const title = formatExportTitle(rawTitle)
 
   try {
     // Call server-side PDF generation
