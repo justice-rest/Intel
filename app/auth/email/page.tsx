@@ -102,6 +102,41 @@ export default function EmailAuthPage() {
           throw new Error("This email is already registered. Please sign in.")
         }
 
+        // If the user has a confirmed session (email verification disabled),
+        // create user record and redirect directly into the app.
+        if (data?.session) {
+          const user = data.user
+          if (user?.email) {
+            // Create user record in database (same as sign-in flow)
+            const { error: userError } = await supabase
+              .from("users")
+              .select("id")
+              .eq("id", user.id)
+              .single()
+
+            if (userError && userError.code === "PGRST116") {
+              const { error: insertError } = await supabase.from("users").insert({
+                id: user.id,
+                email: user.email,
+                created_at: new Date().toISOString(),
+                message_count: 0,
+                premium: false,
+                favorite_models: [MODEL_DEFAULT],
+                welcome_completed: false,
+              })
+
+              if (insertError && insertError.code !== "23505") {
+                console.error("Error creating user record:", insertError)
+              }
+            }
+          }
+
+          // Full page reload to pick up the new session
+          window.location.href = "/"
+          return
+        }
+
+        // Fallback: email verification is enabled, show confirmation message
         setSuccess(
           "Account created successfully! Please check your email to verify your account."
         )
