@@ -285,7 +285,7 @@ export function ChatInput({
               <FileList files={files} onFileRemove={onFileRemove} />
               <PromptInputTextarea
                 ref={textareaRef}
-                placeholder="Donor's full name and street address (& employer if known)"
+                placeholder="Donor's full name and street address (& any known significant facts)"
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
                 disabled={isProcessing}
