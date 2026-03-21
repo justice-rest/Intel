@@ -191,12 +191,12 @@ function sanitizeMessageAttachments(messages: MessageAISDK[]): MessageAISDK[] {
   })
 }
 
-// Map research modes to Grok model IDs (via OpenRouter)
-// Grok 4.1 Fast supports native tool calling with LinkUp web search
+// Map research modes to model IDs (via OpenRouter)
+// Gemini 3 Flash Preview with LinkUp web search for all research modes
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
-  "research": "openrouter:x-ai/grok-4.1-fast",
-  "deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
-  "ultra-research": "openrouter:x-ai/grok-4.1-fast-thinking", // Same model, different tool
+  "research": "openrouter:google/gemini-3-flash-preview",
+  "deep-research": "openrouter:google/gemini-3-flash-preview",
+  "ultra-research": "openrouter:google/gemini-3-flash-preview",
 }
 
 export async function POST(req: Request) {

@@ -1,4 +1,6 @@
-export type OpenRouterModel = "openrouter:perplexity/sonar-reasoning-pro"
+export type OpenRouterModel =
+  | "openrouter:google/gemini-3-flash-preview"
+  | "openrouter:perplexity/sonar-reasoning-pro"
 
 export type Provider = "openrouter"
 

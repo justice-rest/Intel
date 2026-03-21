@@ -16,9 +16,8 @@ const MODEL_ID_MIGRATIONS: Record<string, string> = {
   "openrouter:perplexity/sonar-reasoning": "openrouter:x-ai/grok-4.1-fast",
   "openrouter:perplexity/sonar-reasoning-pro": "openrouter:x-ai/grok-4.1-fast",
   "openrouter:perplexity/sonar-deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
-  // Gemini → Grok 4.1 Fast migration (2025-12)
-  // Grok 4.1 Fast with native web search (includes X/Twitter)
-  "openrouter:google/gemini-3-flash-preview": "openrouter:x-ai/grok-4.1-fast",
+  // Gemini 3 Pro Preview → Grok 4.1 Fast Thinking migration (2025-12)
+  // Note: gemini-3-flash-preview is NO LONGER migrated — it is now the default chat model
   "openrouter:google/gemini-3-pro-preview": "openrouter:x-ai/grok-4.1-fast-thinking",
 }
 
