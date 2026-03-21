@@ -57,11 +57,11 @@ const RESEARCH_MODES: ResearchModeOption[] = [
   {
     id: "research",
     name: "Research",
-    description: "Fast, real-time web research with native Grok search including X (Twitter). Best for quick prospect lookups.",
+    description: "Fast, real-time web research with LinkUp search. Best for quick prospect lookups.",
     speed: "Fast (~10s)",
     depth: "Standard",
-    model: "Grok 4.1 Fast",
-    modelLink: "https://openrouter.ai/x-ai/grok-4.1-fast",
+    model: "Gemini 3 Flash",
+    modelLink: "https://openrouter.ai/google/gemini-3-flash-preview",
     features: {
       webSearch: true,
       reasoning: true,
@@ -74,8 +74,8 @@ const RESEARCH_MODES: ResearchModeOption[] = [
     description: "Thorough multi-step research with extended thinking. Best for complex prospects requiring full wealth screening.",
     speed: "Slower (~60s)",
     depth: "Comprehensive",
-    model: "Grok 4.1 Fast (Thinking)",
-    modelLink: "https://openrouter.ai/x-ai/grok-4.1-fast",
+    model: "Gemini 3 Flash",
+    modelLink: "https://openrouter.ai/google/gemini-3-flash-preview",
     features: {
       webSearch: true,
       reasoning: true,
@@ -88,8 +88,8 @@ const RESEARCH_MODES: ResearchModeOption[] = [
     description: "Exhaustive multi-step research using LinkUp's research endpoint. Best for complex investigations requiring maximum depth.",
     speed: "Slowest (~2-5min)",
     depth: "Maximum",
-    model: "Grok 4.1 Fast (Thinking)",
-    modelLink: "https://openrouter.ai/x-ai/grok-4.1-fast",
+    model: "Gemini 3 Flash",
+    modelLink: "https://openrouter.ai/google/gemini-3-flash-preview",
     features: {
       webSearch: true,
       reasoning: true,
