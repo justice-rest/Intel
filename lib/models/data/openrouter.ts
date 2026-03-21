@@ -2,6 +2,45 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { ModelConfig } from "../types"
 
 export const openrouterModels: ModelConfig[] = [
+  // Gemini 3 Flash Preview - Default chat model
+  // Google's high-speed thinking model for agentic workflows and multi-turn chat
+  {
+    id: "openrouter:google/gemini-3-flash-preview",
+    name: "Gemini 3 Flash",
+    provider: "OpenRouter",
+    providerId: "openrouter",
+    modelFamily: "Gemini",
+    baseProviderId: "google",
+    description:
+      "Google's high-speed thinking model designed for agentic workflows, multi-turn chat, and coding assistance.",
+    tags: ["reasoning", "fast", "agentic", "tools", "vision"],
+    contextWindow: 1048576, // 1M tokens
+    inputCost: 0.5,
+    outputCost: 3.0,
+    priceUnit: "per 1M tokens",
+    vision: true,
+    tools: true, // Native tool calling support
+    audio: false,
+    reasoning: true, // Configurable reasoning levels (minimal, low, medium, high)
+    webSearch: false, // Uses LinkUp for web search instead of native
+    openSource: false,
+    speed: "Fast",
+    intelligence: "High",
+    website: "https://openrouter.ai",
+    apiDocs: "https://openrouter.ai/docs",
+    modelPage: "https://openrouter.ai/google/gemini-3-flash-preview",
+    releasedAt: "2025-12-17",
+    icon: "gemini",
+    isPro: false,
+    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
+      createOpenRouter({
+        apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+        extraBody: {
+          // Configurable reasoning effort for research quality
+          reasoning: { effort: "high" },
+        },
+      }).chat("google/gemini-3-flash-preview"),
+  },
   // Grok 4.1 Fast - Fast reasoning model for Research mode
   // xAI's best agentic tool calling model with native web search (includes X/Twitter)
   {
