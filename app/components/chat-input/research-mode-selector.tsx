@@ -60,8 +60,8 @@ const RESEARCH_MODES: ResearchModeOption[] = [
     description: "Fast, real-time web research with LinkUp search. Best for quick prospect lookups.",
     speed: "Fast (~10s)",
     depth: "Standard",
-    model: "Gemini 3 Flash",
-    modelLink: "https://openrouter.ai/google/gemini-3-flash-preview",
+    model: "Gemini 3.1 Flash Lite",
+    modelLink: "https://openrouter.ai/google/gemini-3.1-flash-lite-preview",
     features: {
       webSearch: true,
       reasoning: true,
@@ -74,8 +74,8 @@ const RESEARCH_MODES: ResearchModeOption[] = [
     description: "Thorough multi-step research with extended thinking. Best for complex prospects requiring full wealth screening.",
     speed: "Slower (~60s)",
     depth: "Comprehensive",
-    model: "Gemini 3 Flash",
-    modelLink: "https://openrouter.ai/google/gemini-3-flash-preview",
+    model: "Gemini 3.1 Flash Lite",
+    modelLink: "https://openrouter.ai/google/gemini-3.1-flash-lite-preview",
     features: {
       webSearch: true,
       reasoning: true,
@@ -88,8 +88,8 @@ const RESEARCH_MODES: ResearchModeOption[] = [
     description: "Exhaustive multi-step research using LinkUp's research endpoint. Best for complex investigations requiring maximum depth.",
     speed: "Slowest (~2-5min)",
     depth: "Maximum",
-    model: "Gemini 3 Flash",
-    modelLink: "https://openrouter.ai/google/gemini-3-flash-preview",
+    model: "Gemini 3.1 Flash Lite",
+    modelLink: "https://openrouter.ai/google/gemini-3.1-flash-lite-preview",
     features: {
       webSearch: true,
       reasoning: true,

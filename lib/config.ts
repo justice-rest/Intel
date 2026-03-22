@@ -5,14 +5,14 @@ export const DAILY_FILE_UPLOAD_LIMIT = 5
 export const DAILY_LIMIT_PRO_MODELS = 500
 
 export const NON_AUTH_ALLOWED_MODELS = [
-  "openrouter:google/gemini-3-flash-preview",
+  "openrouter:google/gemini-3.1-flash-lite-preview",
 ]
 
 export const FREE_MODELS_IDS = [
-  "openrouter:google/gemini-3-flash-preview",
+  "openrouter:google/gemini-3.1-flash-lite-preview",
 ]
 
-export const MODEL_DEFAULT = "openrouter:google/gemini-3-flash-preview"
+export const MODEL_DEFAULT = "openrouter:google/gemini-3.1-flash-lite-preview"
 
 export const APP_NAME = "Rōmy"
 export const APP_DOMAIN = "https://intel.getromy.app"

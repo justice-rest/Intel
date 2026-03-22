@@ -2,8 +2,47 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import { ModelConfig } from "../types"
 
 export const openrouterModels: ModelConfig[] = [
-  // Gemini 3 Flash Preview - Default chat model
-  // Google's high-speed thinking model for agentic workflows and multi-turn chat
+  // Gemini 3.1 Flash Lite Preview - Default chat model
+  // Google's high-efficiency model optimized for high-volume use cases
+  {
+    id: "openrouter:google/gemini-3.1-flash-lite-preview",
+    name: "Gemini 3.1 Flash Lite",
+    provider: "OpenRouter",
+    providerId: "openrouter",
+    modelFamily: "Gemini",
+    baseProviderId: "google",
+    description:
+      "Google's high-efficiency model optimized for high-volume use cases. Outperforms Gemini 2.5 Flash Lite with improvements in audio, ranking, translation, data extraction, and code.",
+    tags: ["reasoning", "fast", "efficient", "tools", "vision"],
+    contextWindow: 1048576, // 1M tokens
+    inputCost: 0.25,
+    outputCost: 1.5,
+    priceUnit: "per 1M tokens",
+    vision: true,
+    tools: true, // Native tool calling support
+    audio: false,
+    reasoning: true, // Configurable reasoning levels (minimal, low, medium, high)
+    webSearch: false, // Uses LinkUp for web search instead of native
+    openSource: false,
+    speed: "Fast",
+    intelligence: "High",
+    website: "https://openrouter.ai",
+    apiDocs: "https://openrouter.ai/docs",
+    modelPage: "https://openrouter.ai/google/gemini-3.1-flash-lite-preview",
+    releasedAt: "2026-03-03",
+    icon: "gemini",
+    isPro: false,
+    apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
+      createOpenRouter({
+        apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+        extraBody: {
+          // Configurable reasoning effort for research quality
+          reasoning: { effort: "high" },
+        },
+      }).chat("google/gemini-3.1-flash-lite-preview"),
+  },
+  // Gemini 3 Flash Preview - Used by /labs (batch processing) only
+  // Google's high-speed thinking model for agentic workflows
   {
     id: "openrouter:google/gemini-3-flash-preview",
     name: "Gemini 3 Flash",
@@ -32,6 +71,7 @@ export const openrouterModels: ModelConfig[] = [
     releasedAt: "2025-12-17",
     icon: "gemini",
     isPro: false,
+    hidden: true, // Internal use only - for /labs batch processing
     apiSdk: (apiKey?: string, opts?: { enableSearch?: boolean; enableReasoning?: boolean }) =>
       createOpenRouter({
         apiKey: apiKey || process.env.OPENROUTER_API_KEY,
