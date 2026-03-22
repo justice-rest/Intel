@@ -29,7 +29,7 @@ import type {
 // CONFIGURATION
 // ============================================================================
 
-const SYNTHESIS_MODEL = "x-ai/grok-3-fast"
+const SYNTHESIS_MODEL = "google/gemini-3-flash-preview"
 const MAX_TOKENS = 4096
 const TEMPERATURE = 0.3  // Lower for more consistent outputs
 

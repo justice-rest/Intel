@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // Normalize model ID for backwards compatibility (e.g., grok-4-fast → grok-4.1-fast)
+    // Normalize model ID for backwards compatibility (e.g., grok-4.1-fast → gemini-3-flash-preview)
     const normalizedModel = normalizeModelId(model)
 
     const { error } = await supabase

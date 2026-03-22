@@ -207,7 +207,7 @@ Focus on elements that would help an AI assistant communicate and advise in the 
     const openrouter = createOpenRouter({ apiKey })
 
     const { object, usage } = await generateObject({
-      model: openrouter('x-ai/grok-4.1-fast'),
+      model: openrouter('google/gemini-3-flash-preview'),
       schema: DocumentAnalysisSchema,
       system: ANALYSIS_PROMPT,
       prompt: userPrompt,

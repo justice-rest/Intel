@@ -13,7 +13,7 @@ import {
 
 /**
  * Normalize model IDs in chat objects for backwards compatibility
- * Converts old model IDs (e.g., grok-4.1-fast) to current versions
+ * Converts old model IDs (e.g., grok-4.1-fast → gemini-3-flash-preview) to current versions
  */
 function normalizeChatsModelIds(chats: Chats[]): Chats[] {
   return chats.map((chat) => ({

@@ -6,12 +6,10 @@ export const DAILY_LIMIT_PRO_MODELS = 500
 
 export const NON_AUTH_ALLOWED_MODELS = [
   "openrouter:google/gemini-3-flash-preview",
-  "openrouter:x-ai/grok-4.1-fast", // Legacy: existing chats that already use Grok
 ]
 
 export const FREE_MODELS_IDS = [
   "openrouter:google/gemini-3-flash-preview",
-  "openrouter:x-ai/grok-4.1-fast", // Legacy: existing chats that already use Grok
 ]
 
 export const MODEL_DEFAULT = "openrouter:google/gemini-3-flash-preview"
