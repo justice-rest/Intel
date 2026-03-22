@@ -192,11 +192,11 @@ function sanitizeMessageAttachments(messages: MessageAISDK[]): MessageAISDK[] {
 }
 
 // Map research modes to model IDs (via OpenRouter)
-// Gemini 3 Flash Preview with LinkUp web search for all research modes
+// Gemini 3.1 Flash Lite Preview with LinkUp web search for all research modes
 const RESEARCH_MODE_MODELS: Record<ResearchMode, string> = {
-  "research": "openrouter:google/gemini-3-flash-preview",
-  "deep-research": "openrouter:google/gemini-3-flash-preview",
-  "ultra-research": "openrouter:google/gemini-3-flash-preview",
+  "research": "openrouter:google/gemini-3.1-flash-lite-preview",
+  "deep-research": "openrouter:google/gemini-3.1-flash-lite-preview",
+  "ultra-research": "openrouter:google/gemini-3.1-flash-lite-preview",
 }
 
 export async function POST(req: Request) {

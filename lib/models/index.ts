@@ -10,16 +10,18 @@ const STATIC_MODELS: ModelConfig[] = [...openrouterModels]
  * Maps old/deprecated model IDs to their current versions
  */
 const MODEL_ID_MIGRATIONS: Record<string, string> = {
-  // Legacy Grok → Gemini 3 Flash migration (2026-03)
-  "openrouter:x-ai/grok-4-fast": "openrouter:google/gemini-3-flash-preview",
-  "openrouter:x-ai/grok-4.1-fast": "openrouter:google/gemini-3-flash-preview",
-  "openrouter:x-ai/grok-4.1-fast-thinking": "openrouter:google/gemini-3-flash-preview",
-  // Perplexity → Gemini 3 Flash migration
-  "openrouter:perplexity/sonar-reasoning": "openrouter:google/gemini-3-flash-preview",
-  "openrouter:perplexity/sonar-reasoning-pro": "openrouter:google/gemini-3-flash-preview",
-  "openrouter:perplexity/sonar-deep-research": "openrouter:google/gemini-3-flash-preview",
-  // Gemini 3 Pro Preview → Gemini 3 Flash migration
-  "openrouter:google/gemini-3-pro-preview": "openrouter:google/gemini-3-flash-preview",
+  // Legacy Grok → Gemini 3.1 Flash Lite migration (2026-03)
+  "openrouter:x-ai/grok-4-fast": "openrouter:google/gemini-3.1-flash-lite-preview",
+  "openrouter:x-ai/grok-4.1-fast": "openrouter:google/gemini-3.1-flash-lite-preview",
+  "openrouter:x-ai/grok-4.1-fast-thinking": "openrouter:google/gemini-3.1-flash-lite-preview",
+  // Perplexity → Gemini 3.1 Flash Lite migration
+  "openrouter:perplexity/sonar-reasoning": "openrouter:google/gemini-3.1-flash-lite-preview",
+  "openrouter:perplexity/sonar-reasoning-pro": "openrouter:google/gemini-3.1-flash-lite-preview",
+  "openrouter:perplexity/sonar-deep-research": "openrouter:google/gemini-3.1-flash-lite-preview",
+  // Gemini 3 Pro Preview → Gemini 3.1 Flash Lite migration
+  "openrouter:google/gemini-3-pro-preview": "openrouter:google/gemini-3.1-flash-lite-preview",
+  // Gemini 3 Flash Preview → Gemini 3.1 Flash Lite migration (2026-03)
+  "openrouter:google/gemini-3-flash-preview": "openrouter:google/gemini-3.1-flash-lite-preview",
 }
 
 /**
