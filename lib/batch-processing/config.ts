@@ -115,15 +115,15 @@ export const MAX_REPORT_OUTPUT_TOKENS = 16000
 // ============================================================================
 
 /**
- * Estimated seconds per prospect for Sonar+Grok flow
- * - Sonar Reasoning Pro: ~15-20s for deep research
- * - Grok 4.1 Fast: ~5-10s for synthesis
+ * Estimated seconds per prospect for LinkUp+Gemini flow
+ * - LinkUp multi-query search: ~15-20s
+ * - Gemini 3 Flash: ~5-10s for synthesis
  * Total: ~25-35s per prospect
  */
 export const ESTIMATED_SECONDS_PER_PROSPECT_SONAR_GROK = 30
 
 /**
- * Estimated seconds per prospect for Standard mode (legacy Grok-only)
+ * Estimated seconds per prospect for Standard mode
  * - 2 focused web searches (business + property)
  * - Brief 5-line AI generation
  * Total: ~15-20s per prospect
@@ -149,14 +149,14 @@ export const ESTIMATED_SECONDS_PER_PROSPECT = 30
 // ============================================================================
 
 /**
- * Cost per prospect using Sonar+Grok flow
+ * Cost per prospect using LinkUp+Gemini flow
  * Matches chat quality at ~10-20x lower cost than iWave/DonorSearch
  */
 export const COST_PER_PROSPECT = {
-  /** Sonar Reasoning Pro via OpenRouter (~$0.04) */
+  /** LinkUp multi-query search (~$0.025) */
   sonarReasoningPro: 0.04,
-  /** Grok 4.1 Fast for synthesis (~$0.003) */
-  grokSynthesis: 0.003,
+  /** Gemini 3 Flash for synthesis (~$0.003) */
+  geminiSynthesis: 0.003,
   /** Total cost per prospect */
   total: 0.043,
 }
@@ -171,7 +171,7 @@ export const COMPETITOR_COST_PER_PROSPECT = {
 
 /**
  * Calculate estimated time remaining
- * Uses Sonar+Grok timing by default
+ * Uses LinkUp+Gemini timing by default
  */
 export function calculateEstimatedTimeRemaining(
   remainingProspects: number,

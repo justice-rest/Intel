@@ -1,6 +1,6 @@
 /**
- * Grok + Exa Web Search Module
- * Uses Grok 4.1 Fast with Exa search engine for comprehensive web research
+ * Gemini + Exa Web Search Module
+ * Uses Gemini 3 Flash Preview with Exa search engine for comprehensive web research
  *
  * Key advantage: Exa provides neural search combining keyword + embeddings
  * for better relevance and coverage than native search alone.
@@ -47,13 +47,13 @@ interface SearchAnnotation {
 // CONFIGURATION
 // ============================================================================
 
-const GROK_BATCH_TIMEOUT_MS = 45000 // 45s for batch
+const GEMINI_BATCH_TIMEOUT_MS = 45000 // 45s for batch
 const MAX_RETRIES = 3
 const BASE_RETRY_DELAY_MS = 2000
 const MAX_OUTPUT_TOKENS = 4000
 
 /**
- * Check if Grok search (via OpenRouter) is available for batch processing
+ * Check if Gemini search (via OpenRouter) is available for batch processing
  */
 export function isGrokSearchAvailable(apiKey?: string): boolean {
   return !!(apiKey || process.env.OPENROUTER_API_KEY)
@@ -64,7 +64,7 @@ export function isGrokSearchAvailable(apiKey?: string): boolean {
 // ============================================================================
 
 /**
- * Build an EXTENSIVELY RELENTLESS query for Grok native search
+ * Build an EXTENSIVELY RELENTLESS query for Gemini + Exa search
  *
  * SUPERCHARGED PROMPTING STRATEGY:
  * ================================
@@ -337,7 +337,7 @@ async function withRetry<T>(
       }
 
       const delay = baseDelayMs * Math.pow(2, attempt) + Math.random() * 500
-      console.log(`[Grok Search] Retry ${attempt + 1}/${maxRetries} in ${Math.round(delay)}ms`)
+      console.log(`[Gemini Search] Retry ${attempt + 1}/${maxRetries} in ${Math.round(delay)}ms`)
       await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
@@ -359,7 +359,7 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
 // ============================================================================
 
 /**
- * Extract sources from Grok response
+ * Extract sources from Gemini response
  * Prefers structured annotations (native format), falls back to regex extraction
  */
 function extractSources(
@@ -428,11 +428,10 @@ function extractSources(
 // ============================================================================
 
 /**
- * Execute Grok native web search for batch processing
+ * Execute Gemini + Exa web search for batch processing
  *
  * Key features:
- * - Uses OpenRouter's native web search plugin with Grok model
- * - Includes both web search AND X (Twitter) search
+ * - Uses OpenRouter's Exa web search plugin with Gemini model
  * - Returns structured annotations for reliable source extraction
  * - 45s timeout with retry logic
  */
@@ -455,7 +454,7 @@ export async function grokBatchSearch(
   }
 
   const query = buildOptimizedGrokQuery(prospect)
-  console.log(`[Grok Search] Starting search for: ${prospect.name}`)
+  console.log(`[Gemini Search] Starting search for: ${prospect.name}`)
 
   try {
     const data = await withRetry(async () => {
@@ -466,10 +465,10 @@ export async function grokBatchSearch(
             "Authorization": `Bearer ${key}`,
             "Content-Type": "application/json",
             "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://getromy.app",
-            "X-Title": "Romy Batch Research - Grok Native",
+            "X-Title": "Romy Batch Research - Gemini",
           },
           body: JSON.stringify({
-            model: "x-ai/grok-4.1-fast",
+            model: "google/gemini-3-flash-preview",
             messages: [
               {
                 role: "user",
@@ -489,8 +488,8 @@ export async function grokBatchSearch(
             reasoning: { effort: "high" },
           }),
         }),
-        GROK_BATCH_TIMEOUT_MS,
-        `Grok search timed out after ${GROK_BATCH_TIMEOUT_MS / 1000}s`
+        GEMINI_BATCH_TIMEOUT_MS,
+        `Gemini search timed out after ${GEMINI_BATCH_TIMEOUT_MS / 1000}s`
       )
 
       if (!response.ok) {
@@ -512,7 +511,7 @@ export async function grokBatchSearch(
     const tokensUsed = (data.usage?.total_tokens) ||
       Math.ceil((query.length + answer.length) / 4)
 
-    console.log(`[Grok Search] Completed in ${durationMs}ms, ${sources.length} sources`)
+    console.log(`[Gemini Search] Completed in ${durationMs}ms, ${sources.length} sources`)
 
     return {
       answer,
@@ -524,7 +523,7 @@ export async function grokBatchSearch(
   } catch (error) {
     const durationMs = Date.now() - startTime
     const errorMessage = error instanceof Error ? error.message : "Unknown error"
-    console.error(`[Grok Search] Failed for ${prospect.name}:`, errorMessage)
+    console.error(`[Gemini Search] Failed for ${prospect.name}:`, errorMessage)
 
     return {
       answer: "",
@@ -542,7 +541,7 @@ export async function grokBatchSearch(
 // ============================================================================
 
 /**
- * Merge Grok results with existing sources (Perplexity + LinkUp)
+ * Merge Gemini search results with existing sources (LinkUp)
  * Deduplicates by URL and extracts unique insights
  */
 export function mergeGrokWithResults(
@@ -559,7 +558,7 @@ export function mergeGrokWithResults(
     )
   )
 
-  // Find unique sources from Grok
+  // Find unique sources from Gemini search
   const uniqueSources = grokResult.sources.filter((source) => {
     const normalizedUrl = source.url.toLowerCase().replace(/^https?:\/\/(www\.)?/, "")
     return !existingUrls.has(normalizedUrl)
@@ -568,9 +567,9 @@ export function mergeGrokWithResults(
   // Generate contribution summary
   let grokContribution = ""
   if (uniqueSources.length > 0) {
-    grokContribution = `Grok found ${uniqueSources.length} additional sources`
+    grokContribution = `Gemini search found ${uniqueSources.length} additional sources`
   } else if (grokResult.sources.length > 0) {
-    grokContribution = "Grok corroborated existing sources"
+    grokContribution = "Gemini search corroborated existing sources"
   }
 
   // Extract unique insights (simple keyword extraction)

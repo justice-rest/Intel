@@ -10,15 +10,16 @@ const STATIC_MODELS: ModelConfig[] = [...openrouterModels]
  * Maps old/deprecated model IDs to their current versions
  */
 const MODEL_ID_MIGRATIONS: Record<string, string> = {
-  // Legacy Grok migrations
-  "openrouter:x-ai/grok-4-fast": "openrouter:x-ai/grok-4.1-fast",
-  // Perplexity → Grok 4.1 Fast migration
-  "openrouter:perplexity/sonar-reasoning": "openrouter:x-ai/grok-4.1-fast",
-  "openrouter:perplexity/sonar-reasoning-pro": "openrouter:x-ai/grok-4.1-fast",
-  "openrouter:perplexity/sonar-deep-research": "openrouter:x-ai/grok-4.1-fast-thinking",
-  // Gemini 3 Pro Preview → Grok 4.1 Fast Thinking migration (2025-12)
-  // Note: gemini-3-flash-preview is NO LONGER migrated — it is now the default chat model
-  "openrouter:google/gemini-3-pro-preview": "openrouter:x-ai/grok-4.1-fast-thinking",
+  // Legacy Grok → Gemini 3 Flash migration (2026-03)
+  "openrouter:x-ai/grok-4-fast": "openrouter:google/gemini-3-flash-preview",
+  "openrouter:x-ai/grok-4.1-fast": "openrouter:google/gemini-3-flash-preview",
+  "openrouter:x-ai/grok-4.1-fast-thinking": "openrouter:google/gemini-3-flash-preview",
+  // Perplexity → Gemini 3 Flash migration
+  "openrouter:perplexity/sonar-reasoning": "openrouter:google/gemini-3-flash-preview",
+  "openrouter:perplexity/sonar-reasoning-pro": "openrouter:google/gemini-3-flash-preview",
+  "openrouter:perplexity/sonar-deep-research": "openrouter:google/gemini-3-flash-preview",
+  // Gemini 3 Pro Preview → Gemini 3 Flash migration
+  "openrouter:google/gemini-3-pro-preview": "openrouter:google/gemini-3-flash-preview",
 }
 
 /**
